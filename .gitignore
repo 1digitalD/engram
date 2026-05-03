@@ -1,0 +1,11 @@
+venv/
+.env
+instance/
+*.db
+__pycache__/
+*.pyc
+.pytest_cache/
+engram.log
+api/__pycache__/
+services/__pycache__/
+tests/__pycache__/
