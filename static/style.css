@@ -1,0 +1,81 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body { font-family: -apple-system, system-ui, sans-serif; background: #0a0a0a; color: #e0e0e0; line-height: 1.6; }
+
+nav { background: #111; border-bottom: 1px solid #222; padding: 0.75rem 1.5rem; display: flex; align-items: center; gap: 2rem; }
+.brand { font-weight: 700; font-size: 1.2rem; color: #7c6af7; text-decoration: none; }
+.nav-links { display: flex; gap: 1.5rem; flex-wrap: wrap; }
+.nav-links a { color: #888; text-decoration: none; font-size: 0.9rem; }
+.nav-links a:hover { color: #e0e0e0; }
+
+main { max-width: 900px; margin: 2rem auto; padding: 0 1.5rem; }
+
+h1 { font-size: 1.8rem; margin-bottom: 1.5rem; }
+h2 { font-size: 1.2rem; margin-bottom: 1rem; color: #aaa; margin-top: 2rem; }
+section { margin-bottom: 2rem; }
+
+/* Stats */
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+.stat-card { background: #141414; border: 1px solid #222; border-radius: 8px; padding: 1.2rem; text-align: center; }
+.stat-number { display: block; font-size: 2.5rem; font-weight: 700; color: #7c6af7; }
+.stat-label { font-size: 0.85rem; color: #666; }
+.stat-card a { text-decoration: none; color: inherit; }
+
+/* Notes */
+.note-card { background: #111; border: 1px solid #1e1e1e; border-radius: 8px; padding: 1rem; margin-bottom: 0.75rem; }
+.note-card p { margin: 0.5rem 0; color: #ccc; }
+.note-card small { color: #555; }
+.bucket-badge { font-size: 0.7rem; padding: 0.15rem 0.5rem; border-radius: 4px; font-weight: 600; text-transform: uppercase; }
+.bucket-inbox { background: #2a2a2a; color: #f59e0b; }
+.bucket-projects { background: #1e3a2e; color: #34d399; }
+.bucket-areas { background: #2a1e3a; color: #a78bfa; }
+.bucket-resources { background: #1e2a3a; color: #60a5fa; }
+.bucket-archives { background: #2a2a2a; color: #888; }
+
+/* Priority */
+.priority { font-size: 0.7rem; padding: 0.1rem 0.4rem; border-radius: 3px; text-transform: uppercase; }
+.priority-low { background: #1e3a2e; color: #34d399; }
+.priority-medium { background: #3a2e1e; color: #f59e0b; }
+.priority-high { background: #3a1e1e; color: #f87171; }
+.priority-urgent { background: #3a1e3a; color: #c084fc; }
+
+/* Forms */
+textarea, input { width: 100%; background: #111; border: 1px solid #333; border-radius: 6px; color: #e0e0e0; padding: 0.6rem; font-family: inherit; font-size: 0.9rem; }
+textarea { resize: vertical; }
+button { background: #7c6af7; color: #fff; border: none; border-radius: 6px; padding: 0.5rem 1.2rem; cursor: pointer; font-weight: 600; }
+button:hover { background: #6b5ce7; }
+button.danger { background: #3a1e1e; color: #f87171; }
+button.danger:hover { background: #4a2020; }
+
+.capture-form { background: #111; border: 1px solid #1e1e1e; border-radius: 8px; padding: 1.2rem; margin-bottom: 1.5rem; }
+.capture-form h2 { margin-top: 0; }
+.capture-form button { margin-top: 0.75rem; }
+
+.filters { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+.filter-btn { background: #1a1a1a; color: #888; border: 1px solid #2a2a2a; padding: 0.35rem 0.8rem; font-size: 0.85rem; }
+.filter-btn.active { background: #2a2a3a; color: #c4b5fd; border-color: #7c6af7; }
+.filter-btn:hover { color: #e0e0e0; }
+
+.empty { color: #555; text-align: center; padding: 2rem; }
+
+/* Projects */
+.project-card { background: #111; border: 1px solid #1e1e1e; border-radius: 8px; padding: 1rem; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 1rem; }
+.project-card strong { flex: 1; }
+
+/* Tasks */
+.task-board { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 1rem; }
+.task-column { background: #0f0f0f; border: 1px solid #1e1e1e; border-radius: 8px; padding: 1rem; }
+.task-column h3 { margin-bottom: 0.75rem; color: #888; font-size: 0.9rem; text-transform: uppercase; }
+.task-item { background: #141414; border: 1px solid #222; border-radius: 6px; padding: 0.75rem; margin-bottom: 0.5rem; }
+.task-item .title { font-weight: 600; margin-bottom: 0.25rem; }
+.task-item .meta { font-size: 0.8rem; color: #555; }
+
+/* People */
+.person-card { background: #111; border: 1px solid #1e1e1e; border-radius: 8px; padding: 1rem; margin-bottom: 0.75rem; }
+.person-card strong { font-size: 1.1rem; }
+.person-card .meta { color: #555; margin-top: 0.25rem; font-size: 0.85rem; }
+
+/* Review */
+.review-section { background: #111; border: 1px solid #1e1e1e; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem; }
+.review-section h3 { margin-bottom: 0.75rem; }
+.summary-text { color: #bbb; line-height: 1.7; }

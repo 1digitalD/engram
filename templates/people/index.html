@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}People — Engram{% endblock %}
+
+{% block content %}
+<div class="page">
+    <h1>People</h1>
+
+    <div class="create-form">
+        <input type="text" id="person-name" placeholder="Name...">
+        <input type="email" id="person-email" placeholder="Email (optional)...">
+        <button onclick="createPerson()">Add Person</button>
+    </div>
+
+    <div id="people-list"></div>
+</div>
+
+<script>
+const API = '/api/v1';
+
+async function loadPeople() {
+    const res = await fetch(`${API}/people`);
+    const { data } = await res.json();
+    const list = document.getElementById('people-list');
+    if (!data.length) {
+        list.innerHTML = '<p class="empty">No people yet.</p>';
+        return;
+    }
+    list.innerHTML = data.map(p => `
+        <div class="person-card">
+            <strong>${escapeHtml(p.name)}</strong>
+            <div class="meta">${p.email || 'no email'} ${p.discord_id ? '· Discord: ' + p.discord_id : ''}</div>
+            <p>${p.notes || ''}</p>
+        </div>
+    `).join('');
+}
+
+async function createPerson() {
+    const name = document.getElementById('person-name').value.trim();
+    const email = document.getElementById('person-email').value.trim();
+    if (!name) return;
+    await fetch(`${API}/people`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ name, email }),
+    });
+    document.getElementById('person-name').value = '';
+    document.getElementById('person-email').value = '';
+    loadPeople();
+}
+
+function escapeHtml(t) {
+    const d = document.createElement('div'); d.textContent = t; return d.innerHTML;
+}
+
+loadPeople();
+</script>
+{% endblock %}

@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block title %}Tasks — Engram{% endblock %}
+
+{% block content %}
+<div class="page">
+    <h1>Tasks</h1>
+
+    <div class="create-form">
+        <input type="text" id="task-title" placeholder="Task title...">
+        <select id="task-priority">
+            <option value="low">Low</option>
+            <option value="medium" selected>Medium</option>
+            <option value="high">High</option>
+            <option value="urgent">Urgent</option>
+        </select>
+        <button onclick="createTask()">Add Task</button>
+    </div>
+
+    <div class="task-board" id="task-board">
+        <div class="task-column" id="col-pending">
+            <h3>Pending</h3>
+        </div>
+        <div class="task-column" id="col-in_progress">
+            <h3>In Progress</h3>
+        </div>
+        <div class="task-column" id="col-done">
+            <h3>Done</h3>
+        </div>
+    </div>
+</div>
+
+<script>
+const API = '/api/v1';
+
+async function loadTasks() {
+    const res = await fetch(`${API}/tasks`);
+    const { data } = await res.json();
+
+    const cols = { pending: [], in_progress: [], done: [], cancelled: [] };
+    data.forEach(t => {
+        if (cols[t.status]) cols[t.status].push(t);
+    });
+
+    for (const [status, tasks] of Object.entries(cols)) {
+        const col = document.getElementById(`col-${status}`) || document.getElementById(`col-pending`);
+        col.innerHTML = `<h3>${status.replace('_', ' ')}</h3>` + tasks.map(t => `
+            <div class="task-item">
+                <div class="title">${escapeHtml(t.title)}</div>
+                <div class="meta">${t.priority || ''} ${t.project ? '→ ' + t.project.name : ''}</div>
+                <div class="actions">
+                    ${status !== 'done' ? `<button onclick="updateStatus('${t.id}', '${status === 'pending' ? 'in_progress' : 'done'}')">→</button>` : ''}
+                    <button class="danger" onclick="deleteTask('${t.id}')">×</button>
+                </div>
+            </div>
+        `).join('');
+    }
+}
+
+async function createTask() {
+    const title = document.getElementById('task-title').value.trim();
+    const priority = document.getElementById('task-priority').value;
+    if (!title) return;
+    await fetch(`${API}/tasks`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ title, priority }),
+    });
+    document.getElementById('task-title').value = '';
+    loadTasks();
+}
+
+async function updateStatus(id, status) {
+    await fetch(`${API}/tasks/${id}`, {
+        method: 'PATCH',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ status }),
+    });
+    loadTasks();
+}
+
+async function deleteTask(id) {
+    if (!confirm('Delete task?')) return;
+    await fetch(`${API}/tasks/${id}`, { method: 'DELETE' });
+    loadTasks();
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+loadTasks();
+</script>
+{% endblock %}

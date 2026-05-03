@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}Areas — Engram{% endblock %}
+
+{% block content %}
+<div class="page">
+    <h1>Areas</h1>
+
+    <div class="create-form">
+        <input type="text" id="area-name" placeholder="Area name...">
+        <button onclick="createArea()">Create Area</button>
+    </div>
+
+    <div id="areas-list"></div>
+</div>
+
+<script>
+const API = '/api/v1';
+
+async function loadAreas() {
+    const res = await fetch(`${API}/areas`);
+    const { data } = await res.json();
+    const list = document.getElementById('areas-list');
+    if (!data.length) {
+        list.innerHTML = '<p class="empty">No areas yet.</p>';
+        return;
+    }
+    list.innerHTML = data.map(a => `
+        <div class="project-card">
+            <strong>${escapeHtml(a.name)}</strong>
+            <small>${a.note_count} notes</small>
+        </div>
+    `).join('');
+}
+
+async function createArea() {
+    const name = document.getElementById('area-name').value.trim();
+    if (!name) return;
+    await fetch(`${API}/areas`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ name }),
+    });
+    document.getElementById('area-name').value = '';
+    loadAreas();
+}
+
+function escapeHtml(t) {
+    const d = document.createElement('div'); d.textContent = t; return d.innerHTML;
+}
+
+loadAreas();
+</script>
+{% endblock %}

@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}Weekly Review — Engram{% endblock %}
+
+{% block content %}
+<div class="page">
+    <h1>Weekly Review</h1>
+    <p style="color:#666;margin-bottom:1.5rem;">Generate AI-powered summaries for your projects and areas.</p>
+
+    <div class="create-form">
+        <select id="entity-type">
+            <option value="project">Project</option>
+            <option value="area">Area</option>
+        </select>
+        <select id="entity-select">
+            <option value="">Select...</option>
+        </select>
+        <button onclick="generateSummary()">Generate Summary</button>
+    </div>
+
+    <div id="summaries-list"></div>
+</div>
+
+<script>
+const API = '/api/v1';
+let entities = [];
+
+async function loadEntities() {
+    const type = document.getElementById('entity-type').value;
+    const url = type === 'project' ? `${API}/projects` : `${API}/areas`;
+    const res = await fetch(url);
+    const { data } = await res.json();
+    entities = data;
+    const select = document.getElementById('entity-select');
+    select.innerHTML = '<option value="">Select...</option>' +
+        data.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
+}
+
+async function loadSummaries() {
+    const res = await fetch(`${API}/summaries`);
+    const { data } = await res.json();
+    const list = document.getElementById('summaries-list');
+    if (!data.length) {
+        list.innerHTML = '<p class="empty">No summaries yet.</p>';
+        return;
+    }
+    list.innerHTML = data.map(s => `
+        <div class="review-section">
+            <h3>${s.entity_name} <small>(${s.week_year}-W${String(s.week_number).padStart(2,'0')})</small></h3>
+            <p class="summary-text">${escapeHtml(s.summary_content)}</p>
+            <small style="color:#555">${s.note_count} notes</small>
+        </div>
+    `).join('');
+}
+
+async function generateSummary() {
+    const entity_type = document.getElementById('entity-type').value;
+    const entity_id = document.getElementById('entity-select').value;
+    if (!entity_id) return alert('Select a project or area first.');
+
+    const res = await fetch(`${API}/summaries/generate`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ entity_type, entity_id }),
+    });
+    if (!res.ok) {
+        const err = await res.json();
+        alert('Error: ' + (err.error || 'unknown'));
+        return;
+    }
+    loadSummaries();
+}
+
+function escapeHtml(t) {
+    const d = document.createElement('div'); d.textContent = t || ''; return d.innerHTML;
+}
+
+document.getElementById('entity-type').addEventListener('change', loadEntities);
+loadEntities();
+loadSummaries();
+</script>
+{% endblock %}

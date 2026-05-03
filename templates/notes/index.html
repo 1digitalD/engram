@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block title %}Notes — Engram{% endblock %}
+
+{% block content %}
+<div class="page">
+    <h1>Notes</h1>
+
+    <div class="capture-form">
+        <h2>Capture</h2>
+        <textarea id="capture-text" placeholder="Capture a thought..." rows="3"></textarea>
+        <button onclick="createNote()">Save Note</button>
+    </div>
+
+    <div class="filters">
+        <button class="filter-btn active" data-bucket="all">All</button>
+        <button class="filter-btn" data-bucket="inbox">Inbox</button>
+        <button class="filter-btn" data-bucket="projects">Projects</button>
+        <button class="filter-btn" data-bucket="areas">Areas</button>
+        <button class="filter-btn" data-bucket="resources">Resources</button>
+        <button class="filter-btn" data-bucket="archives">Archives</button>
+    </div>
+
+    <div id="notes-list"></div>
+</div>
+
+<script>
+const API = '/api/v1';
+let currentBucket = 'all';
+
+async function createNote() {
+    const text = document.getElementById('capture-text').value.trim();
+    if (!text) return alert('Enter some text first.');
+
+    const res = await fetch(`${API}/notes`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ raw_text: text }),
+    });
+    const { data } = await res.json();
+    document.getElementById('capture-text').value = '';
+    loadNotes();
+}
+
+async function loadNotes(bucket = 'all') {
+    const url = bucket === 'all'
+        ? `${API}/notes`
+        : `${API}/notes?bucket=${bucket}`;
+    const res = await fetch(url);
+    const { data } = await res.json();
+    const list = document.getElementById('notes-list');
+    if (!data.length) {
+        list.innerHTML = '<p class="empty">No notes in this bucket.</p>';
+        return;
+    }
+    list.innerHTML = data.map(n => `
+        <div class="note-card">
+            <span class="bucket-badge bucket-${n.bucket}">${n.bucket}</span>
+            <p>${escapeHtml(n.raw_text)}</p>
+            <small>${n.modified_at} ${n.project ? '→ ' + n.project.name : ''}</small>
+            <div class="note-actions">
+                <button onclick="deleteNote('${n.id}')">Delete</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+async function deleteNote(id) {
+    if (!confirm('Delete this note?')) return;
+    await fetch(`${API}/notes/${id}`, { method: 'DELETE' });
+    loadNotes(currentBucket);
+}
+
+// Filter buttons
+document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentBucket = btn.dataset.bucket;
+        loadNotes(currentBucket);
+    });
+});
+
+loadNotes();
+</script>
+{% endblock %}
