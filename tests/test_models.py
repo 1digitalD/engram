@@ -23,7 +23,7 @@ def test_note_to_dict(app):
 
         d = note.to_dict()
         assert d["raw_text"] == "Test note content"
-        assert d["bucket"] == "inbox"
+        assert d["bucket"] == "INBOX"
         assert "created_at" in d
         assert "modified_at" in d
 

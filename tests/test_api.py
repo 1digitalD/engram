@@ -18,7 +18,7 @@ def test_create_note(client, app):
         assert res.status_code == 201
         data = json.loads(res.data)
         assert data["data"]["raw_text"] == "Test note from API"
-        assert data["data"]["bucket"] == "inbox"
+        assert data["data"]["bucket"] == "INBOX"
 
 
 def test_get_note(client, app):
@@ -107,7 +107,7 @@ def test_create_project(client, app):
         assert res.status_code == 201
         data = json.loads(res.data)
         assert data["data"]["name"] == "My Project"
-        assert data["data"]["priority"] == "high"
+        assert data["data"]["priority"] == "HIGH"
 
 
 def test_create_task(client, app):
@@ -120,7 +120,7 @@ def test_create_task(client, app):
         assert res.status_code == 201
         data = json.loads(res.data)
         assert data["data"]["title"] == "Finish the thing"
-        assert data["data"]["status"] == "pending"
+        assert data["data"]["status"] == "PENDING"
 
 
 def test_update_task_status(client, app):
@@ -138,7 +138,7 @@ def test_update_task_status(client, app):
             content_type="application/json",
         )
         data = json.loads(res.data)
-        assert data["data"]["status"] == "done"
+        assert data["data"]["status"] == "DONE"
 
 
 def test_create_area(client, app):

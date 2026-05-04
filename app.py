@@ -1,7 +1,7 @@
 import logging
 import os
 
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 
 from config import config
@@ -55,7 +55,6 @@ def create_app(config_name=None):
             status["db"] = "error"
 
         try:
-            import os
             if os.getenv("OPENAI_API_KEY"):
                 status["ai"] = "configured"
             else:
@@ -65,54 +64,15 @@ def create_app(config_name=None):
 
         return jsonify(status)
 
-    # ─── Web UI ─────────────────────────────────────────────────────────────
-
-    @app.route("/inbox")
-    def inbox():
-        from models import Note, BucketType
-        notes = Note.query.filter(Note.bucket == BucketType.INBOX).order_by(Note.modified_at.desc()).all()
-        return render_template("notes/index.html", notes=notes, active_bucket="inbox")
-
-    @app.route("/notes")
-    def notes():
-        from models import Note
-        notes = Note.query.order_by(Note.modified_at.desc()).limit(100).all()
-        return render_template("notes/index.html", notes=notes)
-
-    @app.route("/projects")
-    def projects():
-        return render_template("projects/index.html")
-
-    @app.route("/areas")
-    def areas():
-        return render_template("areas/index.html")
-
-    @app.route("/people")
-    def people():
-        return render_template("people/index.html")
-
-    @app.route("/tasks")
-    def tasks():
-        return render_template("tasks/index.html")
-
-    @app.route("/review")
-    def review():
-        return render_template("review/index.html")
+    # ─── React UI (SPA) ─────────────────────────────────────────────────────
 
     @app.route("/")
-    def index():
-        from models import Note, Project, Task, TaskStatus, BucketType
-        inbox_count = Note.query.filter(Note.bucket == BucketType.INBOX).count()
-        recent_notes = Note.query.order_by(Note.modified_at.desc()).limit(5).all()
-        active_projects = Project.query.filter(Project.is_archived == False).limit(5).all()
-        pending_tasks = Task.query.filter(Task.status != TaskStatus.DONE).count()
-        return render_template(
-            "index.html",
-            inbox_count=inbox_count,
-            recent_notes=recent_notes,
-            active_projects=active_projects,
-            pending_tasks=pending_tasks,
-        )
+    def serve_react_app():
+        return send_from_directory("static", "index.html")
+
+    @app.route("/<path:filename>")
+    def serve_static(filename):
+        return send_from_directory("static", filename)
 
     # ─── Error Handlers ─────────────────────────────────────────────────────
 
@@ -120,14 +80,14 @@ def create_app(config_name=None):
     def not_found(e):
         if request.path.startswith("/api/"):
             return jsonify({"error": "not found"}), 404
-        return render_template("404.html"), 404
+        return send_from_directory("static", "index.html"), 404
 
     @app.errorhandler(500)
     def server_error(e):
         logger.error(f"Server error: {e}")
         if request.path.startswith("/api/"):
             return jsonify({"error": "internal server error"}), 500
-        return render_template("500.html"), 500
+        return send_from_directory("static", "index.html"), 500
 
     return app
 
@@ -135,4 +95,5 @@ def create_app(config_name=None):
 app = create_app()
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    port = int(os.getenv("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=True)

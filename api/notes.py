@@ -21,7 +21,7 @@ def list_notes():
 
     if bucket:
         try:
-            b = BucketType(bucket)
+            b = BucketType(bucket.upper())
             q = q.filter(Note.bucket == b)
         except ValueError:
             pass
@@ -60,31 +60,61 @@ def create_note():
     # Run AI classification
     ai_meta = None
     bucket = BucketType.INBOX
-    project_id = data.get("project_id")
-    area_id = data.get("area_id")
+    resolved_project_id = data.get("project_id")
+    resolved_area_id = data.get("area_id")
 
     if do_classify:
-        result = classify_note(raw_text)
+        # Load existing entities for context
+        from models import Project, Area
+        existing_projects = [p.name for p in Project.query.filter_by(is_archived=False).all()]
+        existing_areas = [a.name for a in Area.query.all()]
+
+        result = classify_note(raw_text, projects=existing_projects, areas=existing_areas)
         bucket_str = result.get("bucket", "inbox")
         try:
-            bucket = BucketType(bucket_str)
+            bucket = BucketType(bucket_str.upper())
         except ValueError:
             bucket = BucketType.INBOX
+
+        # Try to resolve suggested_project and suggested_area to IDs
+        suggested_project_name = result.get("suggested_project")
+        suggested_area_name = result.get("suggested_area")
+
+        if suggested_project_name and not resolved_project_id:
+            matched = Project.query.filter(
+                Project.name.ilike(f"%{suggested_project_name}%")
+            ).first()
+            if matched:
+                resolved_project_id = matched.id
+
+        if suggested_area_name and not resolved_area_id:
+            matched = Area.query.filter(
+                Area.name.ilike(f"%{suggested_area_name}%")
+            ).first()
+            if matched:
+                resolved_area_id = matched.id
+
+        # If a project was resolved, bucket should be PROJECTS
+        if resolved_project_id and bucket == BucketType.INBOX:
+            bucket = BucketType.PROJECTS
+        # If an area was resolved (and no project), bucket should be AREAS
+        elif resolved_area_id and bucket == BucketType.INBOX:
+            bucket = BucketType.AREAS
 
         ai_meta = {
             "confidence": result.get("confidence", 0.0),
             "reasoning": result.get("reasoning", ""),
             "bucket": bucket_str,
-            "suggested_project": result.get("suggested_project"),
-            "suggested_area": result.get("suggested_area"),
+            "suggested_project": suggested_project_name,
+            "suggested_area": suggested_area_name,
             "suggested_tags": result.get("suggested_tags", []),
         }
 
     note = Note(
         raw_text=raw_text,
         bucket=bucket,
-        project_id=project_id,
-        area_id=area_id,
+        project_id=resolved_project_id,
+        area_id=resolved_area_id,
         ai_meta=ai_meta,
     )
     db.session.add(note)
@@ -115,7 +145,7 @@ def update_note(note_id):
         note.raw_text = data["raw_text"]
     if "bucket" in data:
         try:
-            note.bucket = BucketType(data["bucket"])
+            note.bucket = BucketType(data["bucket"].upper())
         except ValueError:
             pass
     if "project_id" in data:

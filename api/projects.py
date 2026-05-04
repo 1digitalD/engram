@@ -1,7 +1,18 @@
 from flask import request, jsonify
 from api import api_bp
 from extensions import db
-from models import Project, Note
+from models import Project, Note, Priority
+
+
+def _priority(val):
+    if val is None:
+        return None
+    if isinstance(val, Priority):
+        return val
+    try:
+        return Priority(val.upper())
+    except (ValueError, AttributeError):
+        return Priority.MEDIUM
 
 
 @api_bp.route("/projects", methods=["GET"])
@@ -23,7 +34,7 @@ def create_project():
     project = Project(
         name=data["name"],
         description=data.get("description"),
-        priority=data.get("priority", "medium"),
+        priority=_priority(data.get("priority", "medium")),
         color=data.get("color"),
         deadline=data.get("deadline"),
     )
@@ -47,9 +58,11 @@ def update_project(project_id):
         return jsonify({"error": "not found"}), 404
 
     data = request.get_json()
-    for field in ("name", "description", "priority", "color", "deadline", "is_archived"):
+    for field in ("name", "description", "color", "deadline", "is_archived"):
         if field in data:
             setattr(project, field, data[field])
+    if "priority" in data:
+        project.priority = _priority(data["priority"])
 
     db.session.commit()
     return jsonify({"data": project.to_dict()})

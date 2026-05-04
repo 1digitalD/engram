@@ -1,7 +1,18 @@
 from flask import request, jsonify
 from api import api_bp
 from extensions import db
-from models import Task, TaskStatus
+from models import Task, TaskStatus, Priority
+
+
+def _priority(val):
+    if val is None:
+        return None
+    if isinstance(val, Priority):
+        return val
+    try:
+        return Priority(val.upper())
+    except (ValueError, AttributeError):
+        return Priority.MEDIUM
 
 
 @api_bp.route("/tasks", methods=["GET"])
@@ -12,7 +23,7 @@ def list_tasks():
     q = Task.query
     if status:
         try:
-            s = TaskStatus(status)
+            s = TaskStatus(status.upper())
             q = q.filter(Task.status == s)
         except ValueError:
             pass
@@ -32,7 +43,7 @@ def create_task():
     task = Task(
         title=data["title"],
         description=data.get("description"),
-        priority=data.get("priority", "medium"),
+        priority=_priority(data.get("priority", "medium")),
         due_date=data.get("due_date"),
         project_id=data.get("project_id"),
     )
@@ -48,15 +59,16 @@ def update_task(task_id):
         return jsonify({"error": "not found"}), 404
 
     data = request.get_json()
-    for field in ("title", "description", "status", "priority", "due_date", "project_id"):
+    for field in ("title", "description", "due_date", "project_id"):
         if field in data:
-            if field == "status":
-                try:
-                    task.status = TaskStatus(data[field])
-                except ValueError:
-                    pass
-            else:
-                setattr(task, field, data[field])
+            setattr(task, field, data[field])
+    if "status" in data:
+        try:
+            task.status = TaskStatus(data["status"].upper())
+        except ValueError:
+            pass
+    if "priority" in data:
+        task.priority = _priority(data["priority"])
 
     db.session.commit()
     return jsonify({"data": task.to_dict()})

@@ -1,13 +1,22 @@
 import os
 import time
 import logging
-from openai import OpenAI
-from openai import RateLimitError, APITimeoutError
+from openai import OpenAI, RateLimitError, APITimeoutError
 
 logger = logging.getLogger(__name__)
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-PARA_BUCKETS = ["inbox", "projects", "areas", "resources", "archives"]
+_client = None
+
+def _get_client():
+    global _client
+    if _client is None:
+        key = os.getenv("OPENAI_API_KEY")
+        if not key:
+            raise RuntimeError("OPENAI_API_KEY not set")
+        _client = OpenAI(api_key=key)
+    return _client
+
+PARA_BUCKETS = ["INBOX", "PROJECTS", "AREAS", "RESOURCES", "ARCHIVES"]
 
 CLASSIFIER_PROMPT = """You are an assistant that classifies notes using the PARA method:
 - Projects: active work with a deadline or outcome you're working toward
@@ -28,14 +37,21 @@ Classify this note. Respond ONLY with valid JSON:
 Note to classify:
 ---
 {raw_text}
----"""
+---
+
+Existing projects (prefer matching these by name if relevant): {projects}
+Existing areas (prefer matching these by name if relevant): {areas}
+"""
 
 
-def classify_note(raw_text: str) -> dict:
+def classify_note(raw_text: str, projects: list = None, areas: list = None) -> dict:
     """
     Classify a raw note into PARA bucket using OpenAI GPT-4o.
     Returns dict with bucket, suggested_project, suggested_area, suggested_tags, reasoning.
     On failure, returns bucket='inbox' and logs the error.
+
+    projects: list of existing project names to match against
+    areas: list of existing area names to match against
     """
     if not os.getenv("OPENAI_API_KEY"):
         logger.warning("OPENAI_API_KEY not set — skipping classification")
@@ -49,9 +65,14 @@ def classify_note(raw_text: str) -> dict:
         }
 
     # Build project/area context from existing DB for better suggestions
-    # (passed in by caller for now, keep simple)
+    projects_str = ", ".join(projects) if projects else "(none)"
+    areas_str = ", ".join(areas) if areas else "(none)"
 
-    prompt = CLASSIFIER_PROMPT.format(raw_text=raw_text)
+    prompt = CLASSIFIER_PROMPT.format(
+        raw_text=raw_text,
+        projects=projects_str,
+        areas=areas_str,
+    )
 
     # Exponential backoff for rate limits
     max_attempts = 4
@@ -59,7 +80,7 @@ def classify_note(raw_text: str) -> dict:
 
     for attempt in range(max_attempts):
         try:
-            response = client.chat.completions.create(
+            response = _get_client().chat.completions.create(
                 model="gpt-4o",
                 messages=[
                     {

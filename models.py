@@ -10,25 +10,25 @@ from extensions import db
 
 
 class BucketType(PyEnum):
-    INBOX = "inbox"
-    PROJECTS = "projects"
-    AREAS = "areas"
-    RESOURCES = "resources"
-    ARCHIVES = "archives"
+    INBOX = "INBOX"
+    PROJECTS = "PROJECTS"
+    AREAS = "AREAS"
+    RESOURCES = "RESOURCES"
+    ARCHIVES = "ARCHIVES"
 
 
 class Priority(PyEnum):
-    LOW = "low"
-    MEDIUM = "medium"
-    HIGH = "high"
-    URGENT = "urgent"
+    LOW = "LOW"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"
+    URGENT = "URGENT"
 
 
 class TaskStatus(PyEnum):
-    PENDING = "pending"
-    IN_PROGRESS = "in_progress"
-    DONE = "done"
-    CANCELLED = "cancelled"
+    PENDING = "PENDING"
+    IN_PROGRESS = "IN_PROGRESS"
+    DONE = "DONE"
+    CANCELLED = "CANCELLED"
 
 
 # Association tables
@@ -144,8 +144,10 @@ class Person(BaseModel):
     name = Column(String(255), nullable=False)
     email = Column(String(255), nullable=True)
     discord_id = Column(String(64), nullable=True)
-    notes = Column(Text, nullable=True)  # free-form notes about this person
+    notes_text = Column(Text, nullable=True)  # free-form notes about this person
     last_contacted_at = Column(DateTime, nullable=True)
+
+    notes = relationship("Note", back_populates="person")
 
     def to_dict(self):
         return {
@@ -153,7 +155,7 @@ class Person(BaseModel):
             "name": self.name,
             "email": self.email,
             "discord_id": self.discord_id,
-            "notes": self.notes,
+            "notes": self.notes_text,
             "last_contacted_at": self.last_contacted_at.isoformat() if self.last_contacted_at else None,
             "created_at": self.created_at.isoformat(),
             "modified_at": self.modified_at.isoformat(),
@@ -179,14 +181,14 @@ class Note(BaseModel):
     # Relationships
     project = relationship("Project", back_populates="notes")
     area = relationship("Area", back_populates="notes")
-    person = relationship("Person", backref="notes")
+    person = relationship("Person", back_populates="notes")
     tags = relationship("Tag", secondary=note_tags, back_populates="notes")
 
     def to_dict(self, include_relations=True):
         d = {
             "id": self.id,
             "raw_text": self.raw_text,
-            "bucket": self.bucket.value if self.bucket else "inbox",
+            "bucket": self.bucket.value if self.bucket else BucketType.INBOX.value,
             "is_archived": self.is_archived,
             "ai_meta": self.ai_meta,
             "created_at": self.created_at.isoformat(),
@@ -225,8 +227,8 @@ class Task(BaseModel):
             "id": self.id,
             "title": self.title,
             "description": self.description,
-            "status": self.status.value if self.status else "pending",
-            "priority": self.priority.value if self.priority else "medium",
+            "status": self.status.value if self.status else TaskStatus.PENDING.value,
+            "priority": self.priority.value if self.priority else Priority.MEDIUM.value,
             "due_date": self.due_date.isoformat() if self.due_date else None,
             "project_id": self.project_id,
             "project": self.project.to_dict() if self.project else None,
