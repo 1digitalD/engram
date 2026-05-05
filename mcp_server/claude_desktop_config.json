@@ -3,7 +3,7 @@
   "mcpServers": {
     "engram": {
       "command": "python",
-      "args": ["/path/to/engram/mcp/server.py"],
+      "args": ["/path/to/engram/mcp_server/server.py"],
       "env": {
         "ENGRAM_API_BASE": "http://localhost:5001/api/v1",
         "TRANSPORT": "stdio"

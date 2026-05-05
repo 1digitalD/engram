@@ -9,3 +9,8 @@ engram.log
 api/__pycache__/
 services/__pycache__/
 tests/__pycache__/
+
+# React/Vite frontend
+ui/node_modules/
+ui/.vite/
+ui/dist/
