@@ -79,7 +79,7 @@ export default function ProjectFocus() {
             <div className={styles.taskList}>
               {projectTasks.map(t => (
                 <div key={t.id} className={styles.taskRow}>
-                  <span>{t.content}</span>
+                  <span>{t.title}</span>
                   {t.status && <span className={styles.taskStatus}>{t.status}</span>}
                 </div>
               ))}
