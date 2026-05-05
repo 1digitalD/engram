@@ -2,12 +2,11 @@ from flask import request, jsonify
 from api import api_bp
 from extensions import db
 from models import Note, BucketType, Tag
-from services.classifier import classify_note
 from services.search import search_notes
 
 
 def _resolve_or_create_tags(tag_names: list) -> list:
-    """Find existing tags by name (case-insensitive) or create them. Returns Tag objects."""
+    """Find existing tags by name (case-insensitive) or create them."""
     tags = []
     for name in tag_names:
         name = name.strip().lower()
@@ -62,91 +61,135 @@ def list_notes():
 
 @api_bp.route("/notes", methods=["POST"])
 def create_note():
+    """
+    Create a note. Routes through the full ingestion pipeline when classify=true (default).
+    Accepts raw_text or content. Returns note + any extracted entities.
+    """
     data = request.get_json()
     if not data:
         return jsonify({"error": "no JSON body"}), 400
 
-    raw_text = data.get("raw_text")
+    # Accept both field names
+    raw_text = data.get("raw_text") or data.get("content")
     if not raw_text:
         return jsonify({"error": "raw_text is required"}), 400
 
     do_classify = data.get("classify", True)
 
-    ai_meta = None
-    resolved_project_id = data.get("project_id")
-    resolved_area_id = data.get("area_id")
-    resolved_person_id = data.get("person_id")
-    tag_objects = []
+    # Fast path: caller opts out of AI (explicit classify=false)
+    if not do_classify:
+        return _create_note_simple(data, raw_text)
 
-    # Respect explicit bucket if provided (only override when classifying)
+    # Full ingestion pipeline
+    try:
+        from services.ingestion import run_ingestion
+        result = run_ingestion(
+            content=raw_text,
+            source=data.get("source", "api"),
+        )
+        if "error" in result:
+            return jsonify(result), 400
+
+        # Merge caller-supplied IDs if the AI didn't link anything
+        note_id = result["note"]["id"]
+        note_obj = db.session.get(Note, note_id)
+        changed = False
+
+        if data.get("project_id") and not note_obj.project_id:
+            note_obj.project_id = data["project_id"]
+            changed = True
+        if data.get("area_id") and not note_obj.area_id:
+            note_obj.area_id = data["area_id"]
+            changed = True
+        if data.get("person_id") and not note_obj.person_id:
+            note_obj.person_id = data["person_id"]
+            changed = True
+        if changed:
+            db.session.commit()
+
+        # Return note in standard format + enrichment fields for callers that want them
+        return jsonify({
+            "data": note_obj.to_dict(),
+            "tasks": result.get("tasks", []),
+            "people": result.get("people", []),
+            "project": result.get("project"),
+            "area": result.get("area"),
+            "confident": result.get("confident", False),
+            "extraction": result.get("extraction", {}),
+        }), 201
+
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).exception(f"Ingestion pipeline failed, falling back: {e}")
+        return _create_note_simple(data, raw_text)
+
+
+def _create_note_simple(data: dict, raw_text: str):
+    """Fallback: create note with basic classification only (no entity extraction)."""
+    from services.classifier import classify_note
+
     explicit_bucket = data.get("bucket")
+    bucket = BucketType.INBOX
     if explicit_bucket:
         try:
             bucket = BucketType(explicit_bucket.upper())
         except ValueError:
-            bucket = BucketType.INBOX
-    else:
-        bucket = BucketType.INBOX
+            pass
 
-    if do_classify:
+    ai_meta = None
+    resolved_project_id = data.get("project_id")
+    resolved_area_id = data.get("area_id")
+    tag_objects = []
+
+    if data.get("classify", True) and not explicit_bucket:
         from models import Project, Area
         existing_projects = [p.name for p in Project.query.filter_by(is_archived=False).all()]
         existing_areas = [a.name for a in Area.query.all()]
-
         result = classify_note(raw_text, projects=existing_projects, areas=existing_areas)
-        bucket_str = result.get("bucket", "INBOX")
         try:
-            bucket = BucketType(bucket_str.upper())
+            bucket = BucketType(result.get("bucket", "INBOX").upper())
         except ValueError:
             bucket = BucketType.INBOX
 
-        suggested_project_name = result.get("suggested_project")
-        suggested_area_name = result.get("suggested_area")
-        suggested_tags = result.get("suggested_tags", [])
+        suggested_project = result.get("suggested_project")
+        suggested_area = result.get("suggested_area")
 
-        if suggested_project_name and not resolved_project_id:
-            matched = Project.query.filter(
-                Project.name.ilike(f"%{suggested_project_name}%")
-            ).first()
-            if matched:
-                resolved_project_id = matched.id
-
-        if suggested_area_name and not resolved_area_id:
-            matched = Area.query.filter(
-                Area.name.ilike(f"%{suggested_area_name}%")
-            ).first()
-            if matched:
-                resolved_area_id = matched.id
+        if suggested_project and not resolved_project_id:
+            from models import Project
+            m = Project.query.filter(Project.name.ilike(f"%{suggested_project}%")).first()
+            if m:
+                resolved_project_id = m.id
+        if suggested_area and not resolved_area_id:
+            from models import Area
+            m = Area.query.filter(Area.name.ilike(f"%{suggested_area}%")).first()
+            if m:
+                resolved_area_id = m.id
 
         if resolved_project_id and bucket == BucketType.INBOX:
             bucket = BucketType.PROJECTS
         elif resolved_area_id and bucket == BucketType.INBOX:
             bucket = BucketType.AREAS
 
-        # Create/link suggested tags
-        if suggested_tags:
-            tag_objects = _resolve_or_create_tags(suggested_tags)
+        if result.get("suggested_tags"):
+            tag_objects = _resolve_or_create_tags(result["suggested_tags"])
 
         ai_meta = {
             "confidence": result.get("confidence", 0.0),
             "reasoning": result.get("reasoning", ""),
-            "bucket": bucket_str,
-            "suggested_project": suggested_project_name,
-            "suggested_area": suggested_area_name,
-            "suggested_tags": suggested_tags,
+            "bucket": result.get("bucket", "INBOX"),
+            "suggested_project": suggested_project,
+            "suggested_area": suggested_area,
+            "suggested_tags": result.get("suggested_tags", []),
         }
 
-    # Handle explicit tag_ids from caller
     if data.get("tag_ids"):
+        from models import Tag
         for tag_id in data["tag_ids"]:
             tag = db.session.get(Tag, tag_id)
             if tag and tag not in tag_objects:
                 tag_objects.append(tag)
-
-    # Handle explicit tag_names from caller
     if data.get("tag_names"):
-        extra_tags = _resolve_or_create_tags(data["tag_names"])
-        for t in extra_tags:
+        for t in _resolve_or_create_tags(data["tag_names"]):
             if t not in tag_objects:
                 tag_objects.append(t)
 
@@ -155,16 +198,13 @@ def create_note():
         bucket=bucket,
         project_id=resolved_project_id,
         area_id=resolved_area_id,
-        person_id=resolved_person_id,
+        person_id=data.get("person_id"),
         ai_meta=ai_meta,
     )
     note.tags = tag_objects
     db.session.add(note)
     db.session.commit()
-
-    # Queue embedding generation in background
     _queue_embedding(note.id, raw_text)
-
     return jsonify({"data": note.to_dict()}), 201
 
 
@@ -204,7 +244,6 @@ def update_note(note_id):
     if "is_archived" in data:
         note.is_archived = data["is_archived"]
 
-    # Tag updates
     if "tag_ids" in data:
         tags = []
         for tag_id in data["tag_ids"]:
@@ -216,10 +255,8 @@ def update_note(note_id):
         note.tags = _resolve_or_create_tags(data["tag_names"])
 
     db.session.commit()
-
     if text_changed:
         _queue_embedding(note.id, note.raw_text)
-
     return jsonify({"data": note.to_dict()})
 
 
@@ -237,13 +274,12 @@ def delete_note(note_id):
 def search():
     q = request.args.get("q", "")
     limit = request.args.get("limit", 20, type=int)
-    mode = request.args.get("mode", "hybrid")  # hybrid | fts | semantic
+    mode = request.args.get("mode", "hybrid")
     results = search_notes(q, limit=limit, mode=mode)
     return jsonify({"data": results, "query": q, "count": len(results), "mode": mode})
 
 
 def _queue_embedding(note_id: str, text: str):
-    """Generate and store embedding in a background thread with app context."""
     import threading
     from flask import current_app
     app = current_app._get_current_object()

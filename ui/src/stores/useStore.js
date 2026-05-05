@@ -72,9 +72,53 @@ const useStore = create((set, get) => ({
     try {
       const res = await notesAPI.create(data);
       const note = res.data;
+
+      // Add note to state
       set(s => ({ notes: [note, ...s.notes] }));
-      get().addToast({ type: 'success', message: 'Note captured' });
-      return note;
+
+      // Merge any auto-created tasks
+      if (res.tasks?.length) {
+        set(s => ({ tasks: [...res.tasks, ...s.tasks] }));
+      }
+
+      // Merge auto-created/matched project if new
+      if (res.project) {
+        set(s => ({
+          projects: s.projects.find(p => p.id === res.project.id)
+            ? s.projects
+            : [res.project, ...s.projects],
+        }));
+      }
+
+      // Merge auto-created/matched area if new
+      if (res.area) {
+        set(s => ({
+          areas: s.areas.find(a => a.id === res.area.id)
+            ? s.areas
+            : [res.area, ...s.areas],
+        }));
+      }
+
+      // Merge auto-resolved people
+      if (res.people?.length) {
+        set(s => {
+          const existingIds = new Set(s.people.map(p => p.id));
+          const newPeople = res.people.filter(p => !existingIds.has(p.id));
+          return newPeople.length ? { people: [...newPeople, ...s.people] } : {};
+        });
+      }
+
+      // Build a descriptive toast
+      const parts = ['Note captured'];
+      if (res.extraction?.bucket && res.extraction.bucket !== 'INBOX') {
+        parts.push(`→ ${res.extraction.bucket}`);
+      }
+      if (res.tasks?.length) parts.push(`${res.tasks.length} task${res.tasks.length > 1 ? 's' : ''} created`);
+      if (res.project) parts.push(`project: ${res.project.name}`);
+      if (!res.confident && res.extraction?.confidence) parts.push('⚠ low confidence, check inbox');
+
+      get().addToast({ type: 'success', message: parts.join(' · ') });
+      return res;
     } catch (e) {
       get().addToast({ type: 'error', message: e.message });
       throw e;
