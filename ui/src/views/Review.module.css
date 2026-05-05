@@ -1,0 +1,18 @@
+/* Review.module.css */
+.page { padding: var(--space-6) var(--space-8); max-width: var(--content-wide); margin: 0 auto; animation: fadeIn var(--duration-slow) var(--ease-out) both; }
+.header { margin-bottom: var(--space-6); }
+.subtitle { font-size: var(--text-sm); color: var(--text-muted); margin-top: 4px; }
+.grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-4); }
+.section { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-5); display: flex; flex-direction: column; gap: var(--space-3); }
+.sectionHeader { display: flex; align-items: center; gap: var(--space-2); color: var(--text-secondary); }
+.sectionHeader h2 { font-size: var(--text-base); font-weight: 600; color: var(--text-primary); }
+.badge { margin-left: auto; background: var(--bg-elevated); color: var(--text-muted); font-size: var(--text-xs); padding: 1px 6px; border-radius: var(--radius-full); }
+.desc { font-size: var(--text-sm); color: var(--text-muted); line-height: 1.5; }
+.noteList { display: flex; flex-direction: column; gap: var(--space-2); }
+.taskList { display: flex; flex-direction: column; gap: var(--space-2); }
+.taskItem { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); padding: var(--space-2) var(--space-3); background: var(--bg-elevated); border-radius: var(--radius-sm); font-size: var(--text-sm); }
+.taskItem span:first-child { color: var(--text-primary); }
+.dueDate { font-size: var(--text-xs); color: var(--text-muted); font-family: var(--font-mono); }
+.taskStatus { font-size: var(--text-xs); color: var(--text-muted); background: var(--bg-base); padding: 1px 6px; border-radius: var(--radius-full); }
+.empty { font-size: var(--text-sm); color: var(--text-muted); text-align: center; padding: var(--space-4); }
+.moreLink { font-size: var(--text-sm); color: var(--accent); text-decoration: none; text-align: center; padding: var(--space-2); }

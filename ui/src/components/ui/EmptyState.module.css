@@ -1,0 +1,34 @@
+/* EmptyState.module.css */
+
+.container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-12) var(--space-6);
+  text-align: center;
+  animation: fadeIn var(--duration-normal) var(--ease-out) both;
+}
+
+.icon {
+  margin-bottom: var(--space-4);
+  opacity: 0.6;
+}
+
+.title {
+  font-size: var(--text-md);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--space-2);
+}
+
+.message {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  max-width: 300px;
+  line-height: 1.6;
+}
+
+.action {
+  margin-top: var(--space-4);
+}
