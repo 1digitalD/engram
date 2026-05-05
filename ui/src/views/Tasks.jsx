@@ -70,6 +70,13 @@ export default function Tasks() {
                   <span className={styles.colCount}>{colTasks.length}</span>
                 </div>
                 <div className={styles.columnBody}>
+                  {colTasks.length === 0 && (
+                    <p className={styles.emptyCol}>
+                      {col.key === 'PENDING' ? 'No pending tasks' :
+                       col.key === 'IN_PROGRESS' ? 'Nothing in progress' :
+                       'No completed tasks'}
+                    </p>
+                  )}
                   {colTasks.map(task => {
                     const project = task.project_id ? projects.find(p => p.id === task.project_id) : null;
                     const due = task.due_date ? new Date(task.due_date).toLocaleDateString() : null;
