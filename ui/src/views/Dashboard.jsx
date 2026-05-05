@@ -11,7 +11,7 @@ export default function Dashboard() {
 
   const inbox = notes.filter(n => n.bucket === 'INBOX');
   const recent = [...notes].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 6);
-  const upcomingTasks = tasks.filter(t => t.status !== 'done').slice(0, 5);
+  const upcomingTasks = tasks.filter(t => t.status !== 'DONE' && t.status !== 'CANCELLED').slice(0, 5);
   const activeProjects = projects.filter(p => !p.is_archived).slice(0, 6);
 
   const stats = [
@@ -108,7 +108,7 @@ export default function Dashboard() {
                 {upcomingTasks.map(t => (
                   <div key={t.id} className={styles.taskItem}>
                     <CheckSquare size={13} className={styles.taskIcon} />
-                    <span className={styles.taskText}>{t.content}</span>
+                    <span className={styles.taskText}>{t.title}</span>
                     {t.status && <StatusBadge status={t.status} />}
                   </div>
                 ))}

@@ -25,7 +25,7 @@ export default function Review() {
     return d >= now && d <= weekAhead;
   });
 
-  const pendingTasks = tasks.filter(t => !t.due_date && t.status !== 'done');
+  const pendingTasks = tasks.filter(t => !t.due_date && t.status !== 'DONE' && t.status !== 'CANCELLED');
 
   return (
     <div className={styles.page}>
@@ -85,7 +85,7 @@ export default function Review() {
             <div className={styles.taskList}>
               {upcomingTasks.map(t => (
                 <div key={t.id} className={styles.taskItem}>
-                  <span>{t.content}</span>
+                  <span>{t.title}</span>
                   <span className={styles.dueDate}>
                     {new Date(t.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                   </span>
@@ -108,8 +108,8 @@ export default function Review() {
             <div className={styles.taskList}>
               {pendingTasks.slice(0, 8).map(t => (
                 <div key={t.id} className={styles.taskItem}>
-                  <span>{t.content}</span>
-                  <span className={styles.taskStatus}>{t.status || 'open'}</span>
+                  <span>{t.title}</span>
+                  <span className={styles.taskStatus}>{t.status || 'PENDING'}</span>
                 </div>
               ))}
             </div>

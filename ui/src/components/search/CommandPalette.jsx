@@ -46,7 +46,7 @@ export default function CommandPalette({ onClose }) {
           .map(a => ({ type: 'area', item: a })),
         ...people.filter(p => p.name?.toLowerCase().includes(q))
           .map(p => ({ type: 'person', item: p })),
-        ...tasks.filter(t => t.content?.toLowerCase().includes(q))
+        ...tasks.filter(t => t.title?.toLowerCase().includes(q))
           .slice(0, 3).map(t => ({ type: 'task', item: t })),
       ];
       setResults(localResults);
@@ -132,7 +132,7 @@ export default function CommandPalette({ onClose }) {
                   <Icon size={14} className={styles.resultIcon} />
                   <div className={styles.resultContent}>
                     <span className={styles.resultTitle}>
-                      {r.item.name || r.item.raw_text?.slice(0, 60)}
+                      {r.item.name || r.item.title || r.item.raw_text?.slice(0, 60)}
                     </span>
                     <span className={styles.resultType}>{r.type}</span>
                   </div>

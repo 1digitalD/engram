@@ -6,38 +6,44 @@ import EmptyState from '../components/ui/EmptyState';
 import styles from './Tasks.module.css';
 
 const COLUMNS = [
-  { key: 'inbox',     label: 'Inbox',    icon: Circle },
-  { key: 'open',      label: 'Open',     icon: Circle },
-  { key: 'in-progress', label: 'In Progress', icon: Clock },
-  { key: 'done',      label: 'Done',     icon: CheckCircle },
+  { key: 'PENDING',     label: 'Pending',     icon: Circle },
+  { key: 'IN_PROGRESS', label: 'In Progress', icon: Clock },
+  { key: 'DONE',        label: 'Done',        icon: CheckCircle },
 ];
 
 export default function Tasks() {
   const { tasks, projects, createTask, updateTask, deleteTask } = useStore();
   const [showModal, setShowModal] = useState(false);
-  const [content, setContent] = useState('');
-  const [status, setStatus] = useState('open');
+  const [title, setTitle] = useState('');
+  const [status, setStatus] = useState('PENDING');
   const [projectId, setProjectId] = useState('');
+  const [priority, setPriority] = useState('MEDIUM');
 
   const handleCreate = async (e) => {
     e.preventDefault();
-    if (!content.trim()) return;
-    await createTask({ content: content.trim(), status, ...(projectId && { project_id: projectId }) });
-    setContent(''); setStatus('open'); setProjectId(''); setShowModal(false);
+    if (!title.trim()) return;
+    await createTask({
+      title: title.trim(),
+      status,
+      priority,
+      ...(projectId && { project_id: projectId }),
+    });
+    setTitle(''); setStatus('PENDING'); setProjectId(''); setPriority('MEDIUM'); setShowModal(false);
   };
 
   const handleStatusChange = async (task, newStatus) => {
-    await updateTask(task.id, { ...task, status: newStatus });
+    await updateTask(task.id, { status: newStatus });
   };
 
-  const getColumnTasks = (status) => tasks.filter(t => t.status === status);
+  const getColumnTasks = (s) => tasks.filter(t => t.status === s);
+  const pendingCount = tasks.filter(t => t.status !== 'DONE' && t.status !== 'CANCELLED').length;
 
   return (
     <div className={styles.page}>
       <div className={styles.header}>
         <div>
           <h1>Tasks</h1>
-          <p className={styles.count}>{tasks.filter(t => t.status !== 'done').length} pending</p>
+          <p className={styles.count}>{pendingCount} pending</p>
         </div>
         <button className="btn btn-primary" onClick={() => setShowModal(true)}>
           <Plus size={15} /> New Task
@@ -66,15 +72,23 @@ export default function Tasks() {
                 <div className={styles.columnBody}>
                   {colTasks.map(task => {
                     const project = task.project_id ? projects.find(p => p.id === task.project_id) : null;
+                    const due = task.due_date ? new Date(task.due_date).toLocaleDateString() : null;
                     return (
                       <div key={task.id} className={styles.taskCard}>
-                        <span className={styles.taskContent}>{task.content}</span>
-                        {project && (
-                          <span className={styles.taskProject}>{project.name}</span>
-                        )}
+                        <span className={styles.taskContent}>{task.title}</span>
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
+                          {project && (
+                            <span className={styles.taskProject}>{project.name}</span>
+                          )}
+                          {due && (
+                            <span className={styles.taskProject}>📅 {due}</span>
+                          )}
+                          {task.priority && task.priority !== 'MEDIUM' && (
+                            <span className={styles.taskProject}>{task.priority}</span>
+                          )}
+                        </div>
                         <div className={styles.taskActions}>
-                          {/* Move left/right */}
-                          {col.key !== 'inbox' && col.key !== 'open' && (
+                          {col.key !== 'PENDING' && (
                             <button
                               className={styles.moveBtn}
                               onClick={() => {
@@ -85,11 +99,13 @@ export default function Tasks() {
                               title="Move back"
                             >←</button>
                           )}
-                          <button
-                            className={`${styles.moveBtn} ${styles.doneBtn}`}
-                            onClick={() => handleStatusChange(task, 'done')}
-                            title="Mark done"
-                          >✓</button>
+                          {col.key !== 'DONE' && (
+                            <button
+                              className={`${styles.moveBtn} ${styles.doneBtn}`}
+                              onClick={() => handleStatusChange(task, 'DONE')}
+                              title="Mark done"
+                            >✓</button>
+                          )}
                           <button
                             className={styles.moveBtn}
                             onClick={() => deleteTask(task.id)}
@@ -109,17 +125,26 @@ export default function Tasks() {
       {showModal && (
         <Modal isOpen onClose={() => setShowModal(false)} title="New Task" footer={
           <><button className="btn btn-ghost" onClick={() => setShowModal(false)}>Cancel</button>
-          <button className="btn btn-primary" onClick={handleCreate} disabled={!content.trim()}>Add</button></>
+          <button className="btn btn-primary" onClick={handleCreate} disabled={!title.trim()}>Add</button></>
         }>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
             <div>
               <label className={styles.label}>Task</label>
-              <textarea value={content} onChange={e => setContent(e.target.value)} placeholder="What needs to be done?" rows={3} autoFocus />
+              <textarea value={title} onChange={e => setTitle(e.target.value)} placeholder="What needs to be done?" rows={3} autoFocus />
             </div>
             <div>
               <label className={styles.label}>Status</label>
               <select value={status} onChange={e => setStatus(e.target.value)} className={styles.select}>
                 {COLUMNS.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className={styles.label}>Priority</label>
+              <select value={priority} onChange={e => setPriority(e.target.value)} className={styles.select}>
+                <option value="LOW">Low</option>
+                <option value="MEDIUM">Medium</option>
+                <option value="HIGH">High</option>
+                <option value="URGENT">Urgent</option>
               </select>
             </div>
             <div>

@@ -33,10 +33,15 @@ export function TagBadge({ tag, onRemove }) {
 
 export function StatusBadge({ status }) {
   const map = {
-    open:        { label: 'Open',   cls: styles.open },
-    'in-progress':{ label: 'In Progress', cls: styles.inProgress },
-    done:        { label: 'Done',   cls: styles.done },
-    archived:   { label: 'Archived', cls: styles.archived },
+    PENDING:     { label: 'Pending', cls: styles.open },
+    IN_PROGRESS: { label: 'In Progress', cls: styles.inProgress },
+    DONE:        { label: 'Done', cls: styles.done },
+    CANCELLED:   { label: 'Cancelled', cls: styles.archived },
+    // legacy lowercase fallbacks
+    open:        { label: 'Pending', cls: styles.open },
+    'in-progress': { label: 'In Progress', cls: styles.inProgress },
+    done:        { label: 'Done', cls: styles.done },
+    archived:    { label: 'Archived', cls: styles.archived },
   };
   const s = map[status] || { label: status, cls: styles.default };
   return <span className={`${styles.statusBadge} ${s.cls}`}>{s.label}</span>;
