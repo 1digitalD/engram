@@ -283,6 +283,7 @@ input, textarea, select {
 input:focus, textarea:focus, select:focus {
   outline: none;
   border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(124, 106, 255, 0.25);
 }
 
 input::placeholder, textarea::placeholder {
