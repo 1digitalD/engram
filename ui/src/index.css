@@ -202,7 +202,9 @@ button {
   border: none;
   background: none;
   color: inherit;
-  transition: all var(--duration-fast) var(--ease-out);
+  transition: color var(--duration-fast) var(--ease-out),
+              background-color var(--duration-fast) var(--ease-out),
+              opacity var(--duration-fast) var(--ease-out);
 }
 
 .btn {
@@ -214,7 +216,10 @@ button {
   font-weight: 500;
   font-size: var(--text-base);
   cursor: pointer;
-  transition: all var(--duration-fast) var(--ease-out);
+  transition: color var(--duration-fast) var(--ease-out),
+              background-color var(--duration-fast) var(--ease-out),
+              border-color var(--duration-fast) var(--ease-out),
+              box-shadow var(--duration-fast) var(--ease-out);
   border: 1px solid transparent;
 }
 
