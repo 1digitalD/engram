@@ -251,3 +251,37 @@
   overflow-y: auto;
   overflow-x: hidden;
 }
+
+/* ── Mobile: auto-collapse sidebar to icon rail ── */
+@media (max-width: 640px) {
+  .sidebar {
+    width: var(--sidebar-collapsed);
+    min-width: var(--sidebar-collapsed);
+  }
+
+  .brandName,
+  .section,
+  .kbd {
+    display: none;
+  }
+
+  .captureBtn {
+    justify-content: center;
+    padding: var(--space-2);
+    margin: 0 var(--space-2);
+  }
+  .captureBtn span { display: none; }
+
+  .navItem {
+    justify-content: center;
+    padding: var(--space-2);
+  }
+  .navItem span:not(.badge) { display: none; }
+
+  .searchTrigger {
+    justify-content: center;
+    padding: var(--space-2);
+    margin: 0 var(--space-2) var(--space-2);
+  }
+  .searchTrigger span { display: none; }
+}
