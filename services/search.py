@@ -4,29 +4,45 @@ Mode: hybrid | fts | semantic
 """
 import logging
 from extensions import db
-from models import Note
+from models import Note, BucketType
 
 logger = logging.getLogger(__name__)
 
 RRF_K = 60  # standard RRF constant
 
 
-def search_notes(query: str, limit: int = 20, mode: str = "hybrid") -> list[dict]:
+def search_notes(
+    query: str,
+    limit: int = 20,
+    mode: str = "hybrid",
+    bucket: str = None,
+    project_id: str = None,
+    area_id: str = None,
+) -> list[dict]:
     """
     Search notes. mode: 'hybrid' | 'fts' | 'semantic'
-    - fts: SQLite FTS5 BM25 only
-    - semantic: embedding cosine similarity only
-    - hybrid: RRF fusion of both (default)
+    Optional post-filters: bucket, project_id, area_id.
     """
     if not query or not query.strip():
         return []
 
     if mode == "semantic":
-        return _semantic_only(query, limit)
+        results = _semantic_only(query, limit * 3 if (bucket or project_id or area_id) else limit)
     elif mode == "fts":
-        return _fts_only(query, limit)
+        results = _fts_only(query, limit * 3 if (bucket or project_id or area_id) else limit)
     else:
-        return _hybrid(query, limit)
+        results = _hybrid(query, limit * 3 if (bucket or project_id or area_id) else limit)
+
+    # Apply post-filters (search returns notes already loaded as dicts)
+    if bucket:
+        bucket_upper = bucket.upper()
+        results = [r for r in results if r.get("bucket") == bucket_upper]
+    if project_id:
+        results = [r for r in results if r.get("project_id") == project_id]
+    if area_id:
+        results = [r for r in results if r.get("area_id") == area_id]
+
+    return results[:limit]
 
 
 def _fts_only(query: str, limit: int) -> list[dict]:
@@ -43,12 +59,13 @@ def _fts_only(query: str, limit: int) -> list[dict]:
             LIMIT :limit
         """)
         rows = db.session.execute(sql, {"query": f'"{fts_query}"', "limit": limit}).fetchall()
-        results = []
-        for (note_id,) in rows:
-            note = db.session.get(Note, note_id)
-            if note:
-                results.append(note.to_dict())
-        return results
+        note_ids = [row[0] for row in rows]
+        if not note_ids:
+            return []
+        # Single query instead of N individual lookups
+        notes_map = {n.id: n for n in Note.query.filter(Note.id.in_(note_ids)).all()}
+        # Preserve FTS rank order
+        return [notes_map[nid].to_dict() for nid in note_ids if nid in notes_map]
     except Exception as e:
         logger.error(f"FTS search error: {e}")
         return _like_fallback(query, limit)

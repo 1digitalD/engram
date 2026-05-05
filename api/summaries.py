@@ -50,15 +50,29 @@ def generate_summary():
     if not entity:
         return jsonify({"error": "entity not found"}), 404
 
-    # Get notes for this entity in the current week
+    # Get notes for this entity in the current week — use DB-level date filter
     now = datetime.utcnow()
     week_year = now.isocalendar()[0]
     week_number = now.isocalendar()[1]
 
+    # Find Monday of the current ISO week
+    from datetime import timedelta
+    monday = now - timedelta(days=now.weekday())
+    monday = monday.replace(hour=0, minute=0, second=0, microsecond=0)
+    sunday = monday + timedelta(days=7)
+
     if entity_type == "project":
-        notes = [n for n in entity.notes if n.created_at.isocalendar()[:2] == (week_year, week_number)]
+        notes = Note.query.filter(
+            Note.project_id == entity_id,
+            Note.created_at >= monday,
+            Note.created_at < sunday,
+        ).all()
     else:
-        notes = [n for n in entity.notes if n.created_at.isocalendar()[:2] == (week_year, week_number)]
+        notes = Note.query.filter(
+            Note.area_id == entity_id,
+            Note.created_at >= monday,
+            Note.created_at < sunday,
+        ).all()
 
     note_texts = "\n".join([f"- {n.raw_text}" for n in notes])
 

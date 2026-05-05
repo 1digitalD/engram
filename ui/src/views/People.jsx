@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, Mail, FileText } from 'lucide-react';
 import Modal from '../components/ui/Modal';
 import useStore from '../stores/useStore';
 import EmptyState from '../components/ui/EmptyState';
@@ -9,14 +9,14 @@ export default function People() {
   const { people, notes, createPerson } = useStore();
   const [showModal, setShowModal] = useState(false);
   const [name, setName] = useState('');
-  const [role, setRole] = useState('');
-  const [description, setDescription] = useState('');
+  const [email, setEmail] = useState('');
+  const [noteText, setNoteText] = useState('');
 
   const handleCreate = async (e) => {
     e.preventDefault();
     if (!name.trim()) return;
-    await createPerson({ name: name.trim(), role, description });
-    setName(''); setRole(''); setDescription(''); setShowModal(false);
+    await createPerson({ name: name.trim(), email: email.trim() || undefined, notes: noteText.trim() || undefined });
+    setName(''); setEmail(''); setNoteText(''); setShowModal(false);
   };
 
   return (
@@ -47,8 +47,12 @@ export default function People() {
                 <div className={styles.avatar}>{p.name.charAt(0).toUpperCase()}</div>
                 <div className={styles.info}>
                   <span className={styles.name}>{p.name}</span>
-                  {p.role && <span className={styles.role}>{p.role}</span>}
-                  {p.description && <p className={styles.desc}>{p.description}</p>}
+                  {p.email && (
+                    <span className={styles.email}>
+                      <Mail size={11} /> {p.email}
+                    </span>
+                  )}
+                  {p.notes && <p className={styles.desc}>{p.notes}</p>}
                   <span className={styles.meta}>{personNotes.length} notes</span>
                 </div>
               </div>
@@ -64,8 +68,8 @@ export default function People() {
         }>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
             <div><label className={styles.label}>Name</label><input value={name} onChange={e => setName(e.target.value)} placeholder="Full name" autoFocus /></div>
-            <div><label className={styles.label}>Role</label><input value={role} onChange={e => setRole(e.target.value)} placeholder="e.g. Agent Platform team" /></div>
-            <div><label className={styles.label}>Notes</label><textarea value={description} onChange={e => setDescription(e.target.value)} rows={3} placeholder="Context about this person..." /></div>
+            <div><label className={styles.label}>Email</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="name@company.com" /></div>
+            <div><label className={styles.label}>Notes</label><textarea value={noteText} onChange={e => setNoteText(e.target.value)} rows={3} placeholder="Context about this person..." /></div>
           </div>
         </Modal>
       )}

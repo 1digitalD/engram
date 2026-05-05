@@ -8,6 +8,7 @@ import NoteDetailView from './views/NoteDetailView';
 import Projects from './views/Projects';
 import ProjectFocus from './views/ProjectFocus';
 import Areas from './views/Areas';
+import AreaFocus from './views/AreaFocus';
 import People from './views/People';
 import Tasks from './views/Tasks';
 import Graph from './views/Graph';
@@ -33,6 +34,7 @@ export default function App() {
           <Route path="/projects"        element={<Projects />} />
           <Route path="/projects/:id"    element={<ProjectFocus />} />
           <Route path="/areas"           element={<Areas />} />
+          <Route path="/areas/:id"       element={<AreaFocus />} />
           <Route path="/people"          element={<People />} />
           <Route path="/tasks"           element={<Tasks />} />
           <Route path="/graph"           element={<Graph />} />

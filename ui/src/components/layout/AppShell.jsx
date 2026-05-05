@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Inbox, FileText, FolderOpen,
   Map, Users, CheckSquare, Network, Calendar,
-  Search, Plus, ChevronRight, ChevronDown, Menu, X
+  Search, Plus, ChevronLeft, ChevronRight, Menu, X
 } from 'lucide-react';
 import styles from './AppShell.module.css';
 import CommandPalette from '../search/CommandPalette';
@@ -70,7 +70,7 @@ export default function AppShell({ children }) {
             onClick={() => setCollapsed(c => !c)}
             title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
-            {collapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+            {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
           </button>
         </div>
 

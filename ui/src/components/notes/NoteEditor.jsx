@@ -1,10 +1,17 @@
 import React, { useState } from 'react';
-import { Loader2, Zap } from 'lucide-react';
+import { Loader2, Sparkles } from 'lucide-react';
 import Modal from '../ui/Modal';
 import useStore from '../../stores/useStore';
 import styles from './NoteEditor.module.css';
 
 const BUCKETS = ['INBOX', 'PROJECTS', 'AREAS', 'RESOURCES', 'ARCHIVES'];
+const BUCKET_LABELS = {
+  INBOX:     'Inbox',
+  PROJECTS:  'Projects',
+  AREAS:     'Areas',
+  RESOURCES: 'Resources',
+  ARCHIVES:  'Archives',
+};
 
 export default function NoteEditor({ onClose, onSaved, initialData }) {
   const { createNote, updateNote, projects, areas, people } = useStore();
@@ -14,7 +21,6 @@ export default function NoteEditor({ onClose, onSaved, initialData }) {
   const [areaId, setAreaId] = useState(initialData?.area_id || '');
   const [personId, setPersonId] = useState(initialData?.person_id || '');
   const [saving, setSaving] = useState(false);
-  const [aiSuggestion, setAiSuggestion] = useState(initialData?.ai_meta || null);
 
   const isEdit = !!initialData?.id;
 
@@ -41,13 +47,6 @@ export default function NoteEditor({ onClose, onSaved, initialData }) {
     }
   };
 
-  const handleAiClassify = async () => {
-    if (!rawText.trim()) return;
-    setAiSuggestion({ bucket, confidence: 0, reasoning: 'Analyzing...' });
-    // AI classification happens server-side on create — we just show current selection
-    setAiSuggestion({ bucket, confidence: 0.85, reasoning: 'Server-side AI will classify on save.' });
-  };
-
   return (
     <Modal
       isOpen
@@ -64,7 +63,7 @@ export default function NoteEditor({ onClose, onSaved, initialData }) {
             disabled={saving || !rawText.trim()}
           >
             {saving ? <Loader2 size={14} className="spin" /> : null}
-            {isEdit ? 'Save Changes' : 'Save Note'}
+            {isEdit ? 'Save Changes' : 'Save & Classify'}
           </button>
         </>
       }
@@ -72,23 +71,18 @@ export default function NoteEditor({ onClose, onSaved, initialData }) {
       <form id="note-form" onSubmit={handleSubmit} className={styles.form}>
         <textarea
           className={styles.textarea}
-          placeholder="Capture a thought, link, idea..."
+          placeholder="Capture a thought, link, idea, or decision..."
           value={rawText}
           onChange={e => setRawText(e.target.value)}
           rows={6}
           autoFocus
         />
 
-        {/* AI Suggestion */}
-        {aiSuggestion && !isEdit && (
-          <div className={styles.aiSuggestion}>
-            <Zap size={13} className={styles.aiIcon} />
-            <span>
-              Suggested: <strong>{aiSuggestion.bucket}</strong>
-              {' '}({Math.round(aiSuggestion.confidence * 100)}%)
-            </span>
-            <span className={styles.aiReason}>{aiSuggestion.reasoning}</span>
-          </div>
+        {!isEdit && rawText.trim().length > 10 && (
+          <p className={styles.aiHint}>
+            <Sparkles size={12} />
+            AI will classify this note, extract tasks, and link it to entities on save.
+          </p>
         )}
 
         <div className={styles.fields}>
@@ -101,7 +95,7 @@ export default function NoteEditor({ onClose, onSaved, initialData }) {
               className={styles.select}
             >
               {BUCKETS.map(b => (
-                <option key={b} value={b}>{b.charAt(0) + b.slice(1).toLowerCase()}</option>
+                <option key={b} value={b}>{BUCKET_LABELS[b]}</option>
               ))}
             </select>
           </div>
@@ -115,7 +109,7 @@ export default function NoteEditor({ onClose, onSaved, initialData }) {
               className={styles.select}
             >
               <option value="">— None —</option>
-              {projects.map(p => (
+              {projects.filter(p => !p.is_archived).map(p => (
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
             </select>
@@ -151,16 +145,6 @@ export default function NoteEditor({ onClose, onSaved, initialData }) {
             </select>
           </div>
         </div>
-
-        {!isEdit && !aiSuggestion && rawText.trim().length > 10 && (
-          <button
-            type="button"
-            className={styles.aiBtn}
-            onClick={handleAiClassify}
-          >
-            <Zap size={13} /> Suggest classification
-          </button>
-        )}
       </form>
     </Modal>
   );

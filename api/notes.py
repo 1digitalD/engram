@@ -279,7 +279,10 @@ def search():
     q = request.args.get("q", "")
     limit = request.args.get("limit", 20, type=int)
     mode = request.args.get("mode", "hybrid")
-    results = search_notes(q, limit=limit, mode=mode)
+    bucket = request.args.get("bucket")
+    project_id = request.args.get("project_id")
+    area_id = request.args.get("area_id")
+    results = search_notes(q, limit=limit, mode=mode, bucket=bucket, project_id=project_id, area_id=area_id)
     return jsonify({"data": results, "query": q, "count": len(results), "mode": mode})
 
 

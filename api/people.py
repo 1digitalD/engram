@@ -19,7 +19,7 @@ def create_person():
     person = Person(
         name=data["name"],
         email=data.get("email"),
-        discord_id=data.get("discord_id"),
+        external_ids=data.get("external_ids") or {},
         notes_text=data.get("notes"),
         last_contacted_at=data.get("last_contacted_at"),
     )
@@ -43,9 +43,11 @@ def update_person(person_id):
         return jsonify({"error": "not found"}), 404
 
     data = request.get_json()
-    for field in ("name", "email", "discord_id", "last_contacted_at"):
+    for field in ("name", "email", "last_contacted_at"):
         if field in data:
             setattr(person, field, data[field])
+    if "external_ids" in data:
+        person.external_ids = {**(person.external_ids or {}), **data["external_ids"]}
     if "notes" in data:
         person.notes_text = data["notes"]
 

@@ -100,18 +100,20 @@ export default function Tasks() {
                               className={styles.moveBtn}
                               onClick={() => {
                                 const colIndex = COLUMNS.findIndex(c => c.key === col.key);
-                                const newCol = COLUMNS[colIndex - 1];
-                                handleStatusChange(task, newCol.key);
+                                handleStatusChange(task, COLUMNS[colIndex - 1].key);
                               }}
                               title="Move back"
                             >←</button>
                           )}
                           {col.key !== 'DONE' && (
                             <button
-                              className={`${styles.moveBtn} ${styles.doneBtn}`}
-                              onClick={() => handleStatusChange(task, 'DONE')}
-                              title="Mark done"
-                            >✓</button>
+                              className={`${styles.moveBtn} ${styles.forwardBtn}`}
+                              onClick={() => {
+                                const colIndex = COLUMNS.findIndex(c => c.key === col.key);
+                                handleStatusChange(task, COLUMNS[colIndex + 1].key);
+                              }}
+                              title={col.key === 'PENDING' ? 'Start' : 'Mark done'}
+                            >{col.key === 'PENDING' ? '→' : '✓'}</button>
                           )}
                           <button
                             className={styles.moveBtn}

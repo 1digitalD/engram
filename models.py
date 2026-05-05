@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from enum import Enum as PyEnum
 
-from sqlalchemy import Column, String, Text, DateTime, Boolean, ForeignKey, Table, Enum, Integer, Float
+from sqlalchemy import Column, String, Text, DateTime, Boolean, ForeignKey, Table, Enum, Integer, Float, func, select
 from sqlalchemy.dialects.sqlite import JSON
 from sqlalchemy.orm import relationship
 
@@ -90,6 +90,13 @@ class Project(BaseModel):
     tasks = relationship("Task", back_populates="project")
 
     def to_dict(self, include_notes=False):
+        # Use scalar count queries to avoid loading all related rows
+        note_count = db.session.scalar(
+            select(func.count(Note.id)).where(Note.project_id == self.id)
+        ) or 0
+        task_count = db.session.scalar(
+            select(func.count(Task.id)).where(Task.project_id == self.id)
+        ) or 0
         d = {
             "id": self.id,
             "name": self.name,
@@ -100,8 +107,8 @@ class Project(BaseModel):
             "is_archived": self.is_archived,
             "created_at": self.created_at.isoformat(),
             "modified_at": self.modified_at.isoformat(),
-            "note_count": len(self.notes) if self.notes else 0,
-            "task_count": len(self.tasks) if self.tasks else 0,
+            "note_count": note_count,
+            "task_count": task_count,
         }
         if include_notes:
             d["notes"] = [n.to_dict() for n in (self.notes or [])]
@@ -121,6 +128,9 @@ class Area(BaseModel):
     notes = relationship("Note", back_populates="area")
 
     def to_dict(self, include_notes=False):
+        note_count = db.session.scalar(
+            select(func.count(Note.id)).where(Note.area_id == self.id)
+        ) or 0
         d = {
             "id": self.id,
             "name": self.name,
@@ -128,7 +138,7 @@ class Area(BaseModel):
             "color": self.color,
             "created_at": self.created_at.isoformat(),
             "modified_at": self.modified_at.isoformat(),
-            "note_count": len(self.notes) if self.notes else 0,
+            "note_count": note_count,
         }
         if include_notes:
             d["notes"] = [n.to_dict() for n in (self.notes or [])]
@@ -143,7 +153,8 @@ class Person(BaseModel):
 
     name = Column(String(255), nullable=False)
     email = Column(String(255), nullable=True)
-    discord_id = Column(String(64), nullable=True)
+    # Generic bag for platform-specific identifiers: {"discord": "...", "slack": "...", etc.}
+    external_ids = Column(JSON, nullable=True, default=dict)
     notes_text = Column(Text, nullable=True)
     last_contacted_at = Column(DateTime, nullable=True)
 
@@ -154,7 +165,7 @@ class Person(BaseModel):
             "id": self.id,
             "name": self.name,
             "email": self.email,
-            "discord_id": self.discord_id,
+            "external_ids": self.external_ids or {},
             "notes": self.notes_text,
             "last_contacted_at": self.last_contacted_at.isoformat() if self.last_contacted_at else None,
             "created_at": self.created_at.isoformat(),

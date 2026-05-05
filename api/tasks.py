@@ -2,17 +2,7 @@ from flask import request, jsonify
 from api import api_bp
 from extensions import db
 from models import Task, TaskStatus, Priority
-
-
-def _priority(val):
-    if val is None:
-        return None
-    if isinstance(val, Priority):
-        return val
-    try:
-        return Priority(val.upper())
-    except (ValueError, AttributeError):
-        return Priority.MEDIUM
+from utils import parse_priority as _priority
 
 
 @api_bp.route("/tasks", methods=["GET"])

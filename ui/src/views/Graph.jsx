@@ -14,15 +14,16 @@ const TYPE_COLORS = {
 
 export default function Graph() {
   const svgRef = useRef(null);
+  const containerRef = useRef(null);
   const { notes, projects, areas, people, tasks } = useStore();
   const [selected, setSelected] = useState(null);
 
   useEffect(() => {
-    if (!svgRef.current) return;
+    if (!svgRef.current || !containerRef.current) return;
     if (notes.length === 0 && projects.length === 0) return;
 
-    const width = svgRef.current.clientWidth;
-    const height = svgRef.current.clientHeight;
+    const width  = containerRef.current.clientWidth  || 900;
+    const height = containerRef.current.clientHeight || 600;
 
     // Build nodes
     const nodes = [
@@ -164,7 +165,7 @@ export default function Graph() {
           message="Create some notes and link them to projects, areas, or people to see the connections."
         />
       ) : (
-        <div className={styles.canvas}>
+        <div ref={containerRef} className={styles.canvas}>
           <svg ref={svgRef} className={styles.svg} />
         </div>
       )}

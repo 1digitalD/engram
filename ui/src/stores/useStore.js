@@ -4,7 +4,7 @@
  */
 
 import { create } from 'zustand';
-import { notesAPI, projectsAPI, areasAPI, peopleAPI, tasksAPI } from '../api/engram';
+import { notesAPI, projectsAPI, areasAPI, peopleAPI, tasksAPI, ingestAPI, tagsAPI } from '../api/engram';
 
 const useStore = create((set, get) => ({
   // ── Data ──────────────────────────────────
@@ -45,12 +45,13 @@ const useStore = create((set, get) => ({
   loadAll: async () => {
     set({ loading: true });
     try {
-      const [notes, projects, areas, people, tasks] = await Promise.all([
+      const [notes, projects, areas, people, tasks, tags] = await Promise.all([
         notesAPI.list(),
         projectsAPI.list(),
         areasAPI.list(),
         peopleAPI.list(),
         tasksAPI.list(),
+        tagsAPI.list(),
       ]);
       set({
         notes:    notes.data || [],
@@ -58,6 +59,7 @@ const useStore = create((set, get) => ({
         areas:    areas.data || [],
         people:   people.data || [],
         tasks:    tasks.data || [],
+        tags:     tags.data || [],
         loading:  false,
       });
     } catch (e) {
@@ -70,8 +72,28 @@ const useStore = create((set, get) => ({
 
   createNote: async (data) => {
     try {
-      const res = await notesAPI.create(data);
-      const note = res.data;
+      const { raw_text, bucket, project_id, area_id, person_id } = data;
+
+      // Run through the full AI ingestion pipeline (classification, task
+      // extraction, entity resolution, embeddings) — not a plain DB insert.
+      // Note: ingest returns { note, tasks, project, area, people, ... }
+      // while the REST notes API returns { data: note }.
+      const res = await ingestAPI.capture({ content: raw_text, source: 'ui' });
+      let note = res.note || res.data;
+
+      // Apply any user-explicit overrides set in the editor. The AI may have
+      // chosen different values — user intent wins.
+      const overrides = {};
+      if (bucket && bucket !== note.bucket)           overrides.bucket     = bucket;
+      if (project_id && project_id !== note.project_id) overrides.project_id = project_id;
+      if (area_id    && area_id    !== note.area_id)    overrides.area_id    = area_id;
+      if (person_id  && person_id  !== note.person_id)  overrides.person_id  = person_id;
+
+      if (Object.keys(overrides).length > 0) {
+        const patched = await notesAPI.update(note.id, overrides);
+        note = patched.data;
+        res.note = note; // keep ref consistent
+      }
 
       // Add note to state
       set(s => ({ notes: [note, ...s.notes] }));

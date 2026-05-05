@@ -83,33 +83,31 @@ def _normalize(s: str) -> str:
     return re.sub(r"[^\w\s]", "", s.lower()).strip()
 
 
-def resolve_project(name: str, existing_projects: list) -> object | None:
+def _resolve_entity(name: str, existing: list, fuzzy_threshold: int = 88) -> object | None:
     """
-    Find an existing Project matching name.
-    Cascade: exact normalized → rapidfuzz token_set_ratio ≥ 88
-    Returns a Project ORM object or None.
+    Find an entity in `existing` whose `.name` matches `name`.
+    Cascade: exact normalized match → rapidfuzz token_set_ratio ≥ fuzzy_threshold.
+    Returns the matched ORM object or None.
     """
-    if not name or not existing_projects:
+    if not name or not existing:
         return None
 
     norm = _normalize(name)
 
-    # 1. Exact normalized match
-    for p in existing_projects:
-        if _normalize(p.name) == norm:
-            return p
+    for entity in existing:
+        if _normalize(entity.name) == norm:
+            return entity
 
-    # 2. Fuzzy match
     try:
         from rapidfuzz import fuzz
         best_score = 0
         best_match = None
-        for p in existing_projects:
-            score = fuzz.token_set_ratio(_normalize(p.name), norm)
+        for entity in existing:
+            score = fuzz.token_set_ratio(_normalize(entity.name), norm)
             if score > best_score:
                 best_score = score
-                best_match = p
-        if best_score >= 88:
+                best_match = entity
+        if best_score >= fuzzy_threshold:
             return best_match
     except ImportError:
         pass
@@ -117,60 +115,10 @@ def resolve_project(name: str, existing_projects: list) -> object | None:
     return None
 
 
-def resolve_area(name: str, existing_areas: list) -> object | None:
-    """Same cascade for Area objects."""
-    if not name or not existing_areas:
-        return None
-
-    norm = _normalize(name)
-
-    for a in existing_areas:
-        if _normalize(a.name) == norm:
-            return a
-
-    try:
-        from rapidfuzz import fuzz
-        best_score = 0
-        best_match = None
-        for a in existing_areas:
-            score = fuzz.token_set_ratio(_normalize(a.name), norm)
-            if score > best_score:
-                best_score = score
-                best_match = a
-        if best_score >= 88:
-            return best_match
-    except ImportError:
-        pass
-
-    return None
-
-
-def resolve_person(name: str, existing_people: list) -> object | None:
-    """Same cascade for Person objects."""
-    if not name or not existing_people:
-        return None
-
-    norm = _normalize(name)
-
-    for p in existing_people:
-        if _normalize(p.name) == norm:
-            return p
-
-    try:
-        from rapidfuzz import fuzz
-        best_score = 0
-        best_match = None
-        for p in existing_people:
-            score = fuzz.token_set_ratio(_normalize(p.name), norm)
-            if score > best_score:
-                best_score = score
-                best_match = p
-        if best_score >= 88:
-            return best_match
-    except ImportError:
-        pass
-
-    return None
+# Convenience aliases kept for any external callers
+resolve_project = _resolve_entity
+resolve_area = _resolve_entity
+resolve_person = _resolve_entity
 
 
 # ── Main pipeline ────────────────────────────────────────────────────────────

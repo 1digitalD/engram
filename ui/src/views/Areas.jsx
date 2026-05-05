@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Plus, ChevronRight } from 'lucide-react';
 import Modal from '../components/ui/Modal';
 import useStore from '../stores/useStore';
 import EmptyState from '../components/ui/EmptyState';
@@ -43,14 +44,15 @@ export default function Areas() {
           {areas.map(a => {
             const areaNotes = notes.filter(n => n.area_id === a.id);
             return (
-              <div key={a.id} className={styles.card}>
+              <Link key={a.id} to={`/areas/${a.id}`} className={styles.card}>
                 <div className={styles.cardHeader}>
                   <span className={styles.dot} style={{ background: a.color || 'var(--accent-blue)' }} />
                   <span className={styles.name}>{a.name}</span>
+                  <ChevronRight size={14} className={styles.arrow} />
                 </div>
                 {a.description && <p className={styles.desc}>{a.description}</p>}
                 <div className={styles.meta}>{areaNotes.length} notes</div>
-              </div>
+              </Link>
             );
           })}
         </div>
