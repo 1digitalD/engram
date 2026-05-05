@@ -14,3 +14,4 @@ tests/__pycache__/
 ui/node_modules/
 ui/.vite/
 ui/dist/
+.gstack/
