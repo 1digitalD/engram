@@ -203,8 +203,10 @@ def _create_note_simple(data: dict, raw_text: str):
     )
     note.tags = tag_objects
     db.session.add(note)
+    db.session.flush()
+    note_id = note.id
     db.session.commit()
-    _queue_embedding(note.id, raw_text)
+    _queue_embedding(note_id, raw_text)
     return jsonify({"data": note.to_dict()}), 201
 
 
@@ -254,9 +256,11 @@ def update_note(note_id):
     elif "tag_names" in data:
         note.tags = _resolve_or_create_tags(data["tag_names"])
 
+    note_id = note.id
+    note_text = note.raw_text
     db.session.commit()
     if text_changed:
-        _queue_embedding(note.id, note.raw_text)
+        _queue_embedding(note_id, note_text)
     return jsonify({"data": note.to_dict()})
 
 

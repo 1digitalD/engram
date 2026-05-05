@@ -31,6 +31,7 @@ except ImportError:
     sys.exit(1)
 
 ENGRAM_BASE = os.getenv("ENGRAM_API_BASE", "http://localhost:5001/api/v1")
+ENGRAM_TIMEOUT = float(os.getenv("ENGRAM_API_TIMEOUT", "60"))
 
 mcp = FastMCP(
     name="engram",
@@ -47,12 +48,26 @@ mcp = FastMCP(
 # ── HTTP client ───────────────────────────────────────────────────────────────
 
 def _api(method: str, path: str, **kwargs) -> dict:
-    """Make a request to the Engram Flask API."""
+    """Make a request to the Engram API with clearer failure modes for MCP clients."""
     url = f"{ENGRAM_BASE}{path}"
-    with httpx.Client(timeout=60.0) as client:
-        resp = getattr(client, method.lower())(url, **kwargs)
-        resp.raise_for_status()
-        return resp.json()
+    try:
+        with httpx.Client(timeout=ENGRAM_TIMEOUT) as client:
+            resp = getattr(client, method.lower())(url, **kwargs)
+            resp.raise_for_status()
+            return resp.json()
+    except httpx.ConnectError as e:
+        raise RuntimeError(
+            f"Engram API is unreachable at {ENGRAM_BASE}. Start the app first, for example: PORT=5001 flask run"
+        ) from e
+    except httpx.TimeoutException as e:
+        raise RuntimeError(f"Engram API timed out after {ENGRAM_TIMEOUT:.0f}s calling {path}") from e
+    except httpx.HTTPStatusError as e:
+        body = e.response.text.strip()
+        detail = f": {body[:300]}" if body else ""
+        raise RuntimeError(f"Engram API {e.response.status_code} for {path}{detail}") from e
+
+
+mcp_app = mcp.http_app(path="/mcp", transport="streamable-http")
 
 
 # ── Tools ─────────────────────────────────────────────────────────────────────
