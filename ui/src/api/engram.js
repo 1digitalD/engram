@@ -1,15 +1,18 @@
 /**
  * Engram API Client
- * All HTTP calls to the Engram Flask backend
+ * All HTTP calls to the Engram Flask backend.
+ * BASE is empty so all calls are relative — works on any host/port.
  */
 
-const BASE = import.meta.env.VITE_API_BASE || 'http://localhost:5001';
-const PREFIX = `${BASE}/api/v1`;
+const PREFIX = '/api/v1';
 
-async function request(method, path, body = null, params = {}) {
-  const url = new URL(`${PREFIX}${path}`);
+async function apiRequest(method, path, body = null, params = {}) {
+  const url = new URL(path, window.location.origin);
+  url.pathname = PREFIX + path;
   if (Object.keys(params).length) {
-    Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null) url.searchParams.set(k, v);
+    });
   }
   const opts = {
     method,
@@ -26,51 +29,79 @@ async function request(method, path, body = null, params = {}) {
 
 // ── Notes ────────────────────────────────────
 export const notesAPI = {
-  list:    (params = {})  => request('GET',  '/notes', null, params),
-  get:     (id)           => request('GET',  `/notes/${id}`),
-  create:  (data)         => request('POST', '/notes', data),
-  update:  (id, data)     => request('PUT',  `/notes/${id}`, data),
-  delete:  (id)           => request('DELETE', `/notes/${id}`),
-  search:  (q)            => request('GET',  '/notes/search', null, { q }),
+  list:    (params = {})  => apiRequest('GET',    '/notes', null, params),
+  get:     (id)           => apiRequest('GET',    `/notes/${id}`),
+  create:  (data)         => apiRequest('POST',   '/notes', data),
+  update:  (id, data)     => apiRequest('PATCH',  `/notes/${id}`, data),
+  delete:  (id)           => apiRequest('DELETE', `/notes/${id}`),
+  search:  (q, mode)      => apiRequest('GET',    '/notes/search', null, { q, mode }),
+};
+
+// ── Ingest (smart multi-modal capture) ───────
+export const ingestAPI = {
+  capture: (data) => apiRequest('POST', '/ingest', data),
 };
 
 // ── Projects ─────────────────────────────────
 export const projectsAPI = {
-  list:   ()  => request('GET',    '/projects'),
-  get:    (id) => request('GET',    `/projects/${id}`),
-  create: (d)  => request('POST',   '/projects', d),
-  update: (id, d) => request('PUT', `/projects/${id}`, d),
-  delete: (id) => request('DELETE', `/projects/${id}`),
+  list:   (params = {}) => apiRequest('GET',    '/projects', null, params),
+  get:    (id)          => apiRequest('GET',    `/projects/${id}`),
+  create: (d)           => apiRequest('POST',   '/projects', d),
+  update: (id, d)       => apiRequest('PATCH',  `/projects/${id}`, d),
+  delete: (id)          => apiRequest('DELETE', `/projects/${id}`),
 };
 
 // ── Areas ────────────────────────────────────
 export const areasAPI = {
-  list:   ()  => request('GET',    '/areas'),
-  get:    (id) => request('GET',    `/areas/${id}`),
-  create: (d)  => request('POST',   '/areas', d),
-  update: (id, d) => request('PUT', `/areas/${id}`, d),
-  delete: (id) => request('DELETE', `/areas/${id}`),
+  list:   (params = {}) => apiRequest('GET',    '/areas', null, params),
+  get:    (id)          => apiRequest('GET',    `/areas/${id}`),
+  create: (d)           => apiRequest('POST',   '/areas', d),
+  update: (id, d)       => apiRequest('PATCH',  `/areas/${id}`, d),
+  delete: (id)          => apiRequest('DELETE', `/areas/${id}`),
 };
 
 // ── People ───────────────────────────────────
 export const peopleAPI = {
-  list:   ()  => request('GET',    '/people'),
-  get:    (id) => request('GET',    `/people/${id}`),
-  create: (d)  => request('POST',   '/people', d),
-  update: (id, d) => request('PUT', `/people/${id}`, d),
-  delete: (id) => request('DELETE', `/people/${id}`),
+  list:   ()     => apiRequest('GET',    '/people'),
+  get:    (id)   => apiRequest('GET',    `/people/${id}`),
+  create: (d)    => apiRequest('POST',   '/people', d),
+  update: (id, d)=> apiRequest('PATCH',  `/people/${id}`, d),
+  delete: (id)   => apiRequest('DELETE', `/people/${id}`),
 };
 
 // ── Tasks ────────────────────────────────────
 export const tasksAPI = {
-  list:   ()  => request('GET',    '/tasks'),
-  get:    (id) => request('GET',    `/tasks/${id}`),
-  create: (d)  => request('POST',   '/tasks', d),
-  update: (id, d) => request('PUT', `/tasks/${id}`, d),
-  delete: (id) => request('DELETE', `/tasks/${id}`),
+  list:   (params = {}) => apiRequest('GET',    '/tasks', null, params),
+  get:    (id)          => apiRequest('GET',    `/tasks/${id}`),
+  create: (d)           => apiRequest('POST',   '/tasks', d),
+  update: (id, d)       => apiRequest('PATCH',  `/tasks/${id}`, d),
+  delete: (id)          => apiRequest('DELETE', `/tasks/${id}`),
 };
 
 // ── Tags ─────────────────────────────────────
 export const tagsAPI = {
-  list: () => request('GET', '/tags'),
+  list:   ()     => apiRequest('GET',    '/tags'),
+  get:    (id)   => apiRequest('GET',    `/tags/${id}`),
+  create: (d)    => apiRequest('POST',   '/tags', d),
+  update: (id,d) => apiRequest('PATCH',  `/tags/${id}`, d),
+  delete: (id)   => apiRequest('DELETE', `/tags/${id}`),
+};
+
+// ── Links (knowledge graph) ──────────────────
+export const linksAPI = {
+  forNote:   (id)  => apiRequest('GET',    `/notes/${id}/links`),
+  create:    (d)   => apiRequest('POST',   '/links', d),
+  delete:    (id)  => apiRequest('DELETE', `/links/${id}`),
+  related:   (id, limit) => apiRequest('GET', `/notes/${id}/related`, null, { limit }),
+};
+
+// ── Batch ────────────────────────────────────
+export const batchAPI = {
+  execute: (operations, atomic = true) =>
+    apiRequest('POST', '/batch', { operations, atomic }),
+};
+
+// ── Health ───────────────────────────────────
+export const healthAPI = {
+  check: () => apiRequest('GET', '/health'.replace('/api/v1', '')),
 };

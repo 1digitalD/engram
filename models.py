@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from enum import Enum as PyEnum
 
-from sqlalchemy import Column, String, Text, DateTime, Boolean, ForeignKey, Table, Enum, Integer
+from sqlalchemy import Column, String, Text, DateTime, Boolean, ForeignKey, Table, Enum, Integer, Float
 from sqlalchemy.dialects.sqlite import JSON
 from sqlalchemy.orm import relationship
 
@@ -58,7 +58,7 @@ class Tag(BaseModel):
     __tablename__ = "tags"
 
     name = Column(String(255), unique=True, nullable=False)
-    color = Column(String(7), nullable=True)  # hex color
+    color = Column(String(7), nullable=True)
 
     notes = relationship("Note", secondary=note_tags, back_populates="tags")
 
@@ -144,7 +144,7 @@ class Person(BaseModel):
     name = Column(String(255), nullable=False)
     email = Column(String(255), nullable=True)
     discord_id = Column(String(64), nullable=True)
-    notes_text = Column(Text, nullable=True)  # free-form notes about this person
+    notes_text = Column(Text, nullable=True)
     last_contacted_at = Column(DateTime, nullable=True)
 
     notes = relationship("Note", back_populates="person")
@@ -171,18 +171,19 @@ class Note(BaseModel):
     raw_text = Column(Text, nullable=False)
     bucket = Column(Enum(BucketType), default=BucketType.INBOX)
     is_archived = Column(Boolean, default=False)
-    ai_meta = Column(JSON, nullable=True)  # { confidence, reasoning, sentiment }
+    ai_meta = Column(JSON, nullable=True)
 
-    # Foreign keys
     project_id = Column(String(36), ForeignKey("projects.id"), nullable=True)
     area_id = Column(String(36), ForeignKey("areas.id"), nullable=True)
     person_id = Column(String(36), ForeignKey("people.id"), nullable=True)
 
-    # Relationships
     project = relationship("Project", back_populates="notes")
     area = relationship("Area", back_populates="notes")
     person = relationship("Person", back_populates="notes")
     tags = relationship("Tag", secondary=note_tags, back_populates="notes")
+    chunks = relationship("NoteChunk", back_populates="note", cascade="all, delete-orphan")
+    outgoing_links = relationship("Link", foreign_keys="Link.src_id", back_populates="source_note", cascade="all, delete-orphan")
+    incoming_links = relationship("Link", foreign_keys="Link.dst_id", back_populates="dest_note")
 
     def to_dict(self, include_relations=True):
         d = {
@@ -198,6 +199,8 @@ class Note(BaseModel):
             "person_id": self.person_id,
             "tag_ids": [t.id for t in (self.tags or [])],
             "tag_names": [t.name for t in (self.tags or [])],
+            "link_count": len(self.outgoing_links) + len(self.incoming_links),
+            "backlink_count": len(self.incoming_links),
         }
         if include_relations:
             d["project"] = self.project.to_dict() if self.project else None
@@ -243,7 +246,7 @@ class Task(BaseModel):
 class WeeklySummary(BaseModel):
     __tablename__ = "weekly_summaries"
 
-    entity_type = Column(String(20), nullable=False)  # 'project' or 'area'
+    entity_type = Column(String(20), nullable=False)
     entity_id = Column(String(36), nullable=False)
     entity_name = Column(String(255), nullable=False)
     week_year = Column(Integer, nullable=False)
@@ -270,35 +273,113 @@ class WeeklySummary(BaseModel):
         }
 
 
-# ─── FTS5 Search ─────────────────────────────────────────────────────────────
+# ─── NoteChunk (for embeddings) ─────────────────────────────────────────────
 
-def init_fts():
+
+class NoteChunk(BaseModel):
+    __tablename__ = "note_chunks"
+
+    note_id = Column(String(36), ForeignKey("notes.id"), nullable=False)
+    chunk_index = Column(Integer, nullable=False, default=0)
+    chunk_text = Column(Text, nullable=False)
+    embedding_model = Column(String(64), nullable=False, default="text-embedding-3-small")
+
+    note = relationship("Note", back_populates="chunks")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "note_id": self.note_id,
+            "chunk_index": self.chunk_index,
+            "chunk_text": self.chunk_text,
+            "embedding_model": self.embedding_model,
+            "created_at": self.created_at.isoformat(),
+        }
+
+
+# ─── Links (knowledge graph) ─────────────────────────────────────────────────
+
+
+class Link(BaseModel):
+    __tablename__ = "links"
+
+    src_id = Column(String(36), ForeignKey("notes.id"), nullable=False)
+    dst_id = Column(String(36), ForeignKey("notes.id"), nullable=False)
+    link_type = Column(String(32), nullable=False, default="related")
+    weight = Column(Float, default=1.0)
+    source = Column(String(32), nullable=False, default="manual")  # manual|embedding|llm|wikilink
+
+    source_note = relationship("Note", foreign_keys=[src_id], back_populates="outgoing_links")
+    dest_note = relationship("Note", foreign_keys=[dst_id], back_populates="incoming_links")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "src_id": self.src_id,
+            "dst_id": self.dst_id,
+            "link_type": self.link_type,
+            "weight": self.weight,
+            "source": self.source,
+            "created_at": self.created_at.isoformat(),
+        }
+
+
+# ─── FTS5 + sqlite-vec initialization ────────────────────────────────────────
+
+def init_fts(conn=None):
     """Create FTS5 virtual table for full-text search on notes."""
-    from extensions import db
-    conn = db.engine.connect()
-    conn.execute(db.text("""
+    from extensions import db as _db
+    c = conn or _db.engine.connect()
+
+    c.execute(_db.text("""
         CREATE VIRTUAL TABLE IF NOT EXISTS notes_fts USING fts5(
             raw_text,
             content='notes',
             content_rowid='rowid'
         )
     """))
-    # Triggers to keep FTS in sync
-    conn.execute(db.text("""
+    c.execute(_db.text("""
         CREATE TRIGGER IF NOT EXISTS notes_ai AFTER INSERT ON notes BEGIN
             INSERT INTO notes_fts(rowid, raw_text) VALUES (NEW.rowid, NEW.raw_text);
         END
     """))
-    conn.execute(db.text("""
+    c.execute(_db.text("""
         CREATE TRIGGER IF NOT EXISTS notes_ad AFTER DELETE ON notes BEGIN
             INSERT INTO notes_fts(notes_fts, rowid, raw_text) VALUES('delete', OLD.rowid, OLD.raw_text);
         END
     """))
-    conn.execute(db.text("""
+    c.execute(_db.text("""
         CREATE TRIGGER IF NOT EXISTS notes_au AFTER UPDATE ON notes BEGIN
             INSERT INTO notes_fts(notes_fts, rowid, raw_text) VALUES('delete', OLD.rowid, OLD.raw_text);
             INSERT INTO notes_fts(rowid, raw_text) VALUES (NEW.rowid, NEW.raw_text);
         END
     """))
-    conn.commit()
-    conn.close()
+
+    if conn is None:
+        c.commit()
+        c.close()
+
+
+def init_vec(conn=None):
+    """Create sqlite-vec virtual table for vector search on note chunks."""
+    from extensions import db as _db
+    c = conn or _db.engine.connect()
+
+    try:
+        c.execute(_db.text("""
+            CREATE VIRTUAL TABLE IF NOT EXISTS vec_chunks USING vec0(
+                chunk_id TEXT PRIMARY KEY,
+                embedding FLOAT[1536]
+            )
+        """))
+        if conn is None:
+            c.commit()
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"sqlite-vec not available, vector search disabled: {e}")
+    finally:
+        if conn is None:
+            try:
+                c.close()
+            except Exception:
+                pass

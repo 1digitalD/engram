@@ -19,20 +19,27 @@ def _get_client():
 PARA_BUCKETS = ["INBOX", "PROJECTS", "AREAS", "RESOURCES", "ARCHIVES"]
 
 CLASSIFIER_PROMPT = """You are an assistant that classifies notes using the PARA method:
-- Projects: active work with a deadline or outcome you're working toward
-- Areas: ongoing responsibilities you maintain (no end date)
-- Resources: reference material worth keeping for later
-- Archives: dormant information保留 but potentially useful
-- Inbox: needs processing or isn't clear yet
+- PROJECTS: active work with a deadline or outcome you're working toward
+- AREAS: ongoing responsibilities you maintain (no end date)
+- RESOURCES: reference material worth keeping for later
+- ARCHIVES: dormant information but potentially useful
+- INBOX: needs processing or isn't clear yet
 
 Classify this note. Respond ONLY with valid JSON:
 {{
-  "bucket": "inbox|projects|areas|resources|archives",
+  "bucket": "INBOX|PROJECTS|AREAS|RESOURCES|ARCHIVES",
   "suggested_project": "project name or null",
   "suggested_area": "area name or null",
   "suggested_tags": ["tag1", "tag2"],
-  "reasoning": "one sentence why"
+  "reasoning": "one sentence why",
+  "confidence": 0.0
 }}
+
+The confidence field (0.0-1.0) should reflect how certain you are about the classification:
+- 0.9+ : very clear classification
+- 0.7-0.9: reasonably confident
+- 0.5-0.7: uncertain, multiple buckets could fit
+- below 0.5: very unclear, use INBOX
 
 Note to classify:
 ---
@@ -47,16 +54,13 @@ Existing areas (prefer matching these by name if relevant): {areas}
 def classify_note(raw_text: str, projects: list = None, areas: list = None) -> dict:
     """
     Classify a raw note into PARA bucket using OpenAI GPT-4o.
-    Returns dict with bucket, suggested_project, suggested_area, suggested_tags, reasoning.
-    On failure, returns bucket='inbox' and logs the error.
-
-    projects: list of existing project names to match against
-    areas: list of existing area names to match against
+    Returns dict with bucket, suggested_project, suggested_area, suggested_tags, reasoning, confidence.
+    On failure, returns bucket='INBOX' and logs the error.
     """
     if not os.getenv("OPENAI_API_KEY"):
         logger.warning("OPENAI_API_KEY not set — skipping classification")
         return {
-            "bucket": "inbox",
+            "bucket": "INBOX",
             "suggested_project": None,
             "suggested_area": None,
             "suggested_tags": [],
@@ -64,7 +68,6 @@ def classify_note(raw_text: str, projects: list = None, areas: list = None) -> d
             "confidence": 0.0,
         }
 
-    # Build project/area context from existing DB for better suggestions
     projects_str = ", ".join(projects) if projects else "(none)"
     areas_str = ", ".join(areas) if areas else "(none)"
 
@@ -74,7 +77,6 @@ def classify_note(raw_text: str, projects: list = None, areas: list = None) -> d
         areas=areas_str,
     )
 
-    # Exponential backoff for rate limits
     max_attempts = 4
     last_error = None
 
@@ -90,30 +92,34 @@ def classify_note(raw_text: str, projects: list = None, areas: list = None) -> d
                     {"role": "user", "content": prompt},
                 ],
                 response_format={"type": "json_object"},
-                temperature=0.3,
+                temperature=0.2,
                 max_tokens=300,
             )
 
-            content = response.choices[0].message.content
             import json
-
+            content = response.choices[0].message.content
             result = json.loads(content)
-            result["confidence"] = 0.8  # placeholder until we parse usage
 
-            # Validate bucket
-            if result.get("bucket") not in PARA_BUCKETS:
-                result["bucket"] = "inbox"
+            # Normalize bucket to uppercase
+            bucket = result.get("bucket", "INBOX").upper()
+            if bucket not in PARA_BUCKETS:
+                bucket = "INBOX"
+            result["bucket"] = bucket
+
+            # Clamp confidence
+            confidence = float(result.get("confidence", 0.7))
+            result["confidence"] = max(0.0, min(1.0, confidence))
 
             return result
 
         except RateLimitError as e:
-            wait_time = (2**attempt) * 1.0
+            wait_time = (2 ** attempt) * 1.0
             logger.warning(f"OpenAI rate limit, retrying in {wait_time}s: {e}")
             time.sleep(wait_time)
             last_error = e
 
         except APITimeoutError as e:
-            wait_time = (2**attempt) * 1.0
+            wait_time = (2 ** attempt) * 1.0
             logger.warning(f"OpenAI timeout, retrying in {wait_time}s: {e}")
             time.sleep(wait_time)
             last_error = e
@@ -123,10 +129,9 @@ def classify_note(raw_text: str, projects: list = None, areas: list = None) -> d
             last_error = e
             break
 
-    # All retries failed
     logger.error(f"Classification failed after {max_attempts} attempts: {last_error}")
     return {
-        "bucket": "inbox",
+        "bucket": "INBOX",
         "suggested_project": None,
         "suggested_area": None,
         "suggested_tags": [],

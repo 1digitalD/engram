@@ -1,408 +1,395 @@
-# Engram — Specification
+# Engram v2 — Specification
 
-> A personal knowledge and task management system. An engram is a physical trace in the brain that stores a memory — knowledge that persists and can be recalled.
+> An AI-native personal knowledge management system. An engram is a physical memory trace in the brain — knowledge that persists and can be recalled at the right moment.
 
-## 1. Overview
+---
 
-**Goal:** Build a self-hosted second brain that captures, classifies, stores, and retrieves information via web UI and an AI agent (Hermes).
+## 1. Vision
 
-**Core metaphor:** Your brain has an "inbox" for new information. Some gets processed into projects (active work), areas (ongoing responsibilities), resources (reference), or archives (dormant). Engram automates this classification and makes everything searchable.
+**Goal:** A self-hosted second brain that captures anything (text, image, PDF, audio, URLs), classifies it intelligently using the PARA method, makes it findable through hybrid semantic + keyword search, and exposes everything to AI agents via a native MCP server.
 
-**Target users:** Dan (single user, self-hosted on Mac Mini)
+**Target user:** Single user (Dan), self-hosted on Mac Mini.
+
+**Core principle:** AI handles classification, entity extraction, and linking automatically. The user focuses on capture and review; the system handles organization.
 
 ---
 
 ## 2. Architecture
 
 ```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│   Hermes    │────▶│  Flask API  │────▶│   SQLite    │
-│  (Discord)  │     │   :5000     │     │  engram.db  │
-└─────────────┘     └─────────────┘     └─────────────┘
-                           │
-                    ┌──────┴──────┐
-                    ▼             ▼
-              ┌─────────┐   ┌──────────┐
-              │ Web UI  │   │ OpenAI   │
-              │ :5000   │   │ (GPT-4o) │
-              └─────────┘   └──────────┘
+┌──────────────────────────────────────────────────────────────┐
+│                         CLIENTS                              │
+│  Web UI (React)    Hermes (Discord)    Claude / any MCP agent│
+└──────────┬──────────────────┬────────────────┬──────────────┘
+           │ HTTP             │ MCP (STDIO)    │ MCP (STDIO)
+           ▼                  ▼                ▼
+┌──────────────────┐   ┌─────────────────────────────┐
+│  Flask REST API  │   │     fastmcp MCP Server       │
+│  flask-openapi3  │   │  capture · search · review   │
+│  /api/v1/batch   │   │  get_note · link · list      │
+│  /api/v1/events  │   └──────────────┬──────────────┘
+│    (SSE stream)  │                  │ HTTP
+└────────┬─────────┘──────────────────┘
+         │
+         ▼
+┌──────────────────────────────────────────────────────┐
+│                 Ingestion Pipeline                    │
+│                                                      │
+│  Multi-modal intake                                  │
+│  ├── Text: direct                                    │
+│  ├── Image: GPT-4o vision (base64)                   │
+│  ├── PDF: pymupdf4llm → Markdown                     │
+│  ├── Audio: OpenAI whisper-1                         │
+│  └── URL: trafilatura                                │
+│                                                      │
+│  GPT-4o Structured Extraction (single call)          │
+│  ├── PARA bucket + confidence                        │
+│  ├── Tasks (title, due, priority)                    │
+│  ├── People (name, email)                            │
+│  ├── Project/area match                              │
+│  └── Tags (2-6)                                      │
+│                                                      │
+│  Entity Resolution (cascade)                         │
+│  ├── 1. Exact normalized match                       │
+│  ├── 2. rapidfuzz token_set_ratio ≥ 88               │
+│  └── 3. Embedding cosine ≥ 0.85                      │
+│                                                      │
+│  Auto-create at confidence ≥ 85%                     │
+└──────────────────────┬───────────────────────────────┘
+                       │
+                       ▼
+         ┌─────────────────────────────────┐
+         │         engram.db (SQLite)      │
+         │  notes · projects · areas       │
+         │  tasks · people · tags          │
+         │  note_chunks (embedding chunks) │
+         │  links (graph adjacency)        │
+         │  notes_fts (FTS5 virtual)       │
+         │  vec_chunks (sqlite-vec)        │
+         └─────────────────────────────────┘
+                       │
+           ┌───────────┼───────────┐
+           ▼           ▼           ▼
+    ┌─────────┐  ┌──────────┐  ┌───────┐
+    │  FTS5   │  │ sqlite-  │  │ Links │
+    │  BM25   │  │   vec    │  │ graph │
+    │ search  │  │  kNN     │  │ RDF   │
+    └────┬────┘  └────┬─────┘  └───────┘
+         └────────────┘
+              RRF fusion (k=60)
+              Hybrid search
 ```
-
-**Tech stack:**
-- Flask (Python 3.11+)
-- SQLAlchemy + SQLite (FTS5 for full-text search)
-- OpenAI GPT-4o for classification
-- Jinja2 templates + vanilla JS (no SPA)
-- Pytest for testing
 
 ---
 
-## 3. Data Model
+## 3. Tech Stack
 
-### Entities
-
-**Note** (the core entity)
-```
-id: UUID (primary key)
-raw_text: TEXT (the captured content)
-bucket: ENUM ('inbox', 'projects', 'areas', 'resources', 'archives')
-is_archived: BOOLEAN
-created_at: DATETIME
-modified_at: DATETIME
-
-# Relationships
-project_id: FK (nullable, many-to-one)
-area_id: FK (nullable, many-to-one)
-tags: M2M through note_tags
-person_id: FK (nullable, for people-related notes)
-```
-
-**Project**
-```
-id: UUID
-name: TEXT
-description: TEXT (nullable)
-priority: ENUM ('low', 'medium', 'high', 'urgent')
-color: TEXT (hex, nullable)
-deadline: DATETIME (nullable)
-is_archived: BOOLEAN
-created_at: DATETIME
-modified_at: DATETIME
-```
-
-**Area**
-```
-id: UUID
-name: TEXT
-description: TEXT (nullable)
-color: TEXT (hex, nullable)
-created_at: DATETIME
-modified_at: DATETIME
-```
-
-**Tag**
-```
-id: UUID
-name: TEXT (unique)
-color: TEXT (hex, nullable)
-created_at: DATETIME
-```
-
-**Person**
-```
-id: UUID
-name: TEXT
-email: TEXT (nullable)
-discord_id: TEXT (nullable)
-notes: TEXT (free-form notes about the person)
-last_contacted_at: DATETIME (nullable)
-created_at: DATETIME
-modified_at: DATETIME
-```
-
-**Task**
-```
-id: UUID
-title: TEXT
-description: TEXT (nullable)
-status: ENUM ('pending', 'in_progress', 'done', 'cancelled')
-priority: ENUM ('low', 'medium', 'high', 'urgent')
-due_date: DATETIME (nullable)
-project_id: FK (nullable)
-created_at: DATETIME
-modified_at: DATETIME
-```
-
-**WeeklySummary**
-```
-id: UUID
-entity_type: ENUM ('project', 'area')
-entity_id: UUID
-entity_name: TEXT
-week_year: INT
-week_number: INT
-summary_content: TEXT
-note_count: INT
-created_at: DATETIME
-```
-
-### Full-Text Search
-
-SQLite FTS5 virtual table on `notes.raw_text` with triggers for sync.
+| Layer | Technology |
+|---|---|
+| Backend | Python 3.11+, Flask 3.x, Flask-SQLAlchemy 3.x |
+| Database | SQLite with FTS5 (full-text) + sqlite-vec (vector) |
+| AI | OpenAI GPT-4o (extraction, vision), text-embedding-3-small, whisper-1 |
+| Entity extraction | Pydantic + OpenAI Structured Outputs (strict mode) |
+| Entity resolution | exact match → rapidfuzz → embedding cosine |
+| PDF extraction | pymupdf4llm → Markdown |
+| Web extraction | trafilatura 2.x |
+| MCP server | fastmcp (STDIO for local, Streamable HTTP for remote) |
+| Frontend | React 19, Vite 8, Zustand, React Router 7, D3 (graph view) |
 
 ---
 
-## 4. API Design
+## 4. Data Models
 
-Base URL: `http://localhost:5000/api/v1`
+### Note (core entity)
+```
+id: UUID
+raw_text: TEXT
+bucket: ENUM (INBOX|PROJECTS|AREAS|RESOURCES|ARCHIVES)
+is_archived: BOOLEAN
+ai_meta: JSON  {confidence, reasoning, summary, source, extracted_tasks, extracted_people, ...}
+project_id: FK → projects (nullable)
+area_id: FK → areas (nullable)
+person_id: FK → people (nullable)
+tags: M2M → tags
+created_at, modified_at: DATETIME
+```
+
+### Project / Area / Tag / Person / Task / WeeklySummary
+(unchanged from v1 schema)
+
+### NoteChunk (new — embedding storage)
+```
+id: UUID (= note_id + "_" + chunk_index)
+note_id: FK → notes
+chunk_index: INT
+chunk_text: TEXT
+embedding_model: TEXT  (default: text-embedding-3-small)
+created_at: DATETIME
+```
+
+### Link (new — knowledge graph)
+```
+id: UUID
+src_id: FK → notes
+dst_id: FK → notes
+link_type: TEXT  (related|child_of|depends_on|see_also|mentions)
+weight: FLOAT  (1.0 = manual, 0-1 = embedding similarity)
+source: TEXT  (manual|embedding|llm|wikilink)
+created_at: DATETIME
+```
+
+### Virtual tables
+```
+notes_fts: FTS5 virtual table (content='notes', content_rowid='rowid')
+vec_chunks: vec0 virtual table (chunk_id TEXT, embedding FLOAT[1536])
+```
+
+---
+
+## 5. API Routes
+
+Base URL: `http://localhost:5001/api/v1`
+
+### Core Ingestion
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/ingest` | Smart multi-modal ingestion (text, image, PDF, audio, URL) |
+| POST | `/batch` | Execute up to 50 operations in one request |
 
 ### Notes
-
 | Method | Endpoint | Description |
 |---|---|---|
-| GET | `/notes` | List notes (filter by bucket, project, area, tag) |
-| POST | `/notes` | Create note (auto-classify via AI) |
-| GET | `/notes/<id>` | Get single note |
-| PATCH | `/notes/<id>` | Update note |
+| GET | `/notes` | List notes (bucket, project_id, area_id, tag_id, archived, limit, offset) |
+| POST | `/notes` | Create note with AI classification |
+| GET | `/notes/<id>` | Get note |
+| PATCH | `/notes/<id>` | Update note (text, bucket, tags, project, archive) |
 | DELETE | `/notes/<id>` | Delete note |
-| GET | `/notes/search?q=` | Full-text search |
+| GET | `/notes/search?q=&mode=hybrid` | Hybrid search (fts\|semantic\|hybrid) |
+| GET | `/notes/<id>/links` | Get outgoing + incoming graph links |
+| GET | `/notes/<id>/related` | Get semantically related notes |
 
-### Projects
-
+### Knowledge Graph
 | Method | Endpoint | Description |
 |---|---|---|
-| GET | `/projects` | List projects |
-| POST | `/projects` | Create project |
-| GET | `/projects/<id>` | Get project with its notes |
-| PATCH | `/projects/<id>` | Update project |
-| DELETE | `/projects/<id>` | Delete project |
+| POST | `/links` | Create manual link |
+| DELETE | `/links/<id>` | Remove link |
 
-### Areas
+### Projects / Areas / Tags / People / Tasks
+Standard CRUD for each, all using PATCH for updates.
 
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | `/areas` | List areas |
-| POST | `/areas` | Create area |
-| GET | `/areas/<id>` | Get area with its notes |
-| PATCH | `/areas/<id>` | Update area |
-| DELETE | `/areas/<id>` | Delete area |
-
-### Tags
-
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | `/tags` | List all tags |
-| POST | `/tags` | Create tag |
-| PATCH | `/tags/<id>` | Update tag |
-| DELETE | `/tags/<id>` | Delete tag |
-
-### People
-
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | `/people` | List people |
-| POST | `/people` | Create person |
-| GET | `/people/<id>` | Get person |
-| PATCH | `/people/<id>` | Update person |
-| DELETE | `/people/<id>` | Delete person |
-
-### Tasks
-
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | `/tasks` | List tasks (filter by status, project) |
-| POST | `/tasks` | Create task |
-| PATCH | `/tasks/<id>` | Update task (including status change) |
-| DELETE | `/tasks/<id>` | Delete task |
-
-### Weekly Summaries
-
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | `/summaries` | List summaries |
-| POST | `/summaries/generate` | Trigger AI summary for a project/area |
-| GET | `/summaries/<id>` | Get single summary |
-
-### Health
-
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | `/health` | Returns status: db, ai, etc. |
+### Summaries / Health
+Unchanged from v1.
 
 ---
 
-## 5. Web UI
+## 6. MCP Server Tools
 
-Pages (Jinja2 templates):
+Located at `mcp/server.py`. Run with `python mcp/server.py` (STDIO transport).
 
-| Route | Page |
+| Tool | Description |
 |---|---|
-| `/` | Dashboard — inbox count, recent notes, active projects |
-| `/inbox` | Inbox — unprocessed notes |
-| `/notes` | All notes (filterable by bucket) |
-| `/notes/<id>` | Note detail |
-| `/projects` | Projects list |
-| `/projects/<id>` | Project detail + its notes |
-| `/areas` | Areas list |
-| `/areas/<id>` | Area detail + its notes |
-| `/tags` | Tags cloud |
-| `/people` | People list |
-| `/people/<id>` | Person detail |
-| `/tasks` | Task board (Kanban by status) |
-| `/search` | Search results |
-| `/review` | Weekly review |
+| `capture(content, source?, media_url?, media_type?, media_base64?, media_mime?)` | Ingest anything into Engram |
+| `search(query, mode?, bucket?, project_id?, limit?)` | Hybrid semantic + keyword search |
+| `get_note(note_id, include_links?)` | Fetch note with full metadata and backlinks |
+| `list_recent(scope?, limit?, project_id?)` | Inbox / recent notes / pending tasks |
+| `update_note(note_id, ...)` | Edit, re-route, archive a note |
+| `link_notes(src_id, dst_id, link_type?)` | Create knowledge graph link |
+| `review(scope?)` | Daily/weekly digest of items needing attention |
 
----
-
-## 6. AI Classification
-
-### How it works
-
-1. User submits raw text via API or UI
-2. Engram sends text + context to OpenAI GPT-4o
-3. GPT-4o returns: `{ bucket, suggested_project?, suggested_area?, suggested_tags?, reasoning }`
-4. Note is created with AI recommendation
-5. User can accept or override the classification
-
-### Prompt template
-
-```
-You are an assistant that classifies notes using the PARA method:
-- Projects: active work with a deadline or outcome
-- Areas: ongoing responsibilities (no end date)
-- Resources: reference material worth keeping
-- Archives: dormant but worth preserving
-- Inbox: needs processing
-
-Classify this note:
----
-{raw_text}
----
-
-Respond in JSON:
+### Claude Desktop / Code integration
+Add to `~/.claude/claude_desktop_config.json`:
+```json
 {
-  "bucket": "projects|areas|resources|archives|inbox",
-  "suggested_project": "name or null",
-  "suggested_area": "name or null",
-  "suggested_tags": ["tag1", "tag2"],
-  "reasoning": "why this classification"
+  "mcpServers": {
+    "engram": {
+      "command": "python",
+      "args": ["/path/to/engram/mcp/server.py"],
+      "env": { "ENGRAM_API_BASE": "http://localhost:5001/api/v1" }
+    }
+  }
 }
 ```
 
 ---
 
-## 7. Hermes Integration
+## 7. Ingestion Pipeline Detail
 
-Hermes (the AI agent) will interact with Engram via the REST API.
+### `/api/v1/ingest` body
+```json
+{
+  "content": "text content (required if no media)",
+  "source": "discord|web|api|hermes",
+  "media_url": "https://...",
+  "media_type": "image|pdf|audio|url",
+  "media_base64": "base64 string",
+  "media_mime": "image/jpeg"
+}
+```
 
-**Capabilities:**
-- "Add a note about X" → POST /api/v1/notes
-- "What notes do I have about X?" → GET /api/v1/notes/search?q=X
-- "Show me my inbox" → GET /api/v1/notes?bucket=inbox
-- "Create a project for X" → POST /api/v1/projects
-- "What's on my task list?" → GET /api/v1/tasks
-- "Add a task to project X" → POST /api/v1/tasks
+### Pipeline steps
+1. **Media extraction** — image→GPT-4o vision, PDF→pymupdf4llm, audio→Whisper, URL→trafilatura
+2. **AI extraction** — GPT-4o Structured Outputs (single call):
+   - PARA bucket + confidence (self-reported 0-1)
+   - Tasks (title, due_date, priority, project_hint)
+   - People (name, email, context)
+   - Suggested project + area names
+   - Tags (2-6, lowercase)
+3. **Entity resolution** — exact → rapidfuzz ≥ 88 → embedding cosine ≥ 0.85
+4. **Auto-create** — new entities created if confidence ≥ 0.85
+5. **Note creation** — linked to resolved project/area/person/tags
+6. **Background** — embedding generation + auto-link discovery (threaded)
 
-Hermes will be configured to use Engram as a skill/tool.
-
----
-
-## 8. MVP Scope (MoSCoW)
-
-### Must have
-- [ ] Flask app with SQLite database
-- [ ] Note CRUD with bucket classification
-- [ ] Project and Area entities
-- [ ] Tag system (M2M with notes)
-- [ ] Full-text search (FTS5)
-- [ ] Web UI list views for all entities
-- [ ] REST API for all entities
-- [ ] OpenAI classification endpoint
-- [ ] Basic search UI
-
-### Should have
-- [ ] Task management (CRUD, status, priority, due date)
-- [ ] People database
-- [ ] Weekly summary generation
-- [ ] Dashboard with stats
-
-### Could have
-- [ ] Semantic/similarity search (embeddings)
-- [ ] Mobile-friendly UI
-- [ ] Email capture (future)
-- [ ] Voice input (future)
-
-### Won't have (MVP)
-- [ ] Multi-user / auth (single user)
-- [ ] Real-time sync
-- [ ] Mobile app
-- [ ] Collaboration features
+### Confidence gating
+- ≥ 0.85: auto-create entities, route to correct bucket
+- < 0.85: note placed in INBOX, extracted entities stored in ai_meta only
 
 ---
 
-## 9. Error Handling
+## 8. Search
 
-| Scenario | Response |
-|---|---|
-| DB write fails | 500 + logged, retry once |
-| OpenAI timeout | 504 + note saved as inbox (unclassified) |
-| OpenAI rate limit | 429 + exponential backoff (1s, 2s, 4s, 8s) |
-| Invalid input | 400 + validation errors |
-| Not found | 404 + entity type |
+### Hybrid RRF
+```
+fts_results = FTS5 BM25 top 60
+sem_results = sqlite-vec cosine kNN top 60
+rrf_score(d) = Σ 1/(60 + rank_i)  across systems
+return top 20 by rrf_score
+```
 
-All errors logged to `engram.log`.
+### Embedding strategy
+- Model: `text-embedding-3-small` @ 1536 dims
+- Chunking: Markdown heading splits → 400-token sliding window, 64-token overlap
+- Chunk prefix: breadcrumb (e.g. "Project: Q3 > Meeting notes 2026-04-12: ...")
+- Stored in: `note_chunks` (metadata) + `vec_chunks` (sqlite-vec virtual table)
 
 ---
 
-## 10. File Structure
+## 9. Setup
+
+```bash
+git clone https://github.com/1digitalD/engram
+cd engram
+python3.11 -m venv venv && source venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env    # add OPENAI_API_KEY
+flask init-db           # creates tables, FTS5, sqlite-vec
+flask run --port 5001   # start backend
+flask embed-backfill    # generate embeddings for existing notes (optional)
+
+# Frontend
+cd ui
+npm install
+npm run dev             # dev server at :5173 with proxy to :5001
+npm run build           # compile to ../static/
+
+# MCP server (separate terminal)
+cd mcp
+pip install -r requirements.txt
+python server.py
+```
+
+---
+
+## 10. Environment Variables
+
+```
+FLASK_APP=app.py
+FLASK_ENV=development
+SECRET_KEY=change-me-in-production
+DATABASE_URL=sqlite:///engram.db
+OPENAI_API_KEY=sk-...
+PORT=5001
+LOG_LEVEL=INFO
+
+# MCP server
+ENGRAM_API_BASE=http://localhost:5001/api/v1
+TRANSPORT=stdio   # or: http
+MCP_PORT=8765     # only used when TRANSPORT=http
+```
+
+---
+
+## 11. File Structure
 
 ```
 engram/
-├── app.py                  # Flask app factory
-├── config.py               # Configuration
-├── models.py               # SQLAlchemy models
-├── extensions.py           # Flask extensions (db, etc.)
-├── services/
-│   ├── __init__.py
-│   ├── classifier.py       # OpenAI classification
-│   ├── search.py           # FTS5 search
-│   └── summarizer.py       # Weekly summaries
-├── api/
-│   ├── __init__.py
-│   ├── notes.py
-│   ├── projects.py
-│   ├── areas.py
-│   ├── tags.py
-│   ├── people.py
-│   ├── tasks.py
-│   └── summaries.py
-├── templates/              # Jinja2 HTML
-│   ├── base.html
-│   ├── index.html          # Dashboard
-│   ├── notes/
-│   ├── projects/
-│   ├── areas/
-│   ├── tags/
-│   ├── people/
-│   ├── tasks/
-│   └── review/
-├── static/
-│   ├── style.css
-│   └── app.js
-├── tests/
-│   ├── conftest.py
-│   ├── test_models.py
-│   ├── test_api_notes.py
-│   ├── test_api_projects.py
-│   ├── test_classifier.py
-│   └── test_search.py
-├── engram.db               # SQLite (gitignored)
+├── app.py                  # Flask app factory, CLI commands
+├── config.py               # Config profiles
+├── extensions.py           # db + sqlite-vec loader
+├── models.py               # All SQLAlchemy models + FTS5/vec init
 ├── requirements.txt
 ├── .env.example
 ├── SPEC.md
-└── README.md
+├── README.md
+│
+├── api/
+│   ├── __init__.py         # Blueprint, imports all sub-modules
+│   ├── notes.py            # Notes CRUD + search
+│   ├── projects.py         # Projects CRUD
+│   ├── areas.py            # Areas CRUD
+│   ├── tags.py             # Tags CRUD
+│   ├── people.py           # People CRUD
+│   ├── tasks.py            # Tasks CRUD
+│   ├── summaries.py        # Weekly summaries
+│   ├── ingest.py           # Smart ingestion endpoint
+│   ├── links.py            # Knowledge graph endpoints
+│   └── batch.py            # Batch operations
+│
+├── services/
+│   ├── classifier.py       # Legacy PARA classifier (used by /notes)
+│   ├── extractor.py        # GPT-4o Structured Outputs extraction
+│   ├── ingestion.py        # Multi-modal pipeline + entity resolution
+│   ├── embeddings.py       # sqlite-vec storage, hybrid search helpers
+│   ├── search.py           # Hybrid FTS5 + vec search with RRF
+│   └── links.py            # Graph link helpers
+│
+├── mcp/
+│   ├── server.py           # fastmcp MCP server (7 tools)
+│   └── requirements.txt    # fastmcp, httpx
+│
+├── ui/
+│   ├── src/
+│   │   ├── api/engram.js   # API client (all endpoints, relative URLs)
+│   │   ├── stores/         # Zustand state
+│   │   ├── views/          # Page components
+│   │   └── components/     # Shared UI components
+│   ├── package.json
+│   └── vite.config.js      # Proxies /api → :5001
+│
+├── static/                 # Compiled React bundle (served by Flask)
+├── instance/engram.db      # SQLite database
+├── tests/                  # pytest suite
+└── venv/                   # Python virtual environment
 ```
 
 ---
 
-## 11. Setup Steps
+## 12. Roadmap
 
-1. `git clone https://github.com/1digitalD/engram`
-2. `cd engram`
-3. `python3.11 -m venv venv && source venv/bin/activate`
-4. `pip install -r requirements.txt`
-5. `cp .env.example .env` — add OpenAI API key
-6. `flask init-db` — create tables
-7. `flask run` — start dev server on :5000
+### Done (v2)
+- [x] Smart ingestion pipeline (`/ingest`) with GPT-4o Structured Outputs
+- [x] Multi-modal: image (GPT-4o vision), PDF (pymupdf4llm), audio (whisper-1), URL (trafilatura)
+- [x] Entity resolution: exact → rapidfuzz → embedding cascade
+- [x] Confidence-gated auto-create (≥ 85%)
+- [x] Real AI confidence scores (self-reported, not hardcoded)
+- [x] Tag creation + linking fixed
+- [x] Knowledge graph (links table, backlinks, related notes)
+- [x] Embeddings (text-embedding-3-small, 1536 dims, chunked)
+- [x] sqlite-vec integration for vector search
+- [x] Hybrid FTS5 + vector search with RRF (k=60)
+- [x] MCP server (fastmcp, STDIO, 7 high-leverage tools)
+- [x] Batch API (`/batch`, up to 50 ops)
+- [x] GET /tasks/<id> and GET /tags/<id> added
+- [x] Frontend API client: relative URLs, PATCH (not PUT), ingest + links + batch APIs
+- [x] Flask runs on port 5001 (matches Vite proxy)
 
----
-
-## 12. Out of Scope (Future)
-
-- Cloud deployment (HuggingFace Spaces, Railway, etc.)
-- Mobile app (SwiftUI or React Native)
-- Email ingestion
-- Voice-to-text
-- Browser extension
-- Collaboration
-- End-to-end encryption
+### Next
+- [ ] Daily/weekly review automation (agent-triggered digest)
+- [ ] Proactive surfacing (embedding of current context → surface old notes)
+- [ ] Stale project detection + auto-archive suggestions
+- [ ] Web clipper (browser extension or bookmarklet)
+- [ ] Daily notes page in UI
+- [ ] Knowledge graph view improvements (clusters, PageRank)
+- [ ] SSE event stream (`/events/stream`) for reactive agents
+- [ ] Auto-summarization with progressive depth
+- [ ] Spaced repetition for ideas
+- [ ] OpenAPI spec auto-generation (flask-openapi3)

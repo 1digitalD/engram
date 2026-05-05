@@ -34,6 +34,14 @@ def list_tasks():
     return jsonify({"data": [t.to_dict() for t in tasks]})
 
 
+@api_bp.route("/tasks/<task_id>", methods=["GET"])
+def get_task(task_id):
+    task = db.session.get(Task, task_id)
+    if not task:
+        return jsonify({"error": "not found"}), 404
+    return jsonify({"data": task.to_dict()})
+
+
 @api_bp.route("/tasks", methods=["POST"])
 def create_task():
     data = request.get_json()
@@ -52,7 +60,7 @@ def create_task():
     return jsonify({"data": task.to_dict()}), 201
 
 
-@api_bp.route("/tasks/<task_id>", methods=["PATCH"])
+@api_bp.route("/tasks/<task_id>", methods=["PATCH", "PUT"])
 def update_task(task_id):
     task = db.session.get(Task, task_id)
     if not task:

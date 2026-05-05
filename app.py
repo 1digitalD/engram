@@ -5,8 +5,8 @@ from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 
 from config import config
-from extensions import db
-from models import init_fts
+from extensions import db, load_sqlite_extensions
+from models import init_fts, init_vec
 
 logging.basicConfig(
     level=logging.INFO,
@@ -24,47 +24,67 @@ def create_app(config_name=None):
     app.config.from_object(config[config_name])
     CORS(app)
 
-    # Init extensions
+    # Init DB
     db.init_app(app)
 
-    # Register API blueprints
+    # Load sqlite-vec extension on every connection (graceful if not installed)
+    with app.app_context():
+        load_sqlite_extensions(db)
+
+    # Register API blueprint (includes all sub-modules)
     from api import api_bp
     app.register_blueprint(api_bp)
 
-    # ─── CLI Commands ──────────────────────────────────────────────────────
+    # ── CLI Commands ──────────────────────────────────────────────────────────
 
     @app.cli.command("init-db")
-    def init_db():
-        """Create all tables and FTS."""
+    def init_db_cmd():
+        """Create all tables, FTS5, and sqlite-vec virtual tables."""
         with app.app_context():
             db.create_all()
             try:
                 init_fts()
-                print("Tables + FTS created.")
+                logger.info("FTS5 initialized.")
             except Exception as e:
-                print(f"FTS init warning (may already exist): {e}")
+                logger.warning(f"FTS5 init warning (may already exist): {e}")
+            try:
+                init_vec()
+                logger.info("sqlite-vec initialized.")
+            except Exception as e:
+                logger.warning(f"sqlite-vec init warning: {e}")
+            print("Database ready.")
 
-    # ─── Health Check ───────────────────────────────────────────────────────
+    @app.cli.command("embed-backfill")
+    def embed_backfill_cmd():
+        """Generate embeddings for all notes that are missing them."""
+        with app.app_context():
+            from services.embeddings import backfill_embeddings
+            backfill_embeddings()
+
+    # ── Health Check ─────────────────────────────────────────────────────────
 
     @app.route("/health")
     def health():
-        status = {"db": "ok", "ai": "unknown"}
+        status = {"db": "ok", "ai": "unknown", "vec": "unknown"}
         try:
             db.session.execute(db.text("SELECT 1"))
         except Exception:
             status["db"] = "error"
 
         try:
-            if os.getenv("OPENAI_API_KEY"):
-                status["ai"] = "configured"
-            else:
-                status["ai"] = "missing_key"
+            db.session.execute(db.text("SELECT * FROM vec_chunks LIMIT 1"))
+            status["vec"] = "ok"
         except Exception:
-            status["ai"] = "error"
+            status["vec"] = "unavailable"
+
+        if os.getenv("OPENAI_API_KEY"):
+            status["ai"] = "configured"
+        else:
+            status["ai"] = "missing_key"
 
         return jsonify(status)
 
-    # ─── React UI (SPA) ─────────────────────────────────────────────────────
+    # ── React SPA ─────────────────────────────────────────────────────────────
 
     @app.route("/")
     def serve_react_app():
@@ -74,7 +94,7 @@ def create_app(config_name=None):
     def serve_static(filename):
         return send_from_directory("static", filename)
 
-    # ─── Error Handlers ─────────────────────────────────────────────────────
+    # ── Error Handlers ────────────────────────────────────────────────────────
 
     @app.errorhandler(404)
     def not_found(e):
@@ -95,5 +115,5 @@ def create_app(config_name=None):
 app = create_app()
 
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", 5000))
+    port = int(os.getenv("PORT", 5001))
     app.run(host="0.0.0.0", port=port, debug=True)
