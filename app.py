@@ -85,14 +85,16 @@ def create_app(config_name=None):
         return jsonify(status)
 
     # ── React SPA ─────────────────────────────────────────────────────────────
+    # Serve static assets directly; fall through to index.html for SPA routes.
 
-    @app.route("/")
-    def serve_react_app():
-        return send_from_directory("static", "index.html")
-
-    @app.route("/<path:filename>")
-    def serve_static(filename):
-        return send_from_directory("static", filename)
+    @app.route("/", defaults={"path": ""})
+    @app.route("/<path:path>")
+    def serve_spa(path):
+        import os as _os
+        static_file = _os.path.join(app.static_folder or "static", path)
+        if path and _os.path.isfile(static_file):
+            return send_from_directory(app.static_folder or "static", path)
+        return send_from_directory(app.static_folder or "static", "index.html")
 
     # ── Error Handlers ────────────────────────────────────────────────────────
 
@@ -100,7 +102,7 @@ def create_app(config_name=None):
     def not_found(e):
         if request.path.startswith("/api/"):
             return jsonify({"error": "not found"}), 404
-        return send_from_directory("static", "index.html"), 404
+        return send_from_directory(app.static_folder or "static", "index.html"), 200
 
     @app.errorhandler(500)
     def server_error(e):
