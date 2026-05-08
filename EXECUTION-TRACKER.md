@@ -57,7 +57,7 @@ For each batch:
 
 ## Status
 - [x] Batch 1 started
-- [ ] Batch 1 committed
+- [x] Batch 1 committed
 - [x] Batch 2 started
 - [ ] Batch 2 committed
 - [ ] Batch 3 started
@@ -76,7 +76,10 @@ For each batch:
 - Added `captureOpen`, `openCapture`, `closeCapture`, plus `updateArea`/`deleteArea` and `updatePerson`/`deletePerson` store actions.
 - Normalized `createTask`/`updateTask` payloads so `due_date`, `area_id`, and `note_id` pass through explicitly, including null clears.
 - Fixed command palette routing for area hits and wired “Capture note” to open the capture overlay state instead of navigating.
-- Next step: inspect whether lightweight frontend validation is possible in this worktree, run it, then commit green Batch 1 and Batch 2 changes in logical units.
+- Re-validated Batch 1 before commit: backend pytest stayed green.
+- Committed Batch 1 as `db9c961` (`Add area and note relationships for projects and tasks`).
+- Frontend validation is possible, but this worktree does not track `ui/node_modules`, so `npm install && npm run build` is required each time; current build is green after install.
+- Next step: commit Batch 2 store/palette changes now that validation is green, then decide whether a bounded Batch 3 UI slice is worth the risk tonight.
 
 ## Recovery notes
 If the session resets or the gateway restarts:

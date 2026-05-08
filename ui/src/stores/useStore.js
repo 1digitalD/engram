@@ -20,6 +20,7 @@ const useStore = create((set, get) => ({
   toasts:      [],
   searchQuery: '',
   sidebarOpen: true,
+  captureOpen: false,
 
   // ── Selected / Active ─────────────────────
   activeNote:    null,
@@ -39,6 +40,8 @@ const useStore = create((set, get) => ({
 
   // Sidebar
   toggleSidebar: () => set(s => ({ sidebarOpen: !s.sidebarOpen })),
+  openCapture: () => set({ captureOpen: true }),
+  closeCapture: () => set({ captureOpen: false }),
 
   // ── Data Loaders ───────────────────────────
 
@@ -237,6 +240,35 @@ const useStore = create((set, get) => ({
     }
   },
 
+  updateArea: async (id, data) => {
+    try {
+      const res = await areasAPI.update(id, data);
+      const updated = res.data;
+      set(s => ({
+        areas: s.areas.map(a => a.id === id ? updated : a),
+        activeArea: s.activeArea?.id === id ? updated : s.activeArea,
+      }));
+      return updated;
+    } catch (e) {
+      get().addToast({ type: 'error', message: e.message });
+      throw e;
+    }
+  },
+
+  deleteArea: async (id) => {
+    try {
+      await areasAPI.delete(id);
+      set(s => ({
+        areas: s.areas.filter(a => a.id !== id),
+        activeArea: s.activeArea?.id === id ? null : s.activeArea,
+      }));
+      get().addToast({ type: 'success', message: 'Area deleted' });
+    } catch (e) {
+      get().addToast({ type: 'error', message: e.message });
+      throw e;
+    }
+  },
+
   setActiveArea: (area) => set({ activeArea: area }),
 
   // ── People ─────────────────────────────────
@@ -254,13 +286,48 @@ const useStore = create((set, get) => ({
     }
   },
 
+  updatePerson: async (id, data) => {
+    try {
+      const res = await peopleAPI.update(id, data);
+      const updated = res.data;
+      set(s => ({
+        people: s.people.map(p => p.id === id ? updated : p),
+        activePerson: s.activePerson?.id === id ? updated : s.activePerson,
+      }));
+      return updated;
+    } catch (e) {
+      get().addToast({ type: 'error', message: e.message });
+      throw e;
+    }
+  },
+
+  deletePerson: async (id) => {
+    try {
+      await peopleAPI.delete(id);
+      set(s => ({
+        people: s.people.filter(p => p.id !== id),
+        activePerson: s.activePerson?.id === id ? null : s.activePerson,
+      }));
+      get().addToast({ type: 'success', message: 'Person deleted' });
+    } catch (e) {
+      get().addToast({ type: 'error', message: e.message });
+      throw e;
+    }
+  },
+
   setActivePerson: (person) => set({ activePerson: person }),
 
   // ── Tasks ──────────────────────────────────
 
   createTask: async (data) => {
     try {
-      const res = await tasksAPI.create(data);
+      const payload = {
+        ...data,
+        due_date: data.due_date ?? null,
+        area_id: data.area_id ?? null,
+        note_id: data.note_id ?? null,
+      };
+      const res = await tasksAPI.create(payload);
       const task = res.data;
       set(s => ({ tasks: [task, ...s.tasks] }));
       get().addToast({ type: 'success', message: 'Task added' });
@@ -273,7 +340,13 @@ const useStore = create((set, get) => ({
 
   updateTask: async (id, data) => {
     try {
-      const res = await tasksAPI.update(id, data);
+      const payload = {
+        ...data,
+        ...(Object.prototype.hasOwnProperty.call(data, 'due_date') ? { due_date: data.due_date ?? null } : {}),
+        ...(Object.prototype.hasOwnProperty.call(data, 'area_id') ? { area_id: data.area_id ?? null } : {}),
+        ...(Object.prototype.hasOwnProperty.call(data, 'note_id') ? { note_id: data.note_id ?? null } : {}),
+      };
+      const res = await tasksAPI.update(id, payload);
       const updated = res.data;
       set(s => ({ tasks: s.tasks.map(t => t.id === id ? updated : t) }));
       return updated;

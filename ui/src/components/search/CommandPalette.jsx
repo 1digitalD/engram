@@ -14,7 +14,7 @@ const ICON_MAP = {
 
 export default function CommandPalette({ onClose }) {
   const navigate = useNavigate();
-  const { notes, projects, areas, people, tasks, searchNotes } = useStore();
+  const { notes, projects, areas, people, tasks, openCapture } = useStore();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -61,7 +61,7 @@ export default function CommandPalette({ onClose }) {
     switch (type) {
       case 'note':    navigate(`/notes/${item.id}`); break;
       case 'project': navigate(`/projects/${item.id}`); break;
-      case 'area':    navigate(`/areas`); break;
+      case 'area':    navigate(`/areas/${item.id}`); break;
       case 'person':  navigate(`/people`); break;
       case 'task':    navigate(`/tasks`); break;
       default: break;
@@ -85,7 +85,7 @@ export default function CommandPalette({ onClose }) {
   };
 
   const quickActions = !query && [
-    { label: 'Capture note', action: () => navigate('/notes'), icon: Inbox },
+    { label: 'Capture note', action: () => openCapture(), icon: Inbox },
     { label: 'New project', action: () => navigate('/projects'), icon: Plus },
     { label: 'View tasks', action: () => navigate('/tasks'), icon: CheckSquare },
     { label: 'View graph', action: () => navigate('/graph'), icon: Network },
