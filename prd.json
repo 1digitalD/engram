@@ -13,191 +13,99 @@
   },
   "tasks": [
     {
-      "id": "p1-ws2-note-cards-markdown-display",
-      "title": "Improve note cards markdown display and interactions",
-      "description": "Implement the Phase 1 WS2 bounded UI slice from PLAN.md in the current file layout: render note card markdown previews, add syntax/code handling if dependencies are practical, support expand/collapse, demote AI badge visibility, make tags filter notes, add spin CSS, and hide imported metadata previews.",
-      "acceptanceCriteria": [
-        "Note cards render user markdown as formatted preview instead of raw text where practical.",
-        "Collapsed cards show a bounded preview and expanded cards show full content.",
-        "Tag clicks navigate/filter without opening the note card.",
-        "AI confidence badge is visually demoted until hover/focus or equivalent low-noise treatment.",
-        "Imported Notion metadata-only notes show a muted placeholder instead of raw metadata.",
-        "Missing .spin animation CSS is present.",
-        "Frontend build passes."
-      ],
-      "dependencies": [],
-      "passes": true,
+      "id": "p2-ws1-iter-a-note-projects-schema",
+      "title": "P2-WS1-A: note_projects M2M schema",
+      "passes": false,
       "blocked": false,
-      "blockerReason": null,
-      "attempts": 1,
-      "validationEvidence": "2026-05-08: cd ui && npm install && npm run build passed; Vite chunk-size warning only; generated static assets reverted source-only.",
-      "commit": "dff2049"
-    },
-    {
-      "id": "p1-ws3-area-person-task-ui",
-      "title": "Complete area/person edit UI and task due-date inline improvements",
-      "description": "Finish remaining Phase 1 WS3 UI work not covered by Batch 2: area/person edit and delete affordances, task title inline editing, task due date in creation flow, aligned to actual components/routes.",
-      "acceptanceCriteria": [
-        "Area edit/delete UI exists in actual area views with confirmation for delete.",
-        "Person edit/delete UI exists in actual people views with confirmation for delete.",
-        "Task title can be edited inline and saved through updateTask.",
-        "Task creation supports due_date and passes null when blank.",
-        "Frontend build passes."
-      ],
-      "dependencies": [
-        "p1-ws2-note-cards-markdown-display"
-      ],
-      "passes": true,
-      "blocked": false,
-      "blockerReason": null,
-      "attempts": 1,
-      "validationEvidence": "2026-05-08: cd ui && npm install && npm run build passed; Vite chunk-size warning only; generated static assets reverted source-only.",
-      "commit": "28eea9c"
-    },
-    {
-      "id": "p1-ws4-note-detail-inline-editing",
-      "title": "Add note detail inline editing and related panels slice",
-      "description": "Implement a bounded Phase 1 WS4 note-detail slice: in-place note editing and, if current APIs support it cleanly, backlinks/tasks panels without sprawling beyond existing file layout.",
-      "acceptanceCriteria": [
-        "Note detail supports click-to-edit or clear inline edit mode with save/cancel.",
-        "Cmd/Ctrl+Enter or visible Save persists raw_text via updateNote/API.",
-        "Esc or Cancel restores the original text without saving.",
-        "Existing Write/Preview editor behavior remains working.",
-        "Frontend build passes."
-      ],
-      "dependencies": [
-        "p1-ws3-area-person-task-ui"
-      ],
-      "passes": true,
-      "blocked": false,
-      "blockerReason": null,
-      "attempts": 1,
-      "validationEvidence": "2026-05-08: cd ui && npm install && npm run build passed; Vite chunk-size warning only; generated static assets reverted source-only.",
-      "commit": "6c1a597"
-    },
-    {
-      "id": "p1-ws1-daily-notes-api",
-      "title": "Add Daily Notes API",
-      "description": "Implement P1-WS1 Iteration C from PLAN.md: /api/v1/daily GET auto-create and POST append, registered in the Flask app using this repo's current routing patterns.",
-      "acceptanceCriteria": [
-        "GET /api/v1/daily?date=YYYY-MM-DD returns an existing daily note or creates one with the planned template.",
-        "POST /api/v1/daily/append appends content to the ## Notes section for the requested date and returns the updated note.",
-        "Daily notes are detected by the planned '# Daily \u2014 YYYY-MM-DD' prefix and INBOX bucket or the closest equivalent in current schema.",
-        "Backend tests cover create, fetch existing, and append behavior.",
-        "Targeted backend pytest passes."
-      ],
-      "dependencies": [
-        "p1-ws4-note-detail-inline-editing"
-      ],
-      "passes": true,
-      "blocked": false,
-      "blockerReason": null,
-      "attempts": 1,
-      "validationEvidence": "2026-05-08: source .venv/bin/activate && PYTHONPATH=. pytest -q tests/test_phase1_backend_foundation.py tests/test_models.py tests/test_api.py passed; rerun after applying approved agent patch: 27 passed in 0.37s.",
-      "commit": "5786b9e",
+      "attempts": 0,
+      "commit": null,
+      "description": "Add note_projects join table, migrate Note.project_id, add M2M relationship",
       "validationCommands": [
-        "source .venv/bin/activate && PYTHONPATH=. pytest -q tests/test_phase1_backend_foundation.py tests/test_models.py tests/test_api.py"
+        "source .venv/bin/activate && cd /Volumes/lex1t/dev/shared/repos/engram && PYTHONPATH=. python3 -c \"from models import db, Note, Project; print('models ok')\"",
+        "source .venv/bin/activate && cd /Volumes/lex1t/dev/shared/repos/engram && PYTHONPATH=. pytest -q tests/test_models.py 2>/dev/null || PYTHONPATH=. pytest -q tests/test_api.py"
+      ],
+      "acceptanceCriteria": [
+        "note_projects join table exists",
+        "Note.projects M2M relationship works alongside project scalar",
+        "Migration: notes with project_id get rows in note_projects",
+        "Backward compat: Note.project_id still set to first project",
+        "Backend tests pass"
       ]
     },
     {
-      "id": "p1-ws1-inline-task-extraction",
-      "title": "Extract inline markdown tasks from notes",
-      "description": "Implement P1-WS1 Iteration D from PLAN.md: parse markdown checkbox lines from notes and upsert linked Task records when notes are created or updated.",
-      "acceptanceCriteria": [
-        "Markdown lines '- [ ] task' and '- [x] task' create or update tasks linked to the source note.",
-        "Checked items map to DONE and unchecked items map to PENDING using current task status conventions.",
-        "Removed checkbox lines are handled safely according to the plan, preferably CANCELLED if supported, otherwise documented equivalent.",
-        "Extraction runs on note create/update where raw_text changes.",
-        "Backend tests cover create/update/remove behavior and targeted pytest passes."
-      ],
-      "dependencies": [
-        "p1-ws1-daily-notes-api"
-      ],
-      "passes": true,
+      "id": "p2-ws1-iter-b-notes-api-multi-project",
+      "title": "P2-WS1-B: notes API multi-project support",
+      "passes": false,
       "blocked": false,
-      "blockerReason": null,
-      "attempts": 1,
-      "validationEvidence": "2026-05-08T20:54:19.834481+00:00: 31 passed in 0.46s",
-      "commit": "e0986b9",
-      "validationCommands": [
-        "source .venv/bin/activate && PYTHONPATH=. pytest -q tests/test_phase1_backend_foundation.py tests/test_models.py tests/test_api.py"
+      "attempts": 0,
+      "commit": null,
+      "description": "API accepts project_ids array, serializes projects array, maintains backward compat",
+      "validationCommands": [],
+      "acceptanceCriteria": [
+        "POST/PATCH /api/v1/notes accepts project_ids: [...]",
+        "GET /api/v1/notes serializes project_ids and projects arrays",
+        "Backward compat: scalar project_id accepted and converted to project_ids",
+        "Backend tests pass"
       ]
     },
     {
-      "id": "p1-ws4-note-detail-panels-and-today",
-      "title": "Add note detail panels and Today view slice",
-      "description": "Implement remaining bounded P1-WS4 UI from PLAN.md: backlinks panel, tasks panel, Inbox AI suggestion affordance if current data supports it, and /today view backed by the Daily Notes API.",
-      "acceptanceCriteria": [
-        "Note detail shows linked/backlink information using existing links API or a documented current equivalent.",
-        "Note detail shows tasks linked by note_id and supports adding/toggling note-linked tasks where current store/API supports it.",
-        "Inbox exposes a low-risk AI suggestion affordance from existing ai_meta when present.",
-        "/today route loads/creates today's daily note via the Daily Notes API and appears in navigation.",
-        "Frontend build passes."
-      ],
-      "dependencies": [
-        "p1-ws1-inline-task-extraction"
-      ],
-      "passes": true,
+      "id": "p2-ws1-iter-c-ui-multi-project-assignment",
+      "title": "P2-WS1-C: UI multi-project chip assignment",
+      "passes": false,
       "blocked": false,
-      "blockerReason": null,
-      "attempts": 1,
-      "validationEvidence": "2026-05-08T21:30:53.072819+00:00: - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.",
-      "commit": "d33d94a",
+      "attempts": 0,
+      "commit": null,
+      "description": "NoteEditor: single project select \u2192 multi-project chip selector with type-to-search",
       "validationCommands": [
-        "cd ui && npm install && npm run build"
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm install && npm run build"
+      ],
+      "acceptanceCriteria": [
+        "NoteEditor shows chip-based multi-project selector",
+        "Type to search projects, click to add chip",
+        "Click chip X to remove",
+        "NoteDetailView shows project chips, linkable and removable",
+        "Frontend build passes"
       ]
     },
     {
-      "id": "p1-ws5-navigation-layout-polish",
-      "title": "Complete Phase 1 navigation and layout polish",
-      "description": "Implement P1-WS5 from PLAN.md: sidebar restructure, entity header cleanup, AreaFocus projects/tasks tabs, ProjectFocus area breadcrumb, graph open-node action, adapted to current UI.",
-      "acceptanceCriteria": [
-        "Sidebar/nav structure reflects planned high-value routes without breaking existing navigation.",
-        "AreaFocus includes projects/tasks organization where supported by current data.",
-        "ProjectFocus shows parent area breadcrumb when area_id/area data exists.",
-        "Graph nodes expose an open action or equivalent navigation affordance.",
-        "Frontend build passes."
-      ],
-      "dependencies": [
-        "p1-ws4-note-detail-panels-and-today"
-      ],
-      "passes": true,
+      "id": "p2-ws2-typed-resources-schema-api",
+      "title": "P2-WS2: Typed Resources schema and API",
+      "passes": false,
       "blocked": false,
-      "blockerReason": null,
-      "attempts": 1,
-      "validationEvidence": "2026-05-08: cd ui && npm install && npm run build passed; chunk size warning only; static assets reverted source-only.",
-      "commit": "8aaaa1c",
-      "validationCommands": [
-        "cd ui && npm install && npm run build"
+      "attempts": 0,
+      "commit": null,
+      "description": "Resource model with type enum, CRUD API, resource_tags association",
+      "validationCommands": [],
+      "acceptanceCriteria": [
+        "Resource model with ResourceType enum (ARTICLE, BOOK, URL, VIDEO, PAPER, TOOL, OTHER)",
+        "Resource CRUD API: POST/GET/PATCH/DELETE /api/v1/resources",
+        "GET /api/v1/resources?type=X filters by resource_type",
+        "area relationship with resources",
+        "Backend tests pass"
       ]
     },
     {
-      "id": "p1-ws6-power-features",
-      "title": "Complete Phase 1 power features",
-      "description": "Implement P1-WS6 from PLAN.md: floating quick capture, interactive task checkboxes, keyboard navigation/help, and reconcile with already-completed tag filtering.",
-      "acceptanceCriteria": [
-        "Floating quick capture overlay is wired to existing captureOpen/openCapture/closeCapture store state.",
-        "Task checkboxes are interactive where task rows/cards are displayed and persist status updates.",
-        "Basic keyboard shortcuts/help are discoverable and do not interfere with text input.",
-        "Already-completed tag filtering remains working.",
-        "Frontend build passes."
-      ],
-      "dependencies": [
-        "p1-ws5-navigation-layout-polish"
-      ],
-      "passes": true,
+      "id": "p2-ws2-ui-resources-list-detail",
+      "title": "P2-WS2-UI: Resources list and detail views",
+      "passes": false,
       "blocked": false,
-      "blockerReason": null,
-      "attempts": 1,
-      "validationEvidence": "2026-05-08: cd ui && npm install && npm run build passed; chunk size warning only; static/ build output restored to source-tracking state.",
-      "commit": "ac43861",
+      "attempts": 0,
+      "commit": null,
+      "description": "Resources list view and resource detail view with type icon, rating, read state",
       "validationCommands": [
-        "cd ui && npm install && npm run build"
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm install && npm run build"
+      ],
+      "acceptanceCriteria": [
+        "Resources.jsx shows resource cards with type icon and rating stars",
+        "ResourceDetail.jsx shows full resource with edit form",
+        "Type filter chips on list view",
+        "Frontend build passes"
       ]
     }
   ],
   "integrationBranch": "overhaul/full-implementation-loop",
   "mergePolicy": "Merge validated task commits into overhaul/full-implementation-loop only; merge to main after all phases pass end-to-end validation.",
   "planSource": "PLAN.md",
-  "queuePolicy": "When no pending tasks remain, convert the next PLAN.md slice into bounded tasks with acceptance criteria before launching implementation agents."
+  "queuePolicy": "When no pending tasks remain, convert the next PLAN.md slice into bounded tasks with acceptance criteria before launching implementation agents.",
+  "phase": 2
 }
