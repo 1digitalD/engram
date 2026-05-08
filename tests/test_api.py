@@ -1,4 +1,6 @@
 import json
+import os
+from unittest.mock import MagicMock, patch
 
 from extensions import db
 from models import BucketType, Note, Task, TaskStatus, Summary, SummaryGranularity
@@ -721,3 +723,75 @@ def test_summary_create_requires_note(client, app):
             content_type="application/json",
         )
         assert res.status_code == 404
+
+
+def test_summarize_notes_endpoint_persists_summary(client, app):
+    with app.app_context():
+        os.environ["ANTHROPIC_API_KEY"] = "test-key"
+        n1 = client.post(
+            "/api/v1/notes",
+            data=json.dumps({"raw_text": "Alpha note", "classify": False}),
+            content_type="application/json",
+        )
+        n2 = client.post(
+            "/api/v1/notes",
+            data=json.dumps({"raw_text": "Beta note", "classify": False}),
+            content_type="application/json",
+        )
+        id1 = json.loads(n1.data)["data"]["id"]
+        id2 = json.loads(n2.data)["data"]["id"]
+
+        mock_usage = MagicMock(input_tokens=10, output_tokens=5)
+        mock_text_block = MagicMock()
+        mock_text_block.text = json.dumps(
+            {
+                "summary_text": "Both notes covered.",
+                "key_themes": ["t1"],
+                "action_items": ["Do the thing"],
+            }
+        )
+        mock_msg = MagicMock()
+        mock_msg.content = [mock_text_block]
+        mock_msg.usage = mock_usage
+
+        mock_client_instance = MagicMock()
+        mock_client_instance.messages.create = MagicMock(return_value=mock_msg)
+
+        with patch("anthropic.Anthropic", return_value=mock_client_instance):
+            res = client.post(
+                "/api/v1/summarize",
+                data=json.dumps(
+                    {
+                        "note_ids": [id1, id2],
+                        "granularity": "DAILY",
+                        "entity_name": "Test Entity",
+                    }
+                ),
+                content_type="application/json",
+            )
+        assert res.status_code == 201, res.data
+        body = json.loads(res.data)["data"]
+        assert body["summary_text"] == "Both notes covered."
+        assert body["granularity"] == "DAILY"
+        assert body["key_themes"] == ["t1"]
+        assert body["action_items"] == ["Do the thing"]
+        assert body["note_id"] == id1
+        assert body["summary_type"] == "progressive_llm"
+        assert body["meta"]["token_count"] == 15
+        assert body["meta"]["model_used"]
+
+
+def test_summarize_requires_entity_name(client, app):
+    with app.app_context():
+        note_res = client.post(
+            "/api/v1/notes",
+            data=json.dumps({"raw_text": "Lonely", "classify": False}),
+            content_type="application/json",
+        )
+        nid = json.loads(note_res.data)["data"]["id"]
+        res = client.post(
+            "/api/v1/summarize",
+            data=json.dumps({"note_ids": [nid], "granularity": "WEEKLY"}),
+            content_type="application/json",
+        )
+        assert res.status_code == 400

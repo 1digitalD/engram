@@ -25,9 +25,9 @@
       "id": "p3-ws1-iter-b-summarization-service",
       "title": "Summarization service",
       "description": "services/summarizer.py: summarize_notes(notes, granularity, entity_name) -> dict calling LLM. Include token budget, chunking for large note sets.",
-      "passes": false,
+      "passes": true,
       "blocked": false,
-      "attempts": 0,
+      "attempts": 1,
       "commit": null
     },
     {
