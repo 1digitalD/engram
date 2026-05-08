@@ -105,6 +105,10 @@ For each batch:
 ### 2026-05-08 branch policy update
 - Created integration branch `overhaul/full-implementation-loop` at validated HEAD `6744563`.
 - Policy: continue all remaining overhaul phases by merging validated task work into `overhaul/full-implementation-loop`. Do not merge to `main` until all phases are complete and end-to-end validation passes.
+
+- Task `p1-ws1-daily-notes-api` implemented via isolated OpenClaw code-agent session `nKddrk5d`; validated patch was manually applied to `overhaul/full-implementation-loop` to avoid merging the nested agent branch onto `main`.
+- Added `api/daily.py`, registered daily routes in `api/__init__.py`, and extended `tests/test_api.py` for daily create, fetch existing INBOX daily note, and append behavior.
+- Validation passed after applying the patch: `source .venv/bin/activate && PYTHONPATH=. pytest -q tests/test_phase1_backend_foundation.py tests/test_models.py tests/test_api.py` → `27 passed in 0.37s`.
 - The previous tracker branch `claude/reverent-knuth-45dc53` remains historical context; this branch is the new source of truth for overhaul integration.
 
 

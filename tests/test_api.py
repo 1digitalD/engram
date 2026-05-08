@@ -1,5 +1,8 @@
 import json
 
+from extensions import db
+from models import BucketType, Note
+
 
 def test_health(client):
     res = client.get("/health")
@@ -36,6 +39,84 @@ def test_get_note(client, app):
         assert res.status_code == 200
         data = json.loads(res.data)
         assert data["data"]["raw_text"] == "Get me"
+
+
+def test_get_daily_note_creates_with_template(client, app):
+    with app.app_context():
+        res = client.get("/api/v1/daily?date=2026-05-08")
+        assert res.status_code == 200
+        data = json.loads(res.data)["data"]
+
+        assert data["bucket"] == "INBOX"
+        assert data["raw_text"] == (
+            "# Daily — 2026-05-08\n\n"
+            "## Focus\n\n"
+            "## Notes\n\n"
+            "## Tasks\n"
+        )
+        assert Note.query.count() == 1
+
+
+def test_get_daily_note_fetches_existing_inbox_daily_note(client, app):
+    with app.app_context():
+        existing = Note(
+            raw_text=(
+                "# Daily — 2026-05-08\n\n"
+                "## Focus\n\n"
+                "Keep going\n\n"
+                "## Notes\n\n"
+                "Already here\n\n"
+                "## Tasks\n"
+            ),
+            bucket=BucketType.INBOX,
+        )
+        non_daily = Note(raw_text="Loose note", bucket=BucketType.INBOX)
+        archived_daily = Note(raw_text="# Daily — 2026-05-08\n", bucket=BucketType.ARCHIVES)
+        db.session.add_all([existing, non_daily, archived_daily])
+        db.session.commit()
+
+        res = client.get("/api/v1/daily?date=2026-05-08")
+        assert res.status_code == 200
+        data = json.loads(res.data)["data"]
+
+        assert data["id"] == existing.id
+        assert data["raw_text"] == existing.raw_text
+        assert Note.query.count() == 3
+
+
+def test_append_daily_note_adds_content_to_notes_section(client, app):
+    with app.app_context():
+        res = client.post(
+            "/api/v1/daily/append",
+            data=json.dumps({"date": "2026-05-08", "content": "Captured update."}),
+            content_type="application/json",
+        )
+        assert res.status_code == 200
+        data = json.loads(res.data)["data"]
+
+        assert data["raw_text"] == (
+            "# Daily — 2026-05-08\n\n"
+            "## Focus\n\n"
+            "## Notes\n\n"
+            "Captured update.\n\n"
+            "## Tasks\n"
+        )
+
+        res = client.post(
+            "/api/v1/daily/append",
+            data=json.dumps({"date": "2026-05-08", "content": "Second update."}),
+            content_type="application/json",
+        )
+        data = json.loads(res.data)["data"]
+
+        assert data["raw_text"] == (
+            "# Daily — 2026-05-08\n\n"
+            "## Focus\n\n"
+            "## Notes\n\n"
+            "Captured update.\n\n"
+            "Second update.\n\n"
+            "## Tasks\n"
+        )
 
 
 def test_update_note(client, app):
