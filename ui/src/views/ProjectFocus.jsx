@@ -9,12 +9,14 @@ import styles from './ProjectFocus.module.css';
 export default function ProjectFocus() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { projects, notes, tasks, people, createNote } = useStore();
+  const { projects, notes, tasks, people, areas } = useStore();
   const [tab, setTab] = useState('notes');
   const [showNoteEditor, setShowNoteEditor] = useState(false);
 
   const project = projects.find(p => p.id === id);
-  if (!project) return <div className={styles.page}><p>Project not found.</p><button onClick={() => navigate('/projects')}>Back</button></div>;
+  if (!project) return <div className={styles.page}><p>Project not found.</p><button type="button" onClick={() => navigate('/projects')}>Back</button></div>;
+
+  const parentArea = project.area_id ? areas.find(a => a.id === project.area_id) : null;
 
   const projectNotes = notes.filter(n => n.project_id === id);
   const projectTasks = tasks.filter(t => t.project_id === id);
@@ -25,7 +27,17 @@ export default function ProjectFocus() {
 
   return (
     <div className={styles.page}>
-      <button className={styles.backBtn} onClick={() => navigate('/projects')}>
+      {parentArea && (
+        <nav className={styles.breadcrumb} aria-label="Breadcrumb">
+          <Link to="/areas">Areas</Link>
+          <span className={styles.breadcrumbSep}>/</span>
+          <Link to={`/areas/${parentArea.id}`}>{parentArea.name}</Link>
+          <span className={styles.breadcrumbSep}>/</span>
+          <span className={styles.breadcrumbCurrent}>{project.name}</span>
+        </nav>
+      )}
+
+      <button type="button" className={styles.backBtn} onClick={() => navigate('/projects')}>
         <ArrowLeft size={14} /> All Projects
       </button>
 

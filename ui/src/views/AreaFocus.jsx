@@ -1,16 +1,17 @@
 import React, { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Plus, Pencil, Trash2 } from 'lucide-react';
 import Modal from '../components/ui/Modal';
 import useStore from '../stores/useStore';
 import NoteCard from '../components/notes/NoteCard';
 import NoteEditor from '../components/notes/NoteEditor';
-import styles from './ProjectFocus.module.css'; // reuse ProjectFocus styles
+import styles from './ProjectFocus.module.css';
 
 export default function AreaFocus() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { areas, notes, updateArea, deleteArea } = useStore();
+  const { areas, notes, projects, tasks, updateArea, deleteArea } = useStore();
+  const [tab, setTab] = useState('notes');
   const [showNoteEditor, setShowNoteEditor] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [name, setName] = useState('');
@@ -28,6 +29,8 @@ export default function AreaFocus() {
   );
 
   const areaNotes = notes.filter(n => n.area_id === id);
+  const areaProjects = projects.filter(p => p.area_id === id && !p.is_archived);
+  const areaTasks = tasks.filter(t => t.area_id === id);
 
   const openEdit = () => {
     setName(area.name || '');
@@ -57,7 +60,13 @@ export default function AreaFocus() {
 
   return (
     <div className={styles.page}>
-      <button className={styles.backBtn} onClick={() => navigate('/areas')}>
+      <nav className={styles.breadcrumb} aria-label="Breadcrumb">
+        <Link to="/areas">Areas</Link>
+        <span className={styles.breadcrumbSep}>/</span>
+        <span className={styles.breadcrumbCurrent}>{area.name}</span>
+      </nav>
+
+      <button type="button" className={styles.backBtn} onClick={() => navigate('/areas')}>
         <ArrowLeft size={14} /> All Areas
       </button>
 
@@ -66,29 +75,86 @@ export default function AreaFocus() {
         <h1>{area.name}</h1>
         {area.description && <p className={styles.desc}>{area.description}</p>}
         <div className={styles.headerActions}>
-          <button className="btn btn-ghost btn-sm" onClick={openEdit}>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={openEdit}>
             <Pencil size={13} /> Edit
           </button>
-          <button className="btn btn-ghost btn-sm" onClick={handleDelete}>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={handleDelete}>
             <Trash2 size={13} /> Delete
           </button>
         </div>
       </div>
 
-      <div className={styles.content}>
-        <div className={styles.contentHeader}>
-          <button className="btn btn-primary btn-sm" onClick={() => setShowNoteEditor(true)}>
-            <Plus size={13} /> Add Note
+      <div className={styles.tabs}>
+        {[
+          { key: 'notes', label: `Notes (${areaNotes.length})`, icon: FileText },
+          { key: 'projects', label: `Projects (${areaProjects.length})`, icon: FolderOpen },
+          { key: 'tasks', label: `Tasks (${areaTasks.length})`, icon: CheckSquare },
+        ].map(({ key, label }) => (
+          <button
+            key={key}
+            type="button"
+            className={`${styles.tab} ${tab === key ? styles.tabActive : ''}`}
+            onClick={() => setTab(key)}
+          >
+            {label}
           </button>
-        </div>
-        {areaNotes.length === 0 ? (
-          <p className={styles.empty}>No notes in this area yet.</p>
-        ) : (
-          <div className={styles.noteGrid}>
-            {areaNotes.map(n => <NoteCard key={n.id} note={n} />)}
-          </div>
-        )}
+        ))}
       </div>
+
+      {tab === 'notes' && (
+        <div className={styles.content}>
+          <div className={styles.contentHeader}>
+            <button type="button" className="btn btn-primary btn-sm" onClick={() => setShowNoteEditor(true)}>
+              <Plus size={13} /> Add Note
+            </button>
+          </div>
+          {areaNotes.length === 0 ? (
+            <p className={styles.empty}>No notes in this area yet.</p>
+          ) : (
+            <div className={styles.noteGrid}>
+              {areaNotes.map(n => <NoteCard key={n.id} note={n} />)}
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab === 'projects' && (
+        <div className={styles.content}>
+          {areaProjects.length === 0 ? (
+            <p className={styles.empty}>No projects linked to this area yet.</p>
+          ) : (
+            <div className={styles.taskList}>
+              {areaProjects.map(p => (
+                <Link
+                  key={p.id}
+                  to={`/projects/${p.id}`}
+                  className={styles.areaProjectRow}
+                >
+                  <span className={styles.projectDot} style={{ background: p.color || 'var(--accent)' }} />
+                  <span>{p.name}</span>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab === 'tasks' && (
+        <div className={styles.content}>
+          {areaTasks.length === 0 ? (
+            <p className={styles.empty}>No tasks linked to this area yet.</p>
+          ) : (
+            <div className={styles.taskList}>
+              {areaTasks.map(t => (
+                <div key={t.id} className={styles.taskRow}>
+                  <span>{t.title}</span>
+                  {t.status && <span className={styles.taskStatus}>{t.status}</span>}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {showNoteEditor && (
         <NoteEditor
@@ -100,8 +166,8 @@ export default function AreaFocus() {
 
       {showEditModal && (
         <Modal isOpen onClose={closeEdit} title="Edit Area" footer={
-          <><button className="btn btn-ghost" onClick={closeEdit}>Cancel</button>
-          <button className="btn btn-primary" onClick={handleUpdate} disabled={!name.trim()}>Save</button></>
+          <><button type="button" className="btn btn-ghost" onClick={closeEdit}>Cancel</button>
+          <button type="button" className="btn btn-primary" onClick={handleUpdate} disabled={!name.trim()}>Save</button></>
         }>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
             <div>

@@ -170,8 +170,14 @@ export default function NoteDetailView() {
 
   return (
     <div className={styles.page}>
+      <nav className={styles.breadcrumb} aria-label="Breadcrumb">
+        <Link to="/notes">Notes</Link>
+        <span className={styles.breadcrumbSep}>/</span>
+        <span className={styles.breadcrumbCurrent}>{notePreviewLine(note)}</span>
+      </nav>
+
       {/* Back */}
-      <button className={styles.backBtn} onClick={() => navigate(-1)}>
+      <button type="button" className={styles.backBtn} onClick={() => navigate(-1)}>
         <ArrowLeft size={14} /> Back
       </button>
 

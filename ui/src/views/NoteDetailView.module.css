@@ -31,6 +31,33 @@
   margin-bottom: var(--space-4);
 }
 
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  font-size: var(--text-sm);
+  margin-bottom: var(--space-4);
+}
+.breadcrumb a {
+  color: var(--text-muted);
+  text-decoration: none;
+}
+.breadcrumb a:hover { color: var(--accent); }
+.breadcrumbSep {
+  color: var(--text-muted);
+  opacity: 0.5;
+  user-select: none;
+}
+.breadcrumbCurrent {
+  color: var(--text-secondary);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: min(60vw, 320px);
+}
+
 .content {
   display: flex;
   flex-direction: column;

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import * as d3 from 'd3';
 import useStore from '../stores/useStore';
 import EmptyState from '../components/ui/EmptyState';
@@ -15,6 +16,7 @@ const TYPE_COLORS = {
 export default function Graph() {
   const svgRef = useRef(null);
   const containerRef = useRef(null);
+  const navigate = useNavigate();
   const { notes, projects, areas, people, tasks } = useStore();
   const [selected, setSelected] = useState(null);
 
@@ -144,6 +146,16 @@ export default function Graph() {
     return () => simulation.stop();
   }, [notes, projects, areas, people, tasks]);
 
+  const goToNode = (d) => {
+    if (!d?.data) return;
+    const { type, data } = d;
+    if (type === 'note') navigate(`/notes/${data.id}`);
+    else if (type === 'project') navigate(`/projects/${data.id}`);
+    else if (type === 'area') navigate(`/areas/${data.id}`);
+    else if (type === 'person') navigate('/people');
+    setSelected(null);
+  };
+
   return (
     <div className={styles.page}>
       <div className={styles.header}>
@@ -174,10 +186,13 @@ export default function Graph() {
         <div className={styles.detail}>
           <div className={styles.detailHeader}>
             <span className={styles.detailType} style={{ color: TYPE_COLORS[selected.type] }}>{selected.type}</span>
-            <button onClick={() => setSelected(null)} className={styles.detailClose}>×</button>
+            <button type="button" onClick={() => setSelected(null)} className={styles.detailClose}>×</button>
           </div>
           <p className={styles.detailLabel}>{selected.label}</p>
           {selected.data?.description && <p className={styles.detailDesc}>{selected.data.description}</p>}
+          <button type="button" className={styles.openBtn} onClick={() => goToNode(selected)}>
+            Open
+          </button>
         </div>
       )}
     </div>

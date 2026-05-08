@@ -21,6 +21,47 @@
 }
 .backBtn:hover { color: var(--text-primary); background: var(--bg-hover); }
 
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  font-size: var(--text-sm);
+  margin-bottom: var(--space-3);
+}
+.breadcrumb a {
+  color: var(--text-muted);
+  text-decoration: none;
+}
+.breadcrumb a:hover { color: var(--accent); }
+.breadcrumbSep { color: var(--text-muted); opacity: 0.5; user-select: none; }
+.breadcrumbCurrent { color: var(--text-secondary); font-weight: 500; }
+
+.areaProjectRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  text-decoration: none;
+  transition: border-color var(--duration-fast), background var(--duration-fast);
+}
+.areaProjectRow:hover {
+  border-color: var(--border-focus);
+  background: var(--bg-hover);
+}
+
+.projectDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
 .projectHeader {
   margin-bottom: var(--space-6);
   display: flex;

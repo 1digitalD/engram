@@ -161,12 +161,12 @@
       "dependencies": [
         "p1-ws4-note-detail-panels-and-today"
       ],
-      "passes": false,
+      "passes": true,
       "blocked": false,
       "blockerReason": null,
-      "attempts": 0,
-      "validationEvidence": null,
-      "commit": null,
+      "attempts": 1,
+      "validationEvidence": "2026-05-08: cd ui && npm install && npm run build passed; chunk size warning only; static assets reverted source-only.",
+      "commit": "0d55ad2",
       "validationCommands": [
         "cd ui && npm install && npm run build"
       ]

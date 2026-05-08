@@ -44,6 +44,7 @@
   position: absolute;
   bottom: var(--space-6);
   right: var(--space-6);
+  z-index: 10;
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -61,3 +62,17 @@
 .detailClose { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 18px; line-height: 1; }
 .detailLabel { font-size: var(--text-sm); font-weight: 600; color: var(--text-primary); }
 .detailDesc { font-size: var(--text-xs); color: var(--text-muted); margin-top: var(--space-1); line-height: 1.5; }
+.openBtn {
+  margin-top: var(--space-3);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-primary);
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--duration-fast);
+}
+.openBtn:hover { background: var(--accent-hover); color: white; }
