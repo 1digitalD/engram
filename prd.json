@@ -31,7 +31,7 @@
       "blockerReason": null,
       "attempts": 1,
       "validationEvidence": "2026-05-08: cd ui && npm install && npm run build passed; Vite chunk-size warning only; generated static assets reverted source-only.",
-      "commit": "2b2d3d0"
+      "commit": "dff2049"
     },
     {
       "id": "p1-ws3-area-person-task-ui",
@@ -52,7 +52,7 @@
       "blockerReason": null,
       "attempts": 1,
       "validationEvidence": "2026-05-08: cd ui && npm install && npm run build passed; Vite chunk-size warning only; generated static assets reverted source-only.",
-      "commit": "d8cdc0b"
+      "commit": "28eea9c"
     },
     {
       "id": "p1-ws4-note-detail-inline-editing",
@@ -68,12 +68,12 @@
       "dependencies": [
         "p1-ws3-area-person-task-ui"
       ],
-      "passes": false,
+      "passes": true,
       "blocked": false,
       "blockerReason": null,
-      "attempts": 0,
-      "validationEvidence": null,
-      "commit": null
+      "attempts": 1,
+      "validationEvidence": "2026-05-08: cd ui && npm install && npm run build passed; Vite chunk-size warning only; generated static assets reverted source-only.",
+      "commit": "6c1a597"
     }
   ]
 }

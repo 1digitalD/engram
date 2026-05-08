@@ -1,10 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { ArrowLeft, Edit2, Trash2, Archive, ExternalLink, Tag, User, FolderOpen, Map } from 'lucide-react';
+import { ArrowLeft, Edit2, Loader2, Trash2, Tag, User, FolderOpen, Map } from 'lucide-react';
 import useStore from '../stores/useStore';
-import NoteEditor from '../components/notes/NoteEditor';
 import { BucketBadge, TagBadge } from '../components/ui/Badge';
 import styles from './NoteDetailView.module.css';
 
@@ -12,9 +11,15 @@ export default function NoteDetailView() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { notes, projects, areas, people, updateNote, deleteNote } = useStore();
-  const [editing, setEditing] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [draftText, setDraftText] = useState('');
+  const [saving, setSaving] = useState(false);
 
   const note = notes.find(n => n.id === id);
+
+  useEffect(() => {
+    if (!isEditing) setDraftText(note?.raw_text || '');
+  }, [note?.id, note?.raw_text, isEditing]);
 
   if (!note) {
     return (
@@ -30,6 +35,44 @@ export default function NoteDetailView() {
   const project = note.project_id ? projects.find(p => p.id === note.project_id) : null;
   const area    = note.area_id    ? areas.find(a => a.id === note.area_id)     : null;
   const person  = note.person_id  ? people.find(p => p.id === note.person_id)  : null;
+
+  const startEditing = () => {
+    setDraftText(note.raw_text || '');
+    setIsEditing(true);
+  };
+
+  const cancelEditing = () => {
+    setDraftText(note.raw_text || '');
+    setIsEditing(false);
+  };
+
+  const saveInlineEdit = async () => {
+    if (!draftText.trim() || saving) return;
+    setSaving(true);
+    try {
+      await updateNote(note.id, { raw_text: draftText });
+      setIsEditing(false);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleEditKeyDown = (e) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      cancelEditing();
+      return;
+    }
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      saveInlineEdit();
+    }
+  };
+
+  const handleBodyClick = (e) => {
+    if (e.target instanceof Element && e.target.closest('a')) return;
+    startEditing();
+  };
 
   const handleDelete = async () => {
     if (!confirm('Delete this note?')) return;
@@ -54,9 +97,11 @@ export default function NoteDetailView() {
             })}
           </span>
           <div className={styles.metaActions}>
-            <button className="btn btn-ghost btn-sm" onClick={() => setEditing(true)}>
-              <Edit2 size={13} /> Edit
-            </button>
+            {!isEditing && (
+              <button className="btn btn-ghost btn-sm" onClick={startEditing}>
+                <Edit2 size={13} /> Edit
+              </button>
+            )}
             <button className="btn btn-ghost btn-sm" onClick={handleDelete}>
               <Trash2 size={13} />
             </button>
@@ -85,11 +130,52 @@ export default function NoteDetailView() {
         )}
 
         {/* Note body */}
-        <article className={styles.body}>
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>
-            {note.raw_text}
-          </ReactMarkdown>
-        </article>
+        {isEditing ? (
+          <div className={styles.inlineEditor}>
+            <textarea
+              className={styles.inlineTextarea}
+              value={draftText}
+              onChange={e => setDraftText(e.target.value)}
+              onKeyDown={handleEditKeyDown}
+              rows={14}
+              autoFocus
+            />
+            <div className={styles.inlineActions}>
+              <span className={styles.shortcutHint}>Cmd/Ctrl+Enter to save · Esc to cancel</span>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={cancelEditing} disabled={saving}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={saveInlineEdit}
+                disabled={saving || !draftText.trim()}
+              >
+                {saving ? <Loader2 size={13} className="spin" /> : null}
+                Save
+              </button>
+            </div>
+          </div>
+        ) : (
+          <article
+            className={styles.body}
+            onClick={handleBodyClick}
+            onKeyDown={e => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                startEditing();
+              }
+            }}
+            role="button"
+            tabIndex={0}
+            aria-label="Edit note text"
+          >
+            <span className={styles.editHint}>Click to edit</span>
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {note.raw_text}
+            </ReactMarkdown>
+          </article>
+        )}
 
         {/* Tags */}
         {note.tag_names?.length > 0 && (
@@ -113,14 +199,6 @@ export default function NoteDetailView() {
           </div>
         )}
       </div>
-
-      {editing && (
-        <NoteEditor
-          initialData={note}
-          onClose={() => setEditing(false)}
-          onSaved={() => setEditing(false)}
-        />
-      )}
     </div>
   );
 }

@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { Loader2, Sparkles } from 'lucide-react';
+import remarkGfm from 'remark-gfm';
 import Modal from '../ui/Modal';
 import useStore from '../../stores/useStore';
 import styles from './NoteEditor.module.css';
@@ -20,6 +22,7 @@ export default function NoteEditor({ onClose, onSaved, initialData }) {
   const [projectId, setProjectId] = useState(initialData?.project_id || '');
   const [areaId, setAreaId] = useState(initialData?.area_id || '');
   const [personId, setPersonId] = useState(initialData?.person_id || '');
+  const [activeTab, setActiveTab] = useState('write');
   const [saving, setSaving] = useState(false);
 
   const isEdit = !!initialData?.id;
@@ -69,14 +72,45 @@ export default function NoteEditor({ onClose, onSaved, initialData }) {
       }
     >
       <form id="note-form" onSubmit={handleSubmit} className={styles.form}>
-        <textarea
-          className={styles.textarea}
-          placeholder="Capture a thought, link, idea, or decision..."
-          value={rawText}
-          onChange={e => setRawText(e.target.value)}
-          rows={6}
-          autoFocus
-        />
+        <div className={styles.tabs} role="tablist" aria-label="Editor mode">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'write'}
+            className={`${styles.tab} ${activeTab === 'write' ? styles.tabActive : ''}`}
+            onClick={() => setActiveTab('write')}
+          >
+            Write
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'preview'}
+            className={`${styles.tab} ${activeTab === 'preview' ? styles.tabActive : ''}`}
+            onClick={() => setActiveTab('preview')}
+          >
+            Preview
+          </button>
+        </div>
+
+        {activeTab === 'write' ? (
+          <textarea
+            className={styles.textarea}
+            placeholder="Capture a thought, link, idea, or decision..."
+            value={rawText}
+            onChange={e => setRawText(e.target.value)}
+            rows={6}
+            autoFocus
+          />
+        ) : (
+          <div className={styles.preview}>
+            {rawText.trim() ? (
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{rawText}</ReactMarkdown>
+            ) : (
+              <p className={styles.previewEmpty}>Nothing to preview yet.</p>
+            )}
+          </div>
+        )}
 
         {!isEdit && rawText.trim().length > 10 && (
           <p className={styles.aiHint}>

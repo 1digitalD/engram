@@ -91,6 +91,11 @@ For each batch:
 - Validation passed: `cd ui && npm install && npm run build` (Vite chunk-size warning only). Generated static assets were reverted to keep the commit source-only.
 - Committed as `2200044` (`Improve note card markdown display`).
 - Next loop task from `prd.json`: `p1-ws3-area-person-task-ui`.
+- Task `p1-ws4-note-detail-inline-editing` implemented via isolated OpenClaw code-agent session `yKfVif2V`; validated source-only patch applied onto tracker branch.
+- Implemented inline note-detail editing with Save/Cancel, Esc cancel, Cmd/Ctrl+Enter save, plus Write/Preview tabs in `NoteEditor`.
+- Validation passed: `cd ui && npm install && npm run build` (Vite chunk-size warning only). Generated static assets were reverted.
+- All tasks in `prd.json` are now passing.
+
 - Task `p1-ws3-area-person-task-ui` implemented via isolated OpenClaw code-agent session `-A-zIJf7`; plugin placed the validated changes in the base tracker worktree while awaiting worktree decision.
 - Implemented area edit/delete controls, area detail edit/delete, person edit/delete controls, inline task title editing, task creation due date support, and scoped CSS support.
 - Validation passed: `cd ui && npm install && npm run build` (Vite chunk-size warning only). Generated static assets were reverted.
