@@ -42,6 +42,12 @@ class ResourceType(PyEnum):
     OTHER = "OTHER"
 
 
+class SummaryGranularity(PyEnum):
+    DAILY = "DAILY"
+    WEEKLY = "WEEKLY"
+    MONTHLY = "MONTHLY"
+
+
 # Association tables
 note_tags = Table(
     "note_tags",
@@ -327,6 +333,11 @@ class Note(BaseModel):
     outgoing_links = relationship("Link", foreign_keys="Link.src_id", back_populates="source_note", cascade="all, delete-orphan")
     incoming_links = relationship("Link", foreign_keys="Link.dst_id", back_populates="dest_note")
     tasks = relationship("Task", back_populates="source_note", foreign_keys="Task.note_id")
+    summaries = relationship(
+        "Summary",
+        back_populates="note",
+        cascade="all, delete-orphan",
+    )
 
     def to_dict(self, include_relations=True):
         task_count = db.session.scalar(
@@ -411,34 +422,40 @@ class Task(BaseModel):
         }
 
 
-# ─── WeeklySummaries ────────────────────────────────────────────────────────
+# ─── Summaries ──────────────────────────────────────────────────────────────
 
 
-class WeeklySummary(BaseModel):
-    __tablename__ = "weekly_summaries"
+class Summary(BaseModel):
+    __tablename__ = "summaries"
 
-    entity_type = Column(String(20), nullable=False)
-    entity_id = Column(String(36), nullable=False)
-    entity_name = Column(String(255), nullable=False)
-    week_year = Column(Integer, nullable=False)
-    week_number = Column(Integer, nullable=False)
-    summary_content = Column(Text, nullable=False)
-    note_count = Column(Integer, default=0)
-    token_count = Column(Integer, nullable=True)
-    is_manually_generated = Column(Boolean, default=False)
+    note_id = Column(String(36), ForeignKey("notes.id", ondelete="CASCADE"), nullable=False)
+    summary_text = Column(Text, nullable=False)
+    generated_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    summary_type = Column(String(64), nullable=True)
+    granularity = Column(
+        Enum(SummaryGranularity),
+        default=SummaryGranularity.WEEKLY,
+        nullable=False,
+    )
+    date_from = Column(DateTime, nullable=True)
+    date_to = Column(DateTime, nullable=True)
+    key_themes = Column(JSON, nullable=True)
+    action_items = Column(JSON, nullable=True)
+
+    note = relationship("Note", back_populates="summaries")
 
     def to_dict(self):
         return {
             "id": self.id,
-            "entity_type": self.entity_type,
-            "entity_id": self.entity_id,
-            "entity_name": self.entity_name,
-            "week_year": self.week_year,
-            "week_number": self.week_number,
-            "summary_content": self.summary_content,
-            "note_count": self.note_count,
-            "token_count": self.token_count,
-            "is_manually_generated": self.is_manually_generated,
+            "note_id": self.note_id,
+            "summary_text": self.summary_text,
+            "generated_at": self.generated_at.isoformat(),
+            "summary_type": self.summary_type,
+            "granularity": self.granularity.value if self.granularity else SummaryGranularity.WEEKLY.value,
+            "date_from": self.date_from.isoformat() if self.date_from else None,
+            "date_to": self.date_to.isoformat() if self.date_to else None,
+            "key_themes": self.key_themes,
+            "action_items": self.action_items,
             "created_at": self.created_at.isoformat(),
             "modified_at": self.modified_at.isoformat(),
         }

@@ -1,7 +1,7 @@
 import json
 
 from extensions import db
-from models import BucketType, Note, Task, TaskStatus
+from models import BucketType, Note, Task, TaskStatus, Summary, SummaryGranularity
 
 
 def test_health(client):
@@ -612,3 +612,112 @@ def test_inline_checkbox_daily_append(client, app):
         t = Task.query.filter_by(note_id=note_id).one()
         assert t.title == "from daily capture"
         assert t.status == TaskStatus.PENDING
+
+
+def test_summary_crud_and_list_filters(client, app):
+    with app.app_context():
+        note_res = client.post(
+            "/api/v1/notes",
+            data=json.dumps({"raw_text": "Note for summaries", "classify": False}),
+            content_type="application/json",
+        )
+        note_id = json.loads(note_res.data)["data"]["id"]
+
+        other_note = client.post(
+            "/api/v1/notes",
+            data=json.dumps({"raw_text": "Other note", "classify": False}),
+            content_type="application/json",
+        )
+        other_id = json.loads(other_note.data)["data"]["id"]
+
+        res = client.post(
+            "/api/v1/summaries",
+            data=json.dumps(
+                {
+                    "note_id": note_id,
+                    "summary_text": "First pass",
+                    "summary_type": "manual",
+                    "granularity": "WEEKLY",
+                    "date_from": "2026-05-01T00:00:00",
+                    "date_to": "2026-05-07T23:59:59",
+                    "key_themes": ["a", "b"],
+                    "action_items": [{"title": "Follow up"}],
+                }
+            ),
+            content_type="application/json",
+        )
+        assert res.status_code == 201
+        row = json.loads(res.data)["data"]
+        sid = row["id"]
+        assert row["note_id"] == note_id
+        assert row["summary_text"] == "First pass"
+        assert row["summary_type"] == "manual"
+        assert row["granularity"] == "WEEKLY"
+        assert row["key_themes"] == ["a", "b"]
+        assert row["action_items"] == [{"title": "Follow up"}]
+
+        client.post(
+            "/api/v1/summaries",
+            data=json.dumps(
+                {
+                    "note_id": note_id,
+                    "summary_text": "Daily rollup",
+                    "granularity": "DAILY",
+                }
+            ),
+            content_type="application/json",
+        )
+
+        res = client.get(f"/api/v1/summaries?note_id={note_id}")
+        assert res.status_code == 200
+        items = json.loads(res.data)["data"]
+        assert len(items) == 2
+
+        res = client.get("/api/v1/summaries?granularity=DAILY")
+        assert res.status_code == 200
+        daily_only = json.loads(res.data)["data"]
+        assert len(daily_only) == 1
+        assert daily_only[0]["granularity"] == "DAILY"
+
+        res = client.get(f"/api/v1/summaries/{sid}")
+        assert res.status_code == 200
+        assert json.loads(res.data)["data"]["id"] == sid
+
+        res = client.patch(
+            f"/api/v1/summaries/{sid}",
+            data=json.dumps(
+                {
+                    "summary_text": "Updated body",
+                    "granularity": "MONTHLY",
+                    "note_id": other_id,
+                }
+            ),
+            content_type="application/json",
+        )
+        assert res.status_code == 200
+        updated = json.loads(res.data)["data"]
+        assert updated["summary_text"] == "Updated body"
+        assert updated["granularity"] == "MONTHLY"
+        assert updated["note_id"] == other_id
+
+        res = client.delete(f"/api/v1/summaries/{sid}")
+        assert res.status_code == 200
+        assert db.session.get(Summary, sid) is None
+
+        res = client.get(f"/api/v1/summaries/{sid}")
+        assert res.status_code == 404
+
+
+def test_summary_create_requires_note(client, app):
+    with app.app_context():
+        res = client.post(
+            "/api/v1/summaries",
+            data=json.dumps(
+                {
+                    "note_id": "00000000-0000-0000-0000-000000000000",
+                    "summary_text": "orphan",
+                }
+            ),
+            content_type="application/json",
+        )
+        assert res.status_code == 404
