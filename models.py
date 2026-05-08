@@ -85,9 +85,11 @@ class Project(BaseModel):
     color = Column(String(7), nullable=True)
     deadline = Column(DateTime, nullable=True)
     is_archived = Column(Boolean, default=False)
+    area_id = Column(String(36), ForeignKey("areas.id"), nullable=True)
 
     notes = relationship("Note", back_populates="project")
     tasks = relationship("Task", back_populates="project")
+    area = relationship("Area", back_populates="projects")
 
     def to_dict(self, include_notes=False):
         # Use scalar count queries to avoid loading all related rows
@@ -105,6 +107,8 @@ class Project(BaseModel):
             "color": self.color,
             "deadline": self.deadline.isoformat() if self.deadline else None,
             "is_archived": self.is_archived,
+            "area_id": self.area_id,
+            "area_name": self.area.name if self.area else None,
             "created_at": self.created_at.isoformat(),
             "modified_at": self.modified_at.isoformat(),
             "note_count": note_count,
@@ -126,10 +130,18 @@ class Area(BaseModel):
     color = Column(String(7), nullable=True)
 
     notes = relationship("Note", back_populates="area")
+    projects = relationship("Project", back_populates="area")
+    tasks = relationship("Task", back_populates="area")
 
     def to_dict(self, include_notes=False):
         note_count = db.session.scalar(
             select(func.count(Note.id)).where(Note.area_id == self.id)
+        ) or 0
+        project_count = db.session.scalar(
+            select(func.count(Project.id)).where(Project.area_id == self.id)
+        ) or 0
+        task_count = db.session.scalar(
+            select(func.count(Task.id)).where(Task.area_id == self.id)
         ) or 0
         d = {
             "id": self.id,
@@ -139,6 +151,8 @@ class Area(BaseModel):
             "created_at": self.created_at.isoformat(),
             "modified_at": self.modified_at.isoformat(),
             "note_count": note_count,
+            "project_count": project_count,
+            "task_count": task_count,
         }
         if include_notes:
             d["notes"] = [n.to_dict() for n in (self.notes or [])]
@@ -195,8 +209,12 @@ class Note(BaseModel):
     chunks = relationship("NoteChunk", back_populates="note", cascade="all, delete-orphan")
     outgoing_links = relationship("Link", foreign_keys="Link.src_id", back_populates="source_note", cascade="all, delete-orphan")
     incoming_links = relationship("Link", foreign_keys="Link.dst_id", back_populates="dest_note")
+    tasks = relationship("Task", back_populates="source_note", foreign_keys="Task.note_id")
 
     def to_dict(self, include_relations=True):
+        task_count = db.session.scalar(
+            select(func.count(Task.id)).where(Task.note_id == self.id)
+        ) or 0
         d = {
             "id": self.id,
             "raw_text": self.raw_text,
@@ -212,6 +230,7 @@ class Note(BaseModel):
             "tag_names": [t.name for t in (self.tags or [])],
             "link_count": len(self.outgoing_links) + len(self.incoming_links),
             "backlink_count": len(self.incoming_links),
+            "task_count": task_count,
         }
         if include_relations:
             d["project"] = self.project.to_dict() if self.project else None
@@ -233,8 +252,12 @@ class Task(BaseModel):
     priority = Column(Enum(Priority), default=Priority.MEDIUM)
     due_date = Column(DateTime, nullable=True)
     project_id = Column(String(36), ForeignKey("projects.id"), nullable=True)
+    area_id = Column(String(36), ForeignKey("areas.id"), nullable=True)
+    note_id = Column(String(36), ForeignKey("notes.id"), nullable=True)
 
     project = relationship("Project", back_populates="tasks")
+    area = relationship("Area", back_populates="tasks")
+    source_note = relationship("Note", back_populates="tasks", foreign_keys=[note_id])
 
     def to_dict(self):
         return {
@@ -245,6 +268,9 @@ class Task(BaseModel):
             "priority": self.priority.value if self.priority else Priority.MEDIUM.value,
             "due_date": self.due_date.isoformat() if self.due_date else None,
             "project_id": self.project_id,
+            "area_id": self.area_id,
+            "area_name": self.area.name if self.area else None,
+            "note_id": self.note_id,
             "project": self.project.to_dict() if self.project else None,
             "created_at": self.created_at.isoformat(),
             "modified_at": self.modified_at.isoformat(),

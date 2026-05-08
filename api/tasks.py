@@ -9,6 +9,8 @@ from utils import parse_priority as _priority
 def list_tasks():
     status = request.args.get("status")
     project_id = request.args.get("project_id")
+    area_id = request.args.get("area_id")
+    note_id = request.args.get("note_id")
 
     q = Task.query
     if status:
@@ -19,6 +21,10 @@ def list_tasks():
             pass
     if project_id:
         q = q.filter(Task.project_id == project_id)
+    if area_id:
+        q = q.filter(Task.area_id == area_id)
+    if note_id:
+        q = q.filter(Task.note_id == note_id)
 
     tasks = q.order_by(Task.modified_at.desc()).all()
     return jsonify({"data": [t.to_dict() for t in tasks]})
@@ -44,6 +50,8 @@ def create_task():
         priority=_priority(data.get("priority", "medium")),
         due_date=data.get("due_date"),
         project_id=data.get("project_id"),
+        area_id=data.get("area_id"),
+        note_id=data.get("note_id"),
     )
     db.session.add(task)
     db.session.commit()
@@ -57,7 +65,7 @@ def update_task(task_id):
         return jsonify({"error": "not found"}), 404
 
     data = request.get_json()
-    for field in ("title", "description", "due_date", "project_id"):
+    for field in ("title", "description", "due_date", "project_id", "area_id", "note_id"):
         if field in data:
             setattr(task, field, data[field])
     if "status" in data:

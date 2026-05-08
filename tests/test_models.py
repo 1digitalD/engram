@@ -92,13 +92,14 @@ def test_task_status_transition(app):
 
 def test_create_person(app):
     with app.app_context():
-        person = Person(name="John Doe", email="john@example.com", discord_id="12345")
+        person = Person(name="John Doe", email="john@example.com", external_ids={"discord": "12345"})
         db.session.add(person)
         db.session.commit()
 
         assert person.id is not None
         assert person.name == "John Doe"
         assert person.email == "john@example.com"
+        assert person.external_ids["discord"] == "12345"
 
 
 def test_note_tag_association(app):

@@ -8,9 +8,12 @@ from utils import parse_priority as _priority
 @api_bp.route("/projects", methods=["GET"])
 def list_projects():
     archived = request.args.get("archived", "false").lower() == "true"
+    area_id = request.args.get("area_id")
     q = Project.query
     if not archived:
         q = q.filter(Project.is_archived == False)
+    if area_id:
+        q = q.filter(Project.area_id == area_id)
     projects = q.order_by(Project.modified_at.desc()).all()
     return jsonify({"data": [p.to_dict() for p in projects]})
 
@@ -27,6 +30,7 @@ def create_project():
         priority=_priority(data.get("priority", "medium")),
         color=data.get("color"),
         deadline=data.get("deadline"),
+        area_id=data.get("area_id"),
     )
     db.session.add(project)
     db.session.commit()
@@ -48,7 +52,7 @@ def update_project(project_id):
         return jsonify({"error": "not found"}), 404
 
     data = request.get_json()
-    for field in ("name", "description", "color", "deadline", "is_archived"):
+    for field in ("name", "description", "color", "deadline", "is_archived", "area_id"):
         if field in data:
             setattr(project, field, data[field])
     if "priority" in data:
