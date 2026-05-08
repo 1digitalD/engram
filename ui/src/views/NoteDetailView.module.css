@@ -107,6 +107,45 @@
   color: var(--text-primary);
 }
 
+.projectChipLinkWrap {
+  display: inline-flex;
+  align-items: stretch;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  transition: border-color var(--duration-fast);
+}
+
+.projectChipLinkWrap:hover {
+  border-color: var(--border-focus);
+}
+
+.projectChipLinkWrap .entityChip {
+  border: none;
+  border-radius: 0;
+  padding-right: 6px;
+}
+
+.projectChipRemove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
+  margin: 0;
+  border: none;
+  border-left: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color var(--duration-fast), background var(--duration-fast);
+}
+
+.projectChipRemove:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
 /* Body */
 .body {
   position: relative;

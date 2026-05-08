@@ -121,7 +121,7 @@ export default function ProjectFocus() {
 
       {showNoteEditor && (
         <NoteEditor
-          initialData={{ project_id: id, bucket: 'PROJECTS' }}
+          initialData={{ project_ids: [id], bucket: 'PROJECTS' }}
           onClose={() => setShowNoteEditor(false)}
           onSaved={() => setShowNoteEditor(false)}
         />

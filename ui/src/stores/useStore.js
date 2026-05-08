@@ -75,7 +75,15 @@ const useStore = create((set, get) => ({
 
   createNote: async (data) => {
     try {
-      const { raw_text, bucket, project_id, area_id, person_id } = data;
+      const { raw_text, bucket, project_id, project_ids, area_id, person_id } = data;
+
+      const noteProjectIdsEqual = (a, b) => {
+        const sa = new Set(a || []);
+        const sb = new Set(b || []);
+        if (sa.size !== sb.size) return false;
+        for (const id of sa) if (!sb.has(id)) return false;
+        return true;
+      };
 
       // Run through the full AI ingestion pipeline (classification, task
       // extraction, entity resolution, embeddings) — not a plain DB insert.
@@ -84,11 +92,21 @@ const useStore = create((set, get) => ({
       const res = await ingestAPI.capture({ content: raw_text, source: 'ui' });
       let note = res.note || res.data;
 
+      const existingProjectIds = note.project_ids?.length
+        ? note.project_ids
+        : (note.project_id ? [note.project_id] : []);
+
       // Apply any user-explicit overrides set in the editor. The AI may have
       // chosen different values — user intent wins.
       const overrides = {};
       if (bucket && bucket !== note.bucket)           overrides.bucket     = bucket;
-      if (project_id && project_id !== note.project_id) overrides.project_id = project_id;
+      if (project_ids !== undefined) {
+        if (!noteProjectIdsEqual(existingProjectIds, project_ids)) {
+          overrides.project_ids = project_ids;
+        }
+      } else if (project_id && project_id !== note.project_id) {
+        overrides.project_id = project_id;
+      }
       if (area_id    && area_id    !== note.area_id)    overrides.area_id    = area_id;
       if (person_id  && person_id  !== note.person_id)  overrides.person_id  = person_id;
 

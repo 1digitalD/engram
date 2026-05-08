@@ -4,7 +4,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {
   ArrowLeft, Edit2, Loader2, Trash2, Tag, User, FolderOpen, Map,
-  Link2, CheckCircle, Circle,
+  Link2, CheckCircle, Circle, X,
 } from 'lucide-react';
 import useStore from '../stores/useStore';
 import { linksAPI } from '../api/engram';
@@ -91,9 +91,21 @@ export default function NoteDetailView() {
     );
   }
 
-  const project = note.project_id ? projects.find(p => p.id === note.project_id) : null;
+  const noteProjectIds = note.project_ids?.length
+    ? note.project_ids
+    : (note.project_id ? [note.project_id] : []);
+  const linkedProjects = noteProjectIds
+    .map(pid => projects.find(p => p.id === pid))
+    .filter(Boolean);
   const area = note.area_id ? areas.find(a => a.id === note.area_id) : null;
   const person = note.person_id ? people.find(p => p.id === note.person_id) : null;
+
+  const handleRemoveProjectFromNote = async (projectId, e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const ids = noteProjectIds.filter(id => id !== projectId);
+    await updateNote(note.id, { project_ids: ids });
+  };
 
   const startEditing = () => {
     setDraftText(note.raw_text || '');
@@ -203,13 +215,23 @@ export default function NoteDetailView() {
         </div>
 
         {/* Linked entities */}
-        {(project || area || person) && (
+        {(linkedProjects.length > 0 || area || person) && (
           <div className={styles.linkedEntities}>
-            {project && (
-              <Link to={`/projects/${project.id}`} className={styles.entityChip}>
-                <FolderOpen size={12} /> {project.name}
-              </Link>
-            )}
+            {linkedProjects.map(p => (
+              <span key={p.id} className={styles.projectChipLinkWrap}>
+                <Link to={`/projects/${p.id}`} className={styles.entityChip}>
+                  <FolderOpen size={12} /> {p.name}
+                </Link>
+                <button
+                  type="button"
+                  className={styles.projectChipRemove}
+                  aria-label={`Remove ${p.name} from this note`}
+                  onClick={e => handleRemoveProjectFromNote(p.id, e)}
+                >
+                  <X size={12} strokeWidth={2.5} />
+                </button>
+              </span>
+            ))}
             {area && (
               <span className={styles.entityChip}>
                 <Map size={12} /> {area.name}
