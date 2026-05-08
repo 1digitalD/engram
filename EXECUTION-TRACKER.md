@@ -129,3 +129,8 @@ If the session resets or the gateway restarts:
 - Task `p1-ws1-inline-task-extraction` implemented via Cursor executor worktree and applied to `overhaul/full-implementation-loop`.
 - Files changed: api/batch.py, api/daily.py, api/notes.py, migrate_task_inline_title_hash.py, models.py, services/extractor.py, services/ingestion.py, tests/test_api.py.
 - Validation passed: 31 passed in 0.46s.
+
+
+- Task `p1-ws4-note-detail-panels-and-today` implemented via Cursor executor worktree and applied to `overhaul/full-implementation-loop`.
+- Files changed: ui/src/App.jsx, ui/src/api/engram.js, ui/src/components/layout/AppShell.jsx, ui/src/stores/useStore.js, ui/src/views/Inbox.jsx, ui/src/views/Inbox.module.css, ui/src/views/NoteDetailView.jsx, ui/src/views/NoteDetailView.module.css, ui/src/views/Today.jsx, ui/src/views/Today.module.css.
+- Validation passed: - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit..

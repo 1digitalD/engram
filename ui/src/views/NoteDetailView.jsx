@@ -1,25 +1,84 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { ArrowLeft, Edit2, Loader2, Trash2, Tag, User, FolderOpen, Map } from 'lucide-react';
+import {
+  ArrowLeft, Edit2, Loader2, Trash2, Tag, User, FolderOpen, Map,
+  Link2, CheckCircle, Circle,
+} from 'lucide-react';
 import useStore from '../stores/useStore';
+import { linksAPI } from '../api/engram';
 import { BucketBadge, TagBadge } from '../components/ui/Badge';
 import styles from './NoteDetailView.module.css';
+
+function notePreviewLine(n) {
+  if (!n) return '';
+  const line = (n.raw_text || '').split('\n')[0].replace(/^#\s*/, '').trim();
+  return (line || 'Untitled').slice(0, 72);
+}
 
 export default function NoteDetailView() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { notes, projects, areas, people, updateNote, deleteNote } = useStore();
+  const {
+    notes,
+    projects,
+    areas,
+    people,
+    tasks,
+    updateNote,
+    deleteNote,
+    createTask,
+    updateTask,
+    addToast,
+  } = useStore();
   const [isEditing, setIsEditing] = useState(false);
   const [draftText, setDraftText] = useState('');
   const [saving, setSaving] = useState(false);
 
+  const [linksOut, setLinksOut] = useState([]);
+  const [linksIn, setLinksIn] = useState([]);
+  const [linksLoading, setLinksLoading] = useState(false);
+  const [linkQuery, setLinkQuery] = useState('');
+  const [linkPick, setLinkPick] = useState('');
+  const [linkBusy, setLinkBusy] = useState(false);
+
+  const [newTaskTitle, setNewTaskTitle] = useState('');
+
   const note = notes.find(n => n.id === id);
+
+  const loadLinks = useCallback(async () => {
+    if (!note?.id) return;
+    setLinksLoading(true);
+    try {
+      const res = await linksAPI.forNote(note.id);
+      setLinksOut(res.outgoing || []);
+      setLinksIn(res.incoming || []);
+    } catch (e) {
+      addToast({ type: 'error', message: e.message || 'Failed to load links' });
+      setLinksOut([]);
+      setLinksIn([]);
+    } finally {
+      setLinksLoading(false);
+    }
+  }, [note?.id, addToast]);
+
+  useEffect(() => {
+    loadLinks();
+  }, [loadLinks]);
 
   useEffect(() => {
     if (!isEditing) setDraftText(note?.raw_text || '');
   }, [note?.id, note?.raw_text, isEditing]);
+
+  const resolveNote = (nid) => notes.find(n => n.id === nid);
+
+  const linkedTasks = note ? tasks.filter(t => t.note_id === note.id) : [];
+
+  const linkCandidates = notes
+    .filter(n => n.id !== note?.id)
+    .filter(n => notePreviewLine(n).toLowerCase().includes(linkQuery.trim().toLowerCase()))
+    .slice(0, 80);
 
   if (!note) {
     return (
@@ -33,8 +92,8 @@ export default function NoteDetailView() {
   }
 
   const project = note.project_id ? projects.find(p => p.id === note.project_id) : null;
-  const area    = note.area_id    ? areas.find(a => a.id === note.area_id)     : null;
-  const person  = note.person_id  ? people.find(p => p.id === note.person_id)  : null;
+  const area = note.area_id ? areas.find(a => a.id === note.area_id) : null;
+  const person = note.person_id ? people.find(p => p.id === note.person_id) : null;
 
   const startEditing = () => {
     setDraftText(note.raw_text || '');
@@ -78,6 +137,35 @@ export default function NoteDetailView() {
     if (!confirm('Delete this note?')) return;
     await deleteNote(note.id);
     navigate('/notes');
+  };
+
+  const handleAddLink = async () => {
+    if (!linkPick || linkBusy) return;
+    setLinkBusy(true);
+    try {
+      await linksAPI.create({ src_id: note.id, dst_id: linkPick, link_type: 'related' });
+      addToast({ type: 'success', message: 'Link added' });
+      setLinkPick('');
+      setLinkQuery('');
+      await loadLinks();
+    } catch (e) {
+      addToast({ type: 'error', message: e.message || 'Could not add link' });
+    } finally {
+      setLinkBusy(false);
+    }
+  };
+
+  const toggleLinkedTask = async (t) => {
+    const next = t.status === 'DONE' ? 'PENDING' : 'DONE';
+    await updateTask(t.id, { status: next });
+  };
+
+  const handleAddNoteTask = async (e) => {
+    e.preventDefault();
+    const title = newTaskTitle.trim();
+    if (!title) return;
+    await createTask({ title, note_id: note.id });
+    setNewTaskTitle('');
   };
 
   return (
@@ -198,6 +286,119 @@ export default function NoteDetailView() {
             )}
           </div>
         )}
+
+        <div className={styles.panels}>
+          <section className={styles.panel}>
+            <h2 className={styles.panelTitle}>
+              <Link2 size={14} /> Links &amp; backlinks
+            </h2>
+            {linksLoading ? (
+              <p className={styles.panelMuted}>
+                <Loader2 size={14} className="spin" /> Loading…
+              </p>
+            ) : (
+              <>
+                <div className={styles.linkSection}>
+                  <span className={styles.linkHeading}>From this note</span>
+                  {linksOut.length === 0 ? (
+                    <p className={styles.panelMuted}>No outgoing links.</p>
+                  ) : (
+                    <ul className={styles.linkList}>
+                      {linksOut.map(l => {
+                        const other = resolveNote(l.dst_id);
+                        return (
+                          <li key={l.id}>
+                            <Link to={`/notes/${l.dst_id}`}>{notePreviewLine(other) || `Note ${l.dst_id.slice(0, 8)}…`}</Link>
+                            <span className={styles.linkMeta}>{l.link_type}</span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
+                <div className={styles.linkSection}>
+                  <span className={styles.linkHeading}>Backlinks</span>
+                  {linksIn.length === 0 ? (
+                    <p className={styles.panelMuted}>No notes link here yet.</p>
+                  ) : (
+                    <ul className={styles.linkList}>
+                      {linksIn.map(l => {
+                        const other = resolveNote(l.src_id);
+                        return (
+                          <li key={l.id}>
+                            <Link to={`/notes/${l.src_id}`}>{notePreviewLine(other) || `Note ${l.src_id.slice(0, 8)}…`}</Link>
+                            <span className={styles.linkMeta}>{l.link_type}</span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
+                <div className={styles.linkAdd}>
+                  <input
+                    type="search"
+                    className={styles.linkFilter}
+                    placeholder="Filter notes…"
+                    value={linkQuery}
+                    onChange={e => setLinkQuery(e.target.value)}
+                  />
+                  <select
+                    className={styles.linkSelect}
+                    value={linkPick}
+                    onChange={e => setLinkPick(e.target.value)}
+                  >
+                    <option value="">Link to note…</option>
+                    {linkCandidates.map(n => (
+                      <option key={n.id} value={n.id}>{notePreviewLine(n)}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={handleAddLink}
+                    disabled={!linkPick || linkBusy}
+                  >
+                    {linkBusy ? <Loader2 size={13} className="spin" /> : 'Add link'}
+                  </button>
+                </div>
+              </>
+            )}
+          </section>
+
+          <section className={styles.panel}>
+            <h2 className={styles.panelTitle}>Tasks on this note</h2>
+            {linkedTasks.length === 0 ? (
+              <p className={styles.panelMuted}>No tasks linked yet.</p>
+            ) : (
+              <ul className={styles.taskRows}>
+                {linkedTasks.map(t => (
+                  <li key={t.id} className={styles.taskRow}>
+                    <button
+                      type="button"
+                      className={styles.taskCheck}
+                      onClick={() => toggleLinkedTask(t)}
+                      aria-label={t.status === 'DONE' ? 'Mark pending' : 'Mark done'}
+                    >
+                      {t.status === 'DONE' ? <CheckCircle size={16} /> : <Circle size={16} />}
+                    </button>
+                    <span className={t.status === 'DONE' ? styles.taskTitleDone : styles.taskTitle}>{t.title}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <form className={styles.taskAdd} onSubmit={handleAddNoteTask}>
+              <input
+                className={styles.taskInput}
+                placeholder="New task…"
+                value={newTaskTitle}
+                onChange={e => setNewTaskTitle(e.target.value)}
+              />
+              <button type="submit" className="btn btn-primary btn-sm" disabled={!newTaskTitle.trim()}>
+                Add
+              </button>
+            </form>
+          </section>
+        </div>
       </div>
     </div>
   );

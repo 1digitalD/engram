@@ -87,6 +87,12 @@ export const tagsAPI = {
   delete: (id)   => apiRequest('DELETE', `/tags/${id}`),
 };
 
+// ── Daily notes ──────────────────────────────
+export const dailyAPI = {
+  get: (date) => apiRequest('GET', '/daily', null, { date }),
+  append: (body) => apiRequest('POST', '/daily/append', body),
+};
+
 // ── Links (knowledge graph) ──────────────────
 export const linksAPI = {
   forNote:   (id)  => apiRequest('GET',    `/notes/${id}/links`),

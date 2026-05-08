@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import AppShell from './components/layout/AppShell';
 import Dashboard from './views/Dashboard';
+import Today from './views/Today';
 import Inbox from './views/Inbox';
 import Notes from './views/Notes';
 import NoteDetailView from './views/NoteDetailView';
@@ -28,6 +29,7 @@ export default function App() {
       <AppShell>
         <Routes>
           <Route path="/"                element={<Dashboard />} />
+          <Route path="/today"           element={<Today />} />
           <Route path="/inbox"           element={<Inbox />} />
           <Route path="/notes"           element={<Notes />} />
           <Route path="/notes/:id"       element={<NoteDetailView />} />

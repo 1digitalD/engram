@@ -30,3 +30,59 @@
   white-space: nowrap;
 }
 .routeBtn:hover { background: var(--bg-hover); border-color: var(--border-focus); color: var(--text-primary); }
+
+.aiSuggest {
+  margin-bottom: var(--space-3);
+  padding: var(--space-3);
+  background: rgba(124,106,255,0.06);
+  border: 1px solid rgba(124,106,255,0.12);
+  border-radius: var(--radius-md);
+  font-size: var(--text-xs);
+}
+.aiSuggestHeader {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-1);
+}
+.aiSuggestIcon { color: var(--accent); }
+.aiSuggestLabel {
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-size: 10px;
+}
+.aiSuggestConf {
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+}
+.aiSuggestHints {
+  margin: var(--space-2) 0 0;
+  color: var(--text-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.aiSuggestReason {
+  margin: var(--space-2) 0 0;
+  color: var(--text-muted);
+  font-style: italic;
+  line-height: 1.5;
+}
+.aiApplyBtn {
+  margin-top: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-xs);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all var(--duration-fast);
+}
+.aiApplyBtn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}

@@ -182,6 +182,18 @@ const useStore = create((set, get) => ({
 
   setActiveNote: (note) => set({ activeNote: note }),
 
+  /** Merge a single note from the server (e.g. daily note fetch) into `notes`. */
+  upsertNote: (note) => {
+    if (!note?.id) return;
+    set(s => {
+      const idx = s.notes.findIndex(n => n.id === note.id);
+      if (idx === -1) return { notes: [note, ...s.notes] };
+      const next = [...s.notes];
+      next[idx] = note;
+      return { notes: next };
+    });
+  },
+
   // ── Projects ───────────────────────────────
 
   createProject: async (data) => {

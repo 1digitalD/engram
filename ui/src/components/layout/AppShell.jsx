@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Inbox, FileText, FolderOpen,
-  Map, Users, CheckSquare, Network, Calendar,
-  Search, Plus, ChevronLeft, ChevronRight, Menu, X
+  Map, Users, CheckSquare, Network, Calendar, Sun,
+  Search, Plus, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import styles from './AppShell.module.css';
 import CommandPalette from '../search/CommandPalette';
@@ -12,6 +12,7 @@ import useStore from '../../stores/useStore';
 
 const NAV_ITEMS = [
   { to: '/',         icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/today',    icon: Sun,             label: 'Today' },
   { to: '/inbox',    icon: Inbox,           label: 'Inbox' },
   { to: '/notes',    icon: FileText,         label: 'Notes' },
   { to: '/projects', icon: FolderOpen,        label: 'Projects' },
