@@ -185,12 +185,12 @@
       "dependencies": [
         "p1-ws5-navigation-layout-polish"
       ],
-      "passes": false,
+      "passes": true,
       "blocked": false,
       "blockerReason": null,
       "attempts": 0,
       "validationEvidence": null,
-      "commit": null,
+      "commit": "ac43861",
       "validationCommands": [
         "cd ui && npm install && npm run build"
       ]
