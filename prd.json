@@ -94,7 +94,7 @@
       "blockerReason": null,
       "attempts": 1,
       "validationEvidence": "2026-05-08: source .venv/bin/activate && PYTHONPATH=. pytest -q tests/test_phase1_backend_foundation.py tests/test_models.py tests/test_api.py passed; rerun after applying approved agent patch: 27 passed in 0.37s.",
-      "commit": "44269be",
+      "commit": "5786b9e",
       "validationCommands": [
         "source .venv/bin/activate && PYTHONPATH=. pytest -q tests/test_phase1_backend_foundation.py tests/test_models.py tests/test_api.py"
       ]
@@ -118,7 +118,7 @@
       "blockerReason": null,
       "attempts": 1,
       "validationEvidence": "2026-05-08T20:54:19.834481+00:00: 31 passed in 0.46s",
-      "commit": "856aaa7",
+      "commit": "e0986b9",
       "validationCommands": [
         "source .venv/bin/activate && PYTHONPATH=. pytest -q tests/test_phase1_backend_foundation.py tests/test_models.py tests/test_api.py"
       ]
@@ -142,7 +142,7 @@
       "blockerReason": null,
       "attempts": 1,
       "validationEvidence": "2026-05-08T21:30:53.072819+00:00: - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.",
-      "commit": "221972e",
+      "commit": "d33d94a",
       "validationCommands": [
         "cd ui && npm install && npm run build"
       ]
