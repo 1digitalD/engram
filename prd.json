@@ -88,10 +88,10 @@
     {
       "id": "p2-ws2-ui-resources-list-detail",
       "title": "P2-WS2-UI: Resources list and detail views",
-      "passes": false,
+      "passes": true,
       "blocked": false,
-      "attempts": 0,
-      "commit": null,
+      "attempts": 1,
+      "commit": "374085d",
       "description": "Resources list view and resource detail view with type icon, rating, read state",
       "validationCommands": [
         "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm install && npm run build"
