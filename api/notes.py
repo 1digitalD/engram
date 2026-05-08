@@ -1,8 +1,36 @@
+from sqlalchemy import or_
+
 from flask import request, jsonify
 from api import api_bp
 from extensions import db
-from models import Note, BucketType, Tag
+from models import Note, BucketType, Tag, Project
 from services.search import search_notes
+
+
+def _apply_note_project_ids(note: Note, project_ids: list) -> None:
+    """Replace note↔projects links; primary project_id becomes first listed id."""
+    ordered = []
+    seen = set()
+    for pid in project_ids:
+        if not pid or pid in seen:
+            continue
+        seen.add(pid)
+        p = db.session.get(Project, pid)
+        if p:
+            ordered.append(p)
+    note.projects = ordered
+    note.project_id = ordered[0].id if ordered else None
+
+
+def _project_ids_payload_from_note_data(note: Note, data: dict) -> None:
+    """Honor project_ids (preferred) or legacy project_id scalar."""
+    if "project_ids" in data:
+        raw = data.get("project_ids")
+        ids = raw if isinstance(raw, list) else []
+        _apply_note_project_ids(note, ids)
+    elif "project_id" in data:
+        pid = data.get("project_id")
+        _apply_note_project_ids(note, [pid] if pid else [])
 
 
 def _resolve_or_create_tags(tag_names: list) -> list:
@@ -40,7 +68,12 @@ def list_notes():
             pass
 
     if project_id:
-        q = q.filter(Note.project_id == project_id)
+        q = q.filter(
+            or_(
+                Note.project_id == project_id,
+                Note.projects.any(Project.id == project_id),
+            )
+        )
     if area_id:
         q = q.filter(Note.area_id == area_id)
     if tag_id:
@@ -95,8 +128,8 @@ def create_note():
         note_obj = db.session.get(Note, note_id)
         changed = False
 
-        if data.get("project_id") and not note_obj.project_id:
-            note_obj.project_id = data["project_id"]
+        if "project_ids" in data or "project_id" in data:
+            _project_ids_payload_from_note_data(note_obj, data)
             changed = True
         if data.get("area_id") and not note_obj.area_id:
             note_obj.area_id = data["area_id"]
@@ -145,7 +178,8 @@ def _create_note_simple(data: dict, raw_text: str):
             pass
 
     ai_meta = None
-    resolved_project_id = data.get("project_id")
+    explicit_projects = "project_ids" in data or "project_id" in data
+    resolved_project_id = None if explicit_projects else data.get("project_id")
     resolved_area_id = data.get("area_id")
     tag_objects = []
 
@@ -212,6 +246,9 @@ def _create_note_simple(data: dict, raw_text: str):
     note.tags = tag_objects
     db.session.add(note)
     db.session.flush()
+    if explicit_projects:
+        _project_ids_payload_from_note_data(note, data)
+        db.session.flush()
     note_id = note.id
     from services.extractor import extract_inline_tasks
 
@@ -250,8 +287,8 @@ def update_note(note_id):
             note.bucket = BucketType(data["bucket"].upper())
         except ValueError:
             pass
-    if "project_id" in data:
-        note.project_id = data["project_id"]
+    if "project_ids" in data or "project_id" in data:
+        _project_ids_payload_from_note_data(note, data)
     if "area_id" in data:
         note.area_id = data["area_id"]
     if "person_id" in data:

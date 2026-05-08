@@ -2,7 +2,8 @@ import uuid
 from datetime import datetime
 from enum import Enum as PyEnum
 
-from sqlalchemy import Column, String, Text, DateTime, Boolean, ForeignKey, Table, Enum, Integer, Float, func, select
+from sqlalchemy import Column, String, Text, DateTime, Boolean, ForeignKey, Table, Enum, Integer, Float, func, select, event, or_
+from sqlalchemy.orm import Session as SaSession
 from sqlalchemy.dialects.sqlite import JSON
 from sqlalchemy.orm import relationship
 
@@ -37,6 +38,23 @@ note_tags = Table(
     db.Model.metadata,
     Column("note_id", String(36), ForeignKey("notes.id"), primary_key=True),
     Column("tag_id", String(36), ForeignKey("tags.id"), primary_key=True),
+)
+
+note_projects = Table(
+    "note_projects",
+    db.Model.metadata,
+    Column(
+        "note_id",
+        String(36),
+        ForeignKey("notes.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column(
+        "project_id",
+        String(36),
+        ForeignKey("projects.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
 )
 
 
@@ -87,14 +105,20 @@ class Project(BaseModel):
     is_archived = Column(Boolean, default=False)
     area_id = Column(String(36), ForeignKey("areas.id"), nullable=True)
 
-    notes = relationship("Note", back_populates="project")
+    notes = relationship(
+        "Note",
+        secondary=note_projects,
+        back_populates="projects",
+    )
     tasks = relationship("Task", back_populates="project")
     area = relationship("Area", back_populates="projects")
 
     def to_dict(self, include_notes=False):
         # Use scalar count queries to avoid loading all related rows
         note_count = db.session.scalar(
-            select(func.count(Note.id)).where(Note.project_id == self.id)
+            select(func.count())
+            .select_from(note_projects)
+            .where(note_projects.c.project_id == self.id)
         ) or 0
         task_count = db.session.scalar(
             select(func.count(Task.id)).where(Task.project_id == self.id)
@@ -202,7 +226,17 @@ class Note(BaseModel):
     area_id = Column(String(36), ForeignKey("areas.id"), nullable=True)
     person_id = Column(String(36), ForeignKey("people.id"), nullable=True)
 
-    project = relationship("Project", back_populates="notes")
+    project = relationship(
+        "Project",
+        foreign_keys=[project_id],
+        overlaps="projects,notes",
+    )
+    projects = relationship(
+        "Project",
+        secondary=note_projects,
+        back_populates="notes",
+        overlaps="project",
+    )
     area = relationship("Area", back_populates="notes")
     person = relationship("Person", back_populates="notes")
     tags = relationship("Tag", secondary=note_tags, back_populates="notes")
@@ -215,6 +249,16 @@ class Note(BaseModel):
         task_count = db.session.scalar(
             select(func.count(Task.id)).where(Task.note_id == self.id)
         ) or 0
+        plist = list(self.projects or [])
+        by_id = {p.id: p for p in plist}
+        primary = self.project_id
+        if primary and primary in by_id:
+            ordered = [primary] + sorted(
+                [p.id for p in plist if p.id != primary],
+                key=lambda x: x or "",
+            )
+        else:
+            ordered = sorted(by_id.keys(), key=lambda x: x or "")
         d = {
             "id": self.id,
             "raw_text": self.raw_text,
@@ -224,6 +268,7 @@ class Note(BaseModel):
             "created_at": self.created_at.isoformat(),
             "modified_at": self.modified_at.isoformat(),
             "project_id": self.project_id,
+            "project_ids": ordered,
             "area_id": self.area_id,
             "person_id": self.person_id,
             "tag_ids": [t.id for t in (self.tags or [])],
@@ -234,6 +279,9 @@ class Note(BaseModel):
         }
         if include_relations:
             d["project"] = self.project.to_dict() if self.project else None
+            d["projects"] = [
+                p.to_dict() for pid in ordered if (p := by_id.get(pid))
+            ]
             d["area"] = self.area.to_dict() if self.area else None
             d["person"] = self.person.to_dict() if self.person else None
             d["tags"] = [t.to_dict() for t in (self.tags or [])]
@@ -362,6 +410,27 @@ class Link(BaseModel):
             "source": self.source,
             "created_at": self.created_at.isoformat(),
         }
+
+
+def _sync_note_projects_m2m(session, note: Note) -> None:
+    """Align note_projects rows with scalar project_id and collection order."""
+    plist = list(note.projects or [])
+    if plist:
+        first_id = plist[0].id
+        if note.project_id != first_id:
+            note.project_id = first_id
+        return
+    if note.project_id:
+        proj = session.get(Project, note.project_id)
+        if proj is not None:
+            note.projects.append(proj)
+
+
+@event.listens_for(SaSession, "before_flush")
+def _before_flush_note_projects(session, flush_context, instances):
+    for obj in session.new.union(session.dirty):
+        if isinstance(obj, Note):
+            _sync_note_projects_m2m(session, obj)
 
 
 # ─── FTS5 + sqlite-vec initialization ────────────────────────────────────────

@@ -324,6 +324,67 @@ def test_manual_task_without_hash_not_cancelled_on_checkbox_removal(client, app)
         assert inline_tasks[0].status == TaskStatus.CANCELLED
 
 
+def test_note_create_and_patch_project_ids_multi_and_clear(client, app):
+    with app.app_context():
+        pid_a = json.loads(
+            client.post(
+                "/api/v1/projects",
+                data=json.dumps({"name": "Alpha"}),
+                content_type="application/json",
+            ).data
+        )["data"]["id"]
+        pid_b = json.loads(
+            client.post(
+                "/api/v1/projects",
+                data=json.dumps({"name": "Beta"}),
+                content_type="application/json",
+            ).data
+        )["data"]["id"]
+
+        res = client.post(
+            "/api/v1/notes",
+            data=json.dumps(
+                {"raw_text": "two projects", "classify": False, "project_ids": [pid_b, pid_a]}
+            ),
+            content_type="application/json",
+        )
+        assert res.status_code == 201
+        body = json.loads(res.data)["data"]
+        assert body["project_id"] == pid_b
+        assert set(body["project_ids"]) == {pid_a, pid_b}
+        assert len(body["projects"]) == 2
+
+        note_id = body["id"]
+
+        res = client.patch(
+            f"/api/v1/notes/{note_id}",
+            data=json.dumps({"project_ids": []}),
+            content_type="application/json",
+        )
+        cleared = json.loads(res.data)["data"]
+        assert cleared["project_ids"] == []
+        assert cleared["project_id"] is None
+
+
+def test_note_legacy_project_id_mapped_to_association(client, app):
+    with app.app_context():
+        pid = json.loads(
+            client.post(
+                "/api/v1/projects",
+                data=json.dumps({"name": "Legacy"}),
+                content_type="application/json",
+            ).data
+        )["data"]["id"]
+        res = client.post(
+            "/api/v1/notes",
+            data=json.dumps({"raw_text": "legacy link", "classify": False, "project_id": pid}),
+            content_type="application/json",
+        )
+        data = json.loads(res.data)["data"]
+        assert data["project_id"] == pid
+        assert data["project_ids"] == [pid]
+
+
 def test_inline_checkbox_daily_append(client, app):
     with app.app_context():
         res = client.post(
