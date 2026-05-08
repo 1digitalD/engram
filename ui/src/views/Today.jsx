@@ -6,6 +6,7 @@ import { ArrowRight, Calendar, Edit2, ExternalLink, Loader2 } from 'lucide-react
 import useStore from '../stores/useStore';
 import { dailyAPI } from '../api/engram';
 import { BucketBadge } from '../components/ui/Badge';
+import TaskCheckboxRow from '../components/tasks/TaskCheckboxRow';
 import styles from './Today.module.css';
 
 function localDateISO(d = new Date()) {
@@ -181,10 +182,12 @@ export default function Today() {
             <ul className={styles.taskList}>
               {dueToday.map(t => (
                 <li key={t.id}>
-                  <Link to={`/tasks`} className={styles.taskLink}>
-                    <ArrowRight size={12} />
-                    <span className={t.status === 'DONE' ? styles.taskDone : ''}>{t.title}</span>
-                  </Link>
+                  <div className={styles.dueTaskRow}>
+                    <TaskCheckboxRow task={t} className={styles.dueTaskInner} />
+                    <Link to="/tasks" className={styles.taskBoardLink} title="Open tasks board" aria-label="Open tasks board">
+                      <ArrowRight size={14} />
+                    </Link>
+                  </div>
                 </li>
               ))}
             </ul>

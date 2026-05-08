@@ -3,11 +3,13 @@ import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Inbox, FileText, FolderOpen,
   Map, Users, CheckSquare, Network, Calendar, Sun,
-  Search, Plus, ChevronLeft, ChevronRight, Menu,
+  Search, Plus, ChevronLeft, ChevronRight, Menu, Keyboard,
 } from 'lucide-react';
 import styles from './AppShell.module.css';
 import CommandPalette from '../search/CommandPalette';
 import NoteEditor from '../notes/NoteEditor';
+import QuickCapture from '../capture/QuickCapture';
+import KeyboardShortcutsModal from './KeyboardShortcutsModal';
 import useStore from '../../stores/useStore';
 
 const NAV_ITEMS = [
@@ -42,13 +44,21 @@ function useIsMobile() {
   return mobile;
 }
 
+function isTypingElement(el) {
+  if (!el || !(el instanceof HTMLElement)) return false;
+  const tag = el.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+  if (el.closest('[contenteditable="true"]')) return true;
+  return false;
+}
+
 function paletteKbdHint() {
   if (typeof navigator === 'undefined') return '⌘K';
   return /Mac|iPhone|iPad|iPod/i.test(navigator.userAgent) ? '⌘K' : 'Ctrl+K';
 }
 
 export default function AppShell({ children }) {
-  const { projects, notes, captureOpen, closeCapture } = useStore();
+  const { projects, notes, captureOpen, openCapture } = useStore();
   const location = useLocation();
   const isMobile = useIsMobile();
 
@@ -56,6 +66,7 @@ export default function AppShell({ children }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [showPalette, setShowPalette] = useState(false);
   const [showNoteEditor, setShowNoteEditor] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
 
   const kbdPalette = useMemo(() => paletteKbdHint(), []);
 
@@ -66,26 +77,32 @@ export default function AppShell({ children }) {
   }, [location.pathname]);
 
   useEffect(() => {
-    if (captureOpen) {
-      setShowNoteEditor(true);
-      closeCapture();
-    }
-  }, [captureOpen, closeCapture]);
-
-  useEffect(() => {
     const handler = (e) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      const target = /** @type {HTMLElement} */ (e.target);
+      if (isTypingElement(target)) return;
+
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         setShowPalette((p) => !p);
+        return;
       }
-      if ((e.metaKey || e.ctrlKey) && e.key === 'n') {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'n') {
         e.preventDefault();
-        setShowNoteEditor(true);
+        if (e.shiftKey) {
+          setShowNoteEditor(true);
+        } else {
+          openCapture();
+        }
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === '/') {
+        e.preventDefault();
+        setShowShortcuts(true);
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, []);
+  }, [openCapture]);
 
   const activeProjects = projects.filter(p => !p.is_archived).slice(0, 8);
   const inboxCount = notes.filter(n => n.bucket === 'INBOX').length;
@@ -121,6 +138,15 @@ export default function AppShell({ children }) {
           </NavLink>
         </div>
         <div className={styles.topRight}>
+          <button
+            type="button"
+            className={styles.iconBtn}
+            aria-label="Keyboard shortcuts"
+            title="Keyboard shortcuts"
+            onClick={() => setShowShortcuts(true)}
+          >
+            <Keyboard size={18} />
+          </button>
           <button
             type="button"
             className={styles.topSearch}
@@ -184,10 +210,10 @@ export default function AppShell({ children }) {
           <button
             className={styles.captureBtn}
             onClick={() => {
-              setShowNoteEditor(true);
+              openCapture();
               closeDrawer();
             }}
-            title="New note (⌘N)"
+            title="Quick capture (⌘N)"
           >
             <Plus size={14} />
             {!sidebarCollapsed && <span>Capture</span>}
@@ -275,11 +301,17 @@ export default function AppShell({ children }) {
       {showPalette && (
         <CommandPalette onClose={() => setShowPalette(false)} />
       )}
+      {captureOpen && (
+        <QuickCapture onRequestFullEditor={() => setShowNoteEditor(true)} />
+      )}
       {showNoteEditor && (
         <NoteEditor
           onClose={() => setShowNoteEditor(false)}
           onSaved={() => setShowNoteEditor(false)}
         />
+      )}
+      {showShortcuts && (
+        <KeyboardShortcutsModal onClose={() => setShowShortcuts(false)} />
       )}
     </div>
   );

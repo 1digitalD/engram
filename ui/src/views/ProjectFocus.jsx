@@ -4,6 +4,7 @@ import { ArrowLeft, Plus } from 'lucide-react';
 import useStore from '../stores/useStore';
 import NoteCard from '../components/notes/NoteCard';
 import NoteEditor from '../components/notes/NoteEditor';
+import TaskCheckboxRow from '../components/tasks/TaskCheckboxRow';
 import styles from './ProjectFocus.module.css';
 
 export default function ProjectFocus() {
@@ -91,7 +92,7 @@ export default function ProjectFocus() {
             <div className={styles.taskList}>
               {projectTasks.map(t => (
                 <div key={t.id} className={styles.taskRow}>
-                  <span>{t.title}</span>
+                  <TaskCheckboxRow task={t} className={styles.taskRowCheckbox} />
                   {t.status && <span className={styles.taskStatus}>{t.status}</span>}
                 </div>
               ))}

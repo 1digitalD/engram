@@ -5,6 +5,7 @@ import Modal from '../components/ui/Modal';
 import useStore from '../stores/useStore';
 import NoteCard from '../components/notes/NoteCard';
 import NoteEditor from '../components/notes/NoteEditor';
+import TaskCheckboxRow from '../components/tasks/TaskCheckboxRow';
 import styles from './ProjectFocus.module.css';
 
 export default function AreaFocus() {
@@ -86,9 +87,9 @@ export default function AreaFocus() {
 
       <div className={styles.tabs}>
         {[
-          { key: 'notes', label: `Notes (${areaNotes.length})`, icon: FileText },
-          { key: 'projects', label: `Projects (${areaProjects.length})`, icon: FolderOpen },
-          { key: 'tasks', label: `Tasks (${areaTasks.length})`, icon: CheckSquare },
+          { key: 'notes', label: `Notes (${areaNotes.length})` },
+          { key: 'projects', label: `Projects (${areaProjects.length})` },
+          { key: 'tasks', label: `Tasks (${areaTasks.length})` },
         ].map(({ key, label }) => (
           <button
             key={key}
@@ -147,7 +148,7 @@ export default function AreaFocus() {
             <div className={styles.taskList}>
               {areaTasks.map(t => (
                 <div key={t.id} className={styles.taskRow}>
-                  <span>{t.title}</span>
+                  <TaskCheckboxRow task={t} className={styles.taskRowCheckbox} />
                   {t.status && <span className={styles.taskStatus}>{t.status}</span>}
                 </div>
               ))}

@@ -173,6 +173,28 @@
   gap: var(--space-2);
 }
 
+.dueTaskRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.dueTaskInner {
+  flex: 1;
+  min-width: 0;
+}
+
+.taskBoardLink {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  line-height: 0;
+}
+
+.taskBoardLink:hover {
+  color: var(--accent);
+}
+
 .taskLink {
   display: flex;
   align-items: center;

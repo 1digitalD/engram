@@ -138,3 +138,5 @@ If the session resets or the gateway restarts:
 - Task `p1-ws5-navigation-layout-polish` completed in worktree `engram-p1-ws5-navigation-layout-polish`.
 - Scope: top bar with Sun→Today, app shell body with sidebar+main, mobile drawer+bottom nav, AreaFocus projects/tasks tabs, ProjectFocus area breadcrumb, graph Open action, command palette categories and keyboard hints, note detail breadcrumb, captureOpen→NoteEditor wiring.
 - Validation: `cd ui && npm install && npm run build` passed (chunk size warning only); `static/` reverted to source-only (no generated assets in commit).
+
+- Task `p1-ws6-power-features` completed in worktree `engram-p1-ws6-power-features`. QuickCapture overlay tied to `captureOpen`/`openCapture`/`closeCapture`; `⌘N`/`Ctrl+N` quick capture, `⌘⇧N` full NoteEditor; shortcuts help modal (`⌘/`/`Ctrl+/` + header button); interactive task toggles on Dashboard, Today, Tasks board, Project/Area focus tabs; fixed AreaFocus tabs array (removed stray icon identifiers). Validation: `cd ui && npm install && npm run build` green; static build output reverted before commit.
