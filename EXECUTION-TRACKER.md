@@ -59,7 +59,7 @@ For each batch:
 - [x] Batch 1 started
 - [x] Batch 1 committed
 - [x] Batch 2 started
-- [ ] Batch 2 committed
+- [x] Batch 2 committed
 - [ ] Batch 3 started
 - [ ] Batch 3 committed
 
@@ -79,7 +79,9 @@ For each batch:
 - Re-validated Batch 1 before commit: backend pytest stayed green.
 - Committed Batch 1 as `db9c961` (`Add area and note relationships for projects and tasks`).
 - Frontend validation is possible, but this worktree does not track `ui/node_modules`, so `npm install && npm run build` is required each time; current build is green after install.
-- Next step: commit Batch 2 store/palette changes now that validation is green, then decide whether a bounded Batch 3 UI slice is worth the risk tonight.
+- Committed Batch 2 as `ba3e46e` (`Complete missing store actions and capture state`).
+- Batch 3 remains unstarted. At this point the high-value foundation work is in, validated, and committed cleanly.
+- Recommended next step: either stop here with a clean handoff, or take one bounded UI slice only after choosing a file set that won't sprawl beyond tonight.
 
 ## Recovery notes
 If the session resets or the gateway restarts:
