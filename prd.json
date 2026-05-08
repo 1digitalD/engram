@@ -52,10 +52,10 @@
     {
       "id": "p2-ws1-iter-c-ui-multi-project-assignment",
       "title": "P2-WS1-C: UI multi-project chip assignment",
-      "passes": false,
+      "passes": true,
       "blocked": false,
-      "attempts": 0,
-      "commit": null,
+      "attempts": 1,
+      "commit": "62d6128",
       "description": "NoteEditor: single project select \u2192 multi-project chip selector with type-to-search",
       "validationCommands": [
         "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm install && npm run build"
