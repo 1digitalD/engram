@@ -13,6 +13,11 @@
   animation: fadeIn var(--duration-normal) var(--ease-out) both;
 }
 
+.expanded {
+  border-top-color: var(--accent);
+  box-shadow: var(--shadow-sm);
+}
+
 .card:hover {
   border-color: var(--border-focus);
   box-shadow: var(--shadow-sm);
@@ -109,16 +114,71 @@
 .body {
   text-decoration: none;
   display: block;
+  cursor: pointer;
 }
 
-.text {
+.markdown {
   font-size: var(--text-sm);
   color: var(--text-primary);
   line-height: 1.6;
   overflow: hidden;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 8;
   -webkit-box-orient: vertical;
+}
+
+.markdownExpanded {
+  display: block;
+  overflow: visible;
+}
+
+.markdown :where(p, ul, ol, blockquote, pre, table) {
+  margin-bottom: var(--space-2);
+}
+
+.markdown :where(p, li) {
+  color: var(--text-secondary);
+}
+
+.markdown :where(ul, ol) {
+  padding-left: var(--space-5);
+}
+
+.markdown :where(blockquote) {
+  border-left: 2px solid var(--border-focus);
+  padding-left: var(--space-3);
+  color: var(--text-muted);
+}
+
+.markdown :where(pre) {
+  max-height: 220px;
+  font-size: var(--text-xs);
+}
+
+.markdown :where(table) {
+  width: 100%;
+  border-collapse: collapse;
+  display: block;
+  overflow-x: auto;
+}
+
+.markdown :where(th, td) {
+  border: 1px solid var(--border);
+  padding: var(--space-1) var(--space-2);
+}
+
+.markdownHeading {
+  display: block;
+  color: var(--text-primary);
+  font-weight: 600;
+  margin-bottom: var(--space-1);
+}
+
+.placeholder {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-style: italic;
+  line-height: 1.6;
 }
 
 .footer {
@@ -138,6 +198,14 @@
   font-size: var(--text-xs);
   font-family: var(--font-mono);
   color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  padding: 1px 3px;
+  text-decoration: none;
+}
+
+.tag:hover {
+  background: var(--bg-hover);
+  color: var(--accent);
 }
 
 .meta {
@@ -153,4 +221,25 @@
   background: rgba(124,106,255,0.1);
   padding: 1px 5px;
   border-radius: var(--radius-full);
+  opacity: 0.18;
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+
+.card:hover .aiBadge,
+.card:focus-within .aiBadge {
+  opacity: 1;
+}
+
+.expandBtn {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-family: var(--font-mono);
+  padding: 1px 4px;
+  border-radius: var(--radius-sm);
+}
+
+.expandBtn:hover,
+.expandBtn:focus-visible {
+  background: var(--bg-hover);
+  color: var(--text-primary);
 }

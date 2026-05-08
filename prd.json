@@ -1,0 +1,79 @@
+{
+  "project": "engram",
+  "version": 1,
+  "validationCommands": [
+    "cd ui && npm install && npm run build"
+  ],
+  "blockerPolicy": {
+    "maxValidationRetries": 2,
+    "maxRateLimitRetries": 3,
+    "allowDependencyInstall": true,
+    "askBeforeExternalActions": false,
+    "preserveFailedWorktree": true
+  },
+  "tasks": [
+    {
+      "id": "p1-ws2-note-cards-markdown-display",
+      "title": "Improve note cards markdown display and interactions",
+      "description": "Implement the Phase 1 WS2 bounded UI slice from PLAN.md in the current file layout: render note card markdown previews, add syntax/code handling if dependencies are practical, support expand/collapse, demote AI badge visibility, make tags filter notes, add spin CSS, and hide imported metadata previews.",
+      "acceptanceCriteria": [
+        "Note cards render user markdown as formatted preview instead of raw text where practical.",
+        "Collapsed cards show a bounded preview and expanded cards show full content.",
+        "Tag clicks navigate/filter without opening the note card.",
+        "AI confidence badge is visually demoted until hover/focus or equivalent low-noise treatment.",
+        "Imported Notion metadata-only notes show a muted placeholder instead of raw metadata.",
+        "Missing .spin animation CSS is present.",
+        "Frontend build passes."
+      ],
+      "dependencies": [],
+      "passes": true,
+      "blocked": false,
+      "blockerReason": null,
+      "attempts": 1,
+      "validationEvidence": "2026-05-08: cd ui && npm install && npm run build passed; Vite chunk-size warning only; generated static assets reverted source-only.",
+      "commit": "2b2d3d0"
+    },
+    {
+      "id": "p1-ws3-area-person-task-ui",
+      "title": "Complete area/person edit UI and task due-date inline improvements",
+      "description": "Finish remaining Phase 1 WS3 UI work not covered by Batch 2: area/person edit and delete affordances, task title inline editing, task due date in creation flow, aligned to actual components/routes.",
+      "acceptanceCriteria": [
+        "Area edit/delete UI exists in actual area views with confirmation for delete.",
+        "Person edit/delete UI exists in actual people views with confirmation for delete.",
+        "Task title can be edited inline and saved through updateTask.",
+        "Task creation supports due_date and passes null when blank.",
+        "Frontend build passes."
+      ],
+      "dependencies": [
+        "p1-ws2-note-cards-markdown-display"
+      ],
+      "passes": false,
+      "blocked": false,
+      "blockerReason": null,
+      "attempts": 0,
+      "validationEvidence": null,
+      "commit": null
+    },
+    {
+      "id": "p1-ws4-note-detail-inline-editing",
+      "title": "Add note detail inline editing and related panels slice",
+      "description": "Implement a bounded Phase 1 WS4 note-detail slice: in-place note editing and, if current APIs support it cleanly, backlinks/tasks panels without sprawling beyond existing file layout.",
+      "acceptanceCriteria": [
+        "Note detail supports click-to-edit or clear inline edit mode with save/cancel.",
+        "Cmd/Ctrl+Enter or visible Save persists raw_text via updateNote/API.",
+        "Esc or Cancel restores the original text without saving.",
+        "Existing Write/Preview editor behavior remains working.",
+        "Frontend build passes."
+      ],
+      "dependencies": [
+        "p1-ws3-area-person-task-ui"
+      ],
+      "passes": false,
+      "blocked": false,
+      "blockerReason": null,
+      "attempts": 0,
+      "validationEvidence": null,
+      "commit": null
+    }
+  ]
+}

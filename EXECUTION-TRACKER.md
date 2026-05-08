@@ -60,8 +60,8 @@ For each batch:
 - [x] Batch 1 committed
 - [x] Batch 2 started
 - [x] Batch 2 committed
-- [ ] Batch 3 started
-- [ ] Batch 3 committed
+- [x] Batch 3 started
+- [x] Batch 3 committed
 
 ## Progress log
 ### 2026-05-07
@@ -82,6 +82,15 @@ For each batch:
 - Committed Batch 2 as `ba3e46e` (`Complete missing store actions and capture state`).
 - Batch 3 remains unstarted. At this point the high-value foundation work is in, validated, and committed cleanly.
 - Recommended next step: either stop here with a clean handoff, or take one bounded UI slice only after choosing a file set that won't sprawl beyond tonight.
+
+
+### 2026-05-08
+- Started Batch 3 using the self-improving coding loop contract (`AGENTS.md` + `prd.json`) in this worktree.
+- Task `p1-ws2-note-cards-markdown-display` implemented via isolated OpenClaw code-agent session `xDGi9yf8`; plugin merge targeted `main` for this nested tracker worktree, so the validated source-only patch was applied manually onto `claude/reverent-knuth-45dc53`.
+- Implemented markdown note-card previews, expand/collapse, tag URL filtering, demoted AI badge styling, Notion import metadata placeholder, and missing `.spin` CSS.
+- Validation passed: `cd ui && npm install && npm run build` (Vite chunk-size warning only). Generated static assets were reverted to keep the commit source-only.
+- Committed as `2200044` (`Improve note card markdown display`).
+- Next loop task from `prd.json`: `p1-ws3-area-person-task-ui`.
 
 ## Recovery notes
 If the session resets or the gateway restarts:
