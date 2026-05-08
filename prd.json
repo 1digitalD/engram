@@ -71,9 +71,9 @@
     {
       "id": "p2-ws2-typed-resources-schema-api",
       "title": "P2-WS2: Typed Resources schema and API",
-      "passes": false,
+      "passes": true,
       "blocked": false,
-      "attempts": 0,
+      "attempts": 1,
       "commit": null,
       "description": "Resource model with type enum, CRUD API, resource_tags association",
       "validationCommands": [],

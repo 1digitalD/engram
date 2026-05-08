@@ -523,6 +523,78 @@ def test_note_patch_legacy_project_id(client, app):
         assert data["project_ids"] == [pb]
 
 
+def test_resources_crud_and_type_filter(client, app):
+    with app.app_context():
+        aid = json.loads(
+            client.post(
+                "/api/v1/areas",
+                data=json.dumps({"name": "Reading"}),
+                content_type="application/json",
+            ).data
+        )["data"]["id"]
+
+        tag_res = client.post(
+            "/api/v1/notes",
+            data=json.dumps(
+                {"raw_text": "seed for tag", "classify": False, "tag_names": ["ref"]}
+            ),
+            content_type="application/json",
+        )
+        tag_id = json.loads(tag_res.data)["data"]["tag_ids"][0]
+
+        res = client.post(
+            "/api/v1/resources",
+            data=json.dumps(
+                {
+                    "title": "Designing Data-Intensive Applications",
+                    "resource_type": "BOOK",
+                    "url": "https://example.com/ddia",
+                    "author": "Kleppmann",
+                    "area_id": aid,
+                    "rating": 5,
+                    "tag_ids": [tag_id],
+                }
+            ),
+            content_type="application/json",
+        )
+        assert res.status_code == 201
+        book = json.loads(res.data)["data"]
+        rid = book["id"]
+        assert book["resource_type"] == "BOOK"
+        assert book["rating"] == 5
+        assert book["area_id"] == aid
+        assert tag_id in book["tag_ids"]
+
+        client.post(
+            "/api/v1/resources",
+            data=json.dumps(
+                {"title": "Some article", "resource_type": "ARTICLE"}
+            ),
+            content_type="application/json",
+        )
+
+        res = client.get("/api/v1/resources?type=BOOK")
+        assert res.status_code == 200
+        types = {r["resource_type"] for r in json.loads(res.data)["data"]}
+        assert types == {"BOOK"}
+
+        res = client.patch(
+            f"/api/v1/resources/{rid}",
+            data=json.dumps({"is_read": True, "rating": 4}),
+            content_type="application/json",
+        )
+        body = json.loads(res.data)["data"]
+        assert body["is_read"] is True
+        assert body["rating"] == 4
+
+        client.delete(f"/api/v1/resources/{rid}")
+        res = client.get(f"/api/v1/resources/{rid}")
+        assert res.status_code == 404
+
+        area_detail = json.loads(client.get(f"/api/v1/areas/{aid}").data)["data"]
+        assert area_detail["resource_count"] == 0
+
+
 def test_inline_checkbox_daily_append(client, app):
     with app.app_context():
         res = client.post(

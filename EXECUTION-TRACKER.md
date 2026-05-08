@@ -140,3 +140,5 @@ If the session resets or the gateway restarts:
 - Validation: `cd ui && npm install && npm run build` passed (chunk size warning only); `static/` reverted to source-only (no generated assets in commit).
 
 - Task `p1-ws6-power-features` completed in worktree `engram-p1-ws6-power-features`. QuickCapture overlay tied to `captureOpen`/`openCapture`/`closeCapture`; `⌘N`/`Ctrl+N` quick capture, `⌘⇧N` full NoteEditor; shortcuts help modal (`⌘/`/`Ctrl+/` + header button); interactive task toggles on Dashboard, Today, Tasks board, Project/Area focus tabs; fixed AreaFocus tabs array (removed stray icon identifiers). Validation: `cd ui && npm install && npm run build` green; static build output reverted before commit.
+
+- Task `p2-ws2-typed-resources-schema-api`: `Resource` model + `ResourceType` enum, `resource_tags` M2M, `Area.resources` + `Area.resource_count` in serialization, CRUD `/api/v1/resources` with `GET ?type=` filter, migration `006_resource_model.py`; `prd.json` task marked passes. Validation: `PYTHONPATH=. pytest -q tests/test_api.py` → 25 passed.

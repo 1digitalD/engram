@@ -32,6 +32,16 @@ class TaskStatus(PyEnum):
     CANCELLED = "CANCELLED"
 
 
+class ResourceType(PyEnum):
+    ARTICLE = "ARTICLE"
+    BOOK = "BOOK"
+    URL = "URL"
+    VIDEO = "VIDEO"
+    PAPER = "PAPER"
+    TOOL = "TOOL"
+    OTHER = "OTHER"
+
+
 # Association tables
 note_tags = Table(
     "note_tags",
@@ -57,6 +67,18 @@ note_projects = Table(
     ),
 )
 
+resource_tags = Table(
+    "resource_tags",
+    db.Model.metadata,
+    Column(
+        "resource_id",
+        String(36),
+        ForeignKey("resources.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column("tag_id", String(36), ForeignKey("tags.id", ondelete="CASCADE"), primary_key=True),
+)
+
 
 # ─── Base ────────────────────────────────────────────────────────────────────
 
@@ -79,15 +101,27 @@ class Tag(BaseModel):
     color = Column(String(7), nullable=True)
 
     notes = relationship("Note", secondary=note_tags, back_populates="tags")
+    resources = relationship("Resource", secondary=resource_tags, back_populates="tags")
 
     def to_dict(self):
+        note_count = db.session.scalar(
+            select(func.count())
+            .select_from(note_tags)
+            .where(note_tags.c.tag_id == self.id)
+        ) or 0
+        resource_count = db.session.scalar(
+            select(func.count())
+            .select_from(resource_tags)
+            .where(resource_tags.c.tag_id == self.id)
+        ) or 0
         return {
             "id": self.id,
             "name": self.name,
             "color": self.color,
             "created_at": self.created_at.isoformat(),
             "modified_at": self.modified_at.isoformat(),
-            "note_count": len(self.notes) if self.notes else 0,
+            "note_count": note_count,
+            "resource_count": resource_count,
         }
 
 
@@ -156,6 +190,7 @@ class Area(BaseModel):
     notes = relationship("Note", back_populates="area")
     projects = relationship("Project", back_populates="area")
     tasks = relationship("Task", back_populates="area")
+    resources = relationship("Resource", back_populates="area")
 
     def to_dict(self, include_notes=False):
         note_count = db.session.scalar(
@@ -167,6 +202,9 @@ class Area(BaseModel):
         task_count = db.session.scalar(
             select(func.count(Task.id)).where(Task.area_id == self.id)
         ) or 0
+        resource_count = db.session.scalar(
+            select(func.count(Resource.id)).where(Resource.area_id == self.id)
+        ) or 0
         d = {
             "id": self.id,
             "name": self.name,
@@ -177,9 +215,54 @@ class Area(BaseModel):
             "note_count": note_count,
             "project_count": project_count,
             "task_count": task_count,
+            "resource_count": resource_count,
         }
         if include_notes:
             d["notes"] = [n.to_dict() for n in (self.notes or [])]
+        return d
+
+
+# ─── Resources ────────────────────────────────────────────────────────────────
+
+
+class Resource(BaseModel):
+    __tablename__ = "resources"
+
+    title = Column(String(500), nullable=False)
+    resource_type = Column(Enum(ResourceType), nullable=False, default=ResourceType.OTHER)
+    url = Column(String(2048), nullable=True)
+    author = Column(String(255), nullable=True)
+    published_at = Column(DateTime, nullable=True)
+    description = Column(Text, nullable=True)
+    my_notes = Column(Text, nullable=True)
+    is_read = Column(Boolean, default=False)
+    rating = Column(Integer, nullable=True)
+    area_id = Column(String(36), ForeignKey("areas.id"), nullable=True)
+
+    area = relationship("Area", back_populates="resources")
+    tags = relationship("Tag", secondary=resource_tags, back_populates="resources")
+
+    def to_dict(self, include_relations=True):
+        d = {
+            "id": self.id,
+            "title": self.title,
+            "resource_type": self.resource_type.value if self.resource_type else ResourceType.OTHER.value,
+            "url": self.url,
+            "author": self.author,
+            "published_at": self.published_at.isoformat() if self.published_at else None,
+            "description": self.description,
+            "my_notes": self.my_notes,
+            "is_read": bool(self.is_read),
+            "rating": self.rating,
+            "area_id": self.area_id,
+            "tag_ids": [t.id for t in (self.tags or [])],
+            "created_at": self.created_at.isoformat(),
+            "modified_at": self.modified_at.isoformat(),
+        }
+        if include_relations:
+            d["tags"] = [t.to_dict() for t in (self.tags or [])]
+            d["area"] = self.area.to_dict() if self.area else None
+            d["area_name"] = self.area.name if self.area else None
         return d
 
 
