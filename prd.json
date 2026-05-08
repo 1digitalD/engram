@@ -75,5 +75,7 @@
       "validationEvidence": "2026-05-08: cd ui && npm install && npm run build passed; Vite chunk-size warning only; generated static assets reverted source-only.",
       "commit": "6c1a597"
     }
-  ]
+  ],
+  "integrationBranch": "overhaul/full-implementation-loop",
+  "mergePolicy": "Merge validated task commits into overhaul/full-implementation-loop only; merge to main after all phases pass end-to-end validation."
 }

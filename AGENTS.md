@@ -7,6 +7,7 @@ Engram is Dan's Highspot/work-management and second-brain system for capture, se
 - Keep changes scoped to the active tracker task.
 - Do not touch unrelated files or the dirty root worktree.
 - Prefer this clean worktree for autonomous implementation: `/Volumes/lex1t/dev/shared/repos/engram/.claude/worktrees/reverent-knuth-45dc53`.
+- Integration branch for the overhaul: `overhaul/full-implementation-loop`; keep merging validated phase work here, not `main`, until end-to-end validation is complete.
 - A task is done only when the relevant validation passes.
 - Update `EXECUTION-TRACKER.md` after each completed or blocked task.
 - Commit logical, reviewable units.

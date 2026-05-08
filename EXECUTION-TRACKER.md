@@ -2,7 +2,7 @@
 
 Last updated: 2026-05-07
 Worktree: `/Volumes/lex1t/dev/shared/repos/engram/.claude/worktrees/reverent-knuth-45dc53`
-Branch: `claude/reverent-knuth-45dc53`
+Branch: `overhaul/full-implementation-loop`
 
 ## Operating principles
 - No corner-cutting
@@ -100,6 +100,12 @@ For each batch:
 - Implemented area edit/delete controls, area detail edit/delete, person edit/delete controls, inline task title editing, task creation due date support, and scoped CSS support.
 - Validation passed: `cd ui && npm install && npm run build` (Vite chunk-size warning only). Generated static assets were reverted.
 
+
+
+### 2026-05-08 branch policy update
+- Created integration branch `overhaul/full-implementation-loop` at validated HEAD `6744563`.
+- Policy: continue all remaining overhaul phases by merging validated task work into `overhaul/full-implementation-loop`. Do not merge to `main` until all phases are complete and end-to-end validation passes.
+- The previous tracker branch `claude/reverent-knuth-45dc53` remains historical context; this branch is the new source of truth for overhaul integration.
 
 ## Recovery notes
 If the session resets or the gateway restarts:
