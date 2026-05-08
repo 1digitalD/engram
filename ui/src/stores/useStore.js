@@ -4,7 +4,7 @@
  */
 
 import { create } from 'zustand';
-import { notesAPI, projectsAPI, areasAPI, peopleAPI, tasksAPI, ingestAPI, tagsAPI } from '../api/engram';
+import { notesAPI, projectsAPI, areasAPI, peopleAPI, tasksAPI, ingestAPI, tagsAPI, resourcesAPI } from '../api/engram';
 
 const useStore = create((set, get) => ({
   // ── Data ──────────────────────────────────
@@ -14,6 +14,7 @@ const useStore = create((set, get) => ({
   people:   [],
   tasks:    [],
   tags:     [],
+  resources: [],
 
   // ── UI State ───────────────────────────────
   loading:     false,
@@ -48,13 +49,14 @@ const useStore = create((set, get) => ({
   loadAll: async () => {
     set({ loading: true });
     try {
-      const [notes, projects, areas, people, tasks, tags] = await Promise.all([
+      const [notes, projects, areas, people, tasks, tags, resources] = await Promise.all([
         notesAPI.list(),
         projectsAPI.list(),
         areasAPI.list(),
         peopleAPI.list(),
         tasksAPI.list(),
         tagsAPI.list(),
+        resourcesAPI.list(),
       ]);
       set({
         notes:    notes.data || [],
@@ -63,6 +65,7 @@ const useStore = create((set, get) => ({
         people:   people.data || [],
         tasks:    tasks.data || [],
         tags:     tags.data || [],
+        resources: resources.data || [],
         loading:  false,
       });
     } catch (e) {
@@ -300,6 +303,46 @@ const useStore = create((set, get) => ({
   },
 
   setActiveArea: (area) => set({ activeArea: area }),
+
+  // ── Resources ──────────────────────────────
+
+  updateResource: async (id, data) => {
+    try {
+      const res = await resourcesAPI.update(id, data);
+      const updated = res.data;
+      set(s => ({
+        resources: s.resources.map(r => r.id === id ? updated : r),
+      }));
+      get().addToast({ type: 'success', message: 'Resource saved' });
+      return updated;
+    } catch (e) {
+      get().addToast({ type: 'error', message: e.message });
+      throw e;
+    }
+  },
+
+  deleteResource: async (id) => {
+    try {
+      await resourcesAPI.delete(id);
+      set(s => ({ resources: s.resources.filter(r => r.id !== id) }));
+      get().addToast({ type: 'success', message: 'Resource deleted' });
+    } catch (e) {
+      get().addToast({ type: 'error', message: e.message });
+      throw e;
+    }
+  },
+
+  /** Replace or merge a resource row (e.g. after GET detail). */
+  upsertResource: (resource) => {
+    if (!resource?.id) return;
+    set(s => {
+      const idx = s.resources.findIndex(r => r.id === resource.id);
+      if (idx === -1) return { resources: [resource, ...s.resources] };
+      const next = [...s.resources];
+      next[idx] = resource;
+      return { resources: next };
+    });
+  },
 
   // ── People ─────────────────────────────────
 

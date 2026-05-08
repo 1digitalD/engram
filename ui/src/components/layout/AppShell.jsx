@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
-  LayoutDashboard, Inbox, FileText, FolderOpen,
+  LayoutDashboard, Inbox, FileText, FolderOpen, Library,
   Map, Users, CheckSquare, Network, Calendar, Sun,
   Search, Plus, ChevronLeft, ChevronRight, Menu, Keyboard,
 } from 'lucide-react';
@@ -19,6 +19,7 @@ const NAV_ITEMS = [
   { to: '/notes',    icon: FileText,        label: 'Notes' },
   { to: '/projects', icon: FolderOpen,      label: 'Projects' },
   { to: '/areas',    icon: Map,             label: 'Areas' },
+  { to: '/resources', icon: Library,        label: 'Resources' },
   { to: '/people',   icon: Users,           label: 'People' },
   { to: '/tasks',    icon: CheckSquare,     label: 'Tasks' },
   { to: '/graph',    icon: Network,         label: 'Graph' },

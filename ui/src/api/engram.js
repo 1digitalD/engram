@@ -51,6 +51,15 @@ export const projectsAPI = {
   delete: (id)          => apiRequest('DELETE', `/projects/${id}`),
 };
 
+// ── Resources ────────────────────────────────
+export const resourcesAPI = {
+  list:   (params = {}) => apiRequest('GET',    '/resources', null, params),
+  get:    (id)          => apiRequest('GET',    `/resources/${id}`),
+  create: (d)           => apiRequest('POST',   '/resources', d),
+  update: (id, d)       => apiRequest('PATCH',  `/resources/${id}`, d),
+  delete: (id)          => apiRequest('DELETE', `/resources/${id}`),
+};
+
 // ── Areas ────────────────────────────────────
 export const areasAPI = {
   list:   (params = {}) => apiRequest('GET',    '/areas', null, params),
