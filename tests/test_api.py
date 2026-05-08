@@ -385,6 +385,144 @@ def test_note_legacy_project_id_mapped_to_association(client, app):
         assert data["project_ids"] == [pid]
 
 
+def test_notes_list_serializes_project_ids_and_projects(client, app):
+    with app.app_context():
+        pid = json.loads(
+            client.post(
+                "/api/v1/projects",
+                data=json.dumps({"name": "Listed"}),
+                content_type="application/json",
+            ).data
+        )["data"]["id"]
+        client.post(
+            "/api/v1/notes",
+            data=json.dumps(
+                {"raw_text": "on list", "classify": False, "project_ids": [pid]}
+            ),
+            content_type="application/json",
+        )
+        res = client.get("/api/v1/notes")
+        assert res.status_code == 200
+        items = json.loads(res.data)["data"]
+        note_row = next(n for n in items if n.get("raw_text") == "on list")
+        assert note_row["project_id"] == pid
+        assert note_row["project_ids"] == [pid]
+        assert len(note_row["projects"]) == 1
+        assert note_row["projects"][0]["id"] == pid
+
+
+def test_notes_list_filter_by_project_ids_or_semantics(client, app):
+    with app.app_context():
+        pa = json.loads(
+            client.post(
+                "/api/v1/projects",
+                data=json.dumps({"name": "FilterA"}),
+                content_type="application/json",
+            ).data
+        )["data"]["id"]
+        pb = json.loads(
+            client.post(
+                "/api/v1/projects",
+                data=json.dumps({"name": "FilterB"}),
+                content_type="application/json",
+            ).data
+        )["data"]["id"]
+        client.post(
+            "/api/v1/notes",
+            data=json.dumps(
+                {"raw_text": "only a", "classify": False, "project_ids": [pa]}
+            ),
+            content_type="application/json",
+        )
+        client.post(
+            "/api/v1/notes",
+            data=json.dumps(
+                {"raw_text": "a and b", "classify": False, "project_ids": [pa, pb]}
+            ),
+            content_type="application/json",
+        )
+        res = client.get(f"/api/v1/notes?project_ids={pa},{pb}")
+        texts = {n["raw_text"] for n in json.loads(res.data)["data"]}
+        assert "only a" in texts
+        assert "a and b" in texts
+        res_one = client.get(f"/api/v1/notes?project_ids={pa}")
+        texts_one = {n["raw_text"] for n in json.loads(res_one.data)["data"]}
+        assert "only a" in texts_one
+        assert "a and b" in texts_one
+
+
+def test_note_post_project_ids_takes_precedence_over_project_id(client, app):
+    with app.app_context():
+        pa = json.loads(
+            client.post(
+                "/api/v1/projects",
+                data=json.dumps({"name": "PrimaryProj"}),
+                content_type="application/json",
+            ).data
+        )["data"]["id"]
+        pb = json.loads(
+            client.post(
+                "/api/v1/projects",
+                data=json.dumps({"name": "IgnoredProj"}),
+                content_type="application/json",
+            ).data
+        )["data"]["id"]
+        res = client.post(
+            "/api/v1/notes",
+            data=json.dumps(
+                {
+                    "raw_text": "prec",
+                    "classify": False,
+                    "project_ids": [pa],
+                    "project_id": pb,
+                }
+            ),
+            content_type="application/json",
+        )
+        body = json.loads(res.data)["data"]
+        assert body["project_id"] == pa
+        assert body["project_ids"] == [pa]
+
+
+def test_note_patch_legacy_project_id(client, app):
+    with app.app_context():
+        pa = json.loads(
+            client.post(
+                "/api/v1/projects",
+                data=json.dumps({"name": "PatchA"}),
+                content_type="application/json",
+            ).data
+        )["data"]["id"]
+        pb = json.loads(
+            client.post(
+                "/api/v1/projects",
+                data=json.dumps({"name": "PatchB"}),
+                content_type="application/json",
+            ).data
+        )["data"]["id"]
+        nid = json.loads(
+            client.post(
+                "/api/v1/notes",
+                data=json.dumps(
+                    {
+                        "raw_text": "patch legacy",
+                        "classify": False,
+                        "project_ids": [pa, pb],
+                    }
+                ),
+                content_type="application/json",
+            ).data
+        )["data"]["id"]
+        res = client.patch(
+            f"/api/v1/notes/{nid}",
+            data=json.dumps({"project_id": pb}),
+            content_type="application/json",
+        )
+        data = json.loads(res.data)["data"]
+        assert data["project_id"] == pb
+        assert data["project_ids"] == [pb]
+
+
 def test_inline_checkbox_daily_append(client, app):
     with app.app_context():
         res = client.post(

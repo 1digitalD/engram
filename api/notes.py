@@ -23,7 +23,7 @@ def _apply_note_project_ids(note: Note, project_ids: list) -> None:
 
 
 def _project_ids_payload_from_note_data(note: Note, data: dict) -> None:
-    """Honor project_ids (preferred) or legacy project_id scalar."""
+    """Apply project links from JSON: project_ids array wins; else legacy project_id scalar."""
     if "project_ids" in data:
         raw = data.get("project_ids")
         ids = raw if isinstance(raw, list) else []
@@ -48,9 +48,30 @@ def _resolve_or_create_tags(tag_names: list) -> list:
     return tags
 
 
+def _project_ids_query_values():
+    """?project_ids=a&project_ids=b or ?project_ids=a,b — deduped, non-empty strings only."""
+    raw = request.args.getlist("project_ids")
+    out = []
+    for part in raw:
+        if not part or not str(part).strip():
+            continue
+        if "," in part:
+            out.extend(p.strip() for p in part.split(",") if p.strip())
+        else:
+            out.append(str(part).strip())
+    seen = set()
+    ordered = []
+    for pid in out:
+        if pid not in seen:
+            seen.add(pid)
+            ordered.append(pid)
+    return ordered
+
+
 @api_bp.route("/notes", methods=["GET"])
 def list_notes():
     bucket = request.args.get("bucket")
+    project_ids_filter = _project_ids_query_values()
     project_id = request.args.get("project_id")
     area_id = request.args.get("area_id")
     tag_id = request.args.get("tag_id")
@@ -67,7 +88,19 @@ def list_notes():
         except ValueError:
             pass
 
-    if project_id:
+    if project_ids_filter:
+        q = q.filter(
+            or_(
+                *[
+                    or_(
+                        Note.project_id == pid,
+                        Note.projects.any(Project.id == pid),
+                    )
+                    for pid in project_ids_filter
+                ]
+            )
+        )
+    elif project_id:
         q = q.filter(
             or_(
                 Note.project_id == project_id,
