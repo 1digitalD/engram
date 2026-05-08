@@ -172,6 +172,11 @@
   padding: var(--space-2);
 }
 
+.taskItemInner {
+  flex: 1;
+  min-width: 0;
+}
+
 .taskIcon {
   color: var(--text-muted);
   flex-shrink: 0;

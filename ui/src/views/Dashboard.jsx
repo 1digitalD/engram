@@ -1,8 +1,9 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Inbox, CheckSquare, FileText, FolderOpen, Calendar } from 'lucide-react';
+import { ArrowRight, Inbox, CheckSquare, FileText, FolderOpen } from 'lucide-react';
 import useStore from '../stores/useStore';
 import NoteCard from '../components/notes/NoteCard';
+import TaskCheckboxRow from '../components/tasks/TaskCheckboxRow';
 import { StatusBadge } from '../components/ui/Badge';
 import styles from './Dashboard.module.css';
 
@@ -107,9 +108,9 @@ export default function Dashboard() {
               <div className={styles.taskList}>
                 {upcomingTasks.map(t => (
                   <div key={t.id} className={styles.taskItem}>
-                    <CheckSquare size={13} className={styles.taskIcon} />
-                    <span className={styles.taskText}>{t.title}</span>
-                    {t.status && <StatusBadge status={t.status} />}
+                    <TaskCheckboxRow task={t} className={styles.taskItemInner}>
+                      {t.status && <StatusBadge status={t.status} />}
+                    </TaskCheckboxRow>
                   </div>
                 ))}
               </div>

@@ -188,8 +188,8 @@
       "passes": true,
       "blocked": false,
       "blockerReason": null,
-      "attempts": 0,
-      "validationEvidence": null,
+      "attempts": 1,
+      "validationEvidence": "2026-05-08: cd ui && npm install && npm run build passed; chunk size warning only; static/ build output restored to source-tracking state.",
       "commit": "ac43861",
       "validationCommands": [
         "cd ui && npm install && npm run build"

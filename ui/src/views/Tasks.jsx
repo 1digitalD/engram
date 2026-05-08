@@ -108,6 +108,17 @@ export default function Tasks() {
                     const due = task.due_date ? new Date(task.due_date).toLocaleDateString() : null;
                     return (
                       <div key={task.id} className={styles.taskCard}>
+                        <div className={styles.taskCardTop}>
+                          <button
+                            type="button"
+                            className={styles.cardCheck}
+                            onClick={() => handleStatusChange(task, task.status === 'DONE' ? 'PENDING' : 'DONE')}
+                            aria-label={task.status === 'DONE' ? 'Mark pending' : task.status === 'IN_PROGRESS' ? 'Mark pending' : 'Mark done'}
+                            title={task.status === 'DONE' ? 'Reopen task' : 'Toggle done'}
+                          >
+                            {task.status === 'DONE' ? <CheckCircle size={17} /> : <Circle size={17} />}
+                          </button>
+                          <div className={styles.taskCardBody}>
                         {editingTaskId === task.id ? (
                           <input
                             className={styles.titleInput}
@@ -162,6 +173,8 @@ export default function Tasks() {
                             onClick={() => deleteTask(task.id)}
                             title="Delete"
                           >×</button>
+                        </div>
+                          </div>
                         </div>
                       </div>
                     );
