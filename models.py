@@ -254,6 +254,8 @@ class Task(BaseModel):
     project_id = Column(String(36), ForeignKey("projects.id"), nullable=True)
     area_id = Column(String(36), ForeignKey("areas.id"), nullable=True)
     note_id = Column(String(36), ForeignKey("notes.id"), nullable=True)
+    # Stable key for markdown checkbox lines (- [ ] / - [x]); only set for extractor-managed tasks
+    inline_title_hash = Column(String(64), nullable=True)
 
     project = relationship("Project", back_populates="tasks")
     area = relationship("Area", back_populates="tasks")
@@ -271,6 +273,7 @@ class Task(BaseModel):
             "area_id": self.area_id,
             "area_name": self.area.name if self.area else None,
             "note_id": self.note_id,
+            "inline_title_hash": self.inline_title_hash,
             "project": self.project.to_dict() if self.project else None,
             "created_at": self.created_at.isoformat(),
             "modified_at": self.modified_at.isoformat(),

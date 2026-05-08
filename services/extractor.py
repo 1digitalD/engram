@@ -2,15 +2,119 @@
 GPT-4o Structured Outputs extraction service.
 Extracts entities (tasks, people, tags, project/area match) from any content
 in a single LLM call using strict Pydantic schemas.
+
+Also provides deterministic markdown checkbox (- [ ] / - [x]) inline task sync.
 """
+import hashlib
 import os
+import re
 import logging
 from typing import Optional, Literal
+
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
+# Markdown checklist lines: '- [ ] title' / '- [x] title' (x/X = done)
+_CHECKBOX_LINE_RE = re.compile(r"^\s*-\s*\[\s*([ xX])\s*\]\s+(.+)$")
+
 _client = None
+
+
+def normalize_inline_task_title(title: str) -> str:
+    """Normalize checkbox task text for stable hashing (case- and whitespace-insensitive)."""
+    return " ".join(title.strip().lower().split())
+
+
+def inline_task_title_hash(title: str) -> str:
+    return hashlib.sha256(normalize_inline_task_title(title).encode("utf-8")).hexdigest()
+
+
+def parse_inline_checkbox_lines(raw_text: str) -> list[tuple[str, str, "TaskStatus"]]:
+    """
+    Parse '- [ ]' / '- [x]' lines. Returns deduped (title_hash, display_title, status) in first-seen order.
+    Later duplicate hashes (same normalized title) keep the last line's title text and checkbox state.
+    """
+    from models import TaskStatus
+
+    ordered: dict[str, tuple[str, str, TaskStatus]] = {}
+    order: list[str] = []
+    for line in (raw_text or "").splitlines():
+        m = _CHECKBOX_LINE_RE.match(line)
+        if not m:
+            continue
+        mark, title_raw = m.group(1), m.group(2)
+        title = title_raw.strip()
+        if not title:
+            continue
+        normalized = normalize_inline_task_title(title)
+        if not normalized:
+            continue
+        h = hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+        status = TaskStatus.DONE if mark.strip().lower() == "x" else TaskStatus.PENDING
+        if h not in ordered:
+            order.append(h)
+        ordered[h] = (h, title[:500], status)
+    return [ordered[h] for h in order]
+
+
+def extract_inline_tasks(
+    note_id: str,
+    raw_text: str,
+    project_id: Optional[str] = None,
+    area_id: Optional[str] = None,
+) -> list[dict]:
+    """
+    Upsert Task rows for markdown checkbox lines on this note; cancel extractor-managed
+    rows whose checkbox lines disappeared.
+
+    Keys tasks by (note_id, inline_title_hash). Only rows with non-null inline_title_hash
+    are cancelled when their line is removed; manually linked tasks (note_id set, hash null)
+    are left unchanged.
+    """
+    from models import Task, TaskStatus
+    from extensions import db
+
+    parsed = parse_inline_checkbox_lines(raw_text)
+    current_hashes = {h for h, _, _ in parsed}
+
+    if current_hashes:
+        stale = Task.query.filter(
+            Task.note_id == note_id,
+            Task.inline_title_hash.isnot(None),
+            ~Task.inline_title_hash.in_(current_hashes),
+        )
+    else:
+        stale = Task.query.filter(
+            Task.note_id == note_id,
+            Task.inline_title_hash.isnot(None),
+        )
+    for task in stale.all():
+        task.status = TaskStatus.CANCELLED
+
+    for h, title, status in parsed:
+        task = Task.query.filter_by(note_id=note_id, inline_title_hash=h).first()
+        if task:
+            task.title = title
+            task.status = status
+            task.project_id = project_id
+            task.area_id = area_id
+        else:
+            task = Task(
+                title=title,
+                note_id=note_id,
+                project_id=project_id,
+                area_id=area_id,
+                status=status,
+                inline_title_hash=h,
+            )
+            db.session.add(task)
+    db.session.flush()
+    results: list[dict] = []
+    for h, _, _ in parsed:
+        task = Task.query.filter_by(note_id=note_id, inline_title_hash=h).one()
+        results.append(task.to_dict())
+    return results
 
 
 def _get_client():

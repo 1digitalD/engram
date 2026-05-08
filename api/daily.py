@@ -94,6 +94,9 @@ def append_daily_note():
 
     note, _created = _get_or_create_daily_note(date_value)
     note.raw_text = _append_to_notes_section(note.raw_text, content)
+    from services.extractor import extract_inline_tasks
+
+    extract_inline_tasks(note.id, note.raw_text, note.project_id, note.area_id)
     db.session.commit()
 
     return jsonify({"data": note.to_dict()})

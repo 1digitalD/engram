@@ -47,8 +47,12 @@ def _op_update_note(body: dict) -> dict:
     note = db.session.get(Note, note_id)
     if not note:
         return {"error": f"note {note_id} not found"}
+    text_changed = False
     if "raw_text" in body:
-        note.raw_text = body["raw_text"]
+        new_text = body["raw_text"]
+        if note.raw_text != new_text:
+            note.raw_text = new_text
+            text_changed = True
     if "bucket" in body:
         try:
             note.bucket = BucketType(body["bucket"].upper())
@@ -60,6 +64,10 @@ def _op_update_note(body: dict) -> dict:
     if "tag_names" in body:
         from api.notes import _resolve_or_create_tags
         note.tags = _resolve_or_create_tags(body["tag_names"])
+    if text_changed:
+        from services.extractor import extract_inline_tasks
+
+        extract_inline_tasks(note.id, note.raw_text, note.project_id, note.area_id)
     db.session.commit()
     return {"note": note.to_dict()}
 

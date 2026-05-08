@@ -105,6 +105,14 @@ def create_note():
             note_obj.person_id = data["person_id"]
             changed = True
         if changed:
+            from services.extractor import extract_inline_tasks
+
+            extract_inline_tasks(
+                note_obj.id,
+                note_obj.raw_text,
+                note_obj.project_id,
+                note_obj.area_id,
+            )
             db.session.commit()
 
         # Return note in standard format + enrichment fields for callers that want them
@@ -205,6 +213,9 @@ def _create_note_simple(data: dict, raw_text: str):
     db.session.add(note)
     db.session.flush()
     note_id = note.id
+    from services.extractor import extract_inline_tasks
+
+    extract_inline_tasks(note_id, raw_text, note.project_id, note.area_id)
     db.session.commit()
     _queue_embedding(note_id, raw_text)
     return jsonify({"data": note.to_dict()}), 201
@@ -230,8 +241,10 @@ def update_note(note_id):
 
     text_changed = False
     if "raw_text" in data:
-        note.raw_text = data["raw_text"]
-        text_changed = True
+        new_text = data["raw_text"]
+        if note.raw_text != new_text:
+            note.raw_text = new_text
+            text_changed = True
     if "bucket" in data:
         try:
             note.bucket = BucketType(data["bucket"].upper())
@@ -258,6 +271,10 @@ def update_note(note_id):
 
     note_id = note.id
     note_text = note.raw_text
+    if text_changed:
+        from services.extractor import extract_inline_tasks
+
+        extract_inline_tasks(note_id, note_text, note.project_id, note.area_id)
     db.session.commit()
     if text_changed:
         _queue_embedding(note_id, note_text)

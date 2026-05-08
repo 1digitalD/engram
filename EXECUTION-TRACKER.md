@@ -124,3 +124,8 @@ If the session resets or the gateway restarts:
 - Check `git status` and latest commits in this worktree
 - Resume the first unchecked item in `Status`
 - Re-run the last incomplete validation command before continuing
+
+
+- Task `p1-ws1-inline-task-extraction` implemented via Cursor executor worktree and applied to `overhaul/full-implementation-loop`.
+- Files changed: api/batch.py, api/daily.py, api/notes.py, migrate_task_inline_title_hash.py, models.py, services/extractor.py, services/ingestion.py, tests/test_api.py.
+- Validation passed: 31 passed in 0.46s.

@@ -1,7 +1,7 @@
 import json
 
 from extensions import db
-from models import BucketType, Note
+from models import BucketType, Note, Task, TaskStatus
 
 
 def test_health(client):
@@ -244,3 +244,100 @@ def test_create_person(client, app):
         assert res.status_code == 201
         data = json.loads(res.data)
         assert data["data"]["name"] == "Jane Doe"
+
+
+def test_inline_checkbox_tasks_on_note_create(client, app):
+    with app.app_context():
+        body = "Shopping list\n\n- [ ] buy milk\n- [x] eggs\n"
+        res = client.post(
+            "/api/v1/notes",
+            data=json.dumps({"raw_text": body, "classify": False}),
+            content_type="application/json",
+        )
+        assert res.status_code == 201
+        note_id = json.loads(res.data)["data"]["id"]
+        tasks = Task.query.filter_by(note_id=note_id).order_by(Task.title).all()
+        assert len(tasks) == 2
+        statuses = {t.title: t.status for t in tasks}
+        assert statuses["buy milk"] == TaskStatus.PENDING
+        assert statuses["eggs"] == TaskStatus.DONE
+        assert all(t.inline_title_hash for t in tasks)
+
+
+def test_inline_checkbox_update_toggles_and_removes(client, app):
+    with app.app_context():
+        res = client.post(
+            "/api/v1/notes",
+            data=json.dumps(
+                {
+                    "raw_text": "- [ ] one\n- [ ] two\n",
+                    "classify": False,
+                }
+            ),
+            content_type="application/json",
+        )
+        note_id = json.loads(res.data)["data"]["id"]
+        t_one = Task.query.filter_by(note_id=note_id, title="one").one()
+        t_two = Task.query.filter_by(note_id=note_id, title="two").one()
+
+        client.patch(
+            f"/api/v1/notes/{note_id}",
+            data=json.dumps({"raw_text": "- [x] one\n- [ ] two\n"}),
+            content_type="application/json",
+        )
+        db.session.expire_all()
+        assert db.session.get(Task, t_one.id).status == TaskStatus.DONE
+        assert db.session.get(Task, t_two.id).status == TaskStatus.PENDING
+
+        client.patch(
+            f"/api/v1/notes/{note_id}",
+            data=json.dumps({"raw_text": "- [ ] two\n"}),
+            content_type="application/json",
+        )
+        db.session.expire_all()
+        assert db.session.get(Task, t_one.id).status == TaskStatus.CANCELLED
+        assert db.session.get(Task, t_two.id).status == TaskStatus.PENDING
+
+
+def test_manual_task_without_hash_not_cancelled_on_checkbox_removal(client, app):
+    with app.app_context():
+        res = client.post(
+            "/api/v1/notes",
+            data=json.dumps({"raw_text": "- [ ] inline only\n", "classify": False}),
+            content_type="application/json",
+        )
+        note_id = json.loads(res.data)["data"]["id"]
+        manual = Task(title="manual reminder", note_id=note_id, inline_title_hash=None)
+        db.session.add(manual)
+        db.session.commit()
+        mid = manual.id
+
+        client.patch(
+            f"/api/v1/notes/{note_id}",
+            data=json.dumps({"raw_text": "no checkboxes anymore\n"}),
+            content_type="application/json",
+        )
+        db.session.expire_all()
+        assert db.session.get(Task, mid).status == TaskStatus.PENDING
+        inline_tasks = Task.query.filter(Task.note_id == note_id, Task.inline_title_hash.isnot(None)).all()
+        assert len(inline_tasks) == 1
+        assert inline_tasks[0].status == TaskStatus.CANCELLED
+
+
+def test_inline_checkbox_daily_append(client, app):
+    with app.app_context():
+        res = client.post(
+            "/api/v1/daily/append",
+            data=json.dumps(
+                {
+                    "date": "2026-05-10",
+                    "content": "- [ ] from daily capture",
+                }
+            ),
+            content_type="application/json",
+        )
+        assert res.status_code == 200
+        note_id = json.loads(res.data)["data"]["id"]
+        t = Task.query.filter_by(note_id=note_id).one()
+        assert t.title == "from daily capture"
+        assert t.status == TaskStatus.PENDING
