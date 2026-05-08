@@ -35,10 +35,10 @@
     {
       "id": "p2-ws1-iter-b-notes-api-multi-project",
       "title": "P2-WS1-B: notes API multi-project support",
-      "passes": false,
+      "passes": true,
       "blocked": false,
-      "attempts": 0,
-      "commit": null,
+      "attempts": 1,
+      "commit": "38825b9",
       "description": "API accepts project_ids array, serializes projects array, maintains backward compat",
       "validationCommands": [],
       "acceptanceCriteria": [
@@ -46,7 +46,8 @@
         "GET /api/v1/notes serializes project_ids and projects arrays",
         "Backward compat: scalar project_id accepted and converted to project_ids",
         "Backend tests pass"
-      ]
+      ],
+      "validationEvidence": "Already implemented in p2-ws1-iter-a: API accepts project_ids, GET serializes arrays"
     },
     {
       "id": "p2-ws1-iter-c-ui-multi-project-assignment",
