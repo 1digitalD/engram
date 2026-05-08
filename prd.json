@@ -13,100 +13,81 @@
   },
   "tasks": [
     {
-      "id": "p2-ws1-iter-a-note-projects-schema",
-      "title": "P2-WS1-A: note_projects M2M schema",
-      "passes": true,
+      "id": "p3-ws1-iter-a-layered-summary-model",
+      "title": "Layered summary model",
+      "description": "Extend WeeklySummary to Summary model with granularity (DAILY/WEEKLY/MONTHLY), date_from, date_to, key_themes (JSON), action_items (JSON). Add SummaryGranularity PyEnum. Migration 007_summary_model.py.",
+      "passes": false,
       "blocked": false,
-      "attempts": 1,
-      "commit": "7ee6465",
-      "description": "Add note_projects join table, migrate Note.project_id, add M2M relationship",
-      "validationCommands": [
-        "source .venv/bin/activate && cd /Volumes/lex1t/dev/shared/repos/engram && PYTHONPATH=. python3 -c \"from models import db, Note, Project; print('models ok')\"",
-        "source .venv/bin/activate && cd /Volumes/lex1t/dev/shared/repos/engram && PYTHONPATH=. pytest -q tests/test_models.py 2>/dev/null || PYTHONPATH=. pytest -q tests/test_api.py"
-      ],
-      "acceptanceCriteria": [
-        "note_projects join table exists",
-        "Note.projects M2M relationship works alongside project scalar",
-        "Migration: notes with project_id get rows in note_projects",
-        "Backward compat: Note.project_id still set to first project",
-        "Backend tests pass"
-      ]
+      "attempts": 0,
+      "commit": null
     },
     {
-      "id": "p2-ws1-iter-b-notes-api-multi-project",
-      "title": "P2-WS1-B: notes API multi-project support",
-      "passes": true,
+      "id": "p3-ws1-iter-b-summarization-service",
+      "title": "Summarization service",
+      "description": "services/summarizer.py: summarize_notes(notes, granularity, entity_name) -> dict calling LLM. Include token budget, chunking for large note sets.",
+      "passes": false,
       "blocked": false,
-      "attempts": 1,
-      "commit": "38825b9",
-      "description": "API accepts project_ids array, serializes projects array, maintains backward compat",
-      "validationCommands": [],
-      "acceptanceCriteria": [
-        "POST/PATCH /api/v1/notes accepts project_ids: [...]",
-        "GET /api/v1/notes serializes project_ids and projects arrays",
-        "Backward compat: scalar project_id accepted and converted to project_ids",
-        "Backend tests pass"
-      ],
-      "validationEvidence": "Already implemented in p2-ws1-iter-a: API accepts project_ids, GET serializes arrays"
+      "attempts": 0,
+      "commit": null
     },
     {
-      "id": "p2-ws1-iter-c-ui-multi-project-assignment",
-      "title": "P2-WS1-C: UI multi-project chip assignment",
-      "passes": true,
+      "id": "p3-ws1-iter-c-scheduled-background-jobs",
+      "title": "Scheduled background summarization",
+      "description": "Background job that runs summarization on schedule. API endpoint to trigger. Integrates with existing cron/job infrastructure.",
+      "passes": false,
       "blocked": false,
-      "attempts": 1,
-      "commit": "62d6128",
-      "description": "NoteEditor: single project select \u2192 multi-project chip selector with type-to-search",
-      "validationCommands": [
-        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm install && npm run build"
-      ],
-      "acceptanceCriteria": [
-        "NoteEditor shows chip-based multi-project selector",
-        "Type to search projects, click to add chip",
-        "Click chip X to remove",
-        "NoteDetailView shows project chips, linkable and removable",
-        "Frontend build passes"
-      ]
+      "attempts": 0,
+      "commit": null
     },
     {
-      "id": "p2-ws2-typed-resources-schema-api",
-      "title": "P2-WS2: Typed Resources schema and API",
-      "passes": true,
+      "id": "p3-ws1-iter-d-review-view-overhaul",
+      "title": "Review view overhaul",
+      "description": "ui/src/views/Review.jsx: Progressive summary display, date picker, granularity selector, action items list.",
+      "passes": false,
       "blocked": false,
-      "attempts": 1,
-      "commit": "23b97c5",
-      "description": "Resource model with type enum, CRUD API, resource_tags association",
-      "validationCommands": [],
-      "acceptanceCriteria": [
-        "Resource model with ResourceType enum (ARTICLE, BOOK, URL, VIDEO, PAPER, TOOL, OTHER)",
-        "Resource CRUD API: POST/GET/PATCH/DELETE /api/v1/resources",
-        "GET /api/v1/resources?type=X filters by resource_type",
-        "area relationship with resources",
-        "Backend tests pass"
-      ]
+      "attempts": 0,
+      "commit": null
     },
     {
-      "id": "p2-ws2-ui-resources-list-detail",
-      "title": "P2-WS2-UI: Resources list and detail views",
-      "passes": true,
+      "id": "p3-ws2-iter-a-proposal-generation",
+      "title": "AI link proposal generation",
+      "description": "services/link_proposer.py: analyze notes, propose links based on semantic similarity, shared entities, temporal patterns. Returns list of {from_note_id, to_note_id, reason, confidence}.",
+      "passes": false,
       "blocked": false,
-      "attempts": 1,
-      "commit": "374085d",
-      "description": "Resources list view and resource detail view with type icon, rating, read state",
-      "validationCommands": [
-        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm install && npm run build"
-      ],
-      "acceptanceCriteria": [
-        "Resources.jsx shows resource cards with type icon and rating stars",
-        "ResourceDetail.jsx shows full resource with edit form",
-        "Type filter chips on list view",
-        "Frontend build passes"
-      ]
+      "attempts": 0,
+      "commit": null
+    },
+    {
+      "id": "p3-ws2-iter-b-proposals-api",
+      "title": "Link proposals API",
+      "description": "api/proposals.py: GET /api/v1/proposals (list pending), POST /api/v1/proposals/:id/accept (create link), POST /api/v1/proposals/:id/dismiss. Trigger generation: POST /api/v1/proposals/generate.",
+      "passes": false,
+      "blocked": false,
+      "attempts": 0,
+      "commit": null
+    },
+    {
+      "id": "p3-ws2-iter-c-ui-proposals-notedetail",
+      "title": "Proposals in NoteDetailView",
+      "description": "NoteDetailView: show proposed links panel with accept/dismiss. Show confirmed links with backlinks.",
+      "passes": false,
+      "blocked": false,
+      "attempts": 0,
+      "commit": null
+    },
+    {
+      "id": "p3-ws2-iter-d-ui-proposals-review",
+      "title": "Proposals in Review view",
+      "description": "Review.jsx: show pending link proposals with context, bulk accept/dismiss, accept-all option.",
+      "passes": false,
+      "blocked": false,
+      "attempts": 0,
+      "commit": null
     }
   ],
   "integrationBranch": "overhaul/full-implementation-loop",
   "mergePolicy": "Merge validated task commits into overhaul/full-implementation-loop only; merge to main after all phases pass end-to-end validation.",
   "planSource": "PLAN.md",
   "queuePolicy": "When no pending tasks remain, convert the next PLAN.md slice into bounded tasks with acceptance criteria before launching implementation agents.",
-  "phase": 2
+  "phase": "3"
 }
