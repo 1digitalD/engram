@@ -16,10 +16,10 @@
       "id": "p3-ws1-iter-a-layered-summary-model",
       "title": "Layered summary model",
       "description": "Extend WeeklySummary to Summary model with granularity (DAILY/WEEKLY/MONTHLY), date_from, date_to, key_themes (JSON), action_items (JSON). Add SummaryGranularity PyEnum. Migration 007_summary_model.py.",
-      "passes": false,
+      "passes": true,
       "blocked": false,
-      "attempts": 0,
-      "commit": null
+      "attempts": 1,
+      "commit": "5076a70"
     },
     {
       "id": "p3-ws1-iter-b-summarization-service",
