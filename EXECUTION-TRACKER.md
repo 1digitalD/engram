@@ -80,8 +80,8 @@ For each batch:
 - Committed Batch 1 as `db9c961` (`Add area and note relationships for projects and tasks`).
 - Frontend validation is possible, but this worktree does not track `ui/node_modules`, so `npm install && npm run build` is required each time; current build is green after install.
 - Committed Batch 2 as `ba3e46e` (`Complete missing store actions and capture state`).
-- Batch 3 remains unstarted. At this point the high-value foundation work is in, validated, and committed cleanly.
-- Recommended next step: either stop here with a clean handoff, or take one bounded UI slice only after choosing a file set that won't sprawl beyond tonight.
+- Batch 3 completed: three bounded UI slices from Phase 1 are implemented, validated, and committed.
+- Remaining PLAN.md work should be converted into small prd.json tasks before execution; do not hand the whole plan to a coding agent as one task.
 
 
 ### 2026-05-08
@@ -106,6 +106,13 @@ For each batch:
 - Created integration branch `overhaul/full-implementation-loop` at validated HEAD `6744563`.
 - Policy: continue all remaining overhaul phases by merging validated task work into `overhaul/full-implementation-loop`. Do not merge to `main` until all phases are complete and end-to-end validation passes.
 - The previous tracker branch `claude/reverent-knuth-45dc53` remains historical context; this branch is the new source of truth for overhaul integration.
+
+
+### 2026-05-08 PLAN.md execution policy
+- `PLAN.md` is the canonical long-form backlog for the overhaul.
+- `prd.json` is the executable queue. The coding loop must not free-form execute the full plan directly.
+- When `prd.json` has no pending tasks, reconcile `PLAN.md` against current repo state and append the next small dependency-ordered tasks with concrete acceptance criteria.
+- Execute one `prd.json` task per isolated agent session, validate, commit to `overhaul/full-implementation-loop`, update task status, then continue.
 
 ## Recovery notes
 If the session resets or the gateway restarts:

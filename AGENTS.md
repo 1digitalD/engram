@@ -4,6 +4,7 @@
 Engram is Dan's Highspot/work-management and second-brain system for capture, search, project/task context, and durable work updates.
 
 ## Working rules
+- `PLAN.md` is backlog source; `prd.json` is the executable queue. If `prd.json` has no pending tasks, reconcile the next slice from `PLAN.md` into small tasks before launching agents.
 - Keep changes scoped to the active tracker task.
 - Do not touch unrelated files or the dirty root worktree.
 - Prefer this clean worktree for autonomous implementation: `/Volumes/lex1t/dev/shared/repos/engram/.claude/worktrees/reverent-knuth-45dc53`.

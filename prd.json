@@ -74,8 +74,130 @@
       "attempts": 1,
       "validationEvidence": "2026-05-08: cd ui && npm install && npm run build passed; Vite chunk-size warning only; generated static assets reverted source-only.",
       "commit": "6c1a597"
+    },
+    {
+      "id": "p1-ws1-daily-notes-api",
+      "title": "Add Daily Notes API",
+      "description": "Implement P1-WS1 Iteration C from PLAN.md: /api/v1/daily GET auto-create and POST append, registered in the Flask app using this repo's current routing patterns.",
+      "acceptanceCriteria": [
+        "GET /api/v1/daily?date=YYYY-MM-DD returns an existing daily note or creates one with the planned template.",
+        "POST /api/v1/daily/append appends content to the ## Notes section for the requested date and returns the updated note.",
+        "Daily notes are detected by the planned '# Daily \u2014 YYYY-MM-DD' prefix and INBOX bucket or the closest equivalent in current schema.",
+        "Backend tests cover create, fetch existing, and append behavior.",
+        "Targeted backend pytest passes."
+      ],
+      "dependencies": [
+        "p1-ws4-note-detail-inline-editing"
+      ],
+      "passes": false,
+      "blocked": false,
+      "blockerReason": null,
+      "attempts": 0,
+      "validationEvidence": null,
+      "commit": null,
+      "validationCommands": [
+        "source .venv/bin/activate && PYTHONPATH=. pytest -q tests/test_phase1_backend_foundation.py tests/test_models.py tests/test_api.py"
+      ]
+    },
+    {
+      "id": "p1-ws1-inline-task-extraction",
+      "title": "Extract inline markdown tasks from notes",
+      "description": "Implement P1-WS1 Iteration D from PLAN.md: parse markdown checkbox lines from notes and upsert linked Task records when notes are created or updated.",
+      "acceptanceCriteria": [
+        "Markdown lines '- [ ] task' and '- [x] task' create or update tasks linked to the source note.",
+        "Checked items map to DONE and unchecked items map to PENDING using current task status conventions.",
+        "Removed checkbox lines are handled safely according to the plan, preferably CANCELLED if supported, otherwise documented equivalent.",
+        "Extraction runs on note create/update where raw_text changes.",
+        "Backend tests cover create/update/remove behavior and targeted pytest passes."
+      ],
+      "dependencies": [
+        "p1-ws1-daily-notes-api"
+      ],
+      "passes": false,
+      "blocked": false,
+      "blockerReason": null,
+      "attempts": 0,
+      "validationEvidence": null,
+      "commit": null,
+      "validationCommands": [
+        "source .venv/bin/activate && PYTHONPATH=. pytest -q tests/test_phase1_backend_foundation.py tests/test_models.py tests/test_api.py"
+      ]
+    },
+    {
+      "id": "p1-ws4-note-detail-panels-and-today",
+      "title": "Add note detail panels and Today view slice",
+      "description": "Implement remaining bounded P1-WS4 UI from PLAN.md: backlinks panel, tasks panel, Inbox AI suggestion affordance if current data supports it, and /today view backed by the Daily Notes API.",
+      "acceptanceCriteria": [
+        "Note detail shows linked/backlink information using existing links API or a documented current equivalent.",
+        "Note detail shows tasks linked by note_id and supports adding/toggling note-linked tasks where current store/API supports it.",
+        "Inbox exposes a low-risk AI suggestion affordance from existing ai_meta when present.",
+        "/today route loads/creates today's daily note via the Daily Notes API and appears in navigation.",
+        "Frontend build passes."
+      ],
+      "dependencies": [
+        "p1-ws1-inline-task-extraction"
+      ],
+      "passes": false,
+      "blocked": false,
+      "blockerReason": null,
+      "attempts": 0,
+      "validationEvidence": null,
+      "commit": null,
+      "validationCommands": [
+        "cd ui && npm install && npm run build"
+      ]
+    },
+    {
+      "id": "p1-ws5-navigation-layout-polish",
+      "title": "Complete Phase 1 navigation and layout polish",
+      "description": "Implement P1-WS5 from PLAN.md: sidebar restructure, entity header cleanup, AreaFocus projects/tasks tabs, ProjectFocus area breadcrumb, graph open-node action, adapted to current UI.",
+      "acceptanceCriteria": [
+        "Sidebar/nav structure reflects planned high-value routes without breaking existing navigation.",
+        "AreaFocus includes projects/tasks organization where supported by current data.",
+        "ProjectFocus shows parent area breadcrumb when area_id/area data exists.",
+        "Graph nodes expose an open action or equivalent navigation affordance.",
+        "Frontend build passes."
+      ],
+      "dependencies": [
+        "p1-ws4-note-detail-panels-and-today"
+      ],
+      "passes": false,
+      "blocked": false,
+      "blockerReason": null,
+      "attempts": 0,
+      "validationEvidence": null,
+      "commit": null,
+      "validationCommands": [
+        "cd ui && npm install && npm run build"
+      ]
+    },
+    {
+      "id": "p1-ws6-power-features",
+      "title": "Complete Phase 1 power features",
+      "description": "Implement P1-WS6 from PLAN.md: floating quick capture, interactive task checkboxes, keyboard navigation/help, and reconcile with already-completed tag filtering.",
+      "acceptanceCriteria": [
+        "Floating quick capture overlay is wired to existing captureOpen/openCapture/closeCapture store state.",
+        "Task checkboxes are interactive where task rows/cards are displayed and persist status updates.",
+        "Basic keyboard shortcuts/help are discoverable and do not interfere with text input.",
+        "Already-completed tag filtering remains working.",
+        "Frontend build passes."
+      ],
+      "dependencies": [
+        "p1-ws5-navigation-layout-polish"
+      ],
+      "passes": false,
+      "blocked": false,
+      "blockerReason": null,
+      "attempts": 0,
+      "validationEvidence": null,
+      "commit": null,
+      "validationCommands": [
+        "cd ui && npm install && npm run build"
+      ]
     }
   ],
   "integrationBranch": "overhaul/full-implementation-loop",
-  "mergePolicy": "Merge validated task commits into overhaul/full-implementation-loop only; merge to main after all phases pass end-to-end validation."
+  "mergePolicy": "Merge validated task commits into overhaul/full-implementation-loop only; merge to main after all phases pass end-to-end validation.",
+  "planSource": "PLAN.md",
+  "queuePolicy": "When no pending tasks remain, convert the next PLAN.md slice into bounded tasks with acceptance criteria before launching implementation agents."
 }
