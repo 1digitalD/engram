@@ -15,10 +15,10 @@
     {
       "id": "p2-ws1-iter-a-note-projects-schema",
       "title": "P2-WS1-A: note_projects M2M schema",
-      "passes": false,
+      "passes": true,
       "blocked": false,
-      "attempts": 0,
-      "commit": null,
+      "attempts": 1,
+      "commit": "7ee6465",
       "description": "Add note_projects join table, migrate Note.project_id, add M2M relationship",
       "validationCommands": [
         "source .venv/bin/activate && cd /Volumes/lex1t/dev/shared/repos/engram && PYTHONPATH=. python3 -c \"from models import db, Note, Project; print('models ok')\"",
