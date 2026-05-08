@@ -47,12 +47,12 @@
       "dependencies": [
         "p1-ws2-note-cards-markdown-display"
       ],
-      "passes": false,
+      "passes": true,
       "blocked": false,
       "blockerReason": null,
-      "attempts": 0,
-      "validationEvidence": null,
-      "commit": null
+      "attempts": 1,
+      "validationEvidence": "2026-05-08: cd ui && npm install && npm run build passed; Vite chunk-size warning only; generated static assets reverted source-only.",
+      "commit": "d8cdc0b"
     },
     {
       "id": "p1-ws4-note-detail-inline-editing",
