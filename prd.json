@@ -99,9 +99,10 @@
       "validationCommands": [
         "cd ui && npm test -- --testPathPattern=Review"
       ],
-      "status": "pending",
-      "passes": false,
-      "attempts": 0
+      "status": "done",
+      "passes": true,
+      "attempts": 1,
+      "commit": "f96982d"
     },
     {
       "id": "p4-ws1-iter-b-orphan-note-review",

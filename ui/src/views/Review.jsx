@@ -12,11 +12,19 @@ import {
   Sparkles,
   Link2,
   Loader2,
+  FolderKanban,
+  LayoutGrid,
+  FileWarning,
+  RotateCcw,
 } from 'lucide-react';
 import useStore from '../stores/useStore';
 import { summariesAPI, proposalsAPI } from '../api/engram';
 import NoteCard from '../components/notes/NoteCard';
 import styles from './Review.module.css';
+import {
+  REVIEW_WORKFLOW_STEPS,
+  usePersistedReviewWorkflow,
+} from './reviewWorkflowState';
 
 const GRANULARITIES = ['DAILY', 'WEEKLY', 'MONTHLY'];
 const SUMMARY_PREVIEW_CHARS = 400;
@@ -134,8 +142,110 @@ function shiftAnchorIso(isoDay, granularity, delta) {
   return isoDateLocal(d);
 }
 
+const STEP_ICON = {
+  inbox: Inbox,
+  projects: FolderKanban,
+  areas: LayoutGrid,
+  orphans: FileWarning,
+  proposals: Link2,
+  insights: Sparkles,
+  plan: Calendar,
+};
+
+function WorkflowStepPanel({ stepIndex, step, flow, patchFlow, eyebrow, badge, children }) {
+  const id = step.id;
+  const Icon = STEP_ICON[id] || ListTodo;
+  const expanded = !!flow.expanded[id];
+  const completed = !!flow.completed[id];
+  const panelId = `review-panel-${id}`;
+  const headId = `review-head-${id}`;
+
+  return (
+    <section
+      className={styles.workflowStep}
+      aria-labelledby={headId}
+      data-testid={`review-step-${id}`}
+      id={`review-step-${id}`}
+    >
+      <div className={styles.workflowStepHead}>
+        <button
+          type="button"
+          className={styles.workflowStepToggle}
+          id={headId}
+          aria-expanded={expanded}
+          aria-controls={panelId}
+          onClick={() =>
+            patchFlow((w) => ({
+              ...w,
+              expanded: { ...w.expanded, [id]: !expanded },
+              lastActiveStepId: id,
+            }))
+          }
+        >
+          <span className={styles.workflowStepCaret} aria-hidden>
+            {expanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+          </span>
+          <span className={styles.workflowStepNum}>{stepIndex + 1}</span>
+          <Icon size={16} className={styles.workflowStepTitleIcon} aria-hidden />
+          <span className={styles.workflowStepTitle}>{step.title}</span>
+          {typeof badge === 'number' ? <span className={styles.workflowStepBadge}>{badge}</span> : null}
+          {eyebrow ? <span className={styles.workflowStepEyebrow}>{eyebrow}</span> : null}
+        </button>
+        <label className={styles.workflowDoneLabel}>
+          <input
+            type="checkbox"
+            checked={completed}
+            onChange={() =>
+              patchFlow((w) => ({
+                ...w,
+                completed: { ...w.completed, [id]: !completed },
+                lastActiveStepId: id,
+              }))
+            }
+            aria-label={`Mark step complete: ${step.title}`}
+          />
+          <span className={styles.workflowDoneText}>Reviewed</span>
+        </label>
+      </div>
+      {expanded ? (
+        <div className={styles.workflowStepBody} id={panelId} role="region" aria-labelledby={headId}>
+          {children}
+        </div>
+      ) : null}
+    </section>
+  );
+}
 export default function Review() {
-  const { notes, tasks, addToast } = useStore();
+  const { notes, tasks, projects, areas, addToast } = useStore();
+  const {
+    state: reviewFlow,
+    setState: setReviewFlow,
+    hydrated,
+    hadPersistedDraft,
+    resetWorkflow,
+  } = usePersistedReviewWorkflow();
+
+  const activeProjects = useMemo(
+    () => (projects || []).filter((p) => !p.is_archived),
+    [projects]
+  );
+  const activeAreas = useMemo(
+    () => (areas || []).filter((a) => !a.is_archived),
+    [areas]
+  );
+
+  const orphanNotes = useMemo(
+    () =>
+      notes.filter(
+        (n) =>
+          !n.is_archived &&
+          !n.person_id &&
+          n.bucket !== 'INBOX' &&
+          !(n.project_id || ((n.project_ids?.length ?? 0) > 0)) &&
+          !n.area_id
+      ),
+    [notes]
+  );
   const [granularity, setGranularity] = useState('WEEKLY');
   const [anchorDate, setAnchorDate] = useState(() => isoDateLocal());
 
@@ -339,17 +449,399 @@ export default function Review() {
     (t) => !t.due_date && t.status !== 'DONE' && t.status !== 'CANCELLED'
   );
 
+  const doneStepCount = useMemo(
+    () => REVIEW_WORKFLOW_STEPS.filter((s) => reviewFlow.completed[s.id]).length,
+    [reviewFlow.completed]
+  );
+  const workflowProgressPct = Math.round((doneStepCount / REVIEW_WORKFLOW_STEPS.length) * 100);
+
+  const focusStepRelative = useCallback(
+    (delta) => {
+      const curIdx = REVIEW_WORKFLOW_STEPS.findIndex((s) => s.id === reviewFlow.lastActiveStepId);
+      const idx = curIdx >= 0 ? curIdx : 0;
+      const nextIdx = Math.max(0, Math.min(REVIEW_WORKFLOW_STEPS.length - 1, idx + delta));
+      const next = REVIEW_WORKFLOW_STEPS[nextIdx];
+      setReviewFlow((w) => ({
+        ...w,
+        lastActiveStepId: next.id,
+        expanded: { ...w.expanded, [next.id]: true },
+      }));
+      queueMicrotask(() => {
+        document.getElementById(`review-step-${next.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      });
+    },
+    [reviewFlow.lastActiveStepId, setReviewFlow]
+  );
+
   return (
     <div className={styles.page}>
       <div className={styles.header}>
         <h1>Review</h1>
         <p className={styles.subtitle}>
-          Saved rollups and workspace pulse · {granularityLabel(granularity)} ·{' '}
-          {formatPeriodSubtitle(granularity, anchorDate)}
+          Guided weekly rhythm — housekeeping, surfaced insights, and light planning. Expand each step below; your checklist
+          and open sections persist in localStorage so pausing mid-review is safe.
         </p>
       </div>
 
-      <section className={styles.summaryHero} aria-label="Saved summary rollup">
+      <div className={styles.workflowRail} data-testid="review-workflow-progress">
+        <div className={styles.workflowRailTop}>
+          <p className={styles.workflowRailTitle}>Weekly checklist</p>
+          <span className={styles.workflowRailCount}>
+            {doneStepCount} / {REVIEW_WORKFLOW_STEPS.length} reviewed
+          </span>
+        </div>
+        <div
+          className={styles.workflowProgressTrack}
+          role="progressbar"
+          aria-valuenow={doneStepCount}
+          aria-valuemin={0}
+          aria-valuemax={REVIEW_WORKFLOW_STEPS.length}
+          aria-valuetext={`${doneStepCount} of ${REVIEW_WORKFLOW_STEPS.length} sections marked reviewed`}
+          aria-label="Weekly review checklist progress"
+        >
+          <div className={styles.workflowProgressFill} style={{ width: `${workflowProgressPct}%` }} />
+        </div>
+        <div className={styles.workflowRailNav}>
+          <button type="button" className={styles.workflowNavBtn} onClick={() => focusStepRelative(-1)}>
+            <ChevronLeft size={16} aria-hidden />
+            Previous
+          </button>
+          <button type="button" className={styles.workflowNavBtn} onClick={() => focusStepRelative(1)}>
+            Next
+            <ChevronRight size={16} aria-hidden />
+          </button>
+          <button type="button" className={styles.workflowResetBtn} onClick={resetWorkflow}>
+            <RotateCcw size={14} aria-hidden /> Reset progress
+          </button>
+        </div>
+        {hydrated && hadPersistedDraft ? (
+          <p className={styles.resumeBand} role="status">
+            Continuing a saved review — reopen this page anytime to pick up where you left off.
+          </p>
+        ) : null}
+      </div>
+
+      <div className={styles.workflowStack}>
+        <WorkflowStepPanel
+          stepIndex={0}
+          step={REVIEW_WORKFLOW_STEPS[0]}
+          flow={reviewFlow}
+          patchFlow={setReviewFlow}
+          badge={inbox.length}
+          eyebrow="Route captures out of inbox"
+        >
+          <p className={styles.workflowLead}>Triage notes still sitting in the inbox.</p>
+          {inbox.length === 0 ? (
+            <p className={styles.empty}>Inbox is clear.</p>
+          ) : (
+            <div className={styles.noteList}>
+              {inbox.slice(0, 8).map((n) => (
+                <NoteCard key={n.id} note={n} />
+              ))}
+              {inbox.length > 8 ? (
+                <Link to="/inbox" className={styles.moreLink}>
+                  Open full inbox (+{inbox.length - 8} more)
+                </Link>
+              ) : (
+                <Link to="/inbox" className={styles.moreLink}>
+                  Open inbox →
+                </Link>
+              )}
+            </div>
+          )}
+        </WorkflowStepPanel>
+
+        <WorkflowStepPanel
+          stepIndex={1}
+          step={REVIEW_WORKFLOW_STEPS[1]}
+          flow={reviewFlow}
+          patchFlow={setReviewFlow}
+          badge={activeProjects.length}
+        >
+          <p className={styles.workflowLead}>Spend a pass on active projects.</p>
+          {activeProjects.length === 0 ? (
+            <p className={styles.empty}>No active projects.</p>
+          ) : (
+            <ul className={styles.workflowBulletList}>
+              {activeProjects.map((proj) => (
+                <li key={proj.id}>
+                  <Link to={`/projects/${proj.id}`} className={styles.workflowDashLink}>
+                    {proj.name || 'Untitled project'}
+                  </Link>
+                </li>
+              ))}
+              <li>
+                <Link to="/projects" className={styles.workflowDashLinkMuted}>
+                  All projects →
+                </Link>
+              </li>
+            </ul>
+          )}
+        </WorkflowStepPanel>
+
+        <WorkflowStepPanel
+          stepIndex={2}
+          step={REVIEW_WORKFLOW_STEPS[2]}
+          flow={reviewFlow}
+          patchFlow={setReviewFlow}
+          badge={activeAreas.length}
+        >
+          <p className={styles.workflowLead}>Check each area still reflects how you actually work.</p>
+          {activeAreas.length === 0 ? (
+            <p className={styles.empty}>No areas.</p>
+          ) : (
+            <ul className={styles.workflowBulletList}>
+              {activeAreas.map((a) => (
+                <li key={a.id}>
+                  <Link to={`/areas/${a.id}`} className={styles.workflowDashLink}>
+                    {a.name || 'Untitled area'}
+                  </Link>
+                </li>
+              ))}
+              <li>
+                <Link to="/areas" className={styles.workflowDashLinkMuted}>
+                  All areas →
+                </Link>
+              </li>
+            </ul>
+          )}
+        </WorkflowStepPanel>
+
+        <WorkflowStepPanel
+          stepIndex={3}
+          step={REVIEW_WORKFLOW_STEPS[3]}
+          flow={reviewFlow}
+          patchFlow={setReviewFlow}
+          badge={orphanNotes.length}
+          eyebrow="No project · no area · not inbox"
+        >
+          <p className={styles.workflowLead}>
+            Notes lacking project &amp; area placement — skim here, then deepen from note detail where needed.
+          </p>
+          {orphanNotes.length === 0 ? (
+            <p className={styles.empty}>No orphan notes matched this heuristic.</p>
+          ) : (
+            <div className={styles.noteList}>
+              {orphanNotes.slice(0, 10).map((n) => (
+                <NoteCard key={n.id} note={n} />
+              ))}
+              {orphanNotes.length > 10 ? (
+                <p className={styles.summaryMuted}>+ {orphanNotes.length - 10} more orphans</p>
+              ) : null}
+            </div>
+          )}
+        </WorkflowStepPanel>
+
+        <WorkflowStepPanel
+          stepIndex={4}
+          step={REVIEW_WORKFLOW_STEPS[4]}
+          flow={reviewFlow}
+          patchFlow={setReviewFlow}
+          badge={linkProposals.length}
+        >
+          <div className={styles.workflowEmbed}>
+<section className={styles.proposalsSection} aria-label="Pending link proposals">
+        <div className={styles.proposalsHead}>
+          <div className={styles.proposalsTitleRow}>
+            <Link2 size={18} className={styles.proposalsIcon} aria-hidden />
+            <h2>Pending link proposals</h2>
+            <span className={styles.badge}>{linkProposals.length}</span>
+            <button
+              type="button"
+              className={styles.retryBtn}
+              disabled={linkProposalsLoading || proposalBulkBusy}
+              onClick={() => loadLinkProposals()}
+            >
+              Refresh
+            </button>
+          </div>
+          <p className={styles.proposalsLead}>
+            AI-suggested relationships between notes. Accept to create a link, or dismiss to clear.
+          </p>
+        </div>
+
+        {linkProposalsError && (
+          <p className={styles.summaryError} role="alert">
+            Could not load proposals: {linkProposalsError}
+          </p>
+        )}
+
+        {linkProposalsLoading && !linkProposalsError && (
+          <p className={styles.summaryMuted}>
+            <Loader2 size={14} className="spin" aria-hidden /> Loading proposals…
+          </p>
+        )}
+
+        {!linkProposalsLoading && !linkProposalsError && linkProposals.length === 0 && (
+          <p className={styles.summaryMuted}>No pending proposals. Generate some from the API or note detail.</p>
+        )}
+
+        {!linkProposalsLoading && linkProposals.length > 0 && (
+          <>
+            <div className={styles.proposalsToolbar}>
+              <div className={styles.proposalsToolbarLeft}>
+                <button
+                  type="button"
+                  className={styles.proposalsToolbarBtn}
+                  onClick={selectAllProposals}
+                  disabled={proposalBulkBusy || !!proposalRowBusyId}
+                >
+                  Select all
+                </button>
+                <button
+                  type="button"
+                  className={styles.proposalsToolbarBtn}
+                  onClick={clearProposalSelection}
+                  disabled={proposalBulkBusy || !!proposalRowBusyId || selectedProposalIds.size === 0}
+                >
+                  Clear selection
+                </button>
+                <span className={styles.proposalsSelectionHint}>
+                  {selectedProposalIds.size} selected
+                </span>
+              </div>
+              <div className={styles.proposalsToolbarRight}>
+                <button
+                  type="button"
+                  className={styles.proposalsToolbarBtn}
+                  onClick={handleBulkAccept}
+                  disabled={
+                    proposalBulkBusy ||
+                    !!proposalRowBusyId ||
+                    selectedProposalIds.size === 0
+                  }
+                >
+                  {proposalBulkBusy ? (
+                    <Loader2 size={14} className="spin" aria-hidden />
+                  ) : (
+                    <CheckCircle size={14} aria-hidden />
+                  )}
+                  Accept selected
+                </button>
+                <button
+                  type="button"
+                  className={styles.proposalsToolbarBtnMuted}
+                  onClick={handleBulkDismiss}
+                  disabled={
+                    proposalBulkBusy ||
+                    !!proposalRowBusyId ||
+                    selectedProposalIds.size === 0
+                  }
+                >
+                  Dismiss selected
+                </button>
+                <button
+                  type="button"
+                  className={styles.proposalsAcceptAll}
+                  onClick={handleAcceptAll}
+                  disabled={proposalBulkBusy || !!proposalRowBusyId}
+                  title="Accept every pending proposal in this list"
+                >
+                  {proposalBulkBusy ? (
+                    <Loader2 size={14} className="spin" aria-hidden />
+                  ) : (
+                    <Sparkles size={14} aria-hidden />
+                  )}
+                  Accept all
+                </button>
+              </div>
+            </div>
+
+            <ul className={styles.proposalsList}>
+              {linkProposals.map((p) => {
+                const src = resolveNote(p.src_id);
+                const dst = resolveNote(p.dst_id);
+                const rowBusy = proposalRowBusyId === p.id;
+                const disabledRow = proposalBulkBusy || proposalRowBusyId !== null;
+                const checked = selectedProposalIds.has(p.id);
+                return (
+                  <li key={p.id} className={styles.proposalCard}>
+                    <label className={styles.proposalCheck}>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        disabled={proposalBulkBusy || !!proposalRowBusyId}
+                        onChange={() => toggleProposalSelected(p.id)}
+                      />
+                    </label>
+                    <div className={styles.proposalContext}>
+                      <div className={styles.proposalPair}>
+                        <Link to={`/notes/${p.src_id}`} className={styles.proposalNoteLink}>
+                          {notePreviewLine(src) || `Note ${String(p.src_id).slice(0, 8)}…`}
+                        </Link>
+                        <span className={styles.proposalArrow} aria-hidden>
+                          ↔
+                        </span>
+                        <Link to={`/notes/${p.dst_id}`} className={styles.proposalNoteLink}>
+                          {notePreviewLine(dst) || `Note ${String(p.dst_id).slice(0, 8)}…`}
+                        </Link>
+                      </div>
+                      {!src && (
+                        <p className={styles.proposalMissing}>Source note not in workspace cache.</p>
+                      )}
+                      {!dst && (
+                        <p className={styles.proposalMissing}>Target note not in workspace cache.</p>
+                      )}
+                      <span className={styles.proposalConf}>
+                        {Math.round((p.confidence ?? 0) * 100)}% confidence
+                        {p.created_at && (
+                          <>
+                            {' · '}
+                            <span className={styles.proposalWhen}>
+                              {parseTs(p.created_at)?.toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                              }) || ''}
+                            </span>
+                          </>
+                        )}
+                      </span>
+                      {p.reason ? <p className={styles.proposalReason}>{p.reason}</p> : null}
+                    </div>
+                    <div className={styles.proposalRowActions}>
+                      <button
+                        type="button"
+                        className={styles.proposalAcceptBtn}
+                        onClick={() => handleAcceptRow(p.id)}
+                        disabled={disabledRow}
+                      >
+                        {rowBusy ? (
+                          <Loader2 size={13} className="spin" aria-hidden />
+                        ) : (
+                          <CheckCircle size={13} aria-hidden />
+                        )}
+                        Accept
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.proposalDismissBtn}
+                        onClick={() => handleDismissRow(p.id)}
+                        disabled={disabledRow}
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </>
+        )}
+      </section>
+          </div>
+        </WorkflowStepPanel>
+
+        <WorkflowStepPanel
+          stepIndex={5}
+          step={REVIEW_WORKFLOW_STEPS[5]}
+          flow={reviewFlow}
+          patchFlow={setReviewFlow}
+        >
+          <p className={styles.workflowMeta}>
+            {granularityLabel(granularity)} · {formatPeriodSubtitle(granularity, anchorDate)}
+          </p>
+          <div className={styles.workflowEmbed}>
+<section className={styles.summaryHero} aria-label="Saved summary rollup">
         <div className={styles.summaryHeroTop}>
           <div className={styles.summaryHeroTitle}>
             <Sparkles size={18} className={styles.summaryIcon} aria-hidden />
@@ -540,197 +1032,15 @@ export default function Review() {
           </>
         )}
       </section>
-
-      <section className={styles.proposalsSection} aria-label="Pending link proposals">
-        <div className={styles.proposalsHead}>
-          <div className={styles.proposalsTitleRow}>
-            <Link2 size={18} className={styles.proposalsIcon} aria-hidden />
-            <h2>Pending link proposals</h2>
-            <span className={styles.badge}>{linkProposals.length}</span>
-            <button
-              type="button"
-              className={styles.retryBtn}
-              disabled={linkProposalsLoading || proposalBulkBusy}
-              onClick={() => loadLinkProposals()}
-            >
-              Refresh
-            </button>
           </div>
-          <p className={styles.proposalsLead}>
-            AI-suggested relationships between notes. Accept to create a link, or dismiss to clear.
+        </WorkflowStepPanel>
+
+        <WorkflowStepPanel stepIndex={6} step={REVIEW_WORKFLOW_STEPS[6]} flow={reviewFlow} patchFlow={setReviewFlow}>
+          <p className={styles.workflowLead}>
+            Lightweight forward look: dues, backlog, and trailing capture pulse for the coming week.
           </p>
-        </div>
-
-        {linkProposalsError && (
-          <p className={styles.summaryError} role="alert">
-            Could not load proposals: {linkProposalsError}
-          </p>
-        )}
-
-        {linkProposalsLoading && !linkProposalsError && (
-          <p className={styles.summaryMuted}>
-            <Loader2 size={14} className="spin" aria-hidden /> Loading proposals…
-          </p>
-        )}
-
-        {!linkProposalsLoading && !linkProposalsError && linkProposals.length === 0 && (
-          <p className={styles.summaryMuted}>No pending proposals. Generate some from the API or note detail.</p>
-        )}
-
-        {!linkProposalsLoading && linkProposals.length > 0 && (
-          <>
-            <div className={styles.proposalsToolbar}>
-              <div className={styles.proposalsToolbarLeft}>
-                <button
-                  type="button"
-                  className={styles.proposalsToolbarBtn}
-                  onClick={selectAllProposals}
-                  disabled={proposalBulkBusy || !!proposalRowBusyId}
-                >
-                  Select all
-                </button>
-                <button
-                  type="button"
-                  className={styles.proposalsToolbarBtn}
-                  onClick={clearProposalSelection}
-                  disabled={proposalBulkBusy || !!proposalRowBusyId || selectedProposalIds.size === 0}
-                >
-                  Clear selection
-                </button>
-                <span className={styles.proposalsSelectionHint}>
-                  {selectedProposalIds.size} selected
-                </span>
-              </div>
-              <div className={styles.proposalsToolbarRight}>
-                <button
-                  type="button"
-                  className={styles.proposalsToolbarBtn}
-                  onClick={handleBulkAccept}
-                  disabled={
-                    proposalBulkBusy ||
-                    !!proposalRowBusyId ||
-                    selectedProposalIds.size === 0
-                  }
-                >
-                  {proposalBulkBusy ? (
-                    <Loader2 size={14} className="spin" aria-hidden />
-                  ) : (
-                    <CheckCircle size={14} aria-hidden />
-                  )}
-                  Accept selected
-                </button>
-                <button
-                  type="button"
-                  className={styles.proposalsToolbarBtnMuted}
-                  onClick={handleBulkDismiss}
-                  disabled={
-                    proposalBulkBusy ||
-                    !!proposalRowBusyId ||
-                    selectedProposalIds.size === 0
-                  }
-                >
-                  Dismiss selected
-                </button>
-                <button
-                  type="button"
-                  className={styles.proposalsAcceptAll}
-                  onClick={handleAcceptAll}
-                  disabled={proposalBulkBusy || !!proposalRowBusyId}
-                  title="Accept every pending proposal in this list"
-                >
-                  {proposalBulkBusy ? (
-                    <Loader2 size={14} className="spin" aria-hidden />
-                  ) : (
-                    <Sparkles size={14} aria-hidden />
-                  )}
-                  Accept all
-                </button>
-              </div>
-            </div>
-
-            <ul className={styles.proposalsList}>
-              {linkProposals.map((p) => {
-                const src = resolveNote(p.src_id);
-                const dst = resolveNote(p.dst_id);
-                const rowBusy = proposalRowBusyId === p.id;
-                const disabledRow = proposalBulkBusy || proposalRowBusyId !== null;
-                const checked = selectedProposalIds.has(p.id);
-                return (
-                  <li key={p.id} className={styles.proposalCard}>
-                    <label className={styles.proposalCheck}>
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        disabled={proposalBulkBusy || !!proposalRowBusyId}
-                        onChange={() => toggleProposalSelected(p.id)}
-                      />
-                    </label>
-                    <div className={styles.proposalContext}>
-                      <div className={styles.proposalPair}>
-                        <Link to={`/notes/${p.src_id}`} className={styles.proposalNoteLink}>
-                          {notePreviewLine(src) || `Note ${String(p.src_id).slice(0, 8)}…`}
-                        </Link>
-                        <span className={styles.proposalArrow} aria-hidden>
-                          ↔
-                        </span>
-                        <Link to={`/notes/${p.dst_id}`} className={styles.proposalNoteLink}>
-                          {notePreviewLine(dst) || `Note ${String(p.dst_id).slice(0, 8)}…`}
-                        </Link>
-                      </div>
-                      {!src && (
-                        <p className={styles.proposalMissing}>Source note not in workspace cache.</p>
-                      )}
-                      {!dst && (
-                        <p className={styles.proposalMissing}>Target note not in workspace cache.</p>
-                      )}
-                      <span className={styles.proposalConf}>
-                        {Math.round((p.confidence ?? 0) * 100)}% confidence
-                        {p.created_at && (
-                          <>
-                            {' · '}
-                            <span className={styles.proposalWhen}>
-                              {parseTs(p.created_at)?.toLocaleDateString('en-US', {
-                                month: 'short',
-                                day: 'numeric',
-                              }) || ''}
-                            </span>
-                          </>
-                        )}
-                      </span>
-                      {p.reason ? <p className={styles.proposalReason}>{p.reason}</p> : null}
-                    </div>
-                    <div className={styles.proposalRowActions}>
-                      <button
-                        type="button"
-                        className={styles.proposalAcceptBtn}
-                        onClick={() => handleAcceptRow(p.id)}
-                        disabled={disabledRow}
-                      >
-                        {rowBusy ? (
-                          <Loader2 size={13} className="spin" aria-hidden />
-                        ) : (
-                          <CheckCircle size={13} aria-hidden />
-                        )}
-                        Accept
-                      </button>
-                      <button
-                        type="button"
-                        className={styles.proposalDismissBtn}
-                        onClick={() => handleDismissRow(p.id)}
-                        disabled={disabledRow}
-                      >
-                        Dismiss
-                      </button>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          </>
-        )}
-      </section>
-
-      <div className={styles.grid}>
+          <div className={styles.workflowEmbed}>
+<div className={styles.grid}>
         {/* Inbox Queue */}
         <section className={styles.section}>
           <div className={styles.sectionHeader}>
@@ -821,6 +1131,11 @@ export default function Review() {
           )}
         </section>
       </div>
+          </div>
+        </WorkflowStepPanel>
+
+      </div>
+
     </div>
   );
 }
