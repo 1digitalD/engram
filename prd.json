@@ -259,9 +259,10 @@
       "validationCommands": [
         "python3 -m pytest tests/ -k rollup"
       ],
-      "status": "pending",
-      "passes": false,
-      "attempts": 0
+      "status": "done",
+      "passes": true,
+      "attempts": 1,
+      "commit": "ce8e249"
     },
     {
       "id": "p5-ws1-iter-a-graph-node-types",

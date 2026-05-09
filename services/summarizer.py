@@ -31,6 +31,19 @@ _JSON_USER_SUFFIX = (
     '"action_items" (array of strings, each item a short actionable string).'
 )
 
+RETROSPECTIVE_SYSTEM_PROMPT = (
+    "You are writing a project retrospective for a personal knowledge system. "
+    "Ground every point in the note excerpts you receive; do not invent work "
+    "that is not supported by the notes. Each JSON field value should be "
+    "well-formatted markdown (use short paragraphs and bullet lists where appropriate)."
+)
+
+_RETROSPECTIVE_JSON_SUFFIX = (
+    "Respond with a single JSON object only (no markdown fences) with keys: "
+    '"accomplished" (string), "key_decisions" (string), "lessons_learned" (string), '
+    '"outstanding_items" (string). Each value must be markdown text for that section.'
+)
+
 
 def _estimate_tokens(text: str) -> int:
     return max(1, len(text) // _CHARS_PER_TOKEN)
@@ -104,6 +117,20 @@ def _parse_llm_json(text: str) -> dict[str, Any]:
         "key_themes": list(data.get("key_themes") or []),
         "action_items": list(data.get("action_items") or []),
     }
+
+
+def _parse_retrospective_json(text: str) -> dict[str, str]:
+    raw = _strip_json_fences(text)
+    data = json.loads(raw)
+    if not isinstance(data, dict):
+        raise ValueError("LLM JSON must be an object")
+    keys = (
+        "accomplished",
+        "key_decisions",
+        "lessons_learned",
+        "outstanding_items",
+    )
+    return {k: str(data.get(k, "")).strip() for k in keys}
 
 
 class Summarizer:
@@ -209,6 +236,99 @@ class Summarizer:
             out = _estimate_tokens(combined)
         return parsed, inp, out
 
+    def _invoke_retrospective_chunk(
+        self,
+        chunk: str,
+        *,
+        project_name: str,
+        note_count: int,
+    ) -> tuple[dict[str, str], int, int]:
+        client = self._anthropic_client()
+        user = (
+            f"You completed the project {project_name!r}.\n"
+            f"The project has {note_count} linked notes in total. "
+            "The list below is one batch of those notes (excerpts with ids and timestamps); "
+            "other batches may follow in separate API calls when synthesizing.\n\n"
+            f"Project notes (this batch):\n{chunk}\n\n"
+            "Write a concise retrospective covering:\n"
+            "- What was accomplished\n"
+            "- Key decisions made\n"
+            "- Lessons learned\n"
+            "- Outstanding items to carry forward\n\n"
+            f"{_RETROSPECTIVE_JSON_SUFFIX}"
+        )
+        msg = client.messages.create(
+            model=self._model,
+            max_tokens=2048,
+            system=RETROSPECTIVE_SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": user}],
+        )
+        text_parts = []
+        for block in msg.content:
+            if hasattr(block, "text"):
+                text_parts.append(block.text)
+        combined = "".join(text_parts)
+        parsed = _parse_retrospective_json(combined)
+        usage = getattr(msg, "usage", None)
+        if usage is not None:
+            inp = int(getattr(usage, "input_tokens", 0) or 0)
+            out = int(getattr(usage, "output_tokens", 0) or 0)
+        else:
+            inp = _estimate_tokens(RETROSPECTIVE_SYSTEM_PROMPT + user)
+            out = _estimate_tokens(combined)
+        return parsed, inp, out
+
+    def _merge_retrospective_partials(
+        self,
+        partials: list[dict[str, str]],
+        *,
+        project_name: str,
+    ) -> tuple[dict[str, str], int, int]:
+        if len(partials) == 1:
+            return partials[0], 0, 0
+        payload = json.dumps(partials, ensure_ascii=False)
+        if _estimate_tokens(payload) > _MAX_NOTE_TOKENS_PER_CALL:
+            mid = max(1, len(partials) // 2)
+            left, li, lo = self._merge_retrospective_partials(
+                partials[:mid], project_name=project_name
+            )
+            right, ri, ro = self._merge_retrospective_partials(
+                partials[mid:], project_name=project_name
+            )
+            merged, mi, mo = self._merge_retrospective_partials(
+                [left, right], project_name=project_name
+            )
+            return merged, li + ri + mi, lo + ro + mo
+
+        user = (
+            f"Merge these partial retrospectives for project={project_name!r}. "
+            "Produce one coherent retrospective; deduplicate bullets; keep specifics "
+            "that appear in more than one partial; resolve contradictions conservatively "
+            "(prefer explicit dates/facts from the notes).\n"
+            f"Partials (JSON array):\n{payload}\n\n{_RETROSPECTIVE_JSON_SUFFIX}"
+        )
+        client = self._anthropic_client()
+        msg = client.messages.create(
+            model=self._model,
+            max_tokens=2048,
+            system=RETROSPECTIVE_SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": user}],
+        )
+        text_parts = []
+        for block in msg.content:
+            if hasattr(block, "text"):
+                text_parts.append(block.text)
+        combined = "".join(text_parts)
+        parsed = _parse_retrospective_json(combined)
+        usage = getattr(msg, "usage", None)
+        if usage is not None:
+            inp = int(getattr(usage, "input_tokens", 0) or 0)
+            out = int(getattr(usage, "output_tokens", 0) or 0)
+        else:
+            inp = _estimate_tokens(RETROSPECTIVE_SYSTEM_PROMPT + user)
+            out = _estimate_tokens(combined)
+        return parsed, inp, out
+
     def summarize_notes(self, notes: list, granularity: str, entity_name: str) -> dict:
         """
         Returns dict with:
@@ -260,6 +380,58 @@ class Summarizer:
             "summary_text": merged.get("summary_text", ""),
             "key_themes": merged.get("key_themes") or [],
             "action_items": merged.get("action_items") or [],
+            "token_count": total_in + total_out,
+            "model_used": self._model,
+        }
+
+    def summarize_project_retrospective(self, notes: list, project_name: str) -> dict[str, Any]:
+        """
+        Claude-backed retrospective using chunked project note excerpts.
+
+        Returns dict keys:
+        accomplished, key_decisions, lessons_learned, outstanding_items,
+        token_count, model_used
+        """
+        if not notes:
+            return {
+                "accomplished": "",
+                "key_decisions": "",
+                "lessons_learned": "",
+                "outstanding_items": "",
+                "token_count": 0,
+                "model_used": self._model,
+            }
+
+        chunks = _build_note_chunks(notes)
+        note_count = len(notes)
+        total_in = 0
+        total_out = 0
+        partials: list[dict[str, str]] = []
+
+        for chunk in chunks:
+            if not chunk.strip():
+                continue
+            parsed, inp, out = self._invoke_retrospective_chunk(
+                chunk, project_name=project_name, note_count=note_count
+            )
+            partials.append(parsed)
+            total_in += inp
+            total_out += out
+
+        if len(partials) == 1:
+            merged = partials[0]
+        else:
+            merged, mi, mo = self._merge_retrospective_partials(
+                partials, project_name=project_name
+            )
+            total_in += mi
+            total_out += mo
+
+        return {
+            "accomplished": merged.get("accomplished", ""),
+            "key_decisions": merged.get("key_decisions", ""),
+            "lessons_learned": merged.get("lessons_learned", ""),
+            "outstanding_items": merged.get("outstanding_items", ""),
             "token_count": total_in + total_out,
             "model_used": self._model,
         }

@@ -41,6 +41,31 @@ def _notes_for_project(project_id: str) -> list[Note]:
     )
 
 
+def _retrospective_body_markdown(project_name: str, sections: dict) -> str:
+    """Build markdown body from retrospective section strings."""
+    if sections.get("_empty_project"):
+        filler = "_No notes were linked to this project._"
+        accomplished = key_decisions = lessons_learned = outstanding_items = filler
+    else:
+        accomplished = (sections.get("accomplished") or "").strip() or "_Nothing noteworthy captured._"
+        key_decisions = (sections.get("key_decisions") or "").strip() or "_None noted._"
+        lessons_learned = (sections.get("lessons_learned") or "").strip() or "_None noted._"
+        outstanding_items = (sections.get("outstanding_items") or "").strip() or "_None noted._"
+
+    return (
+        f"# Project retrospective: {project_name}\n\n"
+        "## What was accomplished\n\n"
+        f"{accomplished}\n\n"
+        "## Key decisions\n\n"
+        f"{key_decisions}\n\n"
+        "## Lessons learned\n\n"
+        f"{lessons_learned}\n\n"
+        "## Outstanding items\n\n"
+        f"{outstanding_items}\n\n"
+        "#retrospective #project-complete"
+    )
+
+
 def _maybe_queue_embedding(note_id: str, raw_text: str) -> None:
     try:
         from flask import has_request_context
@@ -75,28 +100,17 @@ def rollup_project_to_area(
     svc = summarizer or Summarizer()
 
     if not notes:
-        body = "(No notes were linked to this project.)"
+        sections = {"_empty_project": True}
         token_hint = {"token_count": 0, "model_used": svc._model}
     else:
-        result = svc.summarize_notes(
-            notes,
-            granularity="WEEKLY",
-            entity_name=project.name,
-        )
-        body = result.get("summary_text") or ""
-        token_hint = {"token_count": result.get("token_count", 0), "model_used": result.get("model_used")}
+        result = svc.summarize_project_retrospective(notes, project.name)
+        sections = {k: result.get(k, "") for k in ("accomplished", "key_decisions", "lessons_learned", "outstanding_items")}
+        token_hint = {
+            "token_count": result.get("token_count", 0),
+            "model_used": result.get("model_used"),
+        }
 
-    title = f"Project retrospective: {project.name}"
-    raw_lines = [
-        f"# {title}",
-        "",
-        "## Summary",
-        "",
-        body.strip() or "(empty summary)",
-        "",
-        "#retrospective #project-complete",
-    ]
-    raw_text = "\n".join(raw_lines)
+    raw_text = _retrospective_body_markdown(project.name, sections)
 
     tag_objs = _resolve_or_create_tags(["retrospective", "project-complete"])
     summary_note = Note(

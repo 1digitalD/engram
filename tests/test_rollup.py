@@ -31,9 +31,10 @@ def test_rollup_project_to_area_creates_summary_note_and_archives(app):
         mock_text_block = MagicMock()
         mock_text_block.text = json.dumps(
             {
-                "summary_text": "Shipped the thing.",
-                "key_themes": ["launch"],
-                "action_items": [],
+                "accomplished": "- Shipped the thing.",
+                "key_decisions": "- Used weekly milestones.",
+                "lessons_learned": "- Earlier QA catches regressions.",
+                "outstanding_items": "- Monitor adoption metrics.",
             }
         )
         mock_msg = MagicMock()
@@ -51,7 +52,12 @@ def test_rollup_project_to_area_creates_summary_note_and_archives(app):
         assert summary.bucket == BucketType.AREAS
         assert "#retrospective" in summary.raw_text
         assert "#project-complete" in summary.raw_text
+        assert "## What was accomplished" in summary.raw_text
+        assert "## Key decisions" in summary.raw_text
+        assert "## Lessons learned" in summary.raw_text
+        assert "## Outstanding items" in summary.raw_text
         assert "Shipped the thing." in summary.raw_text
+        assert "weekly milestones" in summary.raw_text
         tag_names = {t.name.lower() for t in summary.tags}
         assert "retrospective" in tag_names
         assert "project-complete" in tag_names
@@ -75,7 +81,10 @@ def test_rollup_empty_project_creates_note_and_archives(app):
         db.session.add(proj)
         db.session.commit()
         summary = rollup_project_to_area(proj.id)
-        assert "no notes were linked" in summary.raw_text.lower()
+        low = summary.raw_text.lower()
+        assert "no notes were linked" in low
+        assert "## what was accomplished" in low
+        assert "## key decisions" in low
         db.session.refresh(proj)
         assert proj.is_archived is True
         assert summary.area_id == area.id
