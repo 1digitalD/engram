@@ -108,6 +108,7 @@ export const dailyAPI = {
 
 // ── Links (knowledge graph) ──────────────────
 export const linksAPI = {
+  list:     (params = {}) => apiRequest('GET',    '/links', null, params),
   forNote:   (id)  => apiRequest('GET',    `/notes/${id}/links`),
   create:    (d)   => apiRequest('POST',   '/links', d),
   delete:    (id)  => apiRequest('DELETE', `/links/${id}`),

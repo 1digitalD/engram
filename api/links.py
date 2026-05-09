@@ -8,6 +8,15 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+@api_bp.route("/links", methods=["GET"])
+def list_links():
+    """List all note↔note links (for graph / analytics)."""
+    limit = request.args.get("limit", 10000, type=int)
+    limit = max(1, min(limit, 50000))
+    rows = Link.query.order_by(Link.created_at.desc()).limit(limit).all()
+    return jsonify({"data": [l.to_dict() for l in rows]})
+
+
 @api_bp.route("/notes/<note_id>/links", methods=["GET"])
 def get_note_links(note_id):
     """Get all outgoing and incoming links for a note."""

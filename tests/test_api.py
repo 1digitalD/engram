@@ -1293,3 +1293,31 @@ def test_patch_project_archive_without_area(client, app):
     with app.app_context():
         proj = db.session.get(Project, pid)
         assert proj.is_archived is True
+
+
+def test_api_v1_links_list(client, app):
+    with app.app_context():
+        a = Note(raw_text="a", bucket=BucketType.INBOX)
+        b = Note(raw_text="b", bucket=BucketType.INBOX)
+        db.session.add_all([a, b])
+        db.session.flush()
+        db.session.add(
+            Link(
+                src_id=a.id,
+                dst_id=b.id,
+                link_type="related",
+                weight=0.82,
+            )
+        )
+        db.session.commit()
+        aid, bid = a.id, b.id
+
+    res = client.get("/api/v1/links")
+    assert res.status_code == 200
+    payload = json.loads(res.data)
+    assert len(payload["data"]) == 1
+    row = payload["data"][0]
+    assert row["link_type"] == "related"
+    assert row["weight"] == 0.82
+    assert row["src_id"] == aid
+    assert row["dst_id"] == bid
