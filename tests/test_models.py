@@ -1,5 +1,5 @@
 from extensions import db
-from models import Note, Project, Area, Tag, Person, Task, BucketType, Priority, TaskStatus
+from models import Note, Project, Area, Tag, Person, Task, BucketType, Priority, TaskStatus, NoteType
 
 
 def test_create_note(app):
@@ -11,6 +11,7 @@ def test_create_note(app):
         assert note.id is not None
         assert note.raw_text == "This is a test note"
         assert note.bucket == BucketType.INBOX
+        assert note.note_type == NoteType.NOTE
         assert note.is_archived == False
         assert note.created_at is not None
 
@@ -27,6 +28,17 @@ def test_note_to_dict(app):
         assert d["note_type"] == "NOTE"
         assert "created_at" in d
         assert "modified_at" in d
+
+
+def test_note_moc_type_roundtrip(app):
+    with app.app_context():
+        note = Note(raw_text="# Index\n\nLinks out.", note_type=NoteType.MOC)
+        db.session.add(note)
+        db.session.commit()
+
+        note = db.session.get(Note, note.id)
+        assert note.note_type == NoteType.MOC
+        assert note.to_dict()["note_type"] == "MOC"
 
 
 def test_create_project(app):

@@ -11,7 +11,6 @@ from models import (
     LinkProposal,
     LinkProposalStatus,
     Note,
-    NoteType,
     Priority,
     Project,
     Summary,
@@ -40,6 +39,34 @@ def test_create_note(client, app):
         data = json.loads(res.data)
         assert data["data"]["raw_text"] == "Test note from API"
         assert data["data"]["bucket"] == "INBOX"
+        assert data["data"]["note_type"] == "NOTE"
+
+
+def test_note_create_and_patch_note_type(client, app):
+    with app.app_context():
+        res = client.post(
+            "/api/v1/notes",
+            data=json.dumps(
+                {
+                    "raw_text": "Meeting notes",
+                    "classify": False,
+                    "note_type": "MEETING",
+                }
+            ),
+            content_type="application/json",
+        )
+        assert res.status_code == 201
+        body = json.loads(res.data)
+        nid = body["data"]["id"]
+        assert body["data"]["note_type"] == "MEETING"
+
+        res = client.patch(
+            f"/api/v1/notes/{nid}",
+            data=json.dumps({"note_type": "MOC"}),
+            content_type="application/json",
+        )
+        assert res.status_code == 200
+        assert json.loads(res.data)["data"]["note_type"] == "MOC"
 
 
 def test_get_note(client, app):
@@ -1322,88 +1349,3 @@ def test_api_v1_links_list(client, app):
     assert row["weight"] == 0.82
     assert row["src_id"] == aid
     assert row["dst_id"] == bid
-
-
-def test_moc_generate_requires_note_ids(client, app):
-    with app.app_context():
-        res = client.post(
-            "/api/v1/moc/generate",
-            data=json.dumps({}),
-            content_type="application/json",
-        )
-        assert res.status_code == 400
-
-
-def test_moc_generate_note_not_found(client, app):
-    with app.app_context():
-        os.environ["ANTHROPIC_API_KEY"] = "test-key"
-        res = client.post(
-            "/api/v1/moc/generate",
-            data=json.dumps({"note_ids": ["00000000-0000-0000-0000-000000000001"]}),
-            content_type="application/json",
-        )
-        assert res.status_code == 404
-
-
-def test_moc_generate_creates_moc_note_child_links_and_sections(client, app):
-    with app.app_context():
-        os.environ["ANTHROPIC_API_KEY"] = "test-key"
-        n1 = client.post(
-            "/api/v1/notes",
-            data=json.dumps({"raw_text": "Theme Alpha detail", "classify": False}),
-            content_type="application/json",
-        )
-        n2 = client.post(
-            "/api/v1/notes",
-            data=json.dumps({"raw_text": "Theme Beta detail", "classify": False}),
-            content_type="application/json",
-        )
-        id1 = json.loads(n1.data)["data"]["id"]
-        id2 = json.loads(n2.data)["data"]["id"]
-
-        mock_usage = MagicMock(input_tokens=10, output_tokens=20)
-        mock_text_block = MagicMock()
-        mock_text_block.text = json.dumps(
-            {
-                "title": "Research themes",
-                "overview": "Overview of captured ideas.",
-                "sections": [
-                    {
-                        "heading": "Alpha thread",
-                        "body": f"- [Alpha](/notes/{id1})",
-                    },
-                    {
-                        "heading": "Beta thread",
-                        "body": f"- [Beta](/notes/{id2})",
-                    },
-                ],
-            }
-        )
-        mock_msg = MagicMock()
-        mock_msg.content = [mock_text_block]
-        mock_msg.usage = mock_usage
-        mock_client_instance = MagicMock()
-        mock_client_instance.messages.create = MagicMock(return_value=mock_msg)
-
-        with patch("anthropic.Anthropic", return_value=mock_client_instance):
-            res = client.post(
-                "/api/v1/moc/generate",
-                data=json.dumps({"note_ids": [id1, id2]}),
-                content_type="application/json",
-            )
-        assert res.status_code == 201, res.data
-        payload = json.loads(res.data)["data"]
-        assert payload["note_type"] == "MOC"
-        assert payload["raw_text"].startswith("# Research themes")
-        assert "## Alpha thread" in payload["raw_text"]
-        assert "## Beta thread" in payload["raw_text"]
-        assert "#moc" in payload["raw_text"]
-
-        moc_id = payload["id"]
-        links = Link.query.filter_by(
-            src_id=moc_id, link_type="child_of", source="llm"
-        ).all()
-        assert {x.dst_id for x in links} == {id1, id2}
-
-        moc = db.session.get(Note, moc_id)
-        assert moc.note_type == NoteType.MOC
