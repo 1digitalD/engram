@@ -73,7 +73,7 @@
       "passes": true,
       "blocked": false,
       "attempts": 1,
-      "commit": null
+      "commit": "d9770d6"
     },
     {
       "id": "p3-ws2-iter-d-ui-proposals-review",
