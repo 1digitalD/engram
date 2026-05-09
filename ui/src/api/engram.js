@@ -126,6 +126,7 @@ export const reviewAPI = {
 // ── Knowledge health metrics ─────────────────
 export const metricsAPI = {
   health: () => apiRequest('GET', '/metrics/health'),
+  healthHistory: (params = {}) => apiRequest('GET', '/metrics/health/history', null, params),
 };
 
 // ── Summaries (progressive rollup + review) ─

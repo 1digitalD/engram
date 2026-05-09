@@ -5,6 +5,8 @@ from openai import OpenAI
 import os
 import logging
 
+from sqlalchemy import or_
+
 from api import api_bp
 from extensions import db
 from models import Summary, SummaryGranularity, Note, Project, Area
@@ -38,12 +40,17 @@ def _parse_dt(raw):
 def list_summaries():
     note_id = request.args.get("note_id")
     granularity = _parse_granularity(request.args.get("granularity"))
+    entity_type_filter = request.args.get("entity_type")
 
     q = Summary.query
     if note_id:
         q = q.filter(Summary.note_id == note_id)
     if granularity is not None:
         q = q.filter(Summary.granularity == granularity)
+    if entity_type_filter:
+        q = q.filter(Summary.entity_type == entity_type_filter)
+    else:
+        q = q.filter(or_(Summary.entity_type.is_(None), Summary.entity_type != "system"))
 
     summaries = q.order_by(Summary.generated_at.desc()).all()
     return jsonify({"data": [s.to_dict() for s in summaries]})
@@ -77,6 +84,7 @@ def create_summary():
         date_to=_parse_dt(data.get("date_to")),
         key_themes=data.get("key_themes"),
         action_items=data.get("action_items"),
+        entity_type=data.get("entity_type"),
     )
     db.session.add(summary)
     db.session.commit()

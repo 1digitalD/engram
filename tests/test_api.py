@@ -1123,6 +1123,43 @@ def test_api_v1_metrics_health_empty(client, app):
     assert data["link_proposals_pending"] == 0
 
 
+def test_api_v1_metrics_health_creates_system_weekly_snapshot(client, app):
+    res = client.get("/api/v1/metrics/health")
+    assert res.status_code == 200
+    with app.app_context():
+        row = Summary.query.filter_by(entity_type="system").first()
+        assert row is not None
+        assert row.granularity == SummaryGranularity.WEEKLY
+        assert isinstance(row.key_themes, dict)
+        assert abs(row.key_themes.get("orphan_rate", -1) - 0.0) < 1e-9
+
+
+def test_api_v1_metrics_health_history_returns_twelve_weeks(client, app):
+    client.get("/api/v1/metrics/health")
+    res = client.get("/api/v1/metrics/health/history?weeks=12")
+    assert res.status_code == 200
+    body = json.loads(res.data)
+    assert len(body["data"]) == 12
+    assert any(w.get("orphan_rate") is not None for w in body["data"])
+
+
+def test_api_v1_summaries_hides_system_health_by_default(client, app):
+    client.get("/api/v1/metrics/health")
+    res = client.get("/api/v1/summaries")
+    assert res.status_code == 200
+    body = json.loads(res.data)
+    assert all(s.get("entity_type") != "system" for s in body["data"])
+
+
+def test_api_v1_summaries_lists_system_when_filtered(client, app):
+    client.get("/api/v1/metrics/health")
+    res = client.get("/api/v1/summaries?entity_type=system")
+    assert res.status_code == 200
+    body = json.loads(res.data)
+    assert len(body["data"]) >= 1
+    assert body["data"][0]["entity_type"] == "system"
+
+
 def test_api_v1_metrics_health_from_db(client, app):
     with app.app_context():
         now = datetime.utcnow()

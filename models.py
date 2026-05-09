@@ -465,6 +465,7 @@ class Summary(BaseModel):
     date_to = Column(DateTime, nullable=True)
     key_themes = Column(JSON, nullable=True)
     action_items = Column(JSON, nullable=True)
+    entity_type = Column(String(32), nullable=True)
 
     note = relationship("Note", back_populates="summaries")
     area = relationship("Area", back_populates="summaries")
@@ -482,6 +483,7 @@ class Summary(BaseModel):
             "date_to": self.date_to.isoformat() if self.date_to else None,
             "key_themes": self.key_themes,
             "action_items": self.action_items,
+            "entity_type": self.entity_type,
             "created_at": self.created_at.isoformat(),
             "modified_at": self.modified_at.isoformat(),
         }

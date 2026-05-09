@@ -155,6 +155,64 @@
   color: var(--text-primary);
 }
 .summaryIcon { color: var(--accent); flex-shrink: 0; }
+
+.insightsTabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+.insightsTab {
+  font-size: var(--text-sm);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.insightsTab:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.insightsTabActive {
+  border-color: var(--accent);
+  background: var(--bg-base);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.healthTrendWrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.healthTrendSvg {
+  max-width: 100%;
+  height: auto;
+}
+.healthTrendCaption {
+  font-size: var(--text-xs);
+  fill: var(--text-muted);
+}
+.healthTrendTick {
+  font-size: 9px;
+  fill: var(--text-muted);
+}
+.healthTrendLegend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+.healthTrendLegendOrphan {
+  color: var(--accent-danger, #e74c3c);
+}
+.healthTrendLegendCap {
+  color: var(--accent);
+}
+
 .retryBtn {
   font-size: var(--text-sm);
   padding: var(--space-2) var(--space-3);

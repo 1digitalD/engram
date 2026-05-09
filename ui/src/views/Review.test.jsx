@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import Review from './Review';
 import useStore from '../stores/useStore';
-import { summariesAPI, proposalsAPI, reviewAPI } from '../api/engram';
+import { summariesAPI, proposalsAPI, reviewAPI, metricsAPI } from '../api/engram';
 import { REVIEW_WORKFLOW_STORAGE_KEY } from './reviewWorkflowState';
 
 vi.mock('../components/notes/NoteCard', () => ({
@@ -18,6 +18,7 @@ vi.mock('../api/engram', () => ({
   summariesAPI: { list: vi.fn() },
   proposalsAPI: { list: vi.fn() },
   reviewAPI: { weeklyDigest: vi.fn() },
+  metricsAPI: { healthHistory: vi.fn() },
 }));
 
 function renderReview() {
@@ -41,6 +42,19 @@ describe('Review weekly workflow', () => {
       tasks_created: 2,
       projects_completed: 1,
       connections_made: 5,
+    });
+    vi.mocked(metricsAPI.healthHistory).mockResolvedValue({
+      data: Array.from({ length: 12 }, (_, i) => {
+        const weekStart = new Date(Date.UTC(2026, 0, 5 + i * 7));
+        const weekEnd = new Date(weekStart.getTime() + 7 * 86400000);
+        return {
+          week_start: weekStart.toISOString(),
+          week_end: weekEnd.toISOString(),
+          orphan_rate: i === 11 ? 0.08 : null,
+          capture_rate: i === 11 ? 4 : null,
+          total_notes: i === 11 ? 50 : null,
+        };
+      }),
     });
     vi.mocked(useStore).mockReturnValue({
       notes: [],
@@ -217,5 +231,14 @@ describe('Review weekly workflow', () => {
     expect(screen.getByTestId('digest-projects')).toHaveTextContent('1');
     expect(screen.getByTestId('digest-links')).toHaveTextContent('5');
     expect(reviewAPI.weeklyDigest).toHaveBeenCalledWith({ days: 7 });
+  });
+
+  it('loads twelve-week health trend chart on System Health tab', async () => {
+    const user = userEvent.setup();
+    renderReview();
+    await user.click(screen.getByRole('button', { name: /Insights/i }));
+    await user.click(await screen.findByRole('tab', { name: /System Health/i }));
+    expect(await screen.findByTestId('review-health-trend-chart')).toBeInTheDocument();
+    expect(metricsAPI.healthHistory).toHaveBeenCalledWith({ weeks: 12 });
   });
 });

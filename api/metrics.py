@@ -2,7 +2,7 @@
 
 from datetime import datetime, timedelta
 
-from flask import jsonify
+from flask import jsonify, request
 from sqlalchemy import func, or_, select
 
 from api import api_bp
@@ -16,6 +16,11 @@ from models import (
     Project,
     note_projects,
     note_tags,
+)
+from services.health_snapshot import (
+    SYSTEM_HEALTH_ANCHOR_NOTE_ID,
+    health_history_series,
+    upsert_weekly_system_health_snapshot,
 )
 
 
@@ -43,11 +48,19 @@ def metrics_health():
     week_ago = now - timedelta(days=7)
     stale_cutoff = now - timedelta(days=30)
 
-    total_notes = int(db.session.scalar(select(func.count(Note.id))) or 0)
+    total_notes = int(
+        db.session.scalar(
+            select(func.count(Note.id)).where(Note.id != SYSTEM_HEALTH_ANCHOR_NOTE_ID)
+        )
+        or 0
+    )
 
     inbox_count = int(
         db.session.scalar(
-            select(func.count(Note.id)).where(Note.bucket == BucketType.INBOX)
+            select(func.count(Note.id)).where(
+                Note.bucket == BucketType.INBOX,
+                Note.id != SYSTEM_HEALTH_ANCHOR_NOTE_ID,
+            )
         )
         or 0
     )
@@ -72,6 +85,7 @@ def metrics_health():
                 Note.area_id.is_(None),
                 Note.id.not_in(m2m_project_ids),
                 Note.id.not_in(linked_note_ids),
+                Note.id != SYSTEM_HEALTH_ANCHOR_NOTE_ID,
             )
         )
         or 0
@@ -81,7 +95,8 @@ def metrics_health():
     archived_notes = int(
         db.session.scalar(
             select(func.count(Note.id)).where(
-                or_(Note.is_archived.is_(True), Note.bucket == BucketType.ARCHIVES)
+                or_(Note.is_archived.is_(True), Note.bucket == BucketType.ARCHIVES),
+                Note.id != SYSTEM_HEALTH_ANCHOR_NOTE_ID,
             )
         )
         or 0
@@ -89,7 +104,11 @@ def metrics_health():
     archive_ratio = _safe_ratio(archived_notes, total_notes)
 
     notes_tagged = int(
-        db.session.scalar(select(func.count(func.distinct(note_tags.c.note_id))))
+        db.session.scalar(
+            select(func.count(func.distinct(note_tags.c.note_id))).where(
+                note_tags.c.note_id != SYSTEM_HEALTH_ANCHOR_NOTE_ID
+            )
+        )
         or 0
     )
     tag_coverage = _safe_ratio(notes_tagged, total_notes)
@@ -113,7 +132,10 @@ def metrics_health():
 
     weekly_capture_rate = int(
         db.session.scalar(
-            select(func.count(Note.id)).where(Note.created_at >= week_ago)
+            select(func.count(Note.id)).where(
+                Note.created_at >= week_ago,
+                Note.id != SYSTEM_HEALTH_ANCHOR_NOTE_ID,
+            )
         )
         or 0
     )
@@ -128,6 +150,7 @@ def metrics_health():
                 select(func.count(Note.id)).where(
                     Note.created_at >= win_start,
                     Note.created_at < win_end,
+                    Note.id != SYSTEM_HEALTH_ANCHOR_NOTE_ID,
                 )
             )
             or 0
@@ -143,18 +166,35 @@ def metrics_health():
         or 0
     )
 
-    return jsonify(
-        {
-            "total_notes": total_notes,
-            "orphan_rate": orphan_rate,
-            "avg_links_per_note": avg_links,
-            "inbox_count": inbox_count,
-            "archive_ratio": archive_ratio,
-            "tag_coverage": tag_coverage,
-            "active_projects": active_projects,
-            "stale_projects": stale_projects,
-            "weekly_capture_rate": weekly_capture_rate,
-            "weekly_capture_counts": weekly_capture_counts,
-            "link_proposals_pending": link_proposals_pending,
-        }
+    payload = {
+        "total_notes": total_notes,
+        "orphan_rate": orphan_rate,
+        "avg_links_per_note": avg_links,
+        "inbox_count": inbox_count,
+        "archive_ratio": archive_ratio,
+        "tag_coverage": tag_coverage,
+        "active_projects": active_projects,
+        "stale_projects": stale_projects,
+        "weekly_capture_rate": weekly_capture_rate,
+        "weekly_capture_counts": weekly_capture_counts,
+        "link_proposals_pending": link_proposals_pending,
+    }
+
+    upsert_weekly_system_health_snapshot(
+        orphan_rate=orphan_rate,
+        weekly_capture_rate=weekly_capture_rate,
+        total_notes=total_notes,
     )
+
+    return jsonify(payload)
+
+
+@api_bp.route("/metrics/health/history", methods=["GET"])
+def metrics_health_history():
+    """Last N UTC weeks of stored health snapshots (from summaries.entity_type=system)."""
+    raw = request.args.get("weeks", "12")
+    try:
+        weeks = int(raw)
+    except ValueError:
+        weeks = 12
+    return jsonify({"data": health_history_series(weeks)})

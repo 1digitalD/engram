@@ -18,9 +18,10 @@ import {
   RotateCcw,
   Archive,
   ExternalLink,
+  HeartPulse,
 } from 'lucide-react';
 import useStore from '../stores/useStore';
-import { summariesAPI, proposalsAPI, reviewAPI } from '../api/engram';
+import { summariesAPI, proposalsAPI, reviewAPI, metricsAPI } from '../api/engram';
 import NoteCard from '../components/notes/NoteCard';
 import styles from './Review.module.css';
 import {
@@ -126,6 +127,81 @@ function granularityLabel(g) {
   if (g === 'DAILY') return 'Day';
   if (g === 'WEEKLY') return 'Week';
   return 'Month';
+}
+
+/** Twelve-week trends from metrics snapshots (SVG). Each series uses its own vertical scale. */
+function HealthTrendChart({ series }) {
+  const w = 380;
+  const h = 168;
+  const pad = { l: 40, r: 44, t: 18, b: 34 };
+  const iw = w - pad.l - pad.r;
+  const ih = h - pad.t - pad.b;
+  const n = Math.max(1, series?.length || 0);
+
+  const orphanVals = (series || []).map((s) =>
+    typeof s.orphan_rate === 'number' ? s.orphan_rate : null
+  );
+  const capVals = (series || []).map((s) =>
+    typeof s.capture_rate === 'number' ? s.capture_rate : null
+  );
+
+  const maxO = Math.max(0.05, ...orphanVals.filter((v) => v != null), 0);
+  const maxC = Math.max(1, ...capVals.filter((v) => v != null), 0);
+
+  const xAt = (i) => pad.l + (n <= 1 ? iw / 2 : (i / (n - 1)) * iw);
+
+  const ptsOrphan = orphanVals
+    .map((v, i) => (v == null ? null : `${xAt(i)},${pad.t + ih - (v / maxO) * ih}`))
+    .filter(Boolean)
+    .join(' ');
+  const ptsCap = capVals
+    .map((v, i) => (v == null ? null : `${xAt(i)},${pad.t + ih - (v / maxC) * ih}`))
+    .filter(Boolean)
+    .join(' ');
+
+  const formatWeek = (iso) => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+
+  const rows = series || [];
+
+  return (
+    <div className={styles.healthTrendWrap} data-testid="review-health-trend-chart">
+      <svg
+        width={w}
+        height={h}
+        className={styles.healthTrendSvg}
+        role="img"
+        aria-label="Orphan rate and weekly capture count over the last twelve weeks"
+      >
+        <text x={pad.l} y={14} className={styles.healthTrendCaption}>
+          Orphan rate and captures per rolling week (each series scaled to its own max)
+        </text>
+        <line x1={pad.l} y1={pad.t + ih} x2={pad.l + iw} y2={pad.t + ih} stroke="var(--border)" strokeWidth={1} />
+        <line x1={pad.l} y1={pad.t} x2={pad.l} y2={pad.t + ih} stroke="var(--border)" strokeWidth={1} />
+        <line x1={pad.l + iw} y1={pad.t} x2={pad.l + iw} y2={pad.t + ih} stroke="var(--border)" strokeWidth={1} />
+        {ptsOrphan ? (
+          <polyline fill="none" stroke="var(--accent-danger, #e74c3c)" strokeWidth={2} points={ptsOrphan} />
+        ) : null}
+        {ptsCap ? (
+          <polyline fill="none" stroke="var(--accent)" strokeWidth={2} points={ptsCap} />
+        ) : null}
+        {rows.map((s, i) => (
+          <text key={s.week_start || `w-${i}`} x={xAt(i)} y={h - 8} textAnchor="middle" className={styles.healthTrendTick}>
+            {formatWeek(s.week_start)}
+          </text>
+        ))}
+      </svg>
+      <div className={styles.healthTrendLegend}>
+        <span className={styles.healthTrendLegendOrphan}>
+          ● Orphan rate (0–{(maxO * 100).toFixed(0)}% scale)
+        </span>
+        <span className={styles.healthTrendLegendCap}>● Weekly captures / 7d (0–{maxC} scale)</span>
+      </div>
+    </div>
+  );
 }
 
 function notePreviewLine(n) {
@@ -275,6 +351,29 @@ export default function Review() {
   const [selectedProposalIds, setSelectedProposalIds] = useState(() => new Set());
   const [proposalBulkBusy, setProposalBulkBusy] = useState(false);
   const [proposalRowBusyId, setProposalRowBusyId] = useState(null);
+
+  const [insightsTab, setInsightsTab] = useState('summary');
+  const [healthHistory, setHealthHistory] = useState([]);
+  const [healthHistoryLoading, setHealthHistoryLoading] = useState(false);
+  const [healthHistoryError, setHealthHistoryError] = useState(null);
+
+  const loadHealthHistory = useCallback(async () => {
+    setHealthHistoryLoading(true);
+    setHealthHistoryError(null);
+    try {
+      const res = await metricsAPI.healthHistory({ weeks: 12 });
+      setHealthHistory(res.data || []);
+    } catch (e) {
+      setHealthHistoryError(e.message || 'Failed to load health history');
+      setHealthHistory([]);
+    } finally {
+      setHealthHistoryLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (insightsTab === 'health') loadHealthHistory();
+  }, [insightsTab, loadHealthHistory]);
 
   const loadLinkProposals = useCallback(async () => {
     setLinkProposalsLoading(true);
@@ -1051,10 +1150,39 @@ export default function Review() {
           flow={reviewFlow}
           patchFlow={setReviewFlow}
         >
-          <p className={styles.workflowMeta}>
-            {granularityLabel(granularity)} · {formatPeriodSubtitle(granularity, anchorDate)}
-          </p>
+          {insightsTab === 'summary' ? (
+            <p className={styles.workflowMeta}>
+              {granularityLabel(granularity)} · {formatPeriodSubtitle(granularity, anchorDate)}
+            </p>
+          ) : (
+            <p className={styles.workflowMeta}>Stored weekly snapshots · trailing twelve UTC weeks</p>
+          )}
           <div className={styles.workflowEmbed}>
+            <div className={styles.insightsTabs} role="tablist" aria-label="Insights panels">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={insightsTab === 'summary'}
+                className={
+                  insightsTab === 'summary' ? `${styles.insightsTab} ${styles.insightsTabActive}` : styles.insightsTab
+                }
+                onClick={() => setInsightsTab('summary')}
+              >
+                Summary rollup
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={insightsTab === 'health'}
+                className={
+                  insightsTab === 'health' ? `${styles.insightsTab} ${styles.insightsTabActive}` : styles.insightsTab
+                }
+                onClick={() => setInsightsTab('health')}
+              >
+                System Health
+              </button>
+            </div>
+            {insightsTab === 'summary' ? (
 <section className={styles.summaryHero} aria-label="Saved summary rollup">
         <div className={styles.summaryHeroTop}>
           <div className={styles.summaryHeroTitle}>
@@ -1246,6 +1374,40 @@ export default function Review() {
           </>
         )}
       </section>
+            ) : (
+              <section className={styles.summaryHero} aria-label="System health history">
+                <div className={styles.summaryHeroTop}>
+                  <div className={styles.summaryHeroTitle}>
+                    <HeartPulse size={18} className={styles.summaryIcon} aria-hidden />
+                    <h2>System Health</h2>
+                  </div>
+                  <button
+                    type="button"
+                    className={styles.retryBtn}
+                    disabled={healthHistoryLoading}
+                    onClick={() => loadHealthHistory()}
+                  >
+                    Refresh
+                  </button>
+                </div>
+                <p className={styles.summaryMuted}>
+                  Weekly orphan rate and capture activity from persisted snapshots (updated when health metrics are computed).
+                </p>
+                {healthHistoryError && (
+                  <p className={styles.summaryError} role="alert">
+                    {healthHistoryError}
+                  </p>
+                )}
+                {healthHistoryLoading && !healthHistoryError && (
+                  <p className={styles.summaryMuted}>
+                    <Loader2 size={14} className="spin" aria-hidden /> Loading history…
+                  </p>
+                )}
+                {!healthHistoryLoading && !healthHistoryError ? (
+                  <HealthTrendChart series={healthHistory} />
+                ) : null}
+              </section>
+            )}
           </div>
         </WorkflowStepPanel>
 
