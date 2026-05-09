@@ -11,6 +11,7 @@ from . import (
     tasks,
     summaries,
     summarize,
+    jobs,
     ingest,
     links,
     batch,

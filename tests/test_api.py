@@ -795,3 +795,78 @@ def test_summarize_requires_entity_name(client, app):
             content_type="application/json",
         )
         assert res.status_code == 400
+
+
+def test_jobs_status_smoke(client, app):
+    with app.app_context():
+        res = client.get("/api/v1/jobs/status")
+        assert res.status_code == 200
+        body = json.loads(res.data)["data"]
+        assert body["state"] in ("idle", "queued", "running", "completed", "error")
+
+
+def test_jobs_summarize_creates_weekly_summary_for_area(client, app):
+    with app.app_context():
+        os.environ["ANTHROPIC_API_KEY"] = "test-key"
+        area_res = client.post(
+            "/api/v1/areas",
+            data=json.dumps({"name": "JobTest Area"}),
+            content_type="application/json",
+        )
+        assert area_res.status_code == 201
+        aid = json.loads(area_res.data)["data"]["id"]
+
+        note_res = client.post(
+            "/api/v1/notes",
+            data=json.dumps(
+                {
+                    "raw_text": "Note in area for job",
+                    "classify": False,
+                    "area_id": aid,
+                }
+            ),
+            content_type="application/json",
+        )
+        assert note_res.status_code == 201
+
+        mock_usage = MagicMock(input_tokens=10, output_tokens=5)
+        mock_text_block = MagicMock()
+        mock_text_block.text = json.dumps(
+            {
+                "summary_text": "Area rollup.",
+                "key_themes": ["k"],
+                "action_items": ["a"],
+            }
+        )
+        mock_msg = MagicMock()
+        mock_msg.content = [mock_text_block]
+        mock_msg.usage = mock_usage
+        mock_client_instance = MagicMock()
+        mock_client_instance.messages.create = MagicMock(return_value=mock_msg)
+
+        with patch("anthropic.Anthropic", return_value=mock_client_instance):
+            res = client.post(
+                "/api/v1/jobs/summarize",
+                data=json.dumps({"granularity": "WEEKLY"}),
+                content_type="application/json",
+            )
+        assert res.status_code == 200, res.data
+        status = json.loads(res.data)["data"]["status"]
+        assert status["state"] == "completed"
+        assert status["summaries_created"] == 1
+
+        summaries = Summary.query.filter_by(area_id=aid).all()
+        assert len(summaries) == 1
+        assert summaries[0].granularity == SummaryGranularity.WEEKLY
+        assert summaries[0].summary_text == "Area rollup."
+        assert summaries[0].summary_type == "scheduled"
+
+
+def test_jobs_summarize_requires_granularity(client, app):
+    with app.app_context():
+        res = client.post(
+            "/api/v1/jobs/summarize",
+            data=json.dumps({}),
+            content_type="application/json",
+        )
+        assert res.status_code == 400

@@ -197,6 +197,7 @@ class Area(BaseModel):
     projects = relationship("Project", back_populates="area")
     tasks = relationship("Task", back_populates="area")
     resources = relationship("Resource", back_populates="area")
+    summaries = relationship("Summary", back_populates="area")
 
     def to_dict(self, include_notes=False):
         note_count = db.session.scalar(
@@ -429,6 +430,7 @@ class Summary(BaseModel):
     __tablename__ = "summaries"
 
     note_id = Column(String(36), ForeignKey("notes.id", ondelete="CASCADE"), nullable=False)
+    area_id = Column(String(36), ForeignKey("areas.id"), nullable=True)
     summary_text = Column(Text, nullable=False)
     generated_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     summary_type = Column(String(64), nullable=True)
@@ -443,11 +445,13 @@ class Summary(BaseModel):
     action_items = Column(JSON, nullable=True)
 
     note = relationship("Note", back_populates="summaries")
+    area = relationship("Area", back_populates="summaries")
 
     def to_dict(self):
         return {
             "id": self.id,
             "note_id": self.note_id,
+            "area_id": self.area_id,
             "summary_text": self.summary_text,
             "generated_at": self.generated_at.isoformat(),
             "summary_type": self.summary_type,

@@ -34,9 +34,9 @@
       "id": "p3-ws1-iter-c-scheduled-background-jobs",
       "title": "Scheduled background summarization",
       "description": "Background job that runs summarization on schedule. API endpoint to trigger. Integrates with existing cron/job infrastructure.",
-      "passes": false,
+      "passes": true,
       "blocked": false,
-      "attempts": 0,
+      "attempts": 1,
       "commit": null
     },
     {

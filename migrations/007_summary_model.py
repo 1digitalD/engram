@@ -27,7 +27,8 @@ CREATE TABLE summaries (
     date_from DATETIME,
     date_to DATETIME,
     key_themes JSON,
-    action_items JSON
+    action_items JSON,
+    area_id VARCHAR(36) REFERENCES areas(id)
 )
 """
 
@@ -62,6 +63,8 @@ def _add_columns_for_summaries(table: str) -> None:
         alters.append("key_themes JSON")
     if "action_items" not in cols:
         alters.append("action_items JSON")
+    if "area_id" not in cols:
+        alters.append("area_id VARCHAR(36) REFERENCES areas(id)")
 
     if not alters:
         return

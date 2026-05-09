@@ -5,8 +5,9 @@ from __future__ import annotations
 import json
 import os
 import re
+import threading
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 SYSTEM_PROMPT = (
@@ -262,3 +263,87 @@ class Summarizer:
             "token_count": total_in + total_out,
             "model_used": self._model,
         }
+
+    def execute_scheduled_summarization(
+        self, granularity: str, area_id: str | None = None
+    ) -> int:
+        """
+        For each relevant area, load notes from the last 7 days and persist a Summary.
+
+        When ``area_id`` is set, only that area is processed. Returns the number of
+        summaries written.
+        """
+        from extensions import db
+        from models import Area, Note, Summary, SummaryGranularity
+
+        try:
+            gran = SummaryGranularity[str(granularity.strip().upper())]
+        except (KeyError, AttributeError):
+            raise ValueError(f"invalid granularity: {granularity!r}") from None
+
+        since = datetime.utcnow() - timedelta(days=7)
+        created = 0
+
+        if area_id is not None:
+            area = db.session.get(Area, area_id)
+            if not area:
+                raise ValueError(f"area not found: {area_id}")
+            areas = [area]
+        else:
+            areas = Area.query.order_by(Area.name).all()
+
+        for area in areas:
+            notes = (
+                Note.query.filter(
+                    Note.area_id == area.id,
+                    Note.created_at >= since,
+                )
+                .order_by(Note.created_at.asc())
+                .all()
+            )
+            if not notes:
+                continue
+
+            result = self.summarize_notes(
+                notes, granularity=gran.value, entity_name=area.name
+            )
+            times = [n.created_at or datetime.utcnow() for n in notes]
+            summary = Summary(
+                note_id=notes[0].id,
+                area_id=area.id,
+                summary_text=result.get("summary_text") or "",
+                generated_at=datetime.utcnow(),
+                summary_type="scheduled",
+                granularity=gran,
+                date_from=min(times),
+                date_to=max(times),
+                key_themes=result.get("key_themes"),
+                action_items=result.get("action_items"),
+            )
+            db.session.add(summary)
+            created += 1
+
+        db.session.commit()
+        return created
+
+    def run_async(
+        self,
+        granularity: str,
+        area_id: str | None = None,
+        *,
+        app: Any | None = None,
+        sync: bool = False,
+    ) -> None:
+        """Run ``execute_scheduled_summarization`` in-process or on a daemon thread."""
+        from flask import current_app
+
+        application = app or current_app._get_current_object()
+
+        def task() -> None:
+            with application.app_context():
+                self.execute_scheduled_summarization(granularity, area_id)
+
+        if sync:
+            task()
+        else:
+            threading.Thread(target=task, daemon=True).start()
