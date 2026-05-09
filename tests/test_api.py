@@ -1105,6 +1105,7 @@ def test_api_v1_metrics_health_empty(client, app):
         "active_projects",
         "stale_projects",
         "weekly_capture_rate",
+        "weekly_capture_counts",
         "link_proposals_pending",
     )
     for k in expected_keys:
@@ -1118,6 +1119,7 @@ def test_api_v1_metrics_health_empty(client, app):
     assert data["active_projects"] == 0
     assert data["stale_projects"] == 0
     assert data["weekly_capture_rate"] == 0
+    assert data["weekly_capture_counts"] == [0, 0, 0, 0]
     assert data["link_proposals_pending"] == 0
 
 
@@ -1181,4 +1183,5 @@ def test_api_v1_metrics_health_from_db(client, app):
     assert data["active_projects"] == 2
     assert data["stale_projects"] == 1
     assert data["weekly_capture_rate"] == 1
+    assert data["weekly_capture_counts"] == [0, 0, 0, 1]
     assert data["link_proposals_pending"] == 1

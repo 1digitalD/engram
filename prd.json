@@ -178,9 +178,10 @@
       "validationCommands": [
         "cd ui && npm test -- --testPathPattern=Dashboard"
       ],
-      "status": "pending",
-      "passes": false,
-      "attempts": 0
+      "status": "done",
+      "passes": true,
+      "attempts": 1,
+      "commit": "2037507"
     },
     {
       "id": "p4-ws2-iter-c-health-history",

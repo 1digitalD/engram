@@ -36,6 +36,8 @@ def metrics_health():
     - tag_coverage: share of notes with at least one tag.
     - stale_projects: active projects with modified_at older than 30 days.
     - weekly_capture_rate: notes created in the rolling last 7 days (notes/week activity).
+    - weekly_capture_counts: four ints, notes per week in oldest→newest rolling windows
+      (same span as weekly_capture_rate for the last element).
     """
     now = datetime.utcnow()
     week_ago = now - timedelta(days=7)
@@ -116,6 +118,22 @@ def metrics_health():
         or 0
     )
 
+    # Oldest → newest week (4 rolling 7-day windows) for sparkline / mini bar chart
+    weekly_capture_counts = []
+    for start_days in (28, 21, 14, 7):
+        win_start = now - timedelta(days=start_days)
+        win_end = now - timedelta(days=start_days - 7)
+        cnt = int(
+            db.session.scalar(
+                select(func.count(Note.id)).where(
+                    Note.created_at >= win_start,
+                    Note.created_at < win_end,
+                )
+            )
+            or 0
+        )
+        weekly_capture_counts.append(cnt)
+
     link_proposals_pending = int(
         db.session.scalar(
             select(func.count(LinkProposal.id)).where(
@@ -136,6 +154,7 @@ def metrics_health():
             "active_projects": active_projects,
             "stale_projects": stale_projects,
             "weekly_capture_rate": weekly_capture_rate,
+            "weekly_capture_counts": weekly_capture_counts,
             "link_proposals_pending": link_proposals_pending,
         }
     )

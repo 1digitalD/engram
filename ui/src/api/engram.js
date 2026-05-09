@@ -123,6 +123,11 @@ export const reviewAPI = {
   weeklyDigest: (params = {}) => apiRequest('GET', '/review/weekly-digest', null, params),
 };
 
+// ── Knowledge health metrics ─────────────────
+export const metricsAPI = {
+  health: () => apiRequest('GET', '/metrics/health'),
+};
+
 // ── Summaries (progressive rollup + review) ─
 export const summariesAPI = {
   list: (params = {}) => apiRequest('GET', '/summaries', null, params),
