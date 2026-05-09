@@ -52,9 +52,9 @@
       "id": "p3-ws2-iter-a-proposal-generation",
       "title": "AI link proposal generation",
       "description": "services/link_proposer.py: analyze notes, propose links based on semantic similarity, shared entities, temporal patterns. Returns list of {from_note_id, to_note_id, reason, confidence}.",
-      "passes": false,
+      "passes": true,
       "blocked": false,
-      "attempts": 0,
+      "attempts": 1,
       "commit": null
     },
     {

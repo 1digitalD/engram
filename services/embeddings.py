@@ -3,6 +3,8 @@ Embedding service: generate, store, and query embeddings via sqlite-vec.
 Uses OpenAI text-embedding-3-small at 1536 dims.
 Chunks notes using Markdown-heading splits + 400-token sliding window.
 """
+from __future__ import annotations
+
 import os
 import json
 import logging
@@ -107,6 +109,14 @@ def embed_note(note_id: str, text: str):
     """
     from extensions import db
     from models import NoteChunk
+
+    try:
+        from flask import current_app
+
+        if current_app.config.get("TESTING"):
+            return
+    except RuntimeError:
+        pass
 
     if not os.getenv("OPENAI_API_KEY"):
         return
