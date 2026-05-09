@@ -158,9 +158,9 @@
       "validationCommands": [
         "python3 -m pytest tests/test_api.py -k health"
       ],
-      "status": "pending",
-      "passes": false,
-      "attempts": 0
+      "status": "done",
+      "passes": true,
+      "attempts": 1
     },
     {
       "id": "p4-ws2-iter-b-dashboard-health-card",

@@ -1089,3 +1089,96 @@ def test_weekly_digest_counts_rolling_window(client, app):
     assert data["tasks_created"] == 1
     assert data["connections_made"] == 1
     assert data["projects_completed"] == 1
+
+
+def test_api_v1_metrics_health_empty(client, app):
+    res = client.get("/api/v1/metrics/health")
+    assert res.status_code == 200
+    data = json.loads(res.data)
+    expected_keys = (
+        "total_notes",
+        "orphan_rate",
+        "avg_links_per_note",
+        "inbox_count",
+        "archive_ratio",
+        "tag_coverage",
+        "active_projects",
+        "stale_projects",
+        "weekly_capture_rate",
+        "link_proposals_pending",
+    )
+    for k in expected_keys:
+        assert k in data
+    assert data["total_notes"] == 0
+    assert data["orphan_rate"] == 0.0
+    assert data["avg_links_per_note"] == 0.0
+    assert data["inbox_count"] == 0
+    assert data["archive_ratio"] == 0.0
+    assert data["tag_coverage"] == 0.0
+    assert data["active_projects"] == 0
+    assert data["stale_projects"] == 0
+    assert data["weekly_capture_rate"] == 0
+    assert data["link_proposals_pending"] == 0
+
+
+def test_api_v1_metrics_health_from_db(client, app):
+    with app.app_context():
+        now = datetime.utcnow()
+        old = now - timedelta(days=40)
+        recent = now - timedelta(days=2)
+
+        stale_proj = Project(name="Stale proj", is_archived=False, priority=Priority.MEDIUM)
+        stale_proj.modified_at = old
+        fresh_proj = Project(name="Fresh proj", is_archived=False, priority=Priority.MEDIUM)
+        archived_proj = Project(name="Archived proj", is_archived=True, priority=Priority.MEDIUM)
+        db.session.add_all([stale_proj, fresh_proj, archived_proj])
+
+        inbox1 = Note(raw_text="inbox one", bucket=BucketType.INBOX)
+        inbox2 = Note(raw_text="inbox two", bucket=BucketType.INBOX)
+        orphan = Note(raw_text="orphan body", bucket=BucketType.PROJECTS)
+        linked_a = Note(raw_text="link a", bucket=BucketType.PROJECTS)
+        linked_b = Note(raw_text="link b", bucket=BucketType.PROJECTS)
+        archived_n = Note(raw_text="gone", bucket=BucketType.AREAS, is_archived=True)
+        recent_cap = Note(raw_text="this week", bucket=BucketType.INBOX)
+        ancient = Note(raw_text="yesteryear", bucket=BucketType.INBOX)
+
+        db.session.add_all(
+            [inbox1, inbox2, orphan, linked_a, linked_b, archived_n, recent_cap, ancient]
+        )
+        db.session.flush()
+
+        tag = Tag(name="metric-tag")
+        db.session.add(tag)
+        orphan.tags.append(tag)
+
+        db.session.add(Link(src_id=linked_a.id, dst_id=linked_b.id))
+
+        prop = LinkProposal(
+            src_id=inbox1.id,
+            dst_id=inbox2.id,
+            confidence=0.85,
+            reason="metrics",
+            status=LinkProposalStatus.PENDING,
+        )
+        db.session.add(prop)
+
+        for n in (inbox1, inbox2, orphan, linked_a, linked_b, archived_n, ancient):
+            n.created_at = old
+        recent_cap.created_at = recent
+
+        db.session.commit()
+
+    res = client.get("/api/v1/metrics/health")
+    assert res.status_code == 200
+    data = json.loads(res.data)
+
+    assert data["total_notes"] == 8
+    assert data["inbox_count"] == 4
+    assert data["orphan_rate"] == 1 / 8
+    assert data["avg_links_per_note"] == 2 / 8
+    assert data["archive_ratio"] == 1 / 8
+    assert data["tag_coverage"] == 1 / 8
+    assert data["active_projects"] == 2
+    assert data["stale_projects"] == 1
+    assert data["weekly_capture_rate"] == 1
+    assert data["link_proposals_pending"] == 1

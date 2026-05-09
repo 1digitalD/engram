@@ -1,6 +1,6 @@
 # Engram Overnight Execution Tracker
 
-Last updated: 2026-05-08
+Last updated: 2026-05-09
 Worktree: `/Volumes/lex1t/dev/shared/repos/engram/.claude/worktrees/reverent-knuth-45dc53`
 Branch: `overhaul/full-implementation-loop`
 
@@ -164,3 +164,5 @@ If the session resets or the gateway restarts:
 - Task `p4-ws1-iter-b-orphan-note-review`: `Review.jsx` + `Review.module.css` — orphan list uses `link_count === 0`, no project/area, excludes INBOX; per-note project/area `<select>` (calls `updateNote`), Quick link (`navigate` to note detail), Archive row; bulk Archive all orphans + `window.confirm`; `useStore.updateNote(id, data, { silent })` for bulk without toast spam. Tests: orphan filter + bulk archive. Committed `5962bd4`. Validation: `cd ui && npm test -- --testPathPattern=Review` → 5 passed.
 
 - Task `p4-ws1-iter-c-weekly-digest-card`: `GET /api/v1/review/weekly-digest` (`api/review.py`) — rolling UTC counts for notes created, tasks created, archived projects by `modified_at`, links created; `reviewAPI` + digest card at top of `Review.jsx` (above workflow rail); CSS `digestCard`; tests in `tests/test_api.py` + `Review.test.jsx`. Committed `5c0b1cb`. Validation: `pytest tests/test_phase1_backend_foundation.py tests/test_models.py tests/test_api.py` → 54 passed; `cd ui && npm test -- --testPathPattern=Review` → 6 passed.
+
+- Task `p4-ws2-iter-a-health-metrics-api`: `GET /api/v1/metrics/health` (`api/metrics.py`) — DB-backed `total_notes`, `orphan_rate`, `avg_links_per_note`, `inbox_count`, `archive_ratio`, `tag_coverage`, `active_projects`, `stale_projects` (active projects with `modified_at` older than 30 days), `weekly_capture_rate` (notes created in the last 7 days), `link_proposals_pending`. Registered in `api/__init__.py`. Tests: `test_api_v1_metrics_health_empty`, `test_api_v1_metrics_health_from_db` in `tests/test_api.py`. Validation: `python3 -m pytest tests/test_api.py -k health` → 3 passed; full backend slice → 56 passed.
