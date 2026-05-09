@@ -39,6 +39,34 @@ def test_create_note(client, app):
         data = json.loads(res.data)
         assert data["data"]["raw_text"] == "Test note from API"
         assert data["data"]["bucket"] == "INBOX"
+        assert data["data"]["note_type"] == "NOTE"
+
+
+def test_note_create_and_patch_note_type(client, app):
+    with app.app_context():
+        res = client.post(
+            "/api/v1/notes",
+            data=json.dumps(
+                {
+                    "raw_text": "Meeting notes",
+                    "classify": False,
+                    "note_type": "MEETING",
+                }
+            ),
+            content_type="application/json",
+        )
+        assert res.status_code == 201
+        body = json.loads(res.data)
+        nid = body["data"]["id"]
+        assert body["data"]["note_type"] == "MEETING"
+
+        res = client.patch(
+            f"/api/v1/notes/{nid}",
+            data=json.dumps({"note_type": "MOC"}),
+            content_type="application/json",
+        )
+        assert res.status_code == 200
+        assert json.loads(res.data)["data"]["note_type"] == "MOC"
 
 
 def test_get_note(client, app):

@@ -64,6 +64,14 @@ class SummaryGranularity(PyEnum):
     MONTHLY = "MONTHLY"
 
 
+class NoteType(PyEnum):
+    NOTE = "NOTE"
+    MOC = "MOC"
+    DAILY = "DAILY"
+    MEETING = "MEETING"
+    DECISION = "DECISION"
+
+
 class LinkProposalStatus(PyEnum):
     PENDING = "pending"
     ACCEPTED = "accepted"
@@ -331,6 +339,7 @@ class Note(BaseModel):
 
     raw_text = Column(Text, nullable=False)
     bucket = Column(Enum(BucketType), default=BucketType.INBOX)
+    note_type = Column(Enum(NoteType), nullable=False, default=NoteType.NOTE)
     is_archived = Column(Boolean, default=False)
     ai_meta = Column(JSON, nullable=True)
 
@@ -380,6 +389,7 @@ class Note(BaseModel):
             "id": self.id,
             "raw_text": self.raw_text,
             "bucket": self.bucket.value if self.bucket else BucketType.INBOX.value,
+            "note_type": self.note_type.value if self.note_type else NoteType.NOTE.value,
             "is_archived": self.is_archived,
             "ai_meta": self.ai_meta,
             "created_at": self.created_at.isoformat(),
