@@ -83,11 +83,259 @@
       "blocked": false,
       "attempts": 1,
       "commit": "2ea648e"
+    },
+    {
+      "id": "p4-ws1-iter-a-review-workflow",
+      "title": "Structured weekly review workflow",
+      "description": "Replace static Review layout with guided step-by-step process: Clear Inbox, Review Projects, Review Areas, Orphan Notes, Link Proposals, Insights, Plan next week. Progress bar, collapsible sections, state in localStorage.",
+      "phase": "4",
+      "workstream": "ws1",
+      "iteration": "a",
+      "acceptanceCriteria": [
+        "7-step guided review flow with progress bar",
+        "Each section collapsible, state persisted in localStorage",
+        "Review can be paused and resumed"
+      ],
+      "validationCommands": [
+        "cd ui && npm test -- --testPathPattern=Review"
+      ],
+      "status": "pending",
+      "passes": false,
+      "attempts": 0
+    },
+    {
+      "id": "p4-ws1-iter-b-orphan-note-review",
+      "title": "Orphan note review step",
+      "description": "Orphan notes list (zero links, no project, no area). Per note: quick-assign project/area, quick-link, or archive. Bulk archive all orphans with confirmation.",
+      "phase": "4",
+      "workstream": "ws1",
+      "iteration": "b",
+      "acceptanceCriteria": [
+        "Orphan notes list showing notes with 0 links and no project/area",
+        "Per-note: assign project dropdown, assign area dropdown, quick-link button",
+        "Bulk 'archive all orphans' with confirmation dialog"
+      ],
+      "validationCommands": [
+        "cd ui && npm test -- --testPathPattern=Review"
+      ],
+      "status": "pending",
+      "passes": false,
+      "attempts": 0
+    },
+    {
+      "id": "p4-ws1-iter-c-weekly-digest-card",
+      "title": "Weekly digest summary card",
+      "description": "Auto-generated digest at top of Review: 'You captured N notes, created M tasks, completed K projects, made L connections.' Stats from DB queries over week date range.",
+      "phase": "4",
+      "workstream": "ws1",
+      "iteration": "c",
+      "acceptanceCriteria": [
+        "Digest card at top of Review view",
+        "Shows note count, task count, completed project count, link count for past 7 days",
+        "Data sourced from real DB queries"
+      ],
+      "validationCommands": [
+        "cd ui && npm test -- --testPathPattern=Review"
+      ],
+      "status": "pending",
+      "passes": false,
+      "attempts": 0
+    },
+    {
+      "id": "p4-ws2-iter-a-health-metrics-api",
+      "title": "Health metrics API",
+      "description": "GET /api/v1/metrics/health \u2014 returns total_notes, orphan_rate, avg_links_per_note, inbox_count, archive_ratio, tag_coverage, active_projects, stale_projects, weekly_capture_rate, link_proposals_pending.",
+      "phase": "4",
+      "workstream": "ws2",
+      "iteration": "a",
+      "acceptanceCriteria": [
+        "GET /api/v1/metrics/health returns all specified metrics",
+        "Endpoint returns valid JSON with all fields populated from DB"
+      ],
+      "validationCommands": [
+        "python3 -m pytest tests/test_api.py -k health"
+      ],
+      "status": "pending",
+      "passes": false,
+      "attempts": 0
+    },
+    {
+      "id": "p4-ws2-iter-b-dashboard-health-card",
+      "title": "Dashboard health card",
+      "description": "Dashboard.jsx: 'Knowledge Health' card with orphan rate indicator (green/yellow/red), avg links per note target, weekly capture rate sparkline, inbox count urgency color.",
+      "phase": "4",
+      "workstream": "ws2",
+      "iteration": "b",
+      "acceptanceCriteria": [
+        "Health card in Dashboard shows orphan_rate, avg_links, capture_rate, inbox",
+        "Color coding: inbox >20 yellow, >50 red",
+        "4-week capture rate mini bar chart"
+      ],
+      "validationCommands": [
+        "cd ui && npm test -- --testPathPattern=Dashboard"
+      ],
+      "status": "pending",
+      "passes": false,
+      "attempts": 0
+    },
+    {
+      "id": "p4-ws2-iter-c-health-history",
+      "title": "Health history tracking",
+      "description": "Store weekly health snapshots in weekly_summaries with entity_type='system'. Show 12-week trend chart in Review \u2192 System Health tab.",
+      "phase": "4",
+      "workstream": "ws2",
+      "iteration": "c",
+      "acceptanceCriteria": [
+        "Weekly snapshots stored in DB as system entity_type weekly_summaries",
+        "12-week trend chart in Review System Health tab",
+        "Chart shows orphan_rate and capture_rate over time"
+      ],
+      "validationCommands": [
+        "cd ui && npm test -- --testPathPattern=Review"
+      ],
+      "status": "pending",
+      "passes": false,
+      "attempts": 0
+    },
+    {
+      "id": "p4-ws3-iter-a-rollup-service",
+      "title": "Rollup service",
+      "description": "services/rollup.py: rollup_project_to_area(project_id) \u2014 summarizes all project notes with Claude, creates summary note in parent Area tagged #retrospective #project-complete, archives project.",
+      "phase": "4",
+      "workstream": "ws3",
+      "iteration": "a",
+      "acceptanceCriteria": [
+        "rollup_project_to_area(project_id) function in services/rollup.py",
+        "Creates summary note in parent Area with #retrospective #project-complete",
+        "Archives the project after rollup",
+        "Returns the created summary note"
+      ],
+      "validationCommands": [
+        "python3 -m pytest tests/ -k rollup"
+      ],
+      "status": "pending",
+      "passes": false,
+      "attempts": 0
+    },
+    {
+      "id": "p4-ws3-iter-b-archive-project-flow",
+      "title": "Archive project with confirmation",
+      "description": "PATCH /api/v1/projects/<id> with is_archived=true: if project has parent area, show rollup confirmation. ProjectFocus.jsx: 'Complete Project' button triggers multi-step flow.",
+      "phase": "4",
+      "workstream": "ws3",
+      "iteration": "b",
+      "acceptanceCriteria": [
+        "Completing a project with a parent area shows rollup confirmation",
+        "'Complete Project' button triggers rollup flow, then archives project",
+        "Navigate to area after archiving"
+      ],
+      "validationCommands": [
+        "cd ui && npm test -- --testPathPattern=ProjectFocus"
+      ],
+      "status": "pending",
+      "passes": false,
+      "attempts": 0
+    },
+    {
+      "id": "p4-ws3-iter-c-retrospective-template",
+      "title": "Retrospective note template",
+      "description": "Rollup generates a structured retrospective: What was accomplished, Key decisions, Lessons learned, Outstanding items. Template applied via Claude prompt.",
+      "phase": "4",
+      "workstream": "ws3",
+      "iteration": "c",
+      "acceptanceCriteria": [
+        "Retrospective note follows the template structure",
+        "Includes all project notes content in prompt for context",
+        "Output is well-formatted markdown"
+      ],
+      "validationCommands": [
+        "python3 -m pytest tests/ -k rollup"
+      ],
+      "status": "pending",
+      "passes": false,
+      "attempts": 0
+    },
+    {
+      "id": "p5-ws1-iter-a-graph-node-types",
+      "title": "Richer graph node types and link visualization",
+      "description": "Graph shows Resource nodes (square), Daily note nodes (calendar icon). Link lines: different colors per type (related=purple, child_of=blue, depends_on=orange, mentions=grey). Link thickness proportional to weight.",
+      "phase": "5",
+      "workstream": "ws1",
+      "iteration": "a",
+      "acceptanceCriteria": [
+        "Resource nodes render as squares, Daily note nodes show calendar icon",
+        "Link lines colored by type",
+        "Link thickness reflects semantic similarity weight"
+      ],
+      "validationCommands": [
+        "cd ui && npm test -- --testPathPattern=Graph"
+      ],
+      "status": "pending",
+      "passes": false,
+      "attempts": 0
+    },
+    {
+      "id": "p5-ws1-iter-b-graph-clustering",
+      "title": "Graph cluster detection and visual grouping",
+      "description": "D3 force clustering: nodes grouped by project/area with light hull background. Hull color matches project/area color. 'Cluster by: Project | Area | Tag | None' toggle.",
+      "phase": "5",
+      "workstream": "ws1",
+      "iteration": "b",
+      "acceptanceCriteria": [
+        "Nodes grouped into cluster hulls by project or area",
+        "Hull color matches project/area color",
+        "Toggle control for clustering mode"
+      ],
+      "validationCommands": [
+        "cd ui && npm test -- --testPathPattern=Graph"
+      ],
+      "status": "pending",
+      "passes": false,
+      "attempts": 0
+    },
+    {
+      "id": "p5-ws1-iter-c-graph-heatmap",
+      "title": "Graph heat map mode",
+      "description": "'Activity heat map' toggle: node size proportional to backlink count. Highly-connected notes (MOC candidates) appear larger. Color spectrum: low activity (grey) \u2192 high activity (bright accent).",
+      "phase": "5",
+      "workstream": "ws1",
+      "iteration": "c",
+      "acceptanceCriteria": [
+        "Heat map toggle in graph controls",
+        "Node size scales with backlink count",
+        "Color gradient from grey (low) to accent (high activity)"
+      ],
+      "validationCommands": [
+        "cd ui && npm test -- --testPathPattern=Graph"
+      ],
+      "status": "pending",
+      "passes": false,
+      "attempts": 0
+    },
+    {
+      "id": "p5-ws1-iter-d-graph-search-filter",
+      "title": "Graph search and filter",
+      "description": "Filter panel: show only selected node types, only nodes in selected projects/areas. Search by label: zoom to + highlight matching node. 'Focus mode': select node \u2192 show only 1-hop neighbors.",
+      "phase": "5",
+      "workstream": "ws1",
+      "iteration": "d",
+      "acceptanceCriteria": [
+        "Filter panel filters by node type and project/area",
+        "Search highlights and zooms to matching node",
+        "Focus mode shows only selected node + direct neighbors"
+      ],
+      "validationCommands": [
+        "cd ui && npm test -- --testPathPattern=Graph"
+      ],
+      "status": "pending",
+      "passes": false,
+      "attempts": 0
     }
   ],
   "integrationBranch": "overhaul/full-implementation-loop",
   "mergePolicy": "Merge validated task commits into overhaul/full-implementation-loop only; merge to main after all phases pass end-to-end validation.",
   "planSource": "PLAN.md",
   "queuePolicy": "When no pending tasks remain, convert the next PLAN.md slice into bounded tasks with acceptance criteria before launching implementation agents.",
-  "phase": "3"
+  "phase": "3",
+  "updatedAt": "2026-05-09T05:33:20.731084+00:00"
 }
