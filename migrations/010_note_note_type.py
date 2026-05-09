@@ -23,7 +23,7 @@ def upgrade():
     with db.engine.begin() as conn:
         conn.execute(
             text(
-                "ALTER TABLE notes ADD COLUMN note_type VARCHAR(32) "
+                "ALTER TABLE notes ADD COLUMN note_type VARCHAR(16) "
                 "NOT NULL DEFAULT 'NOTE'"
             )
         )
