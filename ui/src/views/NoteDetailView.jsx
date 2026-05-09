@@ -17,10 +17,6 @@ function notePreviewLine(n) {
   return (line || 'Untitled').slice(0, 72);
 }
 
-function noteIsMoc(n) {
-  return String(n?.note_type || 'NOTE').toUpperCase() === 'MOC';
-}
-
 export default function NoteDetailView() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -125,8 +121,6 @@ export default function NoteDetailView() {
     .filter(Boolean);
   const area = note.area_id ? areas.find(a => a.id === note.area_id) : null;
   const person = note.person_id ? people.find(p => p.id === note.person_id) : null;
-
-  const isMoc = noteIsMoc(note);
 
   const handleRemoveProjectFromNote = async (projectId, e) => {
     e.preventDefault();
@@ -269,48 +263,6 @@ export default function NoteDetailView() {
             </button>
           </div>
         </div>
-
-        {isMoc ? (
-          <header className={styles.mocHeader} data-testid="moc-header">
-            <div className={styles.mocHeaderInner}>
-              <Map size={28} className={styles.mocHeaderIcon} aria-hidden />
-              <div className={styles.mocHeaderText}>
-                <p className={styles.mocHeaderEyebrow}>Map of contents</p>
-                <h2 className={styles.mocHeaderTitle}>{notePreviewLine(note)}</h2>
-                <p className={styles.mocHeaderBlurb}>
-                  Outline built from outgoing links. Add or reorder links in the panel below.
-                </p>
-              </div>
-            </div>
-          </header>
-        ) : null}
-
-        {isMoc ? (
-          <nav className={styles.mocToc} data-testid="moc-toc" aria-label="Table of contents">
-            <h3 className={styles.mocTocHeading}>Contents</h3>
-            {linksLoading ? (
-              <p className={styles.panelMuted}>
-                <Loader2 size={14} className="spin" aria-hidden /> Building outline…
-              </p>
-            ) : linksOut.length === 0 ? (
-              <p className={styles.panelMuted}>
-                No outgoing links yet. Link notes here to populate this table of contents.
-              </p>
-            ) : (
-              <ol className={styles.mocTocList}>
-                {linksOut.map((l) => {
-                  const target = resolveNote(l.dst_id);
-                  const label = notePreviewLine(target) || `Note ${String(l.dst_id).slice(0, 8)}…`;
-                  return (
-                    <li key={l.id}>
-                      <Link to={`/notes/${l.dst_id}`}>{label}</Link>
-                    </li>
-                  );
-                })}
-              </ol>
-            )}
-          </nav>
-        ) : null}
 
         {/* Linked entities */}
         {(linkedProjects.length > 0 || area || person) && (

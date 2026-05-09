@@ -3,17 +3,8 @@ from sqlalchemy import or_
 from flask import request, jsonify
 from api import api_bp
 from extensions import db
-from models import Note, BucketType, NoteType, Tag, Project
+from models import Note, BucketType, Tag, Project
 from services.search import search_notes
-
-
-def _parse_note_type_optional(raw):
-    if raw is None:
-        return None
-    try:
-        return NoteType(str(raw).strip().upper())
-    except ValueError:
-        return None
 
 
 def _apply_note_project_ids(note: Note, project_ids: list) -> None:
@@ -179,11 +170,6 @@ def create_note():
         if data.get("person_id") and not note_obj.person_id:
             note_obj.person_id = data["person_id"]
             changed = True
-        if "note_type" in data:
-            nt = _parse_note_type_optional(data.get("note_type"))
-            if nt is not None:
-                note_obj.note_type = nt
-                changed = True
         if changed:
             from services.extractor import extract_inline_tasks
 
@@ -282,11 +268,9 @@ def _create_note_simple(data: dict, raw_text: str):
             if t not in tag_objects:
                 tag_objects.append(t)
 
-    note_type = _parse_note_type_optional(data.get("note_type")) or NoteType.NOTE
     note = Note(
         raw_text=raw_text,
         bucket=bucket,
-        note_type=note_type,
         project_id=resolved_project_id,
         area_id=resolved_area_id,
         person_id=data.get("person_id"),
@@ -344,10 +328,6 @@ def update_note(note_id):
         note.person_id = data["person_id"]
     if "is_archived" in data:
         note.is_archived = data["is_archived"]
-    if "note_type" in data:
-        nt = _parse_note_type_optional(data.get("note_type"))
-        if nt is not None:
-            note.note_type = nt
 
     if "tag_ids" in data:
         tags = []
