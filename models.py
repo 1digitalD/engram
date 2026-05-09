@@ -64,18 +64,18 @@ class SummaryGranularity(PyEnum):
     MONTHLY = "MONTHLY"
 
 
-class LinkProposalStatus(PyEnum):
-    PENDING = "pending"
-    ACCEPTED = "accepted"
-    DISMISSED = "dismissed"
-
-
 class NoteType(PyEnum):
     NOTE = "NOTE"
     MOC = "MOC"
     DAILY = "DAILY"
     MEETING = "MEETING"
     DECISION = "DECISION"
+
+
+class LinkProposalStatus(PyEnum):
+    PENDING = "pending"
+    ACCEPTED = "accepted"
+    DISMISSED = "dismissed"
 
 
 # Association tables
@@ -339,7 +339,7 @@ class Note(BaseModel):
 
     raw_text = Column(Text, nullable=False)
     bucket = Column(Enum(BucketType), default=BucketType.INBOX)
-    note_type = Column(Enum(NoteType), default=NoteType.NOTE, nullable=False)
+    note_type = Column(Enum(NoteType), nullable=False, default=NoteType.NOTE)
     is_archived = Column(Boolean, default=False)
     ai_meta = Column(JSON, nullable=True)
 
