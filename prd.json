@@ -361,11 +361,11 @@
         "cd ui && npm test -- --testPathPattern=NoteDetail",
         "source .venv/bin/activate && PYTHONPATH=. python3 -m pytest tests/test_models.py tests/test_api.py -q"
       ],
-      "status": "pending",
-      "passes": false,
-      "attempts": 0,
+      "status": "done",
+      "passes": true,
+      "attempts": 1,
       "blocked": false,
-      "commit": null
+      "commit": "799bcdf"
     },
     {
       "id": "p5-ws2-iter-b-moc-ai-suggestions",
