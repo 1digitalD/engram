@@ -110,6 +110,12 @@ export const linksAPI = {
   related:   (id, limit) => apiRequest('GET', `/notes/${id}/related`, null, { limit }),
 };
 
+// ── Summaries (progressive rollup + review) ─
+export const summariesAPI = {
+  list: (params = {}) => apiRequest('GET', '/summaries', null, params),
+  get:  (id) => apiRequest('GET', `/summaries/${id}`),
+};
+
 // ── Batch ────────────────────────────────────
 export const batchAPI = {
   execute: (operations, atomic = true) =>

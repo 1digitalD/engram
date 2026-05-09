@@ -43,10 +43,10 @@
       "id": "p3-ws1-iter-d-review-view-overhaul",
       "title": "Review view overhaul",
       "description": "ui/src/views/Review.jsx: Progressive summary display, date picker, granularity selector, action items list.",
-      "passes": false,
+      "passes": true,
       "blocked": false,
-      "attempts": 0,
-      "commit": null
+      "attempts": 1,
+      "commit": "30ffa92"
     },
     {
       "id": "p3-ws2-iter-a-proposal-generation",
