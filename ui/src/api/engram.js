@@ -118,6 +118,11 @@ export const proposalsAPI = {
   dismiss:  (id)        => apiRequest('POST', `/proposals/${id}/dismiss`),
 };
 
+// ── Review aggregates ───────────────────────
+export const reviewAPI = {
+  weeklyDigest: (params = {}) => apiRequest('GET', '/review/weekly-digest', null, params),
+};
+
 // ── Summaries (progressive rollup + review) ─
 export const summariesAPI = {
   list: (params = {}) => apiRequest('GET', '/summaries', null, params),

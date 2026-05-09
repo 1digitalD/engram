@@ -1,5 +1,6 @@
 import json
 import os
+from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
 
 from extensions import db
@@ -9,6 +10,8 @@ from models import (
     LinkProposal,
     LinkProposalStatus,
     Note,
+    Priority,
+    Project,
     Summary,
     SummaryGranularity,
     Tag,
@@ -1016,3 +1019,73 @@ def test_link_proposals_accept_not_found(client, app):
     with app.app_context():
         res = client.post("/api/v1/proposals/00000000-0000-0000-0000-000000000000/accept")
         assert res.status_code == 404
+
+
+def test_weekly_digest_empty(client, app):
+    res = client.get("/api/v1/review/weekly-digest")
+    assert res.status_code == 200
+    data = json.loads(res.data)
+    assert data["days"] == 7
+    assert data["notes_captured"] == 0
+    assert data["tasks_created"] == 0
+    assert data["projects_completed"] == 0
+    assert data["connections_made"] == 0
+    assert "date_from" in data and "date_to" in data
+
+
+def test_weekly_digest_counts_rolling_window(client, app):
+    with app.app_context():
+        now = datetime.utcnow()
+        recent = now - timedelta(days=2)
+        stale = now - timedelta(days=30)
+
+        n_in = Note(raw_text="# in window", bucket=BucketType.INBOX)
+        n_in.created_at = recent
+        n_out = Note(raw_text="# too old", bucket=BucketType.INBOX)
+        n_out.created_at = stale
+        db.session.add_all([n_in, n_out])
+
+        a = Note(raw_text="link a", bucket=BucketType.INBOX)
+        b = Note(raw_text="link b", bucket=BucketType.INBOX)
+        c = Note(raw_text="link c", bucket=BucketType.INBOX)
+        d = Note(raw_text="link d", bucket=BucketType.INBOX)
+        for x in (a, b, c, d):
+            x.created_at = recent
+        db.session.add_all([a, b, c, d])
+        db.session.flush()
+
+        link_in = Link(src_id=a.id, dst_id=b.id)
+        link_in.created_at = recent
+        link_out = Link(src_id=c.id, dst_id=d.id)
+        link_out.created_at = stale
+        db.session.add_all([link_in, link_out])
+
+        t_in = Task(title="recent task", priority=Priority.MEDIUM)
+        t_in.created_at = recent
+        t_out = Task(title="old task", priority=Priority.MEDIUM)
+        t_out.created_at = stale
+        db.session.add_all([t_in, t_out])
+
+        archived_recent = Project(name="Done recently", is_archived=True, priority=Priority.MEDIUM)
+        archived_recent.created_at = stale
+        archived_recent.modified_at = recent
+
+        archived_old = Project(name="Done ages ago", is_archived=True, priority=Priority.MEDIUM)
+        archived_old.created_at = stale
+        archived_old.modified_at = stale
+
+        active = Project(name="Still active", is_archived=False, priority=Priority.MEDIUM)
+        active.created_at = recent
+        active.modified_at = recent
+        db.session.add_all([archived_recent, archived_old, active])
+
+        db.session.commit()
+
+    res = client.get("/api/v1/review/weekly-digest")
+    assert res.status_code == 200
+    data = json.loads(res.data)
+    # n_in, a, b, c, d = 5 notes in window (tagged created_at recent)
+    assert data["notes_captured"] == 5
+    assert data["tasks_created"] == 1
+    assert data["connections_made"] == 1
+    assert data["projects_completed"] == 1

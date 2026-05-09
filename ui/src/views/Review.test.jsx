@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import Review from './Review';
 import useStore from '../stores/useStore';
-import { summariesAPI, proposalsAPI } from '../api/engram';
+import { summariesAPI, proposalsAPI, reviewAPI } from '../api/engram';
 import { REVIEW_WORKFLOW_STORAGE_KEY } from './reviewWorkflowState';
 
 vi.mock('../components/notes/NoteCard', () => ({
@@ -17,6 +17,7 @@ vi.mock('../stores/useStore');
 vi.mock('../api/engram', () => ({
   summariesAPI: { list: vi.fn() },
   proposalsAPI: { list: vi.fn() },
+  reviewAPI: { weeklyDigest: vi.fn() },
 }));
 
 function renderReview() {
@@ -32,6 +33,15 @@ describe('Review weekly workflow', () => {
     globalThis.localStorage.clear();
     vi.mocked(summariesAPI.list).mockResolvedValue({ data: [] });
     vi.mocked(proposalsAPI.list).mockResolvedValue({ data: [] });
+    vi.mocked(reviewAPI.weeklyDigest).mockResolvedValue({
+      days: 7,
+      date_from: '2026-01-01T00:00:00Z',
+      date_to: '2026-01-08T00:00:00Z',
+      notes_captured: 3,
+      tasks_created: 2,
+      projects_completed: 1,
+      connections_made: 5,
+    });
     vi.mocked(useStore).mockReturnValue({
       notes: [],
       tasks: [],
@@ -193,5 +203,19 @@ describe('Review weekly workflow', () => {
     expect(updateNote).toHaveBeenCalledWith('o1', { is_archived: true }, { silent: true });
     expect(updateNote).toHaveBeenCalledWith('o2', { is_archived: true }, { silent: true });
     confirmSpy.mockRestore();
+  });
+
+  it('shows weekly digest from API at top of Review', async () => {
+    renderReview();
+    const digest = await screen.findByTestId('review-weekly-digest');
+    expect(digest).toBeInTheDocument();
+    expect(
+      await within(digest).findByText(/You captured/i)
+    ).toBeInTheDocument();
+    expect(screen.getByTestId('digest-notes')).toHaveTextContent('3');
+    expect(screen.getByTestId('digest-tasks')).toHaveTextContent('2');
+    expect(screen.getByTestId('digest-projects')).toHaveTextContent('1');
+    expect(screen.getByTestId('digest-links')).toHaveTextContent('5');
+    expect(reviewAPI.weeklyDigest).toHaveBeenCalledWith({ days: 7 });
   });
 });

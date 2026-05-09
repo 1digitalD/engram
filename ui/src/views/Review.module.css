@@ -2,6 +2,45 @@
 .page { padding: var(--space-6) var(--space-8); max-width: var(--content-wide); margin: 0 auto; animation: fadeIn var(--duration-slow) var(--ease-out) both; }
 .header { margin-bottom: var(--space-6); }
 .subtitle { font-size: var(--text-sm); color: var(--text-muted); margin-top: 4px; }
+
+.digestCard {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4) var(--space-5);
+  margin-bottom: var(--space-6);
+}
+.digestEyebrow {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.digestBody {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: 1.55;
+  color: var(--text-primary);
+}
+.digestBody strong {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.digestBodyMuted {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.digestError {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--accent-danger, #c0392b);
+}
 .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-4); margin-top: var(--space-6); }
 .section { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-5); display: flex; flex-direction: column; gap: var(--space-3); }
 .sectionHeader { display: flex; align-items: center; gap: var(--space-2); color: var(--text-secondary); }

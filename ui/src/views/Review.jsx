@@ -20,7 +20,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import useStore from '../stores/useStore';
-import { summariesAPI, proposalsAPI } from '../api/engram';
+import { summariesAPI, proposalsAPI, reviewAPI } from '../api/engram';
 import NoteCard from '../components/notes/NoteCard';
 import styles from './Review.module.css';
 import {
@@ -257,6 +257,10 @@ export default function Review() {
   const [granularity, setGranularity] = useState('WEEKLY');
   const [anchorDate, setAnchorDate] = useState(() => isoDateLocal());
 
+  const [digestLoading, setDigestLoading] = useState(true);
+  const [digestError, setDigestError] = useState(null);
+  const [weeklyDigest, setWeeklyDigest] = useState(null);
+
   const [summariesLoading, setSummariesLoading] = useState(false);
   const [summariesError, setSummariesError] = useState(null);
   const [summaries, setSummaries] = useState([]);
@@ -290,6 +294,28 @@ export default function Review() {
   useEffect(() => {
     loadLinkProposals();
   }, [loadLinkProposals]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setDigestLoading(true);
+      setDigestError(null);
+      try {
+        const data = await reviewAPI.weeklyDigest({ days: 7 });
+        if (!cancelled) setWeeklyDigest(data);
+      } catch (e) {
+        if (!cancelled) {
+          setDigestError(e.message || 'Could not load weekly digest');
+          setWeeklyDigest(null);
+        }
+      } finally {
+        if (!cancelled) setDigestLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const resolveNote = useCallback((nid) => notes.find((n) => n.id === nid), [notes]);
 
@@ -552,6 +578,35 @@ export default function Review() {
           and open sections persist in localStorage so pausing mid-review is safe.
         </p>
       </div>
+
+      <section
+        className={styles.digestCard}
+        aria-labelledby="weekly-digest-heading"
+        data-testid="review-weekly-digest"
+      >
+        <p id="weekly-digest-heading" className={styles.digestEyebrow}>
+          Past 7 days
+        </p>
+        {digestLoading ? (
+          <p className={styles.digestBodyMuted}>
+            <Loader2 size={16} className="spin" aria-hidden /> Loading your weekly snapshot…
+          </p>
+        ) : digestError ? (
+          <p className={styles.digestError} role="alert">
+            {digestError}
+          </p>
+        ) : weeklyDigest ? (
+          <p className={styles.digestBody}>
+            You captured{' '}
+            <strong data-testid="digest-notes">{weeklyDigest.notes_captured}</strong> notes, created{' '}
+            <strong data-testid="digest-tasks">{weeklyDigest.tasks_created}</strong> tasks, completed{' '}
+            <strong data-testid="digest-projects">{weeklyDigest.projects_completed}</strong> projects, made{' '}
+            <strong data-testid="digest-links">{weeklyDigest.connections_made}</strong> connections.
+          </p>
+        ) : (
+          <p className={styles.digestBodyMuted}>No digest data.</p>
+        )}
+      </section>
 
       <div className={styles.workflowRail} data-testid="review-workflow-progress">
         <div className={styles.workflowRailTop}>
