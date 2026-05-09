@@ -8,6 +8,11 @@ export function isDailyNote(note) {
   return b === 'INBOX' && note.raw_text.startsWith(DAILY_HEADING_PREFIX);
 }
 
+/** Map-of-contents notes (`note_type` from API). Takes precedence over daily-note heuristic when both match. */
+export function isMocNote(note) {
+  return String(note?.note_type || 'NOTE').toUpperCase() === 'MOC';
+}
+
 /** Knowledge / note–note link line colors by link_type */
 export const KNOWLEDGE_LINK_COLORS = {
   related: '#9333EA',
@@ -198,7 +203,7 @@ export function maxNoteHeatActivity(notes, graphLinks) {
  * @param {{ projectsById: Map, areasById: Map, tagsById: Map, defaultProjectHex: string, defaultAreaHex: string }} lookups
  */
 /** Canonical graph entity kinds rendered in Graph.jsx */
-export const GRAPH_ENTITY_TYPES = ['note', 'daily', 'resource', 'project', 'area', 'person'];
+export const GRAPH_ENTITY_TYPES = ['note', 'daily', 'moc', 'resource', 'project', 'area', 'person'];
 
 export function noteProjectIds(note) {
   if (!note) return [];
@@ -240,7 +245,7 @@ export function graphNodeMatchesLocationFilter(graphNode, selectedProjectIds, se
   const matchesProject = () => {
     if (!hasP) return true;
     if (type === 'project') return sp.has(String(d.id));
-    if (type === 'note' || type === 'daily') return noteProjectIds(d).some((id) => sp.has(id));
+    if (type === 'note' || type === 'daily' || type === 'moc') return noteProjectIds(d).some((id) => sp.has(id));
     return false;
   };
 
@@ -285,7 +290,7 @@ export function clusterAppearanceForGraphNode(graphNode, mode, lookups) {
       const color = coerceHexColor(d.color, colorFromKey(`project:${id}`));
       return { key: `project:${id}`, color };
     }
-    if (graphNode.type === 'note' || graphNode.type === 'daily') {
+    if (graphNode.type === 'note' || graphNode.type === 'daily' || graphNode.type === 'moc') {
       const pid = d.project_id || (Array.isArray(d.project_ids) && d.project_ids.length ? d.project_ids[0] : null);
       if (!pid) return { key: null, color: null };
       const p = projectsById.get(pid);
@@ -303,7 +308,7 @@ export function clusterAppearanceForGraphNode(graphNode, mode, lookups) {
       return { key: `area:${id}`, color };
     }
     let areaId = null;
-    if (graphNode.type === 'note' || graphNode.type === 'daily') areaId = d.area_id;
+    if (graphNode.type === 'note' || graphNode.type === 'daily' || graphNode.type === 'moc') areaId = d.area_id;
     else if (graphNode.type === 'project' || graphNode.type === 'resource') areaId = d.area_id;
     if (!areaId) return { key: null, color: null };
     const a = areasById.get(areaId);

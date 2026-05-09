@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Inbox, FileText, FolderOpen, Library,
-  Map, Users, CheckSquare, Network, Calendar, Sun,
+  Map, Layers, Users, CheckSquare, Network, Calendar, Sun,
   Search, Plus, ChevronLeft, ChevronRight, Menu, Keyboard,
 } from 'lucide-react';
 import styles from './AppShell.module.css';
@@ -17,6 +17,7 @@ const NAV_ITEMS = [
   { to: '/today',    icon: Sun,             label: 'Today' },
   { to: '/inbox',    icon: Inbox,           label: 'Inbox' },
   { to: '/notes',    icon: FileText,        label: 'Notes' },
+  { to: '/moc',      icon: Layers,          label: 'Maps' },
   { to: '/projects', icon: FolderOpen,      label: 'Projects' },
   { to: '/areas',    icon: Map,             label: 'Areas' },
   { to: '/resources', icon: Library,        label: 'Resources' },
@@ -107,6 +108,15 @@ export default function AppShell({ children }) {
 
   const activeProjects = projects.filter(p => !p.is_archived).slice(0, 8);
   const inboxCount = notes.filter(n => n.bucket === 'INBOX').length;
+  const mocNotes = notes
+    .filter((n) => String(n.note_type || 'NOTE').toUpperCase() === 'MOC')
+    .slice()
+    .sort((a, b) => {
+      const ta = (a.raw_text || '').split('\n')[0].replace(/^#\s*/, '').trim() || 'Untitled';
+      const tb = (b.raw_text || '').split('\n')[0].replace(/^#\s*/, '').trim() || 'Untitled';
+      return ta.localeCompare(tb, undefined, { sensitivity: 'base' });
+    })
+    .slice(0, 8);
 
   const closeDrawer = () => setDrawerOpen(false);
   const navEndProps = isMobile ? { onClick: closeDrawer } : {};
@@ -240,6 +250,38 @@ export default function AppShell({ children }) {
               </NavLink>
             ))}
           </nav>
+
+          {!sidebarCollapsed && (
+            <div className={styles.section}>
+              <div className={styles.sectionHeader}>MOCs</div>
+              {mocNotes.map((n) => {
+                const title =
+                  (n.raw_text || '').split('\n')[0].replace(/^#\s*/, '').trim() || 'Untitled';
+                return (
+                  <NavLink
+                    key={n.id}
+                    to={`/notes/${n.id}`}
+                    className={styles.projectItem}
+                    onClick={closeDrawer}
+                    title={title}
+                  >
+                    <Layers size={14} className={styles.mocSidebarIcon} aria-hidden />
+                    <span className={styles.projectName}>{title}</span>
+                  </NavLink>
+                );
+              })}
+              <NavLink
+                to="/moc"
+                className={styles.projectItem}
+                onClick={closeDrawer}
+              >
+                <Layers size={14} className={styles.mocSidebarIcon} aria-hidden />
+                <span className={styles.projectName} style={{ opacity: mocNotes.length ? 0.85 : 1 }}>
+                  {mocNotes.length ? 'View all maps…' : 'Browse maps of content'}
+                </span>
+              </NavLink>
+            </div>
+          )}
 
           {!sidebarCollapsed && activeProjects.length > 0 && (
             <div className={styles.section}>

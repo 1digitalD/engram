@@ -7,6 +7,7 @@ import useStore from '../stores/useStore';
 import { linksAPI } from '../api/engram';
 import {
   isDailyNote,
+  isMocNote,
   knowledgeLinkStrokeColor,
   strokeWidthForKnowledgeWeight,
   convexHullMonotone,
@@ -40,6 +41,12 @@ function renderGraph() {
 }
 
 describe('graphUtils', () => {
+  it('detects MOC notes by note_type', () => {
+    expect(isMocNote({ note_type: 'MOC', raw_text: '# Daily — 2026-05-09' })).toBe(true);
+    expect(isMocNote({ note_type: 'NOTE' })).toBe(false);
+    expect(isMocNote({})).toBe(false);
+  });
+
   it('detects daily notes by INBOX bucket and heading prefix', () => {
     expect(
       isDailyNote({
@@ -147,6 +154,7 @@ describe('graphUtils', () => {
 
   it('filters graph nodes by type and project/area selections', () => {
     expect(GRAPH_ENTITY_TYPES).toContain('daily');
+    expect(GRAPH_ENTITY_TYPES).toContain('moc');
     expect(noteProjectIds({ project_ids: ['x', 'y'] })).toEqual(['x', 'y']);
     expect(noteProjectIds({ project_id: 'z' })).toEqual(['z']);
 
@@ -161,6 +169,9 @@ describe('graphUtils', () => {
     expect(
       graphNodeMatchesLocationFilter({ type: 'note', data: { project_id: 'p2' } }, ['p1'], []),
     ).toBe(false);
+    expect(
+      graphNodeMatchesLocationFilter({ type: 'moc', data: { project_id: 'p1' } }, ['p1'], []),
+    ).toBe(true);
     expect(
       graphNodeMatchesLocationFilter({ type: 'area', data: { id: 'a1' } }, [], ['a1']),
     ).toBe(true);
@@ -228,9 +239,20 @@ describe('Graph', () => {
     expect(svg).toBeTruthy();
   });
 
-  it('shows node and link legends', () => {
+  it('shows node and link legends including moc', () => {
     vi.mocked(useStore).mockReturnValue({
-      notes: [{ id: 'n1', raw_text: 'Hi', bucket: 'INBOX', project_id: null, area_id: null, person_id: null }],
+      notes: [
+        { id: 'n1', raw_text: 'Hi', bucket: 'INBOX', project_id: null, area_id: null, person_id: null },
+        {
+          id: 'm1',
+          raw_text: '# Map',
+          note_type: 'MOC',
+          bucket: 'PROJECTS',
+          project_id: null,
+          area_id: null,
+          person_id: null,
+        },
+      ],
       projects: [],
       areas: [],
       people: [],
@@ -238,6 +260,7 @@ describe('Graph', () => {
       tags: [],
     });
     renderGraph();
+    expect(screen.getAllByText('moc').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('resource').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('Links')).toBeInTheDocument();
     expect(screen.getByText('related')).toBeInTheDocument();

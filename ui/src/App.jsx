@@ -16,6 +16,7 @@ import People from './views/People';
 import Tasks from './views/Tasks';
 import Graph from './views/Graph';
 import Review from './views/Review';
+import MOCView from './views/MOCView';
 import Toast from './components/ui/Toast';
 import useStore from './stores/useStore';
 
@@ -35,6 +36,7 @@ export default function App() {
           <Route path="/inbox"           element={<Inbox />} />
           <Route path="/notes"           element={<Notes />} />
           <Route path="/notes/:id"       element={<NoteDetailView />} />
+          <Route path="/moc"             element={<MOCView />} />
           <Route path="/projects"        element={<Projects />} />
           <Route path="/projects/:id"    element={<ProjectFocus />} />
           <Route path="/areas"           element={<Areas />} />

@@ -13,6 +13,7 @@ import {
   heatMapRadiusScale,
   hullPathFromXY,
   isDailyNote,
+  isMocNote,
   knowledgeLinkStrokeColor,
   KNOWLEDGE_LINK_COLORS,
   maxNoteHeatActivity,
@@ -26,11 +27,14 @@ import styles from './Graph.module.css';
 const TYPE_COLORS = {
   note: '#7C6AFF',
   daily: '#7C6AFF',
+  moc: '#2DD4BF',
   resource: '#C084FC',
   project: '#4ADE80',
   area: '#60A5FA',
   person: '#FBBF24',
 };
+
+const MOC_MAP_ICON = '\u{1F5FA}'; /* world map — distinct from daily calendar */
 
 function clusterPullForceFactory() {
   /** @type {any[]} */
@@ -172,7 +176,7 @@ export default function Graph() {
     const baseNodes = [
       ...notes.map((n) => ({
         id: `note-${n.id}`,
-        type: isDailyNote(n) ? 'daily' : 'note',
+        type: isMocNote(n) ? 'moc' : isDailyNote(n) ? 'daily' : 'note',
         label: n.raw_text?.slice(0, 40) || 'Note',
         data: n,
       })),
@@ -299,11 +303,13 @@ export default function Graph() {
       .force(
         'collision',
         d3.forceCollide((d) => {
-          if (heatMapEnabled && (d.type === 'note' || d.type === 'daily')) {
+          if (heatMapEnabled && (d.type === 'note' || d.type === 'daily' || d.type === 'moc')) {
             const act = noteActivityForHeatMap(d.data, graphLinks);
             const sc = heatMapRadiusScale(act, heatMax);
-            return 14 * sc + 10;
+            const base = d.type === 'moc' ? 20 : 14;
+            return base * sc + (d.type === 'moc' ? 14 : 10);
           }
+          if (d.type === 'moc') return 26;
           if (d.type === 'resource') return 14;
           if (d.type === 'person') return 14;
           if (d.type === 'area') return 16;
@@ -365,8 +371,15 @@ export default function Graph() {
       const el = d3.select(this);
       let fill = TYPE_COLORS[d.type] || '#888';
       let stroke = fill;
-      let r = d.type === 'note' || d.type === 'daily' ? 6 : d.type === 'person' ? 8 : 10;
-      if (heatMapEnabled && (d.type === 'note' || d.type === 'daily')) {
+      let r =
+        d.type === 'moc'
+          ? 11
+          : d.type === 'note' || d.type === 'daily'
+            ? 6
+            : d.type === 'person'
+              ? 8
+              : 10;
+      if (heatMapEnabled && (d.type === 'note' || d.type === 'daily' || d.type === 'moc')) {
         const act = noteActivityForHeatMap(d.data, graphLinks);
         const sc = heatMapRadiusScale(act, heatMax);
         r *= sc;
@@ -396,6 +409,19 @@ export default function Graph() {
           .attr('fill-opacity', 0.45)
           .attr('stroke', stroke)
           .attr('stroke-width', isHi ? 2.25 : 1.5);
+      } else if (d.type === 'moc') {
+        el.append('circle')
+          .attr('r', r + 2)
+          .attr('fill', fill)
+          .attr('fill-opacity', heatMapEnabled ? 0.28 : 0.18)
+          .attr('stroke', stroke)
+          .attr('stroke-width', isHi ? 2.5 : 2);
+        el.append('text')
+          .attr('text-anchor', 'middle')
+          .attr('dominant-baseline', 'central')
+          .attr('font-size', 15)
+          .attr('aria-hidden', true)
+          .text(MOC_MAP_ICON);
       } else if (d.type === 'daily') {
         el.append('circle')
           .attr('r', r + 1)
@@ -452,7 +478,9 @@ export default function Graph() {
     node
       .append('text')
       .text((d) => d.label)
-      .attr('dy', (d) => (d.type === 'person' ? 18 : d.type === 'daily' ? 20 : 16))
+      .attr('dy', (d) =>
+        d.type === 'person' ? 18 : d.type === 'daily' || d.type === 'moc' ? 22 : 16,
+      )
       .attr('text-anchor', 'middle')
       .attr('fill', '#8888A0')
       .attr('font-size', 10)
@@ -509,7 +537,7 @@ export default function Graph() {
   const goToNode = (d) => {
     if (!d?.data) return;
     const { type, data } = d;
-    if (type === 'note' || type === 'daily') navigate(`/notes/${data.id}`);
+    if (type === 'note' || type === 'daily' || type === 'moc') navigate(`/notes/${data.id}`);
     else if (type === 'resource') navigate(`/resources/${data.id}`);
     else if (type === 'project') navigate(`/projects/${data.id}`);
     else if (type === 'area') navigate(`/areas/${data.id}`);

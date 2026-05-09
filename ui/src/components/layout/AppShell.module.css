@@ -377,6 +377,12 @@
   flex-shrink: 0;
 }
 
+.mocSidebarIcon {
+  flex-shrink: 0;
+  color: var(--accent-teal, #2dd4bf);
+  opacity: 0.9;
+}
+
 .projectName {
   overflow: hidden;
   text-overflow: ellipsis;

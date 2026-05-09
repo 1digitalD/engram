@@ -253,6 +253,11 @@ export default function NoteDetailView() {
         {/* Meta bar */}
         <div className={styles.metaBar}>
           <BucketBadge bucket={note.bucket} />
+          {isMoc ? (
+            <span className={styles.mocBadge} data-testid="moc-badge">
+              <Map size={12} aria-hidden /> MOC
+            </span>
+          ) : null}
           <span className={styles.date}>
             {new Date(note.created_at).toLocaleDateString('en-US', {
               weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',

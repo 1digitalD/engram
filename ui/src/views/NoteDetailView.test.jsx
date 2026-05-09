@@ -43,6 +43,24 @@ describe('NoteDetailView MOC note type', () => {
     vi.mocked(proposalsAPI.list).mockResolvedValue({ data: [] });
   });
 
+  it('shows MOC badge in meta bar when note_type is MOC', async () => {
+    vi.mocked(linksAPI.forNote).mockResolvedValue({ outgoing: [], incoming: [] });
+    const moc = {
+      id: 'moc-badge-1',
+      raw_text: '# Badge MOC\n',
+      note_type: 'MOC',
+      bucket: 'AREAS',
+      created_at: '2026-05-01T12:00:00Z',
+      modified_at: '2026-05-01T12:00:00Z',
+      tag_names: [],
+    };
+    renderNoteDetail('/notes/moc-badge-1', [moc]);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('moc-badge')).toHaveTextContent('MOC');
+    });
+  });
+
   it('renders MOC header when note_type is MOC', async () => {
     vi.mocked(linksAPI.forNote).mockResolvedValue({ outgoing: [], incoming: [] });
     const moc = {
@@ -114,5 +132,6 @@ describe('NoteDetailView MOC note type', () => {
     });
     expect(screen.queryByTestId('moc-header')).not.toBeInTheDocument();
     expect(screen.queryByTestId('moc-toc')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('moc-badge')).not.toBeInTheDocument();
   });
 });
