@@ -197,6 +197,81 @@ export function maxNoteHeatActivity(notes, graphLinks) {
  * @param {'none'|'project'|'area'|'tag'} mode
  * @param {{ projectsById: Map, areasById: Map, tagsById: Map, defaultProjectHex: string, defaultAreaHex: string }} lookups
  */
+/** Canonical graph entity kinds rendered in Graph.jsx */
+export const GRAPH_ENTITY_TYPES = ['note', 'daily', 'resource', 'project', 'area', 'person'];
+
+export function noteProjectIds(note) {
+  if (!note) return [];
+  if (Array.isArray(note.project_ids) && note.project_ids.length)
+    return note.project_ids.map((id) => String(id));
+  if (note.project_id != null && note.project_id !== '') return [String(note.project_id)];
+  return [];
+}
+
+/**
+ * @param {{ type: string }} graphNode
+ * @param {Record<string, boolean>} enabledTypes — false hides that type; missing key defaults to true
+ */
+export function graphNodeMatchesEnabledTypes(graphNode, enabledTypes) {
+  if (!graphNode?.type) return false;
+  const v = enabledTypes[graphNode.type];
+  return v !== false;
+}
+
+/**
+ * Location filter: empty project AND empty area selection means no restriction.
+ * When either set is non-empty, a node must match the project constraint (if any)
+ * AND the area constraint (if any). Persons without area/project never match when a filter is active.
+ *
+ * @param {{ type: string, data?: object|null }} graphNode
+ * @param {Iterable<string|number>} selectedProjectIds
+ * @param {Iterable<string|number>} selectedAreaIds
+ */
+export function graphNodeMatchesLocationFilter(graphNode, selectedProjectIds, selectedAreaIds) {
+  const sp = new Set([...selectedProjectIds].map(String));
+  const sa = new Set([...selectedAreaIds].map(String));
+  const hasP = sp.size > 0;
+  const hasA = sa.size > 0;
+  if (!hasP && !hasA) return true;
+
+  const type = graphNode.type;
+  const d = graphNode.data || {};
+
+  const matchesProject = () => {
+    if (!hasP) return true;
+    if (type === 'project') return sp.has(String(d.id));
+    if (type === 'note' || type === 'daily') return noteProjectIds(d).some((id) => sp.has(id));
+    return false;
+  };
+
+  const matchesArea = () => {
+    if (!hasA) return true;
+    if (type === 'area') return sa.has(String(d.id));
+    const aid = d.area_id;
+    if (aid == null || aid === '') return false;
+    return sa.has(String(aid));
+  };
+
+  return matchesProject() && matchesArea();
+}
+
+/**
+ * Ids of nodes adjacent to `centerId` using undirected structural + knowledge edges.
+ * `linkRows`: `{ source: string, target: string }[]` (ids, not objects).
+ */
+export function neighborIdsForGraphLinks(centerId, linkRows) {
+  const out = new Set();
+  if (!centerId || !Array.isArray(linkRows)) return out;
+  for (const row of linkRows) {
+    const s = typeof row.source === 'string' ? row.source : row.source?.id;
+    const t = typeof row.target === 'string' ? row.target : row.target?.id;
+    if (!s || !t) continue;
+    if (s === centerId) out.add(t);
+    else if (t === centerId) out.add(s);
+  }
+  return out;
+}
+
 export function clusterAppearanceForGraphNode(graphNode, mode, lookups) {
   if (!graphNode || mode === 'none') return { key: null, color: null };
 

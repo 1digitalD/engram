@@ -14,6 +14,11 @@ import {
   clusterAppearanceForGraphNode,
   coerceHexColor,
   GRAPH_CLUSTER_MODES,
+  GRAPH_ENTITY_TYPES,
+  graphNodeMatchesEnabledTypes,
+  graphNodeMatchesLocationFilter,
+  neighborIdsForGraphLinks,
+  noteProjectIds,
   incomingKnowledgeBacklinkCount,
   noteActivityForHeatMap,
   heatMapNodeColors,
@@ -139,6 +144,38 @@ describe('graphUtils', () => {
     expect(heatMapRadiusScale(0, 10)).toBe(1);
     expect(heatMapRadiusScale(10, 10)).toBeGreaterThan(1);
   });
+
+  it('filters graph nodes by type and project/area selections', () => {
+    expect(GRAPH_ENTITY_TYPES).toContain('daily');
+    expect(noteProjectIds({ project_ids: ['x', 'y'] })).toEqual(['x', 'y']);
+    expect(noteProjectIds({ project_id: 'z' })).toEqual(['z']);
+
+    expect(graphNodeMatchesEnabledTypes({ type: 'note' }, { note: false })).toBe(false);
+    expect(graphNodeMatchesEnabledTypes({ type: 'note' }, { note: true })).toBe(true);
+    expect(graphNodeMatchesEnabledTypes({ type: 'note' }, {})).toBe(true);
+
+    expect(graphNodeMatchesLocationFilter({ type: 'note', data: {} }, [], [])).toBe(true);
+    expect(
+      graphNodeMatchesLocationFilter({ type: 'note', data: { project_id: 'p1' } }, ['p1'], []),
+    ).toBe(true);
+    expect(
+      graphNodeMatchesLocationFilter({ type: 'note', data: { project_id: 'p2' } }, ['p1'], []),
+    ).toBe(false);
+    expect(
+      graphNodeMatchesLocationFilter({ type: 'area', data: { id: 'a1' } }, [], ['a1']),
+    ).toBe(true);
+    expect(
+      graphNodeMatchesLocationFilter({ type: 'person', data: { id: 'u1' } }, ['p1'], []),
+    ).toBe(false);
+
+    const links = [
+      { source: 'note-a', target: 'note-b' },
+      { source: 'project-p', target: 'note-a' },
+    ];
+    const n = neighborIdsForGraphLinks('note-a', links);
+    expect(n.has('note-b')).toBe(true);
+    expect(n.has('project-p')).toBe(true);
+  });
 });
 
 describe('Graph', () => {
@@ -201,7 +238,7 @@ describe('Graph', () => {
       tags: [],
     });
     renderGraph();
-    expect(screen.getByText('resource')).toBeInTheDocument();
+    expect(screen.getAllByText('resource').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('Links')).toBeInTheDocument();
     expect(screen.getByText('related')).toBeInTheDocument();
   });
@@ -238,5 +275,41 @@ describe('Graph', () => {
     expect(box).not.toBeChecked();
     fireEvent.click(box);
     expect(box).toBeChecked();
+  });
+
+  it('shows filter panel, search, and focus mode controls', () => {
+    vi.mocked(useStore).mockReturnValue({
+      notes: [{ id: 'n1', raw_text: 'Hello world', bucket: 'INBOX', project_id: null, area_id: null, person_id: null }],
+      projects: [{ id: 'pr1', name: 'Proj', description: '' }],
+      areas: [{ id: 'ar1', name: 'Area', description: '' }],
+      people: [],
+      resources: [],
+      tags: [],
+    });
+    renderGraph();
+    expect(screen.getByLabelText(/graph filters and search/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/search graph nodes by label/i)).toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: /focus mode/i })).toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: /show note nodes/i })).toBeChecked();
+    fireEvent.click(screen.getByRole('checkbox', { name: /show project nodes/i }));
+    expect(screen.getByRole('checkbox', { name: /show project nodes/i })).not.toBeChecked();
+  });
+
+  it('find highlights a matching visible node via search', async () => {
+    vi.mocked(useStore).mockReturnValue({
+      notes: [{ id: 'n1', raw_text: 'UniqueMarker XYZ', bucket: 'INBOX', project_id: null, area_id: null, person_id: null }],
+      projects: [],
+      areas: [],
+      people: [],
+      resources: [],
+      tags: [],
+    });
+    renderGraph();
+    const input = screen.getByTestId('graph-search-input');
+    fireEvent.change(input, { target: { value: 'unique' } });
+    fireEvent.click(screen.getByRole('button', { name: /^find$/i }));
+    await waitFor(() => {
+      expect(screen.getByText(/showing:/i)).toBeInTheDocument();
+    });
   });
 });

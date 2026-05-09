@@ -5,17 +5,21 @@ import useStore from '../stores/useStore';
 import EmptyState from '../components/ui/EmptyState';
 import { linksAPI } from '../api/engram';
 import {
+  GRAPH_ENTITY_TYPES,
   clusterAppearanceForGraphNode,
+  graphNodeMatchesEnabledTypes,
+  graphNodeMatchesLocationFilter,
   heatMapNodeColors,
   heatMapRadiusScale,
+  hullPathFromXY,
   isDailyNote,
   knowledgeLinkStrokeColor,
   KNOWLEDGE_LINK_COLORS,
   maxNoteHeatActivity,
+  neighborIdsForGraphLinks,
   noteActivityForHeatMap,
   STRUCTURAL_LINK_COLOR,
   strokeWidthForKnowledgeWeight,
-  hullPathFromXY,
 } from './graphUtils';
 import styles from './Graph.module.css';
 
@@ -69,15 +73,74 @@ function clusterPullForceFactory() {
   return force;
 }
 
+function buildForceLinks(nodeIdsSet, notes, resources, graphLinks) {
+  const links = [];
+
+  notes.forEach((n) => {
+    if (n.project_id) {
+      const source = `note-${n.id}`;
+      const target = `project-${n.project_id}`;
+      if (nodeIdsSet.has(source) && nodeIdsSet.has(target))
+        links.push({ source, target, linkKind: 'structural' });
+    }
+    if (n.area_id) {
+      const source = `note-${n.id}`;
+      const target = `area-${n.area_id}`;
+      if (nodeIdsSet.has(source) && nodeIdsSet.has(target))
+        links.push({ source, target, linkKind: 'structural' });
+    }
+    if (n.person_id) {
+      const source = `note-${n.id}`;
+      const target = `person-${n.person_id}`;
+      if (nodeIdsSet.has(source) && nodeIdsSet.has(target))
+        links.push({ source, target, linkKind: 'structural' });
+    }
+  });
+
+  resources.forEach((r) => {
+    if (r.area_id) {
+      const source = `resource-${r.id}`;
+      const target = `area-${r.area_id}`;
+      if (nodeIdsSet.has(source) && nodeIdsSet.has(target))
+        links.push({ source, target, linkKind: 'structural' });
+    }
+  });
+
+  graphLinks.forEach((l) => {
+    const source = `note-${l.src_id}`;
+    const target = `note-${l.dst_id}`;
+    if (!nodeIdsSet.has(source) || !nodeIdsSet.has(target)) return;
+    links.push({
+      source,
+      target,
+      linkKind: 'knowledge',
+      link_type: l.link_type,
+      weight: typeof l.weight === 'number' ? l.weight : 1,
+    });
+  });
+
+  return links;
+}
+
 export default function Graph() {
   const svgRef = useRef(null);
   const containerRef = useRef(null);
   const navigate = useNavigate();
+  const pendingZoomNodeIdRef = useRef(null);
   const { notes, projects, areas, people, resources, tags } = useStore();
   const [selected, setSelected] = useState(null);
   const [graphLinks, setGraphLinks] = useState([]);
   const [clusterMode, setClusterMode] = useState('none');
   const [heatMapEnabled, setHeatMapEnabled] = useState(false);
+  const [enabledTypes, setEnabledTypes] = useState(() =>
+    Object.fromEntries(GRAPH_ENTITY_TYPES.map((t) => [t, true])),
+  );
+  const [filterProjectIds, setFilterProjectIds] = useState([]);
+  const [filterAreaIds, setFilterAreaIds] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchHighlightId, setSearchHighlightId] = useState(null);
+  const [searchStatus, setSearchStatus] = useState('');
+  const [focusMode, setFocusMode] = useState(false);
 
   const lookups = useMemo(
     () => ({
@@ -105,22 +168,8 @@ export default function Graph() {
     };
   }, []);
 
-  useEffect(() => {
-    if (!svgRef.current || !containerRef.current) return;
-
-    const hasNodes =
-      notes.length > 0 ||
-      projects.length > 0 ||
-      areas.length > 0 ||
-      people.length > 0 ||
-      resources.length > 0;
-
-    if (!hasNodes) return;
-
-    const width = containerRef.current.clientWidth || 900;
-    const height = containerRef.current.clientHeight || 600;
-
-    const nodes = [
+  const graphPack = useMemo(() => {
+    const baseNodes = [
       ...notes.map((n) => ({
         id: `note-${n.id}`,
         type: isDailyNote(n) ? 'daily' : 'note',
@@ -156,6 +205,21 @@ export default function Graph() {
       return { ...gn, clusterKey: meta.key, clusterColor: meta.color };
     });
 
+    let nodes = baseNodes
+      .filter((n) => graphNodeMatchesEnabledTypes(n, enabledTypes))
+      .filter((n) => graphNodeMatchesLocationFilter(n, filterProjectIds, filterAreaIds));
+
+    let nodeIds = new Set(nodes.map((n) => n.id));
+    let links = buildForceLinks(nodeIds, notes, resources, graphLinks);
+
+    if (focusMode && selected?.id && nodeIds.has(selected.id)) {
+      const neigh = neighborIdsForGraphLinks(selected.id, links);
+      const keep = new Set([selected.id, ...neigh]);
+      nodes = nodes.filter((n) => keep.has(n.id));
+      nodeIds = new Set(nodes.map((n) => n.id));
+      links = links.filter((l) => keep.has(l.source) && keep.has(l.target));
+    }
+
     const clusterRows = [];
     if (clusterMode !== 'none') {
       const byKey = new Map();
@@ -170,55 +234,46 @@ export default function Graph() {
       });
     }
 
-    const nodeIds = new Set(nodes.map((n) => n.id));
+    return { nodes, links, clusterRows };
+  }, [
+    notes,
+    projects,
+    areas,
+    people,
+    resources,
+    graphLinks,
+    clusterMode,
+    lookups,
+    enabledTypes,
+    filterProjectIds,
+    filterAreaIds,
+    focusMode,
+    selected?.id,
+  ]);
+
+  useEffect(() => {
+    if (!svgRef.current || !containerRef.current) return;
+
+    const hasNodes =
+      notes.length > 0 ||
+      projects.length > 0 ||
+      areas.length > 0 ||
+      people.length > 0 ||
+      resources.length > 0;
+
+    if (!hasNodes) return;
+
+    const { nodes, links, clusterRows } = graphPack;
+    if (nodes.length === 0) {
+      d3.select(svgRef.current).selectAll('*').remove();
+      return;
+    }
+
+    const width = containerRef.current.clientWidth || 900;
+    const height = containerRef.current.clientHeight || 600;
 
     const heatMax = heatMapEnabled ? maxNoteHeatActivity(notes, graphLinks) : 1;
     const heatAccent = TYPE_COLORS.note;
-
-    const links = [];
-
-    notes.forEach((n) => {
-      if (n.project_id) {
-        const source = `note-${n.id}`;
-        const target = `project-${n.project_id}`;
-        if (nodeIds.has(source) && nodeIds.has(target))
-          links.push({ source, target, linkKind: 'structural' });
-      }
-      if (n.area_id) {
-        const source = `note-${n.id}`;
-        const target = `area-${n.area_id}`;
-        if (nodeIds.has(source) && nodeIds.has(target))
-          links.push({ source, target, linkKind: 'structural' });
-      }
-      if (n.person_id) {
-        const source = `note-${n.id}`;
-        const target = `person-${n.person_id}`;
-        if (nodeIds.has(source) && nodeIds.has(target))
-          links.push({ source, target, linkKind: 'structural' });
-      }
-    });
-
-    resources.forEach((r) => {
-      if (r.area_id) {
-        const source = `resource-${r.id}`;
-        const target = `area-${r.area_id}`;
-        if (nodeIds.has(source) && nodeIds.has(target))
-          links.push({ source, target, linkKind: 'structural' });
-      }
-    });
-
-    graphLinks.forEach((l) => {
-      const source = `note-${l.src_id}`;
-      const target = `note-${l.dst_id}`;
-      if (!nodeIds.has(source) || !nodeIds.has(target)) return;
-      links.push({
-        source,
-        target,
-        linkKind: 'knowledge',
-        link_type: l.link_type,
-        weight: typeof l.weight === 'number' ? l.weight : 1,
-      });
-    });
 
     d3.select(svgRef.current).selectAll('*').remove();
 
@@ -284,6 +339,7 @@ export default function Graph() {
       .data(nodes)
       .enter()
       .append('g')
+      .attr('class', (d) => (searchHighlightId && d.id === searchHighlightId ? styles.nodeHighlight : null))
       .attr('cursor', 'pointer')
       .call(
         d3
@@ -319,6 +375,16 @@ export default function Graph() {
         stroke = hm.stroke;
       }
 
+      const isHi = searchHighlightId && d.id === searchHighlightId;
+      if (isHi) {
+        el.append('circle')
+          .attr('r', r + 5)
+          .attr('fill', 'none')
+          .attr('stroke', '#FACC15')
+          .attr('stroke-width', 2.5)
+          .attr('stroke-opacity', 0.95);
+      }
+
       if (d.type === 'resource') {
         el.append('rect')
           .attr('x', -7)
@@ -329,14 +395,14 @@ export default function Graph() {
           .attr('fill', fill)
           .attr('fill-opacity', 0.45)
           .attr('stroke', stroke)
-          .attr('stroke-width', 1.5);
+          .attr('stroke-width', isHi ? 2.25 : 1.5);
       } else if (d.type === 'daily') {
         el.append('circle')
           .attr('r', r + 1)
           .attr('fill', fill)
           .attr('fill-opacity', heatMapEnabled ? 0.22 : 0.12)
           .attr('stroke', stroke)
-          .attr('stroke-width', 1);
+          .attr('stroke-width', isHi ? 2 : 1);
         el.append('text')
           .attr('text-anchor', 'middle')
           .attr('dominant-baseline', 'central')
@@ -349,14 +415,14 @@ export default function Graph() {
           .attr('fill', fill)
           .attr('fill-opacity', 0.5)
           .attr('stroke', stroke)
-          .attr('stroke-width', 1.5);
+          .attr('stroke-width', isHi ? 2.25 : 1.5);
       } else if (d.type === 'person') {
         el.append('polygon')
           .attr('points', '0,-8 7,4 -7,4')
           .attr('fill', fill)
           .attr('fill-opacity', 0.5)
           .attr('stroke', stroke)
-          .attr('stroke-width', 1.5);
+          .attr('stroke-width', isHi ? 2.25 : 1.5);
       } else if (d.type === 'area') {
         el.append('rect')
           .attr('x', -8)
@@ -367,7 +433,7 @@ export default function Graph() {
           .attr('fill', fill)
           .attr('fill-opacity', 0.3)
           .attr('stroke', stroke)
-          .attr('stroke-width', 1.5)
+          .attr('stroke-width', isHi ? 2.25 : 1.5)
           .attr('rx', 2);
       } else {
         el.append('rect')
@@ -379,7 +445,7 @@ export default function Graph() {
           .attr('fill', fill)
           .attr('fill-opacity', 0.3)
           .attr('stroke', stroke)
-          .attr('stroke-width', 1.5);
+          .attr('stroke-width', isHi ? 2.25 : 1.5);
       }
     });
 
@@ -408,10 +474,37 @@ export default function Graph() {
         .attr('d', (d) => hullPathFromXY(d.members.map((m) => [m.x, m.y])))
         .attr('fill', (d) => d.color)
         .attr('stroke', (d) => d.color);
+
+      const pending = pendingZoomNodeIdRef.current;
+      if (pending) {
+        const nd = nodes.find((n) => n.id === pending);
+        if (nd && Number.isFinite(nd.x) && Number.isFinite(nd.y)) {
+          const k = 2.15;
+          const t = d3.zoomIdentity.translate(width / 2 - k * nd.x, height / 2 - k * nd.y).scale(k);
+          try {
+            zoom.transform(svg, t);
+          } catch {
+            /* d3-zoom uses SVG APIs that are incomplete in jsdom */
+          }
+          pendingZoomNodeIdRef.current = null;
+        }
+      }
     });
 
     return () => simulation.stop();
-  }, [notes, projects, areas, people, resources, graphLinks, clusterMode, heatMapEnabled, lookups]);
+  }, [
+    notes,
+    projects,
+    areas,
+    people,
+    resources,
+    graphLinks,
+    clusterMode,
+    heatMapEnabled,
+    lookups,
+    graphPack,
+    searchHighlightId,
+  ]);
 
   const goToNode = (d) => {
     if (!d?.data) return;
@@ -432,6 +525,43 @@ export default function Graph() {
     resources.length > 0;
 
   const selectedColor = selected ? TYPE_COLORS[selected.type] || '#888' : null;
+
+  const toggleType = (t) => {
+    setEnabledTypes((prev) => {
+      const next = { ...prev, [t]: !prev[t] };
+      const anyOn = GRAPH_ENTITY_TYPES.some((x) => next[x]);
+      if (!anyOn) return prev;
+      return next;
+    });
+  };
+
+  const toggleProjectFilter = (id) => {
+    const k = String(id);
+    setFilterProjectIds((prev) => (prev.includes(k) ? prev.filter((x) => x !== k) : [...prev, k]));
+  };
+
+  const toggleAreaFilter = (id) => {
+    const k = String(id);
+    setFilterAreaIds((prev) => (prev.includes(k) ? prev.filter((x) => x !== k) : [...prev, k]));
+  };
+
+  const runSearch = () => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) {
+      setSearchStatus('Enter text to search.');
+      return;
+    }
+    const pool = graphPack.nodes;
+    const hit = pool.find((n) => n.label.toLowerCase().includes(q));
+    if (!hit) {
+      setSearchHighlightId(null);
+      setSearchStatus('No visible node matches.');
+      return;
+    }
+    setSearchHighlightId(hit.id);
+    pendingZoomNodeIdRef.current = hit.id;
+    setSearchStatus(`Showing: ${hit.label.slice(0, 48)}${hit.label.length > 48 ? '…' : ''}`);
+  };
 
   return (
     <div className={styles.page}>
@@ -495,6 +625,100 @@ export default function Graph() {
         />
       ) : (
         <div ref={containerRef} className={styles.canvas}>
+          <aside className={styles.filterAside} aria-label="Graph filters and search">
+            <p className={styles.filterAsideTitle}>Filter & search</p>
+
+            <div>
+              <p className={styles.filterSubheading}>Node types</p>
+              <div className={styles.typeGrid}>
+                {GRAPH_ENTITY_TYPES.map((t) => (
+                  <label key={t} className={styles.typeChip}>
+                    <input
+                      type="checkbox"
+                      checked={enabledTypes[t] !== false}
+                      onChange={() => toggleType(t)}
+                      aria-label={`Show ${t} nodes`}
+                    />
+                    {t}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <p className={styles.filterSubheading}>Projects</p>
+              <div className={styles.filterScroll}>
+                {projects.length === 0 ? (
+                  <span className={styles.searchHint}>No projects</span>
+                ) : (
+                  projects.map((p) => (
+                    <label key={p.id} className={styles.filterOption}>
+                      <input
+                        type="checkbox"
+                        checked={filterProjectIds.includes(String(p.id))}
+                        onChange={() => toggleProjectFilter(p.id)}
+                      />
+                      {p.name}
+                    </label>
+                  ))
+                )}
+              </div>
+              <p className={styles.searchHint}>None selected = all projects</p>
+            </div>
+
+            <div>
+              <p className={styles.filterSubheading}>Areas</p>
+              <div className={styles.filterScroll}>
+                {areas.length === 0 ? (
+                  <span className={styles.searchHint}>No areas</span>
+                ) : (
+                  areas.map((a) => (
+                    <label key={a.id} className={styles.filterOption}>
+                      <input
+                        type="checkbox"
+                        checked={filterAreaIds.includes(String(a.id))}
+                        onChange={() => toggleAreaFilter(a.id)}
+                      />
+                      {a.name}
+                    </label>
+                  ))
+                )}
+              </div>
+              <p className={styles.searchHint}>None selected = all areas</p>
+            </div>
+
+            <div>
+              <p className={styles.filterSubheading}>Search by label</p>
+              <div className={styles.searchRow}>
+                <input
+                  className={styles.searchInput}
+                  type="search"
+                  placeholder="Substring…"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') runSearch();
+                  }}
+                  aria-label="Search graph nodes by label"
+                  data-testid="graph-search-input"
+                />
+                <button type="button" className={styles.searchBtn} onClick={runSearch}>
+                  Find
+                </button>
+              </div>
+              {searchStatus ? <p className={styles.searchHint}>{searchStatus}</p> : null}
+            </div>
+
+            <label className={styles.focusToggle}>
+              <input
+                type="checkbox"
+                checked={focusMode}
+                onChange={(e) => setFocusMode(e.target.checked)}
+                aria-label="Focus mode"
+              />
+              Focus mode (selection + 1-hop neighbors)
+            </label>
+          </aside>
           <svg ref={svgRef} className={styles.svg} />
         </div>
       )}
