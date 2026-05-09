@@ -1,15 +1,17 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as d3 from 'd3';
 import useStore from '../stores/useStore';
 import EmptyState from '../components/ui/EmptyState';
 import { linksAPI } from '../api/engram';
 import {
+  clusterAppearanceForGraphNode,
   isDailyNote,
   knowledgeLinkStrokeColor,
   KNOWLEDGE_LINK_COLORS,
   STRUCTURAL_LINK_COLOR,
   strokeWidthForKnowledgeWeight,
+  hullPathFromXY,
 } from './graphUtils';
 import styles from './Graph.module.css';
 
@@ -22,13 +24,66 @@ const TYPE_COLORS = {
   person: '#FBBF24',
 };
 
+function clusterPullForceFactory() {
+  /** @type {any[]} */
+  let simNodes = [];
+  const strength = 0.16;
+
+  function force(alpha) {
+    const totals = new Map();
+    for (const d of simNodes) {
+      if (!d.clusterKey || !Number.isFinite(d.x) || !Number.isFinite(d.y)) continue;
+      const cur = totals.get(d.clusterKey);
+      if (!cur) totals.set(d.clusterKey, [d.x, d.y, 1]);
+      else {
+        cur[0] += d.x;
+        cur[1] += d.y;
+        cur[2] += 1;
+      }
+    }
+    for (const [, agg] of totals) {
+      if (agg[2] > 0) {
+        agg[0] /= agg[2];
+        agg[1] /= agg[2];
+      }
+    }
+    for (const d of simNodes) {
+      if (!d.clusterKey || !Number.isFinite(d.x)) continue;
+      const cen = totals.get(d.clusterKey);
+      if (!cen || cen[2] === 0) continue;
+      const cx = cen[0];
+      const cy = cen[1];
+      d.vx = (d.vx || 0) + (cx - d.x) * strength * alpha;
+      d.vy = (d.vy || 0) + (cy - d.y) * strength * alpha;
+    }
+  }
+
+  force.initialize = (n) => {
+    simNodes = n || [];
+  };
+
+  return force;
+}
+
 export default function Graph() {
   const svgRef = useRef(null);
   const containerRef = useRef(null);
   const navigate = useNavigate();
-  const { notes, projects, areas, people, resources } = useStore();
+  const { notes, projects, areas, people, resources, tags } = useStore();
   const [selected, setSelected] = useState(null);
   const [graphLinks, setGraphLinks] = useState([]);
+  const [clusterMode, setClusterMode] = useState('none');
+
+  const lookups = useMemo(
+    () => ({
+      projectsById: new Map(projects.map((p) => [p.id, p])),
+      areasById: new Map(areas.map((a) => [a.id, a])),
+      tagsById: new Map(tags.map((t) => [t.id, t])),
+      defaultProjectHex: TYPE_COLORS.project,
+      defaultAreaHex: TYPE_COLORS.area,
+    }),
+    [projects, areas, tags],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -91,7 +146,24 @@ export default function Graph() {
         label: p.name,
         data: p,
       })),
-    ];
+    ].map((gn) => {
+      const meta = clusterAppearanceForGraphNode(gn, clusterMode, lookups);
+      return { ...gn, clusterKey: meta.key, clusterColor: meta.color };
+    });
+
+    const clusterRows = [];
+    if (clusterMode !== 'none') {
+      const byKey = new Map();
+      for (const n of nodes) {
+        if (!n.clusterKey) continue;
+        const row = byKey.get(n.clusterKey);
+        if (!row) byKey.set(n.clusterKey, { key: n.clusterKey, color: n.clusterColor, members: [n] });
+        else row.members.push(n);
+      }
+      byKey.forEach((row) => {
+        if (row.members.length && row.color) clusterRows.push(row);
+      });
+    }
 
     const nodeIds = new Set(nodes.map((n) => n.id));
 
@@ -151,6 +223,8 @@ export default function Graph() {
 
     const g = svg.append('g');
 
+    const hullLayer = g.append('g').attr('class', styles.hullLayer);
+
     const simulation = d3
       .forceSimulation(nodes)
       .force(
@@ -160,6 +234,14 @@ export default function Graph() {
       .force('charge', d3.forceManyBody().strength(-220))
       .force('center', d3.forceCenter(width / 2, height / 2))
       .force('collision', d3.forceCollide(22));
+
+    if (clusterMode !== 'none') {
+      simulation.force('cluster', clusterPullForceFactory());
+    }
+
+    const hullBound = hullLayer.selectAll('path').data(clusterRows, (d) => d.key);
+    hullBound.exit().remove();
+    const hullSel = hullBound.enter().append('path').attr('class', styles.clusterHull).merge(hullBound);
 
     const link = g
       .append('g')
@@ -291,10 +373,15 @@ export default function Graph() {
         .attr('x2', (d) => d.target.x)
         .attr('y2', (d) => d.target.y);
       node.attr('transform', (d) => `translate(${d.x},${d.y})`);
+
+      hullSel
+        .attr('d', (d) => hullPathFromXY(d.members.map((m) => [m.x, m.y])))
+        .attr('fill', (d) => d.color)
+        .attr('stroke', (d) => d.color);
     });
 
     return () => simulation.stop();
-  }, [notes, projects, areas, people, resources, graphLinks]);
+  }, [notes, projects, areas, people, resources, graphLinks, clusterMode, lookups]);
 
   const goToNode = (d) => {
     if (!d?.data) return;
@@ -320,23 +407,42 @@ export default function Graph() {
     <div className={styles.page}>
       <div className={styles.header}>
         <h1>Graph</h1>
-        <div className={styles.legendWrap}>
-          <div className={styles.legend}>
-            {Object.entries(TYPE_COLORS).map(([type, color]) => (
-              <span key={type} className={styles.legendItem}>
-                <span className={styles.legendDot} style={{ background: color }} />
-                {type}
-              </span>
-            ))}
+        <div className={styles.toolbar}>
+          <div className={styles.clusterRow}>
+            <label htmlFor="graph-cluster-mode" className={styles.clusterLabel}>
+              Cluster by
+            </label>
+            <select
+              id="graph-cluster-mode"
+              className={styles.clusterSelect}
+              aria-label="Cluster graph by"
+              value={clusterMode}
+              onChange={(e) => setClusterMode(e.target.value)}
+            >
+              <option value="none">None</option>
+              <option value="project">Project</option>
+              <option value="area">Area</option>
+              <option value="tag">Tag</option>
+            </select>
           </div>
-          <div className={styles.linkLegend}>
-            <span className={styles.linkLegendTitle}>Links</span>
-            {Object.entries(KNOWLEDGE_LINK_COLORS).map(([k, color]) => (
-              <span key={k} className={styles.legendItem}>
-                <span className={styles.legendLine} style={{ background: color }} />
-                {k}
-              </span>
-            ))}
+          <div className={styles.legendWrap}>
+            <div className={styles.legend}>
+              {Object.entries(TYPE_COLORS).map(([type, color]) => (
+                <span key={type} className={styles.legendItem}>
+                  <span className={styles.legendDot} style={{ background: color }} />
+                  {type}
+                </span>
+              ))}
+            </div>
+            <div className={styles.linkLegend}>
+              <span className={styles.linkLegendTitle}>Links</span>
+              {Object.entries(KNOWLEDGE_LINK_COLORS).map(([k, color]) => (
+                <span key={k} className={styles.legendItem}>
+                  <span className={styles.legendLine} style={{ background: color }} />
+                  {k}
+                </span>
+              ))}
+            </div>
           </div>
         </div>
       </div>
