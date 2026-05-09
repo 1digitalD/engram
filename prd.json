@@ -82,7 +82,7 @@
       "passes": true,
       "blocked": false,
       "attempts": 1,
-      "commit": null
+      "commit": "2ea648e"
     }
   ],
   "integrationBranch": "overhaul/full-implementation-loop",
