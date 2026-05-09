@@ -10,9 +10,11 @@ import {
   ChevronRight,
   ListTodo,
   Sparkles,
+  Link2,
+  Loader2,
 } from 'lucide-react';
 import useStore from '../stores/useStore';
-import { summariesAPI } from '../api/engram';
+import { summariesAPI, proposalsAPI } from '../api/engram';
 import NoteCard from '../components/notes/NoteCard';
 import styles from './Review.module.css';
 
@@ -116,6 +118,12 @@ function granularityLabel(g) {
   return 'Month';
 }
 
+function notePreviewLine(n) {
+  if (!n) return '';
+  const line = (n.raw_text || '').split('\n')[0].replace(/^#\s*/, '').trim();
+  return (line || 'Untitled').slice(0, 72);
+}
+
 /** Move anchor date by one period in local calendar (week = 7 days, month = 1 month). */
 function shiftAnchorIso(isoDay, granularity, delta) {
   const [yo, mo, doy] = isoDay.split('-').map(Number);
@@ -127,7 +135,7 @@ function shiftAnchorIso(isoDay, granularity, delta) {
 }
 
 export default function Review() {
-  const { notes, tasks } = useStore();
+  const { notes, tasks, addToast } = useStore();
   const [granularity, setGranularity] = useState('WEEKLY');
   const [anchorDate, setAnchorDate] = useState(() => isoDateLocal());
 
@@ -138,6 +146,130 @@ export default function Review() {
   const [themesOpen, setThemesOpen] = useState(true);
   const [narrativeOpen, setNarrativeOpen] = useState(true);
   const [summaryExpanded, setSummaryExpanded] = useState(false);
+
+  const [linkProposals, setLinkProposals] = useState([]);
+  const [linkProposalsLoading, setLinkProposalsLoading] = useState(false);
+  const [linkProposalsError, setLinkProposalsError] = useState(null);
+  const [selectedProposalIds, setSelectedProposalIds] = useState(() => new Set());
+  const [proposalBulkBusy, setProposalBulkBusy] = useState(false);
+  const [proposalRowBusyId, setProposalRowBusyId] = useState(null);
+
+  const loadLinkProposals = useCallback(async () => {
+    setLinkProposalsLoading(true);
+    setLinkProposalsError(null);
+    try {
+      const res = await proposalsAPI.list({ status: 'pending', limit: 500 });
+      setLinkProposals(res.data || []);
+    } catch (e) {
+      const msg = e.message || 'Failed to load link proposals';
+      setLinkProposalsError(msg);
+      setLinkProposals([]);
+    } finally {
+      setLinkProposalsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadLinkProposals();
+  }, [loadLinkProposals]);
+
+  const resolveNote = useCallback((nid) => notes.find((n) => n.id === nid), [notes]);
+
+  const toggleProposalSelected = useCallback((id) => {
+    setSelectedProposalIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const selectAllProposals = useCallback(() => {
+    setSelectedProposalIds(new Set(linkProposals.map((p) => p.id)));
+  }, [linkProposals]);
+
+  const clearProposalSelection = useCallback(() => {
+    setSelectedProposalIds(new Set());
+  }, []);
+
+  const runProposalActions = useCallback(
+    async (ids, action) => {
+      const list = [...ids];
+      let ok = 0;
+      let firstErr = null;
+      for (const id of list) {
+        try {
+          if (action === 'accept') await proposalsAPI.accept(id);
+          else await proposalsAPI.dismiss(id);
+          ok += 1;
+        } catch (e) {
+          firstErr = e;
+          break;
+        }
+      }
+      await loadLinkProposals();
+      setSelectedProposalIds((prev) => {
+        const next = new Set(prev);
+        list.slice(0, ok).forEach((id) => next.delete(id));
+        return next;
+      });
+      if (firstErr) {
+        addToast({
+          type: 'error',
+          message: firstErr.message || `${action} failed after ${ok} succeeded`,
+        });
+      } else if (ok > 0) {
+        addToast({
+          type: 'success',
+          message:
+            ok === 1
+              ? `Proposal ${action === 'accept' ? 'accepted' : 'dismissed'}`
+              : `${ok} proposals ${action === 'accept' ? 'accepted' : 'dismissed'}`,
+        });
+      }
+      return { ok, err: firstErr };
+    },
+    [loadLinkProposals, addToast]
+  );
+
+  const handleAcceptRow = async (id) => {
+    if (proposalBulkBusy || proposalRowBusyId) return;
+    setProposalRowBusyId(id);
+    await runProposalActions([id], 'accept');
+    setProposalRowBusyId(null);
+  };
+
+  const handleDismissRow = async (id) => {
+    if (proposalBulkBusy || proposalRowBusyId) return;
+    setProposalRowBusyId(id);
+    await runProposalActions([id], 'dismiss');
+    setProposalRowBusyId(null);
+  };
+
+  const handleBulkAccept = async () => {
+    const ids = [...selectedProposalIds];
+    if (!ids.length || proposalBulkBusy || proposalRowBusyId) return;
+    setProposalBulkBusy(true);
+    await runProposalActions(ids, 'accept');
+    setProposalBulkBusy(false);
+  };
+
+  const handleBulkDismiss = async () => {
+    const ids = [...selectedProposalIds];
+    if (!ids.length || proposalBulkBusy || proposalRowBusyId) return;
+    setProposalBulkBusy(true);
+    await runProposalActions(ids, 'dismiss');
+    setProposalBulkBusy(false);
+  };
+
+  const handleAcceptAll = async () => {
+    const ids = linkProposals.map((p) => p.id);
+    if (!ids.length || proposalBulkBusy || proposalRowBusyId) return;
+    setProposalBulkBusy(true);
+    await runProposalActions(ids, 'accept');
+    clearProposalSelection();
+    setProposalBulkBusy(false);
+  };
 
   const loadSummaries = useCallback(async () => {
     setSummariesLoading(true);
@@ -405,6 +537,195 @@ export default function Review() {
                 Summary record exists but narrative and themes are empty.
               </p>
             )}
+          </>
+        )}
+      </section>
+
+      <section className={styles.proposalsSection} aria-label="Pending link proposals">
+        <div className={styles.proposalsHead}>
+          <div className={styles.proposalsTitleRow}>
+            <Link2 size={18} className={styles.proposalsIcon} aria-hidden />
+            <h2>Pending link proposals</h2>
+            <span className={styles.badge}>{linkProposals.length}</span>
+            <button
+              type="button"
+              className={styles.retryBtn}
+              disabled={linkProposalsLoading || proposalBulkBusy}
+              onClick={() => loadLinkProposals()}
+            >
+              Refresh
+            </button>
+          </div>
+          <p className={styles.proposalsLead}>
+            AI-suggested relationships between notes. Accept to create a link, or dismiss to clear.
+          </p>
+        </div>
+
+        {linkProposalsError && (
+          <p className={styles.summaryError} role="alert">
+            Could not load proposals: {linkProposalsError}
+          </p>
+        )}
+
+        {linkProposalsLoading && !linkProposalsError && (
+          <p className={styles.summaryMuted}>
+            <Loader2 size={14} className="spin" aria-hidden /> Loading proposals…
+          </p>
+        )}
+
+        {!linkProposalsLoading && !linkProposalsError && linkProposals.length === 0 && (
+          <p className={styles.summaryMuted}>No pending proposals. Generate some from the API or note detail.</p>
+        )}
+
+        {!linkProposalsLoading && linkProposals.length > 0 && (
+          <>
+            <div className={styles.proposalsToolbar}>
+              <div className={styles.proposalsToolbarLeft}>
+                <button
+                  type="button"
+                  className={styles.proposalsToolbarBtn}
+                  onClick={selectAllProposals}
+                  disabled={proposalBulkBusy || !!proposalRowBusyId}
+                >
+                  Select all
+                </button>
+                <button
+                  type="button"
+                  className={styles.proposalsToolbarBtn}
+                  onClick={clearProposalSelection}
+                  disabled={proposalBulkBusy || !!proposalRowBusyId || selectedProposalIds.size === 0}
+                >
+                  Clear selection
+                </button>
+                <span className={styles.proposalsSelectionHint}>
+                  {selectedProposalIds.size} selected
+                </span>
+              </div>
+              <div className={styles.proposalsToolbarRight}>
+                <button
+                  type="button"
+                  className={styles.proposalsToolbarBtn}
+                  onClick={handleBulkAccept}
+                  disabled={
+                    proposalBulkBusy ||
+                    !!proposalRowBusyId ||
+                    selectedProposalIds.size === 0
+                  }
+                >
+                  {proposalBulkBusy ? (
+                    <Loader2 size={14} className="spin" aria-hidden />
+                  ) : (
+                    <CheckCircle size={14} aria-hidden />
+                  )}
+                  Accept selected
+                </button>
+                <button
+                  type="button"
+                  className={styles.proposalsToolbarBtnMuted}
+                  onClick={handleBulkDismiss}
+                  disabled={
+                    proposalBulkBusy ||
+                    !!proposalRowBusyId ||
+                    selectedProposalIds.size === 0
+                  }
+                >
+                  Dismiss selected
+                </button>
+                <button
+                  type="button"
+                  className={styles.proposalsAcceptAll}
+                  onClick={handleAcceptAll}
+                  disabled={proposalBulkBusy || !!proposalRowBusyId}
+                  title="Accept every pending proposal in this list"
+                >
+                  {proposalBulkBusy ? (
+                    <Loader2 size={14} className="spin" aria-hidden />
+                  ) : (
+                    <Sparkles size={14} aria-hidden />
+                  )}
+                  Accept all
+                </button>
+              </div>
+            </div>
+
+            <ul className={styles.proposalsList}>
+              {linkProposals.map((p) => {
+                const src = resolveNote(p.src_id);
+                const dst = resolveNote(p.dst_id);
+                const rowBusy = proposalRowBusyId === p.id;
+                const disabledRow = proposalBulkBusy || proposalRowBusyId !== null;
+                const checked = selectedProposalIds.has(p.id);
+                return (
+                  <li key={p.id} className={styles.proposalCard}>
+                    <label className={styles.proposalCheck}>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        disabled={proposalBulkBusy || !!proposalRowBusyId}
+                        onChange={() => toggleProposalSelected(p.id)}
+                      />
+                    </label>
+                    <div className={styles.proposalContext}>
+                      <div className={styles.proposalPair}>
+                        <Link to={`/notes/${p.src_id}`} className={styles.proposalNoteLink}>
+                          {notePreviewLine(src) || `Note ${String(p.src_id).slice(0, 8)}…`}
+                        </Link>
+                        <span className={styles.proposalArrow} aria-hidden>
+                          ↔
+                        </span>
+                        <Link to={`/notes/${p.dst_id}`} className={styles.proposalNoteLink}>
+                          {notePreviewLine(dst) || `Note ${String(p.dst_id).slice(0, 8)}…`}
+                        </Link>
+                      </div>
+                      {!src && (
+                        <p className={styles.proposalMissing}>Source note not in workspace cache.</p>
+                      )}
+                      {!dst && (
+                        <p className={styles.proposalMissing}>Target note not in workspace cache.</p>
+                      )}
+                      <span className={styles.proposalConf}>
+                        {Math.round((p.confidence ?? 0) * 100)}% confidence
+                        {p.created_at && (
+                          <>
+                            {' · '}
+                            <span className={styles.proposalWhen}>
+                              {parseTs(p.created_at)?.toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                              }) || ''}
+                            </span>
+                          </>
+                        )}
+                      </span>
+                      {p.reason ? <p className={styles.proposalReason}>{p.reason}</p> : null}
+                    </div>
+                    <div className={styles.proposalRowActions}>
+                      <button
+                        type="button"
+                        className={styles.proposalAcceptBtn}
+                        onClick={() => handleAcceptRow(p.id)}
+                        disabled={disabledRow}
+                      >
+                        {rowBusy ? (
+                          <Loader2 size={13} className="spin" aria-hidden />
+                        ) : (
+                          <CheckCircle size={13} aria-hidden />
+                        )}
+                        Accept
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.proposalDismissBtn}
+                        onClick={() => handleDismissRow(p.id)}
+                        disabled={disabledRow}
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
           </>
         )}
       </section>

@@ -79,9 +79,9 @@
       "id": "p3-ws2-iter-d-ui-proposals-review",
       "title": "Proposals in Review view",
       "description": "Review.jsx: show pending link proposals with context, bulk accept/dismiss, accept-all option.",
-      "passes": false,
+      "passes": true,
       "blocked": false,
-      "attempts": 0,
+      "attempts": 1,
       "commit": null
     }
   ],

@@ -285,6 +285,227 @@
   background: var(--accent);
 }
 
+/* Pending link proposals (Review queue) */
+.proposalsSection {
+  margin-top: var(--space-6);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.proposalsHead {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.proposalsTitleRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.proposalsTitleRow h2 {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.proposalsIcon {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.proposalsLead {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+.proposalsToolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border);
+}
+.proposalsToolbarLeft,
+.proposalsToolbarRight {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.proposalsToolbarBtn,
+.proposalsToolbarBtnMuted {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-sm);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+.proposalsToolbarBtn:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.proposalsToolbarBtnMuted {
+  background: var(--bg-base);
+  color: var(--text-secondary);
+}
+.proposalsToolbarBtnMuted:hover:not(:disabled) {
+  border-color: var(--border);
+  color: var(--text-primary);
+}
+.proposalsToolbarBtn:disabled,
+.proposalsToolbarBtnMuted:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.proposalsAcceptAll {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  border: none;
+  background: var(--accent);
+  color: var(--bg-base);
+  cursor: pointer;
+}
+.proposalsAcceptAll:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+.proposalsAcceptAll:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.proposalsSelectionHint {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+.proposalsList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.proposalCard {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.proposalCheck {
+  flex-shrink: 0;
+  padding-top: 2px;
+  cursor: pointer;
+}
+.proposalCheck input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+}
+.proposalContext {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+.proposalPair {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+.proposalNoteLink {
+  color: var(--accent);
+  text-decoration: none;
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+.proposalNoteLink:hover {
+  text-decoration: underline;
+}
+.proposalArrow {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+.proposalMissing {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+.proposalConf {
+  display: block;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  margin-top: var(--space-1);
+}
+.proposalWhen {
+  font-weight: 400;
+}
+.proposalReason {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  font-style: italic;
+  line-height: 1.45;
+}
+.proposalRowActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+.proposalAcceptBtn,
+.proposalDismissBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--text-sm);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  border: 1px solid var(--border);
+}
+.proposalAcceptBtn {
+  background: var(--accent);
+  color: var(--bg-base);
+  border-color: transparent;
+}
+.proposalAcceptBtn:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+.proposalDismissBtn {
+  background: transparent;
+  color: var(--text-secondary);
+}
+.proposalDismissBtn:hover:not(:disabled) {
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+}
+.proposalAcceptBtn:disabled,
+.proposalDismissBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 @media (max-width: 840px) {
   .grid { grid-template-columns: 1fr; }
   .summaryControls { flex-direction: column; align-items: stretch; }
