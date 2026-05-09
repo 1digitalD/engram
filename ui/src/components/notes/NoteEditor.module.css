@@ -6,6 +6,36 @@
   gap: var(--space-4);
 }
 
+.tabs {
+  display: inline-flex;
+  align-self: flex-start;
+  padding: 3px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.tab {
+  padding: var(--space-1) var(--space-3);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: all var(--duration-fast);
+}
+
+.tab:hover {
+  color: var(--text-primary);
+}
+
+.tabActive {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+}
+
 .textarea {
   width: 100%;
   min-height: 140px;
@@ -23,6 +53,66 @@
 .textarea:focus {
   outline: none;
   border-color: var(--accent);
+}
+
+.preview {
+  min-height: 140px;
+  padding: var(--space-3);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: var(--text-base);
+  line-height: 1.7;
+}
+
+.preview h1,
+.preview h2,
+.preview h3 {
+  margin-top: var(--space-4);
+  margin-bottom: var(--space-2);
+}
+
+.preview h1:first-child,
+.preview h2:first-child,
+.preview h3:first-child,
+.preview p:first-child,
+.preview ul:first-child,
+.preview ol:first-child {
+  margin-top: 0;
+}
+
+.preview p,
+.preview ul,
+.preview ol {
+  margin-bottom: var(--space-3);
+}
+
+.preview ul,
+.preview ol {
+  padding-left: var(--space-5);
+}
+
+.preview code {
+  background: var(--bg-surface);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  color: var(--accent-blue);
+  font-size: 0.9em;
+}
+
+.preview pre {
+  overflow-x: auto;
+  padding: var(--space-3);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.previewEmpty {
+  margin: 0;
+  color: var(--text-muted);
+  font-style: italic;
 }
 
 .aiHint {
@@ -45,10 +135,119 @@
   gap: var(--space-3);
 }
 
+.fieldWide {
+  grid-column: 1 / -1;
+}
+
 .field {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
+}
+
+.projectChipStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.projectChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.editorProjectChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  max-width: 100%;
+  padding: 2px 2px 2px 10px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.editorProjectChipLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.editorProjectChipRemove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  margin: 0;
+  border: none;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color var(--duration-fast), background var(--duration-fast);
+}
+
+.editorProjectChipRemove:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.projectCombo {
+  position: relative;
+}
+
+.projectSearchInput {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  transition: border-color var(--duration-fast);
+}
+
+.projectSearchInput:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.projectSuggestions {
+  position: absolute;
+  z-index: 20;
+  left: 0;
+  right: 0;
+  top: calc(100% + 4px);
+  margin: 0;
+  padding: var(--space-1);
+  list-style: none;
+  max-height: 220px;
+  overflow-y: auto;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+}
+
+.projectSuggestionBtn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: background var(--duration-fast);
+}
+
+.projectSuggestionBtn:hover {
+  background: var(--bg-hover);
 }
 
 .label {

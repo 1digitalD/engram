@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Search, FileText, FolderOpen, Map, Users, CheckSquare,
-  Network, ArrowRight, Hash, Inbox, Plus, X, Calendar
+  Network, ArrowRight, Hash, Inbox, Plus, X, Calendar,
+  Zap, LayoutDashboard
 } from 'lucide-react';
 import useStore from '../../stores/useStore';
 import styles from './CommandPalette.module.css';
@@ -12,15 +13,21 @@ const ICON_MAP = {
   person: Users, task: CheckSquare, graph: Network,
 };
 
+function paletteShortcutLabel() {
+  if (typeof navigator === 'undefined') return '⌘K';
+  return /Mac|iPhone|iPad|iPod/i.test(navigator.userAgent) ? '⌘K' : 'Ctrl+K';
+}
+
 export default function CommandPalette({ onClose }) {
   const navigate = useNavigate();
-  const { notes, projects, areas, people, tasks, searchNotes } = useStore();
+  const { notes, projects, areas, people, tasks, openCapture } = useStore();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [loading, setLoading] = useState(false);
   const inputRef = useRef(null);
   const debounceRef = useRef(null);
+  const shortcutHint = useMemo(() => paletteShortcutLabel(), []);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -36,7 +43,6 @@ export default function CommandPalette({ onClose }) {
     debounceRef.current = setTimeout(async () => {
       setLoading(true);
       const q = query.toLowerCase();
-      // Filter locally first
       const localResults = [
         ...notes.filter(n => n.raw_text?.toLowerCase().includes(q))
           .slice(0, 5).map(n => ({ type: 'note', item: n })),
@@ -53,7 +59,7 @@ export default function CommandPalette({ onClose }) {
       setActiveIndex(0);
       setLoading(false);
     }, 200);
-  }, [query]);
+  }, [query, notes, projects, areas, people, tasks]);
 
   const handleSelect = useCallback((result) => {
     if (!result) return;
@@ -61,7 +67,7 @@ export default function CommandPalette({ onClose }) {
     switch (type) {
       case 'note':    navigate(`/notes/${item.id}`); break;
       case 'project': navigate(`/projects/${item.id}`); break;
-      case 'area':    navigate(`/areas`); break;
+      case 'area':    navigate(`/areas/${item.id}`); break;
       case 'person':  navigate(`/people`); break;
       case 'task':    navigate(`/tasks`); break;
       default: break;
@@ -84,47 +90,59 @@ export default function CommandPalette({ onClose }) {
     }
   };
 
-  const quickActions = !query && [
-    { label: 'Capture note', action: () => navigate('/notes'), icon: Inbox },
-    { label: 'New project', action: () => navigate('/projects'), icon: Plus },
-    { label: 'View tasks', action: () => navigate('/tasks'), icon: CheckSquare },
-    { label: 'View graph', action: () => navigate('/graph'), icon: Network },
-    { label: 'Weekly review', action: () => navigate('/review'), icon: Calendar },
+  const quickGroups = !query && [
+    {
+      label: 'Actions',
+      icon: Zap,
+      items: [
+        { label: 'Capture note', action: () => openCapture(), icon: Inbox },
+        { label: 'New project', action: () => navigate('/projects'), icon: Plus },
+      ],
+    },
+    {
+      label: 'Go to',
+      icon: LayoutDashboard,
+      items: [
+        { label: 'View tasks', action: () => navigate('/tasks'), icon: CheckSquare },
+        { label: 'View graph', action: () => navigate('/graph'), icon: Network },
+        { label: 'Weekly review', action: () => navigate('/review'), icon: Calendar },
+      ],
+    },
   ];
 
   return (
     <div className={styles.backdrop} onClick={onClose}>
       <div className={styles.palette} onClick={e => e.stopPropagation()}>
-        {/* Input */}
         <div className={styles.inputRow}>
           <Search size={16} className={styles.searchIcon} />
           <input
             ref={inputRef}
             className={styles.input}
-            placeholder="Search notes, projects, people... or type a command"
+            placeholder="Search notes, projects, people… or pick a quick action"
             value={query}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={handleKey}
           />
           {loading && <div className="spinner" />}
           {query && !loading && (
-            <button onClick={() => setQuery('')} className={styles.clearBtn}>
+            <button type="button" onClick={() => setQuery('')} className={styles.clearBtn}>
               <X size={14} />
             </button>
           )}
+          <kbd className={styles.inputHint} title={`Toggle palette (${shortcutHint})`}>{shortcutHint}</kbd>
         </div>
 
-        {/* Results */}
         {query && (
           <div className={styles.results}>
             {results.length === 0 && !loading && (
-              <div className={styles.empty}>No results for "{query}"</div>
+              <div className={styles.empty}>No results for &quot;{query}&quot;</div>
             )}
             {results.map((r, i) => {
               const Icon = ICON_MAP[r.type] || FileText;
               return (
                 <button
                   key={`${r.type}-${r.item.id}`}
+                  type="button"
                   className={`${styles.result} ${i === activeIndex ? styles.resultActive : ''}`}
                   onClick={() => handleSelect(r)}
                   onMouseEnter={() => setActiveIndex(i)}
@@ -143,28 +161,43 @@ export default function CommandPalette({ onClose }) {
           </div>
         )}
 
-        {/* Quick Actions */}
-        {!query && (
-          <div className={styles.quick}>
-            <div className={styles.quickLabel}>Quick actions</div>
-            {quickActions.map((a, i) => {
-              const Icon = a.icon;
+        {!query && quickGroups && (
+          <div className={styles.quickWrap}>
+            {quickGroups.map((group) => {
+              const SectionIcon = group.icon;
               return (
-                <button
-                  key={a.label}
-                  className={styles.result}
-                  onClick={() => { a.action(); onClose(); }}
-                >
-                  <Icon size={14} className={styles.resultIcon} />
-                  <span className={styles.resultTitle}>{a.label}</span>
-                </button>
+                <div key={group.label} className={styles.quickGroup}>
+                  <div className={styles.quickGroupHeader}>
+                    <SectionIcon size={14} className={styles.quickGroupIcon} aria-hidden />
+                    <span>{group.label}</span>
+                  </div>
+                  {group.items.map((a) => {
+                    const ItemIcon = a.icon;
+                    return (
+                      <button
+                        key={a.label}
+                        type="button"
+                        className={styles.result}
+                        onClick={() => { a.action(); onClose(); }}
+                      >
+                        <ItemIcon size={14} className={styles.resultIcon} />
+                        <span className={styles.resultTitle}>{a.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               );
             })}
           </div>
         )}
 
         <div className={styles.footer}>
-          <kbd>↑↓</kbd> navigate · <kbd>↵</kbd> select · <kbd>esc</kbd> close
+          <span><kbd>↑↓</kbd> navigate</span>
+          <span>·</span>
+          <span><kbd>↵</kbd> select</span>
+          <span>·</span>
+          <span><kbd>esc</kbd> close</span>
+          <span className={styles.footerHint}><kbd>{shortcutHint}</kbd> toggle</span>
         </div>
       </div>
     </div>

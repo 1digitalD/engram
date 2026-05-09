@@ -18,6 +18,9 @@ export default function Tasks() {
   const [status, setStatus] = useState('PENDING');
   const [projectId, setProjectId] = useState('');
   const [priority, setPriority] = useState('MEDIUM');
+  const [dueDate, setDueDate] = useState('');
+  const [editingTaskId, setEditingTaskId] = useState(null);
+  const [editingTitle, setEditingTitle] = useState('');
 
   const handleCreate = async (e) => {
     e.preventDefault();
@@ -26,13 +29,36 @@ export default function Tasks() {
       title: title.trim(),
       status,
       priority,
+      due_date: dueDate || null,
       ...(projectId && { project_id: projectId }),
     });
-    setTitle(''); setStatus('PENDING'); setProjectId(''); setPriority('MEDIUM'); setShowModal(false);
+    setTitle(''); setStatus('PENDING'); setProjectId(''); setPriority('MEDIUM'); setDueDate(''); setShowModal(false);
   };
 
   const handleStatusChange = async (task, newStatus) => {
     await updateTask(task.id, { status: newStatus });
+  };
+
+  const startEditingTitle = (task) => {
+    setEditingTaskId(task.id);
+    setEditingTitle(task.title || '');
+  };
+
+  const cancelEditingTitle = () => {
+    setEditingTaskId(null);
+    setEditingTitle('');
+  };
+
+  const saveEditingTitle = async (task) => {
+    const nextTitle = editingTitle.trim();
+    if (!nextTitle) {
+      cancelEditingTitle();
+      return;
+    }
+    if (nextTitle !== task.title) {
+      await updateTask(task.id, { title: nextTitle });
+    }
+    cancelEditingTitle();
   };
 
   const getColumnTasks = (s) => tasks.filter(t => t.status === s);
@@ -82,7 +108,34 @@ export default function Tasks() {
                     const due = task.due_date ? new Date(task.due_date).toLocaleDateString() : null;
                     return (
                       <div key={task.id} className={styles.taskCard}>
-                        <span className={styles.taskContent}>{task.title}</span>
+                        <div className={styles.taskCardTop}>
+                          <button
+                            type="button"
+                            className={styles.cardCheck}
+                            onClick={() => handleStatusChange(task, task.status === 'DONE' ? 'PENDING' : 'DONE')}
+                            aria-label={task.status === 'DONE' ? 'Mark pending' : task.status === 'IN_PROGRESS' ? 'Mark pending' : 'Mark done'}
+                            title={task.status === 'DONE' ? 'Reopen task' : 'Toggle done'}
+                          >
+                            {task.status === 'DONE' ? <CheckCircle size={17} /> : <Circle size={17} />}
+                          </button>
+                          <div className={styles.taskCardBody}>
+                        {editingTaskId === task.id ? (
+                          <input
+                            className={styles.titleInput}
+                            value={editingTitle}
+                            onChange={e => setEditingTitle(e.target.value)}
+                            onBlur={() => saveEditingTitle(task)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') saveEditingTitle(task);
+                              if (e.key === 'Escape') cancelEditingTitle();
+                            }}
+                            autoFocus
+                          />
+                        ) : (
+                          <button className={styles.taskContent} onClick={() => startEditingTitle(task)} title="Edit task title">
+                            {task.title}
+                          </button>
+                        )}
                         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
                           {project && (
                             <span className={styles.taskProject}>{project.name}</span>
@@ -121,6 +174,8 @@ export default function Tasks() {
                             title="Delete"
                           >×</button>
                         </div>
+                          </div>
+                        </div>
                       </div>
                     );
                   })}
@@ -155,6 +210,10 @@ export default function Tasks() {
                 <option value="HIGH">High</option>
                 <option value="URGENT">Urgent</option>
               </select>
+            </div>
+            <div>
+              <label className={styles.label}>Due Date</label>
+              <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} />
             </div>
             <div>
               <label className={styles.label}>Project (optional)</label>

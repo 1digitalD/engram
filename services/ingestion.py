@@ -334,6 +334,15 @@ def run_ingestion(
             db.session.add(task)
             created_tasks.append(task)
 
+    from services.extractor import extract_inline_tasks
+
+    extract_inline_tasks(
+        note.id,
+        full_content,
+        note.project_id,
+        note.area_id,
+    )
+
     db.session.commit()
 
     # Queue embedding + auto-link in background (with app context)

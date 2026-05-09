@@ -2,6 +2,9 @@ import pytest
 from app import create_app
 from extensions import db
 
+# Optional MCP server stack (fastmcp) is not installed in minimal test venvs.
+collect_ignore = ["test_mcp_server.py"]
+
 
 @pytest.fixture
 def app():

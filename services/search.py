@@ -38,7 +38,12 @@ def search_notes(
         bucket_upper = bucket.upper()
         results = [r for r in results if r.get("bucket") == bucket_upper]
     if project_id:
-        results = [r for r in results if r.get("project_id") == project_id]
+        results = [
+            r
+            for r in results
+            if r.get("project_id") == project_id
+            or project_id in (r.get("project_ids") or [])
+        ]
     if area_id:
         results = [r for r in results if r.get("area_id") == area_id]
 

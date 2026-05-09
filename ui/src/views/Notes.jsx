@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Plus, Filter } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { Plus } from 'lucide-react';
 import useStore from '../stores/useStore';
 import NoteCard from '../components/notes/NoteCard';
 import NoteEditor from '../components/notes/NoteEditor';
@@ -10,13 +11,17 @@ const BUCKETS = ['all', 'INBOX', 'PROJECTS', 'AREAS', 'RESOURCES', 'ARCHIVES'];
 
 export default function Notes() {
   const { notes } = useStore();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [filter, setFilter] = useState('all');
   const [editingNote, setEditingNote] = useState(null);
   const [showEditor, setShowEditor] = useState(false);
+  const tagFilter = searchParams.get('tag');
 
-  const filtered = filter === 'all'
-    ? notes
-    : notes.filter(n => n.bucket === filter);
+  const filtered = notes.filter(n => {
+    const bucketMatches = filter === 'all' || n.bucket === filter;
+    const tagMatches = !tagFilter || n.tag_names?.includes(tagFilter);
+    return bucketMatches && tagMatches;
+  });
 
   const sorted = [...filtered].sort(
     (a, b) => new Date(b.created_at) - new Date(a.created_at)
@@ -45,6 +50,14 @@ export default function Notes() {
             {b === 'all' ? 'All' : b.charAt(0) + b.slice(1).toLowerCase()}
           </button>
         ))}
+        {tagFilter && (
+          <button
+            className={`${styles.filterBtn} ${styles.filterActive}`}
+            onClick={() => setSearchParams({})}
+          >
+            #{tagFilter} ×
+          </button>
+        )}
       </div>
 
       {/* Note list */}
@@ -52,7 +65,7 @@ export default function Notes() {
         <EmptyState
           type="notes"
           title={filter === 'all' ? 'No notes yet' : `No ${filter.toLowerCase()} notes`}
-          message={filter === 'all' ? 'Capture your first thought with the button above.' : undefined}
+          message={tagFilter ? `No notes tagged #${tagFilter}.` : filter === 'all' ? 'Capture your first thought with the button above.' : undefined}
           action={
             filter === 'all'
               ? <button className="btn btn-primary" onClick={() => setShowEditor(true)}><Plus size={14} /> Capture</button>

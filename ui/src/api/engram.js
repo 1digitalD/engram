@@ -21,8 +21,12 @@ async function apiRequest(method, path, body = null, params = {}) {
   if (body) opts.body = JSON.stringify(body);
   const res = await fetch(url.toString(), opts);
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(err.error || `HTTP ${res.status}`);
+    const errBody = await res.json().catch(() => ({ error: res.statusText }));
+    const msg = errBody.error || errBody.message || `HTTP ${res.status}`;
+    const err = new Error(msg);
+    err.status = res.status;
+    err.body = errBody;
+    throw err;
   }
   return res.json();
 }
@@ -49,6 +53,15 @@ export const projectsAPI = {
   create: (d)           => apiRequest('POST',   '/projects', d),
   update: (id, d)       => apiRequest('PATCH',  `/projects/${id}`, d),
   delete: (id)          => apiRequest('DELETE', `/projects/${id}`),
+};
+
+// ── Resources ────────────────────────────────
+export const resourcesAPI = {
+  list:   (params = {}) => apiRequest('GET',    '/resources', null, params),
+  get:    (id)          => apiRequest('GET',    `/resources/${id}`),
+  create: (d)           => apiRequest('POST',   '/resources', d),
+  update: (id, d)       => apiRequest('PATCH',  `/resources/${id}`, d),
+  delete: (id)          => apiRequest('DELETE', `/resources/${id}`),
 };
 
 // ── Areas ────────────────────────────────────
@@ -87,12 +100,44 @@ export const tagsAPI = {
   delete: (id)   => apiRequest('DELETE', `/tags/${id}`),
 };
 
+// ── Daily notes ──────────────────────────────
+export const dailyAPI = {
+  get: (date) => apiRequest('GET', '/daily', null, { date }),
+  append: (body) => apiRequest('POST', '/daily/append', body),
+};
+
 // ── Links (knowledge graph) ──────────────────
 export const linksAPI = {
+  list:     (params = {}) => apiRequest('GET',    '/links', null, params),
   forNote:   (id)  => apiRequest('GET',    `/notes/${id}/links`),
   create:    (d)   => apiRequest('POST',   '/links', d),
   delete:    (id)  => apiRequest('DELETE', `/links/${id}`),
   related:   (id, limit) => apiRequest('GET', `/notes/${id}/related`, null, { limit }),
+};
+
+// ── Link proposals (AI-suggested, review → link) ──
+export const proposalsAPI = {
+  list:    (params = {}) => apiRequest('GET', '/proposals', null, params),
+  generate: (data = {})  => apiRequest('POST', '/proposals/generate', data),
+  accept:   (id)        => apiRequest('POST', `/proposals/${id}/accept`),
+  dismiss:  (id)        => apiRequest('POST', `/proposals/${id}/dismiss`),
+};
+
+// ── Review aggregates ───────────────────────
+export const reviewAPI = {
+  weeklyDigest: (params = {}) => apiRequest('GET', '/review/weekly-digest', null, params),
+};
+
+// ── Knowledge health metrics ─────────────────
+export const metricsAPI = {
+  health: () => apiRequest('GET', '/metrics/health'),
+  healthHistory: (params = {}) => apiRequest('GET', '/metrics/health/history', null, params),
+};
+
+// ── Summaries (progressive rollup + review) ─
+export const summariesAPI = {
+  list: (params = {}) => apiRequest('GET', '/summaries', null, params),
+  get:  (id) => apiRequest('GET', `/summaries/${id}`),
 };
 
 // ── Batch ────────────────────────────────────

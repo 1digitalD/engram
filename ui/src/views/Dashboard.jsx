@@ -1,13 +1,41 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Inbox, CheckSquare, FileText, FolderOpen, Calendar } from 'lucide-react';
+import { ArrowRight, Inbox, CheckSquare, FileText, FolderOpen, HeartPulse } from 'lucide-react';
 import useStore from '../stores/useStore';
 import NoteCard from '../components/notes/NoteCard';
+import TaskCheckboxRow from '../components/tasks/TaskCheckboxRow';
 import { StatusBadge } from '../components/ui/Badge';
+import { metricsAPI } from '../api/engram';
 import styles from './Dashboard.module.css';
 
+function orphanRateTier(rate) {
+  if (rate <= 0.15) return 'good';
+  if (rate <= 0.35) return 'warn';
+  return 'bad';
+}
+
+function inboxTier(count) {
+  if (count > 50) return 'bad';
+  if (count > 20) return 'warn';
+  return 'good';
+}
+
 export default function Dashboard() {
-  const { notes, projects, tasks, people, loading } = useStore();
+  const { notes, projects, tasks, loading } = useStore();
+  const [health, setHealth] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await metricsAPI.health();
+        if (!cancelled) setHealth(data);
+      } catch {
+        if (!cancelled) setHealth(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const inbox = notes.filter(n => n.bucket === 'INBOX');
   const recent = [...notes].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 6);
@@ -20,6 +48,21 @@ export default function Dashboard() {
     { label: 'Projects', value: activeProjects.length, icon: FolderOpen, to: '/projects', color: 'var(--bucket-projects)' },
     { label: 'Tasks', value: upcomingTasks.length, icon: CheckSquare, to: '/tasks', color: 'var(--accent-amber)' },
   ];
+
+  const captureBars = useMemo(() => {
+    const raw = health?.weekly_capture_counts;
+    if (!Array.isArray(raw) || raw.length === 0) return [0, 0, 0, 0];
+    return raw.slice(-4);
+  }, [health]);
+
+  const maxCapture = useMemo(
+    () => Math.max(1, ...captureBars),
+    [captureBars],
+  );
+
+  const orphanTier = health != null ? orphanRateTier(health.orphan_rate ?? 0) : 'good';
+  const inboxCount = health?.inbox_count ?? inbox.length;
+  const inboxUrgency = inboxTier(inboxCount);
 
   return (
     <div className={styles.page}>
@@ -50,6 +93,80 @@ export default function Dashboard() {
           );
         })}
       </div>
+
+      {/* Knowledge Health */}
+      <section
+        className={styles.healthCard}
+        data-testid="dashboard-health-card"
+        aria-label="Knowledge health metrics"
+      >
+        <div className={styles.healthHeader}>
+          <div className={styles.healthTitleRow}>
+            <HeartPulse size={18} className={styles.healthIcon} aria-hidden />
+            <h2 className={styles.healthTitle}>Knowledge Health</h2>
+          </div>
+        </div>
+        {health ? (
+          <>
+            <div className={styles.healthMetrics}>
+              <div className={styles.healthMetric}>
+                <span className={styles.healthMetricLabel}>Orphan rate</span>
+                <span
+                  className={`${styles.healthMetricValue} ${styles[`orphan${orphanTier.charAt(0).toUpperCase() + orphanTier.slice(1)}`]}`}
+                  data-testid="health-orphan-rate"
+                  data-tier={orphanTier}
+                >
+                  {(health.orphan_rate * 100).toFixed(0)}%
+                </span>
+              </div>
+              <div className={styles.healthMetric}>
+                <span className={styles.healthMetricLabel}>Avg links / note</span>
+                <span className={styles.healthMetricValue} data-testid="health-avg-links">
+                  {(health.avg_links_per_note ?? 0).toFixed(2)}
+                </span>
+              </div>
+              <div className={styles.healthMetric}>
+                <span className={styles.healthMetricLabel}>Captures (7d)</span>
+                <span className={styles.healthMetricValue} data-testid="health-capture-rate">
+                  {health.weekly_capture_rate ?? 0}
+                </span>
+              </div>
+              <div className={styles.healthMetric}>
+                <span className={styles.healthMetricLabel}>Inbox</span>
+                <Link
+                  to="/inbox"
+                  className={`${styles.healthMetricValue} ${styles.inboxLink} ${styles[`inbox${inboxUrgency.charAt(0).toUpperCase() + inboxUrgency.slice(1)}`]}`}
+                  data-testid="health-inbox-count"
+                  data-tier={inboxUrgency}
+                >
+                  {inboxCount}
+                </Link>
+              </div>
+            </div>
+            <div className={styles.captureChartWrap}>
+              <span className={styles.captureChartLabel}>Capture rate (4 weeks)</span>
+              <div
+                className={styles.captureChart}
+                data-testid="health-capture-chart"
+                role="img"
+                aria-label={`Notes captured per week over four weeks: ${captureBars.join(', ')}`}
+              >
+                {captureBars.map((c, i) => (
+                  <div key={i} className={styles.captureBarTrack}>
+                    <div
+                      className={styles.captureBar}
+                      style={{ height: `${(c / maxCapture) * 100}%` }}
+                      data-count={c}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
+        ) : (
+          <p className={styles.healthLoading}>Loading health metrics…</p>
+        )}
+      </section>
 
       <div className={styles.grid}>
         {/* Recent Notes */}
@@ -107,9 +224,9 @@ export default function Dashboard() {
               <div className={styles.taskList}>
                 {upcomingTasks.map(t => (
                   <div key={t.id} className={styles.taskItem}>
-                    <CheckSquare size={13} className={styles.taskIcon} />
-                    <span className={styles.taskText}>{t.title}</span>
-                    {t.status && <StatusBadge status={t.status} />}
+                    <TaskCheckboxRow task={t} className={styles.taskItemInner}>
+                      {t.status && <StatusBadge status={t.status} />}
+                    </TaskCheckboxRow>
                   </div>
                 ))}
               </div>

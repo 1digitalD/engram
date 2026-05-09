@@ -2,7 +2,24 @@ import uuid
 from datetime import datetime
 from enum import Enum as PyEnum
 
-from sqlalchemy import Column, String, Text, DateTime, Boolean, ForeignKey, Table, Enum, Integer, Float, func, select
+from sqlalchemy import (
+    Column,
+    String,
+    Text,
+    DateTime,
+    Boolean,
+    ForeignKey,
+    Table,
+    Enum,
+    Integer,
+    Float,
+    func,
+    select,
+    event,
+    or_,
+    UniqueConstraint,
+)
+from sqlalchemy.orm import Session as SaSession
 from sqlalchemy.dialects.sqlite import JSON
 from sqlalchemy.orm import relationship
 
@@ -31,12 +48,71 @@ class TaskStatus(PyEnum):
     CANCELLED = "CANCELLED"
 
 
+class ResourceType(PyEnum):
+    ARTICLE = "ARTICLE"
+    BOOK = "BOOK"
+    URL = "URL"
+    VIDEO = "VIDEO"
+    PAPER = "PAPER"
+    TOOL = "TOOL"
+    OTHER = "OTHER"
+
+
+class SummaryGranularity(PyEnum):
+    DAILY = "DAILY"
+    WEEKLY = "WEEKLY"
+    MONTHLY = "MONTHLY"
+
+
+class LinkProposalStatus(PyEnum):
+    PENDING = "pending"
+    ACCEPTED = "accepted"
+    DISMISSED = "dismissed"
+
+
+class NoteType(PyEnum):
+    NOTE = "NOTE"
+    MOC = "MOC"
+    DAILY = "DAILY"
+    MEETING = "MEETING"
+    DECISION = "DECISION"
+
+
 # Association tables
 note_tags = Table(
     "note_tags",
     db.Model.metadata,
     Column("note_id", String(36), ForeignKey("notes.id"), primary_key=True),
     Column("tag_id", String(36), ForeignKey("tags.id"), primary_key=True),
+)
+
+note_projects = Table(
+    "note_projects",
+    db.Model.metadata,
+    Column(
+        "note_id",
+        String(36),
+        ForeignKey("notes.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column(
+        "project_id",
+        String(36),
+        ForeignKey("projects.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+)
+
+resource_tags = Table(
+    "resource_tags",
+    db.Model.metadata,
+    Column(
+        "resource_id",
+        String(36),
+        ForeignKey("resources.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column("tag_id", String(36), ForeignKey("tags.id", ondelete="CASCADE"), primary_key=True),
 )
 
 
@@ -61,15 +137,27 @@ class Tag(BaseModel):
     color = Column(String(7), nullable=True)
 
     notes = relationship("Note", secondary=note_tags, back_populates="tags")
+    resources = relationship("Resource", secondary=resource_tags, back_populates="tags")
 
     def to_dict(self):
+        note_count = db.session.scalar(
+            select(func.count())
+            .select_from(note_tags)
+            .where(note_tags.c.tag_id == self.id)
+        ) or 0
+        resource_count = db.session.scalar(
+            select(func.count())
+            .select_from(resource_tags)
+            .where(resource_tags.c.tag_id == self.id)
+        ) or 0
         return {
             "id": self.id,
             "name": self.name,
             "color": self.color,
             "created_at": self.created_at.isoformat(),
             "modified_at": self.modified_at.isoformat(),
-            "note_count": len(self.notes) if self.notes else 0,
+            "note_count": note_count,
+            "resource_count": resource_count,
         }
 
 
@@ -85,14 +173,22 @@ class Project(BaseModel):
     color = Column(String(7), nullable=True)
     deadline = Column(DateTime, nullable=True)
     is_archived = Column(Boolean, default=False)
+    area_id = Column(String(36), ForeignKey("areas.id"), nullable=True)
 
-    notes = relationship("Note", back_populates="project")
+    notes = relationship(
+        "Note",
+        secondary=note_projects,
+        back_populates="projects",
+    )
     tasks = relationship("Task", back_populates="project")
+    area = relationship("Area", back_populates="projects")
 
     def to_dict(self, include_notes=False):
         # Use scalar count queries to avoid loading all related rows
         note_count = db.session.scalar(
-            select(func.count(Note.id)).where(Note.project_id == self.id)
+            select(func.count())
+            .select_from(note_projects)
+            .where(note_projects.c.project_id == self.id)
         ) or 0
         task_count = db.session.scalar(
             select(func.count(Task.id)).where(Task.project_id == self.id)
@@ -105,6 +201,8 @@ class Project(BaseModel):
             "color": self.color,
             "deadline": self.deadline.isoformat() if self.deadline else None,
             "is_archived": self.is_archived,
+            "area_id": self.area_id,
+            "area_name": self.area.name if self.area else None,
             "created_at": self.created_at.isoformat(),
             "modified_at": self.modified_at.isoformat(),
             "note_count": note_count,
@@ -126,10 +224,23 @@ class Area(BaseModel):
     color = Column(String(7), nullable=True)
 
     notes = relationship("Note", back_populates="area")
+    projects = relationship("Project", back_populates="area")
+    tasks = relationship("Task", back_populates="area")
+    resources = relationship("Resource", back_populates="area")
+    summaries = relationship("Summary", back_populates="area")
 
     def to_dict(self, include_notes=False):
         note_count = db.session.scalar(
             select(func.count(Note.id)).where(Note.area_id == self.id)
+        ) or 0
+        project_count = db.session.scalar(
+            select(func.count(Project.id)).where(Project.area_id == self.id)
+        ) or 0
+        task_count = db.session.scalar(
+            select(func.count(Task.id)).where(Task.area_id == self.id)
+        ) or 0
+        resource_count = db.session.scalar(
+            select(func.count(Resource.id)).where(Resource.area_id == self.id)
         ) or 0
         d = {
             "id": self.id,
@@ -139,9 +250,56 @@ class Area(BaseModel):
             "created_at": self.created_at.isoformat(),
             "modified_at": self.modified_at.isoformat(),
             "note_count": note_count,
+            "project_count": project_count,
+            "task_count": task_count,
+            "resource_count": resource_count,
         }
         if include_notes:
             d["notes"] = [n.to_dict() for n in (self.notes or [])]
+        return d
+
+
+# ─── Resources ────────────────────────────────────────────────────────────────
+
+
+class Resource(BaseModel):
+    __tablename__ = "resources"
+
+    title = Column(String(500), nullable=False)
+    resource_type = Column(Enum(ResourceType), nullable=False, default=ResourceType.OTHER)
+    url = Column(String(2048), nullable=True)
+    author = Column(String(255), nullable=True)
+    published_at = Column(DateTime, nullable=True)
+    description = Column(Text, nullable=True)
+    my_notes = Column(Text, nullable=True)
+    is_read = Column(Boolean, default=False)
+    rating = Column(Integer, nullable=True)
+    area_id = Column(String(36), ForeignKey("areas.id"), nullable=True)
+
+    area = relationship("Area", back_populates="resources")
+    tags = relationship("Tag", secondary=resource_tags, back_populates="resources")
+
+    def to_dict(self, include_relations=True):
+        d = {
+            "id": self.id,
+            "title": self.title,
+            "resource_type": self.resource_type.value if self.resource_type else ResourceType.OTHER.value,
+            "url": self.url,
+            "author": self.author,
+            "published_at": self.published_at.isoformat() if self.published_at else None,
+            "description": self.description,
+            "my_notes": self.my_notes,
+            "is_read": bool(self.is_read),
+            "rating": self.rating,
+            "area_id": self.area_id,
+            "tag_ids": [t.id for t in (self.tags or [])],
+            "created_at": self.created_at.isoformat(),
+            "modified_at": self.modified_at.isoformat(),
+        }
+        if include_relations:
+            d["tags"] = [t.to_dict() for t in (self.tags or [])]
+            d["area"] = self.area.to_dict() if self.area else None
+            d["area_name"] = self.area.name if self.area else None
         return d
 
 
@@ -181,6 +339,7 @@ class Note(BaseModel):
 
     raw_text = Column(Text, nullable=False)
     bucket = Column(Enum(BucketType), default=BucketType.INBOX)
+    note_type = Column(Enum(NoteType), default=NoteType.NOTE, nullable=False)
     is_archived = Column(Boolean, default=False)
     ai_meta = Column(JSON, nullable=True)
 
@@ -188,33 +347,68 @@ class Note(BaseModel):
     area_id = Column(String(36), ForeignKey("areas.id"), nullable=True)
     person_id = Column(String(36), ForeignKey("people.id"), nullable=True)
 
-    project = relationship("Project", back_populates="notes")
+    project = relationship(
+        "Project",
+        foreign_keys=[project_id],
+        overlaps="projects,notes",
+    )
+    projects = relationship(
+        "Project",
+        secondary=note_projects,
+        back_populates="notes",
+        overlaps="project",
+    )
     area = relationship("Area", back_populates="notes")
     person = relationship("Person", back_populates="notes")
     tags = relationship("Tag", secondary=note_tags, back_populates="notes")
     chunks = relationship("NoteChunk", back_populates="note", cascade="all, delete-orphan")
     outgoing_links = relationship("Link", foreign_keys="Link.src_id", back_populates="source_note", cascade="all, delete-orphan")
     incoming_links = relationship("Link", foreign_keys="Link.dst_id", back_populates="dest_note")
+    tasks = relationship("Task", back_populates="source_note", foreign_keys="Task.note_id")
+    summaries = relationship(
+        "Summary",
+        back_populates="note",
+        cascade="all, delete-orphan",
+    )
 
     def to_dict(self, include_relations=True):
+        task_count = db.session.scalar(
+            select(func.count(Task.id)).where(Task.note_id == self.id)
+        ) or 0
+        plist = list(self.projects or [])
+        by_id = {p.id: p for p in plist}
+        primary = self.project_id
+        if primary and primary in by_id:
+            ordered = [primary] + sorted(
+                [p.id for p in plist if p.id != primary],
+                key=lambda x: x or "",
+            )
+        else:
+            ordered = sorted(by_id.keys(), key=lambda x: x or "")
         d = {
             "id": self.id,
             "raw_text": self.raw_text,
             "bucket": self.bucket.value if self.bucket else BucketType.INBOX.value,
+            "note_type": self.note_type.value if self.note_type else NoteType.NOTE.value,
             "is_archived": self.is_archived,
             "ai_meta": self.ai_meta,
             "created_at": self.created_at.isoformat(),
             "modified_at": self.modified_at.isoformat(),
             "project_id": self.project_id,
+            "project_ids": ordered,
             "area_id": self.area_id,
             "person_id": self.person_id,
             "tag_ids": [t.id for t in (self.tags or [])],
             "tag_names": [t.name for t in (self.tags or [])],
             "link_count": len(self.outgoing_links) + len(self.incoming_links),
             "backlink_count": len(self.incoming_links),
+            "task_count": task_count,
         }
         if include_relations:
             d["project"] = self.project.to_dict() if self.project else None
+            d["projects"] = [
+                p.to_dict() for pid in ordered if (p := by_id.get(pid))
+            ]
             d["area"] = self.area.to_dict() if self.area else None
             d["person"] = self.person.to_dict() if self.person else None
             d["tags"] = [t.to_dict() for t in (self.tags or [])]
@@ -233,8 +427,14 @@ class Task(BaseModel):
     priority = Column(Enum(Priority), default=Priority.MEDIUM)
     due_date = Column(DateTime, nullable=True)
     project_id = Column(String(36), ForeignKey("projects.id"), nullable=True)
+    area_id = Column(String(36), ForeignKey("areas.id"), nullable=True)
+    note_id = Column(String(36), ForeignKey("notes.id"), nullable=True)
+    # Stable key for markdown checkbox lines (- [ ] / - [x]); only set for extractor-managed tasks
+    inline_title_hash = Column(String(64), nullable=True)
 
     project = relationship("Project", back_populates="tasks")
+    area = relationship("Area", back_populates="tasks")
+    source_note = relationship("Note", back_populates="tasks", foreign_keys=[note_id])
 
     def to_dict(self):
         return {
@@ -245,40 +445,55 @@ class Task(BaseModel):
             "priority": self.priority.value if self.priority else Priority.MEDIUM.value,
             "due_date": self.due_date.isoformat() if self.due_date else None,
             "project_id": self.project_id,
+            "area_id": self.area_id,
+            "area_name": self.area.name if self.area else None,
+            "note_id": self.note_id,
+            "inline_title_hash": self.inline_title_hash,
             "project": self.project.to_dict() if self.project else None,
             "created_at": self.created_at.isoformat(),
             "modified_at": self.modified_at.isoformat(),
         }
 
 
-# ─── WeeklySummaries ────────────────────────────────────────────────────────
+# ─── Summaries ──────────────────────────────────────────────────────────────
 
 
-class WeeklySummary(BaseModel):
-    __tablename__ = "weekly_summaries"
+class Summary(BaseModel):
+    __tablename__ = "summaries"
 
-    entity_type = Column(String(20), nullable=False)
-    entity_id = Column(String(36), nullable=False)
-    entity_name = Column(String(255), nullable=False)
-    week_year = Column(Integer, nullable=False)
-    week_number = Column(Integer, nullable=False)
-    summary_content = Column(Text, nullable=False)
-    note_count = Column(Integer, default=0)
-    token_count = Column(Integer, nullable=True)
-    is_manually_generated = Column(Boolean, default=False)
+    note_id = Column(String(36), ForeignKey("notes.id", ondelete="CASCADE"), nullable=False)
+    area_id = Column(String(36), ForeignKey("areas.id"), nullable=True)
+    summary_text = Column(Text, nullable=False)
+    generated_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    summary_type = Column(String(64), nullable=True)
+    granularity = Column(
+        Enum(SummaryGranularity),
+        default=SummaryGranularity.WEEKLY,
+        nullable=False,
+    )
+    date_from = Column(DateTime, nullable=True)
+    date_to = Column(DateTime, nullable=True)
+    key_themes = Column(JSON, nullable=True)
+    action_items = Column(JSON, nullable=True)
+    entity_type = Column(String(32), nullable=True)
+
+    note = relationship("Note", back_populates="summaries")
+    area = relationship("Area", back_populates="summaries")
 
     def to_dict(self):
         return {
             "id": self.id,
+            "note_id": self.note_id,
+            "area_id": self.area_id,
+            "summary_text": self.summary_text,
+            "generated_at": self.generated_at.isoformat(),
+            "summary_type": self.summary_type,
+            "granularity": self.granularity.value if self.granularity else SummaryGranularity.WEEKLY.value,
+            "date_from": self.date_from.isoformat() if self.date_from else None,
+            "date_to": self.date_to.isoformat() if self.date_to else None,
+            "key_themes": self.key_themes,
+            "action_items": self.action_items,
             "entity_type": self.entity_type,
-            "entity_id": self.entity_id,
-            "entity_name": self.entity_name,
-            "week_year": self.week_year,
-            "week_number": self.week_number,
-            "summary_content": self.summary_content,
-            "note_count": self.note_count,
-            "token_count": self.token_count,
-            "is_manually_generated": self.is_manually_generated,
             "created_at": self.created_at.isoformat(),
             "modified_at": self.modified_at.isoformat(),
         }
@@ -333,6 +548,69 @@ class Link(BaseModel):
             "source": self.source,
             "created_at": self.created_at.isoformat(),
         }
+
+
+# ─── Link proposals (AI-suggested links pending human review) ────────────────
+
+
+class LinkProposal(BaseModel):
+    """
+    Persisted suggestion to link two notes. One row per (src_id, dst_id) pair;
+    dismissed rows block re-insert so pairs are never re-proposed.
+    """
+
+    __tablename__ = "link_proposals"
+    __table_args__ = (UniqueConstraint("src_id", "dst_id", name="uq_link_proposals_src_dst"),)
+
+    src_id = Column(String(36), ForeignKey("notes.id"), nullable=False)
+    dst_id = Column(String(36), ForeignKey("notes.id"), nullable=False)
+    confidence = Column(Float, nullable=False)
+    reason = Column(Text, nullable=True)
+    status = Column(
+        Enum(LinkProposalStatus),
+        nullable=False,
+        default=LinkProposalStatus.PENDING,
+    )
+
+    src_note = relationship("Note", foreign_keys=[src_id])
+    dst_note = relationship("Note", foreign_keys=[dst_id])
+
+    def to_dict(self):
+        st = self.status
+        status_val = st.value if isinstance(st, LinkProposalStatus) else st
+        return {
+            "id": self.id,
+            "src_id": self.src_id,
+            "dst_id": self.dst_id,
+            "from_note_id": self.src_id,
+            "to_note_id": self.dst_id,
+            "confidence": self.confidence,
+            "reason": self.reason,
+            "status": status_val,
+            "created_at": self.created_at.isoformat(),
+            "modified_at": self.modified_at.isoformat(),
+        }
+
+
+def _sync_note_projects_m2m(session, note: Note) -> None:
+    """Align note_projects rows with scalar project_id and collection order."""
+    plist = list(note.projects or [])
+    if plist:
+        first_id = plist[0].id
+        if note.project_id != first_id:
+            note.project_id = first_id
+        return
+    if note.project_id:
+        proj = session.get(Project, note.project_id)
+        if proj is not None:
+            note.projects.append(proj)
+
+
+@event.listens_for(SaSession, "before_flush")
+def _before_flush_note_projects(session, flush_context, instances):
+    for obj in session.new.union(session.dirty):
+        if isinstance(obj, Note):
+            _sync_note_projects_m2m(session, obj)
 
 
 # ─── FTS5 + sqlite-vec initialization ────────────────────────────────────────
