@@ -21,8 +21,12 @@ async function apiRequest(method, path, body = null, params = {}) {
   if (body) opts.body = JSON.stringify(body);
   const res = await fetch(url.toString(), opts);
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(err.error || `HTTP ${res.status}`);
+    const errBody = await res.json().catch(() => ({ error: res.statusText }));
+    const msg = errBody.error || errBody.message || `HTTP ${res.status}`;
+    const err = new Error(msg);
+    err.status = res.status;
+    err.body = errBody;
+    throw err;
   }
   return res.json();
 }

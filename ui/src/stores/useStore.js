@@ -239,7 +239,7 @@ const useStore = create((set, get) => ({
         projects: s.projects.map(p => p.id === id ? updated : p),
         activeProject: s.activeProject?.id === id ? updated : s.activeProject,
       }));
-      return updated;
+      return { project: updated, rollup: res.rollup };
     } catch (e) {
       get().addToast({ type: 'error', message: e.message });
       throw e;

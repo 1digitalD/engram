@@ -10,14 +10,43 @@ import styles from './ProjectFocus.module.css';
 export default function ProjectFocus() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { projects, notes, tasks, people, areas } = useStore();
+  const { projects, notes, tasks, people, areas, updateProject, loadAll } = useStore();
   const [tab, setTab] = useState('notes');
   const [showNoteEditor, setShowNoteEditor] = useState(false);
+  const [completeFlow, setCompleteFlow] = useState(null);
+  const [completing, setCompleting] = useState(false);
 
   const project = projects.find(p => p.id === id);
   if (!project) return <div className={styles.page}><p>Project not found.</p><button type="button" onClick={() => navigate('/projects')}>Back</button></div>;
 
   const parentArea = project.area_id ? areas.find(a => a.id === project.area_id) : null;
+
+  const runComplete = async (rollupConfirmed) => {
+    setCompleting(true);
+    try {
+      const payload = rollupConfirmed
+        ? { is_archived: true, rollup_confirmed: true }
+        : { is_archived: true };
+      await updateProject(id, payload);
+      await loadAll();
+      setCompleteFlow(null);
+      if (parentArea && rollupConfirmed) {
+        navigate(`/areas/${parentArea.id}`);
+      } else {
+        navigate('/projects');
+      }
+    } finally {
+      setCompleting(false);
+    }
+  };
+
+  const onCompleteProjectClick = () => {
+    if (parentArea) {
+      setCompleteFlow('rollup');
+    } else {
+      setCompleteFlow('simple');
+    }
+  };
 
   const projectNotes = notes.filter(n => n.project_id === id);
   const projectTasks = tasks.filter(t => t.project_id === id);
@@ -47,6 +76,16 @@ export default function ProjectFocus() {
         <span className={styles.dot} style={{ background: project.color || 'var(--accent)' }} />
         <h1>{project.name}</h1>
         {project.description && <p className={styles.desc}>{project.description}</p>}
+        <div className={styles.headerActions}>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            data-testid="complete-project-btn"
+            onClick={onCompleteProjectClick}
+          >
+            Complete Project
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -125,6 +164,79 @@ export default function ProjectFocus() {
           onClose={() => setShowNoteEditor(false)}
           onSaved={() => setShowNoteEditor(false)}
         />
+      )}
+
+      {completeFlow && (
+        <div
+          className={styles.completeOverlay}
+          role="presentation"
+          onClick={() => !completing && setCompleteFlow(null)}
+        >
+          <div
+            className={styles.completeDialog}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="complete-project-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="complete-project-title" className={styles.completeTitle}>
+              {completeFlow === 'rollup' ? 'Complete project with rollup' : 'Complete project'}
+            </h2>
+            {completeFlow === 'rollup' ? (
+              <>
+                <p className={styles.completeBody} data-testid="rollup-confirm-copy">
+                  This project lives under <strong>{parentArea?.name}</strong>. Archiving will generate a
+                  retrospective summary note in that area (tagged retrospective and project-complete),
+                  then archive <strong>{project.name}</strong>.
+                </p>
+                <div className={styles.completeActions}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    disabled={completing}
+                    onClick={() => setCompleteFlow(null)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    data-testid="rollup-confirm-submit"
+                    disabled={completing}
+                    onClick={() => runComplete(true)}
+                  >
+                    {completing ? 'Working…' : 'Create retrospective & archive'}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className={styles.completeBody}>
+                  Archive <strong>{project.name}</strong>? You can still find it under archived projects.
+                </p>
+                <div className={styles.completeActions}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    disabled={completing}
+                    onClick={() => setCompleteFlow(null)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    data-testid="archive-only-submit"
+                    disabled={completing}
+                    onClick={() => runComplete(false)}
+                  >
+                    {completing ? 'Working…' : 'Archive project'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

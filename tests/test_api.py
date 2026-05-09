@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 
 from extensions import db
 from models import (
+    Area,
     BucketType,
     Link,
     LinkProposal,
@@ -1222,3 +1223,73 @@ def test_api_v1_metrics_health_from_db(client, app):
     assert data["weekly_capture_rate"] == 1
     assert data["weekly_capture_counts"] == [0, 0, 0, 1]
     assert data["link_proposals_pending"] == 1
+
+
+def test_patch_project_archive_with_area_requires_rollup_confirmation(client, app):
+    with app.app_context():
+        area = Area(name="Work")
+        db.session.add(area)
+        db.session.flush()
+        proj = Project(name="Ship", area_id=area.id, priority=Priority.MEDIUM)
+        db.session.add(proj)
+        db.session.commit()
+        pid = proj.id
+
+    res = client.patch(
+        f"/api/v1/projects/{pid}",
+        data=json.dumps({"is_archived": True}),
+        content_type="application/json",
+    )
+    assert res.status_code == 409
+    body = json.loads(res.data)
+    assert body["code"] == "rollup_confirmation_required"
+    assert body["area_id"]
+
+    with app.app_context():
+        proj = db.session.get(Project, pid)
+        assert proj.is_archived is False
+
+
+def test_patch_project_archive_with_area_rollup_confirmed(client, app):
+    with app.app_context():
+        area = Area(name="Home")
+        db.session.add(area)
+        db.session.flush()
+        proj = Project(name="Empty", area_id=area.id, priority=Priority.MEDIUM)
+        db.session.add(proj)
+        db.session.commit()
+        pid = proj.id
+
+    res = client.patch(
+        f"/api/v1/projects/{pid}",
+        data=json.dumps({"is_archived": True, "rollup_confirmed": True}),
+        content_type="application/json",
+    )
+    assert res.status_code == 200
+    out = json.loads(res.data)
+    assert out["data"]["is_archived"] is True
+    assert out["rollup"]["note_id"]
+
+    with app.app_context():
+        proj = db.session.get(Project, pid)
+        assert proj.is_archived is True
+
+
+def test_patch_project_archive_without_area(client, app):
+    with app.app_context():
+        proj = Project(name="Solo", area_id=None, priority=Priority.MEDIUM)
+        db.session.add(proj)
+        db.session.commit()
+        pid = proj.id
+
+    res = client.patch(
+        f"/api/v1/projects/{pid}",
+        data=json.dumps({"is_archived": True}),
+        content_type="application/json",
+    )
+    assert res.status_code == 200
+    assert json.loads(res.data)["data"]["is_archived"] is True
+
+    with app.app_context():
+        proj = db.session.get(Project, pid)
+        assert proj.is_archived is True

@@ -146,3 +146,39 @@
 }
 .personName { font-size: var(--text-sm); font-weight: 500; color: var(--text-primary); }
 .personRole { font-size: var(--text-xs); color: var(--text-muted); }
+
+.completeOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 8000;
+  padding: var(--space-4);
+}
+.completeDialog {
+  max-width: 420px;
+  width: 100%;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  box-shadow: var(--shadow-lg, 0 12px 40px rgba(0, 0, 0, 0.2));
+}
+.completeTitle {
+  font-size: var(--text-lg);
+  margin: 0 0 var(--space-4);
+  color: var(--text-primary);
+}
+.completeBody {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin: 0 0 var(--space-5);
+}
+.completeActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
