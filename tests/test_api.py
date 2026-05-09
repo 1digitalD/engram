@@ -3,7 +3,18 @@ import os
 from unittest.mock import MagicMock, patch
 
 from extensions import db
-from models import BucketType, Note, Task, TaskStatus, Summary, SummaryGranularity
+from models import (
+    BucketType,
+    Link,
+    LinkProposal,
+    LinkProposalStatus,
+    Note,
+    Summary,
+    SummaryGranularity,
+    Tag,
+    Task,
+    TaskStatus,
+)
 
 
 def test_health(client):
@@ -870,3 +881,104 @@ def test_jobs_summarize_requires_granularity(client, app):
             content_type="application/json",
         )
         assert res.status_code == 400
+
+
+def test_link_proposals_generate_list_accept_and_idempotent_generate(client, app):
+    with app.app_context():
+        tag = Tag(name="proposal-api-shared")
+        note_a = Note(
+            raw_text="quarterly planning themes and roadmap draft for proposal-api-shared",
+            bucket=BucketType.INBOX,
+        )
+        note_b = Note(
+            raw_text="follow up on quarterly planning themes for proposal-api-shared next week",
+            bucket=BucketType.INBOX,
+        )
+        note_a.tags.append(tag)
+        note_b.tags.append(tag)
+        db.session.add_all([tag, note_a, note_b])
+        db.session.commit()
+
+        gen = client.post(
+            "/api/v1/proposals/generate",
+            data=json.dumps({"note_ids": [note_a.id, note_b.id], "min_confidence": 0.35}),
+            content_type="application/json",
+        )
+        assert gen.status_code == 200, gen.data
+        created = json.loads(gen.data)["data"]["created"]
+        assert created >= 1
+
+        lst = client.get("/api/v1/proposals")
+        assert lst.status_code == 200
+        items = json.loads(lst.data)["data"]
+        assert len(items) >= 1
+        pending = [x for x in items if x["status"] == "pending"]
+        assert pending
+        pid = pending[0]["id"]
+
+        acc = client.post(f"/api/v1/proposals/{pid}/accept")
+        assert acc.status_code == 200, acc.data
+        body = json.loads(acc.data)["data"]
+        assert body["proposal"]["status"] == "accepted"
+        assert body["link"] is not None
+        assert body["link"]["source"] == "llm"
+
+        link_rows = Link.query.count()
+        assert link_rows == 1
+
+        gen2 = client.post(
+            "/api/v1/proposals/generate",
+            data=json.dumps({"note_ids": [note_a.id, note_b.id], "min_confidence": 0.35}),
+            content_type="application/json",
+        )
+        assert gen2.status_code == 200
+        assert json.loads(gen2.data)["data"]["created"] == 0
+
+
+def test_link_proposals_dismiss(client, app):
+    with app.app_context():
+        tag = Tag(name="dismiss-tag")
+        a = Note(raw_text="alpha one two three four five six", bucket=BucketType.INBOX)
+        b = Note(raw_text="beta one two three four five seven", bucket=BucketType.INBOX)
+        a.tags.append(tag)
+        b.tags.append(tag)
+        db.session.add_all([tag, a, b])
+        db.session.commit()
+
+        client.post(
+            "/api/v1/proposals/generate",
+            data=json.dumps({"note_ids": [a.id, b.id], "min_confidence": 0.32}),
+            content_type="application/json",
+        )
+        items = json.loads(client.get("/api/v1/proposals").data)["data"]
+        pid = items[0]["id"]
+
+        res = client.post(f"/api/v1/proposals/{pid}/dismiss")
+        assert res.status_code == 200
+        assert json.loads(res.data)["data"]["status"] == "dismissed"
+
+        prop = db.session.get(LinkProposal, pid)
+        assert prop.status == LinkProposalStatus.DISMISSED
+
+        gen = client.post(
+            "/api/v1/proposals/generate",
+            data=json.dumps({"note_ids": [a.id, b.id], "min_confidence": 0.32}),
+            content_type="application/json",
+        )
+        assert json.loads(gen.data)["data"]["created"] == 0
+
+
+def test_link_proposals_list_status_filter_and_invalid(client, app):
+    with app.app_context():
+        res = client.get("/api/v1/proposals?status=not-a-real-status")
+        assert res.status_code == 400
+
+        res = client.get("/api/v1/proposals?status=all")
+        assert res.status_code == 200
+        assert json.loads(res.data)["data"] == []
+
+
+def test_link_proposals_accept_not_found(client, app):
+    with app.app_context():
+        res = client.post("/api/v1/proposals/00000000-0000-0000-0000-000000000000/accept")
+        assert res.status_code == 404

@@ -14,6 +14,7 @@ from . import (
     jobs,
     ingest,
     links,
+    proposals,
     batch,
     daily,
     resources,

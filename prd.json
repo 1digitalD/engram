@@ -55,16 +55,16 @@
       "passes": true,
       "blocked": false,
       "attempts": 1,
-      "commit": null
+      "commit": "c4e60e5"
     },
     {
       "id": "p3-ws2-iter-b-proposals-api",
       "title": "Link proposals API",
       "description": "api/proposals.py: GET /api/v1/proposals (list pending), POST /api/v1/proposals/:id/accept (create link), POST /api/v1/proposals/:id/dismiss. Trigger generation: POST /api/v1/proposals/generate.",
-      "passes": false,
+      "passes": true,
       "blocked": false,
-      "attempts": 0,
-      "commit": null
+      "attempts": 1,
+      "commit": "c4e60e5"
     },
     {
       "id": "p3-ws2-iter-c-ui-proposals-notedetail",

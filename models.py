@@ -2,7 +2,23 @@ import uuid
 from datetime import datetime
 from enum import Enum as PyEnum
 
-from sqlalchemy import Column, String, Text, DateTime, Boolean, ForeignKey, Table, Enum, Integer, Float, func, select, event, or_
+from sqlalchemy import (
+    Column,
+    String,
+    Text,
+    DateTime,
+    Boolean,
+    ForeignKey,
+    Table,
+    Enum,
+    Integer,
+    Float,
+    func,
+    select,
+    event,
+    or_,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Session as SaSession
 from sqlalchemy.dialects.sqlite import JSON
 from sqlalchemy.orm import relationship
@@ -46,6 +62,12 @@ class SummaryGranularity(PyEnum):
     DAILY = "DAILY"
     WEEKLY = "WEEKLY"
     MONTHLY = "MONTHLY"
+
+
+class LinkProposalStatus(PyEnum):
+    PENDING = "pending"
+    ACCEPTED = "accepted"
+    DISMISSED = "dismissed"
 
 
 # Association tables
@@ -513,6 +535,48 @@ class Link(BaseModel):
             "weight": self.weight,
             "source": self.source,
             "created_at": self.created_at.isoformat(),
+        }
+
+
+# ─── Link proposals (AI-suggested links pending human review) ────────────────
+
+
+class LinkProposal(BaseModel):
+    """
+    Persisted suggestion to link two notes. One row per (src_id, dst_id) pair;
+    dismissed rows block re-insert so pairs are never re-proposed.
+    """
+
+    __tablename__ = "link_proposals"
+    __table_args__ = (UniqueConstraint("src_id", "dst_id", name="uq_link_proposals_src_dst"),)
+
+    src_id = Column(String(36), ForeignKey("notes.id"), nullable=False)
+    dst_id = Column(String(36), ForeignKey("notes.id"), nullable=False)
+    confidence = Column(Float, nullable=False)
+    reason = Column(Text, nullable=True)
+    status = Column(
+        Enum(LinkProposalStatus),
+        nullable=False,
+        default=LinkProposalStatus.PENDING,
+    )
+
+    src_note = relationship("Note", foreign_keys=[src_id])
+    dst_note = relationship("Note", foreign_keys=[dst_id])
+
+    def to_dict(self):
+        st = self.status
+        status_val = st.value if isinstance(st, LinkProposalStatus) else st
+        return {
+            "id": self.id,
+            "src_id": self.src_id,
+            "dst_id": self.dst_id,
+            "from_note_id": self.src_id,
+            "to_note_id": self.dst_id,
+            "confidence": self.confidence,
+            "reason": self.reason,
+            "status": status_val,
+            "created_at": self.created_at.isoformat(),
+            "modified_at": self.modified_at.isoformat(),
         }
 
 

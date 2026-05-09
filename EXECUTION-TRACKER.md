@@ -1,6 +1,6 @@
 # Engram Overnight Execution Tracker
 
-Last updated: 2026-05-07
+Last updated: 2026-05-08
 Worktree: `/Volumes/lex1t/dev/shared/repos/engram/.claude/worktrees/reverent-knuth-45dc53`
 Branch: `overhaul/full-implementation-loop`
 
@@ -152,3 +152,5 @@ If the session resets or the gateway restarts:
 - Task `p3-ws1-iter-d-review-view-overhaul`: `Review.jsx` + `Review.module.css` (summaries via `summariesAPI` in `engram.js`) — dynamic Review header for selected granularity/period; date picker with prev/next period; Day/Week/Month control; progressive disclosure (collapsible themes + narrative; narrative defaults closed when themes exist); expandable long narrative; action items list. Quadrants unchanged. Validation: `cd ui && npm install && npm run build` green (chunk warning only); `static/` source-only.
 
 - Task `p3-ws2-iter-a-proposal-generation`: `services/link_proposer.py` with `propose_links()` (semantic via sqlite-vec when not in TESTING, lexical Jaccard fallback, shared entities: area/tags/projects/person, temporal boost; skips existing `Link` rows; canonical from/to by created_at). Tests: `tests/test_link_proposer.py`. `services/embeddings.py`: `from __future__ import annotations` for Python 3.9, skip `embed_note` under `TESTING` (stabilizes pytest with background threads). Validation: `OPENAI_API_KEY=dummy PYTHONPATH=. pytest -q tests/test_phase1_backend_foundation.py tests/test_models.py tests/test_api.py tests/test_link_proposer.py` → 51 passed.
+
+- Task `p3-ws2-iter-b-proposals-api`: `api/proposals.py` registered from `api/__init__.py` — `GET /api/v1/proposals` (pending by default, `?status=` / `?limit=`); `POST /api/v1/proposals/generate` (runs `propose_links`, persists `LinkProposal` rows); `POST /api/v1/proposals/<id>/accept` (creates `related` `Link`, marks accepted); `POST /api/v1/proposals/<id>/dismiss`. Renamed `link_proposer` TypedDict to `ProposedLink` to avoid clashing with `models.LinkProposal`. Tests in `tests/test_api.py`. Validation: `OPENAI_API_KEY=dummy PYTHONPATH=. pytest -q tests/test_phase1_backend_foundation.py tests/test_models.py tests/test_api.py tests/test_link_proposer.py` → 55 passed.

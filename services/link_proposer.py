@@ -27,7 +27,7 @@ _STOPWORDS = frozenset(
 )
 
 
-class LinkProposal(TypedDict):
+class ProposedLink(TypedDict):
     from_note_id: str
     to_note_id: str
     reason: str
@@ -202,7 +202,7 @@ def propose_links(
     semantic_min_similarity: float = 0.72,
     semantic_neighbors: int = 14,
     max_proposals: int = 400,
-) -> list[LinkProposal]:
+) -> list[ProposedLink]:
     """
     Build link proposals for review (does not persist links).
 
@@ -246,7 +246,7 @@ def propose_links(
 
     pair_best_sem = _collect_candidate_pairs(pool, notes_by_id, semantic_min_similarity, semantic_neighbors)
 
-    out: list[LinkProposal] = []
+    out: list[ProposedLink] = []
     for (ida, idb), sem_score in pair_best_sem.items():
         if ida == idb:
             continue
@@ -299,7 +299,7 @@ def propose_links(
         fid, tid = _canonical_direction(na.created_at, na.id, nb.created_at, nb.id)
 
         out.append(
-            LinkProposal(
+            ProposedLink(
                 from_note_id=fid,
                 to_note_id=tid,
                 reason=reason,
