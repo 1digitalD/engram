@@ -6,9 +6,13 @@ import EmptyState from '../components/ui/EmptyState';
 import { linksAPI } from '../api/engram';
 import {
   clusterAppearanceForGraphNode,
+  heatMapNodeColors,
+  heatMapRadiusScale,
   isDailyNote,
   knowledgeLinkStrokeColor,
   KNOWLEDGE_LINK_COLORS,
+  maxNoteHeatActivity,
+  noteActivityForHeatMap,
   STRUCTURAL_LINK_COLOR,
   strokeWidthForKnowledgeWeight,
   hullPathFromXY,
@@ -73,6 +77,7 @@ export default function Graph() {
   const [selected, setSelected] = useState(null);
   const [graphLinks, setGraphLinks] = useState([]);
   const [clusterMode, setClusterMode] = useState('none');
+  const [heatMapEnabled, setHeatMapEnabled] = useState(false);
 
   const lookups = useMemo(
     () => ({
@@ -167,6 +172,9 @@ export default function Graph() {
 
     const nodeIds = new Set(nodes.map((n) => n.id));
 
+    const heatMax = heatMapEnabled ? maxNoteHeatActivity(notes, graphLinks) : 1;
+    const heatAccent = TYPE_COLORS.note;
+
     const links = [];
 
     notes.forEach((n) => {
@@ -233,7 +241,20 @@ export default function Graph() {
       )
       .force('charge', d3.forceManyBody().strength(-220))
       .force('center', d3.forceCenter(width / 2, height / 2))
-      .force('collision', d3.forceCollide(22));
+      .force(
+        'collision',
+        d3.forceCollide((d) => {
+          if (heatMapEnabled && (d.type === 'note' || d.type === 'daily')) {
+            const act = noteActivityForHeatMap(d.data, graphLinks);
+            const sc = heatMapRadiusScale(act, heatMax);
+            return 14 * sc + 10;
+          }
+          if (d.type === 'resource') return 14;
+          if (d.type === 'person') return 14;
+          if (d.type === 'area') return 16;
+          return 18;
+        }),
+      );
 
     if (clusterMode !== 'none') {
       simulation.force('cluster', clusterPullForceFactory());
@@ -286,8 +307,17 @@ export default function Graph() {
 
     node.each(function (d) {
       const el = d3.select(this);
-      const color = TYPE_COLORS[d.type] || '#888';
-      const r = d.type === 'note' || d.type === 'daily' ? 6 : d.type === 'person' ? 8 : 10;
+      let fill = TYPE_COLORS[d.type] || '#888';
+      let stroke = fill;
+      let r = d.type === 'note' || d.type === 'daily' ? 6 : d.type === 'person' ? 8 : 10;
+      if (heatMapEnabled && (d.type === 'note' || d.type === 'daily')) {
+        const act = noteActivityForHeatMap(d.data, graphLinks);
+        const sc = heatMapRadiusScale(act, heatMax);
+        r *= sc;
+        const hm = heatMapNodeColors(act, heatMax, heatAccent);
+        fill = hm.fill;
+        stroke = hm.stroke;
+      }
 
       if (d.type === 'resource') {
         el.append('rect')
@@ -296,16 +326,16 @@ export default function Graph() {
           .attr('width', 14)
           .attr('height', 14)
           .attr('rx', 1)
-          .attr('fill', color)
+          .attr('fill', fill)
           .attr('fill-opacity', 0.45)
-          .attr('stroke', color)
+          .attr('stroke', stroke)
           .attr('stroke-width', 1.5);
       } else if (d.type === 'daily') {
         el.append('circle')
           .attr('r', r + 1)
-          .attr('fill', color)
-          .attr('fill-opacity', 0.12)
-          .attr('stroke', color)
+          .attr('fill', fill)
+          .attr('fill-opacity', heatMapEnabled ? 0.22 : 0.12)
+          .attr('stroke', stroke)
           .attr('stroke-width', 1);
         el.append('text')
           .attr('text-anchor', 'middle')
@@ -316,16 +346,16 @@ export default function Graph() {
       } else if (d.type === 'note') {
         el.append('circle')
           .attr('r', r)
-          .attr('fill', color)
+          .attr('fill', fill)
           .attr('fill-opacity', 0.5)
-          .attr('stroke', color)
+          .attr('stroke', stroke)
           .attr('stroke-width', 1.5);
       } else if (d.type === 'person') {
         el.append('polygon')
           .attr('points', '0,-8 7,4 -7,4')
-          .attr('fill', color)
+          .attr('fill', fill)
           .attr('fill-opacity', 0.5)
-          .attr('stroke', color)
+          .attr('stroke', stroke)
           .attr('stroke-width', 1.5);
       } else if (d.type === 'area') {
         el.append('rect')
@@ -334,9 +364,9 @@ export default function Graph() {
           .attr('width', 16)
           .attr('height', 16)
           .attr('transform', 'rotate(45)')
-          .attr('fill', color)
+          .attr('fill', fill)
           .attr('fill-opacity', 0.3)
-          .attr('stroke', color)
+          .attr('stroke', stroke)
           .attr('stroke-width', 1.5)
           .attr('rx', 2);
       } else {
@@ -346,9 +376,9 @@ export default function Graph() {
           .attr('width', 20)
           .attr('height', 14)
           .attr('rx', 4)
-          .attr('fill', color)
+          .attr('fill', fill)
           .attr('fill-opacity', 0.3)
-          .attr('stroke', color)
+          .attr('stroke', stroke)
           .attr('stroke-width', 1.5);
       }
     });
@@ -381,7 +411,7 @@ export default function Graph() {
     });
 
     return () => simulation.stop();
-  }, [notes, projects, areas, people, resources, graphLinks, clusterMode, lookups]);
+  }, [notes, projects, areas, people, resources, graphLinks, clusterMode, heatMapEnabled, lookups]);
 
   const goToNode = (d) => {
     if (!d?.data) return;
@@ -424,6 +454,16 @@ export default function Graph() {
               <option value="area">Area</option>
               <option value="tag">Tag</option>
             </select>
+            <label className={styles.heatMapToggle}>
+              <input
+                id="graph-heat-map"
+                type="checkbox"
+                checked={heatMapEnabled}
+                onChange={(e) => setHeatMapEnabled(e.target.checked)}
+                aria-label="Activity heat map"
+              />
+              Activity heat map
+            </label>
           </div>
           <div className={styles.legendWrap}>
             <div className={styles.legend}>

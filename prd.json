@@ -319,9 +319,10 @@
       "validationCommands": [
         "cd ui && npm test -- --testPathPattern=Graph"
       ],
-      "status": "pending",
-      "passes": false,
-      "attempts": 0
+      "status": "done",
+      "passes": true,
+      "attempts": 1,
+      "commit": "ee0d924"
     },
     {
       "id": "p5-ws1-iter-d-graph-search-filter",

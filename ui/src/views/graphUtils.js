@@ -124,6 +124,71 @@ export function hullPathFromXY(points, padding = 38) {
 /** Toggle values for Graph cluster hull + weak force grouping */
 export const GRAPH_CLUSTER_MODES = ['none', 'project', 'area', 'tag'];
 
+/** Count knowledge graph links pointing to a note (incoming / backlinks). */
+export function incomingKnowledgeBacklinkCount(noteId, graphLinks) {
+  if (noteId == null || !Array.isArray(graphLinks)) return 0;
+  const id = String(noteId);
+  let n = 0;
+  for (const l of graphLinks) {
+    if (l && String(l.dst_id) === id) n += 1;
+  }
+  return n;
+}
+
+/**
+ * Activity score for heat map: prefer API `backlink_count`, else derive from `graphLinks`.
+ */
+export function noteActivityForHeatMap(note, graphLinks) {
+  if (!note) return 0;
+  const api = Number(note.backlink_count);
+  if (Number.isFinite(api) && api >= 0) return Math.floor(api);
+  return incomingKnowledgeBacklinkCount(note.id, graphLinks);
+}
+
+const HEAT_MAP_GREY = '#9CA3AF';
+
+function hexToRgb(hex) {
+  const m = typeof hex === 'string' && /^#([0-9A-Fa-f]{6})$/.exec(hex.trim());
+  if (!m) return null;
+  const v = parseInt(m[1], 16);
+  return { r: (v >> 16) & 255, g: (v >> 8) & 255, b: v & 255 };
+}
+
+/**
+ * Fill + stroke for heat-mapped note nodes: grey at low activity → accent at high.
+ */
+export function heatMapNodeColors(activity, maxActivity, accentHex = '#7C6AFF') {
+  const max = Math.max(1, Number(maxActivity) || 1);
+  const t = Math.min(1, Math.max(0, (Number(activity) || 0) / max));
+  const g = hexToRgb(HEAT_MAP_GREY);
+  const a = hexToRgb(accentHex) || hexToRgb('#7C6AFF');
+  if (!g || !a) return { fill: HEAT_MAP_GREY, stroke: HEAT_MAP_GREY };
+  const r = Math.round(g.r + (a.r - g.r) * t);
+  const gr = Math.round(g.g + (a.g - g.g) * t);
+  const b = Math.round(g.b + (a.b - g.b) * t);
+  const fill = `rgb(${r},${gr},${b})`;
+  const stroke = `rgb(${Math.max(0, r - 40)},${Math.max(0, gr - 35)},${Math.max(0, b - 20)})`;
+  return { fill, stroke };
+}
+
+/** Multiplier for base node radius (1 at zero activity, up to maxScale at max activity). */
+export function heatMapRadiusScale(activity, maxActivity, minScale = 1, maxScale = 2.35) {
+  const max = Math.max(1, Number(maxActivity) || 1);
+  const t = Math.min(1, Math.max(0, (Number(activity) || 0) / max));
+  return minScale + (maxScale - minScale) * t;
+}
+
+/** Max heat value across notes (for normalization); at least 1. */
+export function maxNoteHeatActivity(notes, graphLinks) {
+  if (!Array.isArray(notes) || notes.length === 0) return 1;
+  let m = 0;
+  for (const n of notes) {
+    const a = noteActivityForHeatMap(n, graphLinks);
+    if (a > m) m = a;
+  }
+  return Math.max(1, m);
+}
+
 /**
  * Graph node summary shape: `{ type: string, data: object }`.
  * Returns hull key + fill/stroke color (hex or hsl) for clustered layout.

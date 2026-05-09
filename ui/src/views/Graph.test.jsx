@@ -14,6 +14,11 @@ import {
   clusterAppearanceForGraphNode,
   coerceHexColor,
   GRAPH_CLUSTER_MODES,
+  incomingKnowledgeBacklinkCount,
+  noteActivityForHeatMap,
+  heatMapNodeColors,
+  heatMapRadiusScale,
+  maxNoteHeatActivity,
 } from './graphUtils';
 
 vi.mock('../stores/useStore');
@@ -113,6 +118,27 @@ describe('graphUtils', () => {
     expect(GRAPH_CLUSTER_MODES).toContain('tag');
     expect(GRAPH_CLUSTER_MODES).toContain('none');
   });
+
+  it('counts incoming knowledge links and heat map derivations', () => {
+    const links = [
+      { src_id: 'a', dst_id: 'n1', link_type: 'related' },
+      { src_id: 'b', dst_id: 'n1', link_type: 'mentions' },
+      { src_id: 'n1', dst_id: 'c', link_type: 'related' },
+    ];
+    expect(incomingKnowledgeBacklinkCount('n1', links)).toBe(2);
+    expect(noteActivityForHeatMap({ id: 'n1', backlink_count: 5 }, links)).toBe(5);
+    expect(noteActivityForHeatMap({ id: 'n1' }, links)).toBe(2);
+
+    expect(maxNoteHeatActivity([{ id: 'a' }, { id: 'b', backlink_count: 3 }], links)).toBe(3);
+
+    const low = heatMapNodeColors(0, 4, '#7C6AFF');
+    const high = heatMapNodeColors(4, 4, '#7C6AFF');
+    expect(low.fill).toContain('rgb');
+    expect(high.fill).not.toBe(low.fill);
+
+    expect(heatMapRadiusScale(0, 10)).toBe(1);
+    expect(heatMapRadiusScale(10, 10)).toBeGreaterThan(1);
+  });
 });
 
 describe('Graph', () => {
@@ -196,5 +222,21 @@ describe('Graph', () => {
     expect(sel).toHaveValue('tag');
     fireEvent.change(sel, { target: { value: 'none' } });
     expect(sel).toHaveValue('none');
+  });
+
+  it('offers Activity heat map toggle', () => {
+    vi.mocked(useStore).mockReturnValue({
+      notes: [{ id: 'n1', raw_text: 'Hi', bucket: 'INBOX', project_id: null, area_id: null, person_id: null }],
+      projects: [],
+      areas: [],
+      people: [],
+      resources: [],
+      tags: [],
+    });
+    renderGraph();
+    const box = screen.getByRole('checkbox', { name: /activity heat map/i });
+    expect(box).not.toBeChecked();
+    fireEvent.click(box);
+    expect(box).toBeChecked();
   });
 });
