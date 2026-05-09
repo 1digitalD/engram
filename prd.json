@@ -70,9 +70,9 @@
       "id": "p3-ws2-iter-c-ui-proposals-notedetail",
       "title": "Proposals in NoteDetailView",
       "description": "NoteDetailView: show proposed links panel with accept/dismiss. Show confirmed links with backlinks.",
-      "passes": false,
+      "passes": true,
       "blocked": false,
-      "attempts": 0,
+      "attempts": 1,
       "commit": null
     },
     {

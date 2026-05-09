@@ -4,10 +4,10 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {
   ArrowLeft, Edit2, Loader2, Trash2, Tag, User, FolderOpen, Map,
-  Link2, CheckCircle, Circle, X,
+  Link2, CheckCircle, Circle, X, Sparkles,
 } from 'lucide-react';
 import useStore from '../stores/useStore';
-import { linksAPI } from '../api/engram';
+import { linksAPI, proposalsAPI } from '../api/engram';
 import { BucketBadge, TagBadge } from '../components/ui/Badge';
 import styles from './NoteDetailView.module.css';
 
@@ -43,6 +43,10 @@ export default function NoteDetailView() {
   const [linkPick, setLinkPick] = useState('');
   const [linkBusy, setLinkBusy] = useState(false);
 
+  const [proposals, setProposals] = useState([]);
+  const [proposalsLoading, setProposalsLoading] = useState(false);
+  const [proposalActionId, setProposalActionId] = useState(null);
+
   const [newTaskTitle, setNewTaskTitle] = useState('');
 
   const note = notes.find(n => n.id === id);
@@ -63,9 +67,27 @@ export default function NoteDetailView() {
     }
   }, [note?.id, addToast]);
 
+  const loadProposals = useCallback(async () => {
+    if (!note?.id) return;
+    setProposalsLoading(true);
+    try {
+      const res = await proposalsAPI.list({ status: 'pending', note_id: note.id, limit: 100 });
+      setProposals(res.data || []);
+    } catch (e) {
+      addToast({ type: 'error', message: e.message || 'Failed to load link proposals' });
+      setProposals([]);
+    } finally {
+      setProposalsLoading(false);
+    }
+  }, [note?.id, addToast]);
+
   useEffect(() => {
     loadLinks();
   }, [loadLinks]);
+
+  useEffect(() => {
+    loadProposals();
+  }, [loadProposals]);
 
   useEffect(() => {
     if (!isEditing) setDraftText(note?.raw_text || '');
@@ -164,6 +186,34 @@ export default function NoteDetailView() {
       addToast({ type: 'error', message: e.message || 'Could not add link' });
     } finally {
       setLinkBusy(false);
+    }
+  };
+
+  const handleAcceptProposal = async (proposalId) => {
+    if (proposalActionId) return;
+    setProposalActionId(proposalId);
+    try {
+      await proposalsAPI.accept(proposalId);
+      addToast({ type: 'success', message: 'Link accepted' });
+      await Promise.all([loadLinks(), loadProposals()]);
+    } catch (e) {
+      addToast({ type: 'error', message: e.message || 'Could not accept proposal' });
+    } finally {
+      setProposalActionId(null);
+    }
+  };
+
+  const handleDismissProposal = async (proposalId) => {
+    if (proposalActionId) return;
+    setProposalActionId(proposalId);
+    try {
+      await proposalsAPI.dismiss(proposalId);
+      addToast({ type: 'success', message: 'Suggestion dismissed' });
+      await loadProposals();
+    } catch (e) {
+      addToast({ type: 'error', message: e.message || 'Could not dismiss proposal' });
+    } finally {
+      setProposalActionId(null);
     }
   };
 
@@ -320,9 +370,66 @@ export default function NoteDetailView() {
             <h2 className={styles.panelTitle}>
               <Link2 size={14} /> Links &amp; backlinks
             </h2>
+            <div className={styles.proposedSection}>
+              <span className={styles.linkHeading}>
+                <Sparkles size={12} aria-hidden />
+                Suggested links
+              </span>
+              {proposalsLoading ? (
+                <p className={styles.panelMuted}>
+                  <Loader2 size={14} className="spin" /> Loading suggestions…
+                </p>
+              ) : proposals.length === 0 ? (
+                <p className={styles.panelMuted}>No pending suggestions for this note.</p>
+              ) : (
+                <ul className={styles.proposalList}>
+                  {proposals.map((p) => {
+                    const otherId = p.src_id === note.id ? p.dst_id : p.src_id;
+                    const other = resolveNote(otherId);
+                    const busy = proposalActionId === p.id;
+                    return (
+                      <li key={p.id} className={styles.proposalRow}>
+                        <div className={styles.proposalMain}>
+                          <Link to={`/notes/${otherId}`}>
+                            {notePreviewLine(other) || `Note ${String(otherId).slice(0, 8)}…`}
+                          </Link>
+                          <span className={styles.proposalConf}>
+                            {Math.round((p.confidence ?? 0) * 100)}% match
+                          </span>
+                          {p.reason ? (
+                            <p className={styles.proposalReason}>{p.reason}</p>
+                          ) : null}
+                        </div>
+                        <div className={styles.proposalActions}>
+                          <button
+                            type="button"
+                            className="btn btn-primary btn-sm"
+                            onClick={() => handleAcceptProposal(p.id)}
+                            disabled={busy}
+                            title="Accept and create link"
+                          >
+                            {busy ? <Loader2 size={13} className="spin" /> : <CheckCircle size={13} />}
+                            Accept
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm"
+                            onClick={() => handleDismissProposal(p.id)}
+                            disabled={busy}
+                            title="Dismiss suggestion"
+                          >
+                            Dismiss
+                          </button>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
             {linksLoading ? (
               <p className={styles.panelMuted}>
-                <Loader2 size={14} className="spin" /> Loading…
+                <Loader2 size={14} className="spin" /> Loading confirmed links…
               </p>
             ) : (
               <>

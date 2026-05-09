@@ -110,6 +110,14 @@ export const linksAPI = {
   related:   (id, limit) => apiRequest('GET', `/notes/${id}/related`, null, { limit }),
 };
 
+// ── Link proposals (AI-suggested, review → link) ──
+export const proposalsAPI = {
+  list:    (params = {}) => apiRequest('GET', '/proposals', null, params),
+  generate: (data = {})  => apiRequest('POST', '/proposals/generate', data),
+  accept:   (id)        => apiRequest('POST', `/proposals/${id}/accept`),
+  dismiss:  (id)        => apiRequest('POST', `/proposals/${id}/dismiss`),
+};
+
 // ── Summaries (progressive rollup + review) ─
 export const summariesAPI = {
   list: (params = {}) => apiRequest('GET', '/summaries', null, params),

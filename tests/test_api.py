@@ -978,6 +978,40 @@ def test_link_proposals_list_status_filter_and_invalid(client, app):
         assert json.loads(res.data)["data"] == []
 
 
+def test_link_proposals_list_filter_by_note_id(client, app):
+    with app.app_context():
+        tag = Tag(name="note-filter-prop")
+        a = Note(raw_text="note filter alpha proposal shared tag x9", bucket=BucketType.INBOX)
+        b = Note(raw_text="note filter beta proposal shared tag x9", bucket=BucketType.INBOX)
+        c = Note(raw_text="note filter gamma unrelated lone", bucket=BucketType.INBOX)
+        a.tags.append(tag)
+        b.tags.append(tag)
+        db.session.add_all([tag, a, b, c])
+        db.session.commit()
+
+        client.post(
+            "/api/v1/proposals/generate",
+            data=json.dumps({"note_ids": [a.id, b.id, c.id], "min_confidence": 0.28}),
+            content_type="application/json",
+        )
+        all_pending = json.loads(client.get("/api/v1/proposals?status=pending").data)["data"]
+        assert len(all_pending) >= 1
+
+        for_a = json.loads(
+            client.get(f"/api/v1/proposals?status=pending&note_id={a.id}").data
+        )["data"]
+        assert for_a
+        assert all(
+            x["src_id"] == a.id or x["dst_id"] == a.id for x in for_a
+        )
+        for_c = json.loads(
+            client.get(f"/api/v1/proposals?status=pending&note_id={c.id}").data
+        )["data"]
+        assert all(
+            x["src_id"] == c.id or x["dst_id"] == c.id for x in for_c
+        )
+
+
 def test_link_proposals_accept_not_found(client, app):
     with app.app_context():
         res = client.post("/api/v1/proposals/00000000-0000-0000-0000-000000000000/accept")

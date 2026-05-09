@@ -43,6 +43,15 @@ def list_link_proposals():
         except ValueError:
             return jsonify({"error": f"invalid status: {status_arg}"}), 400
 
+    note_id = (request.args.get("note_id") or "").strip()
+    if note_id:
+        q = q.filter(
+            or_(
+                LinkProposal.src_id == note_id,
+                LinkProposal.dst_id == note_id,
+            )
+        )
+
     rows = (
         q.order_by(LinkProposal.created_at.asc())
         .limit(limit)
