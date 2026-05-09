@@ -102,7 +102,7 @@
       "status": "done",
       "passes": true,
       "attempts": 1,
-      "commit": "f96982d"
+      "commit": "1703768"
     },
     {
       "id": "p4-ws1-iter-b-orphan-note-review",
@@ -122,7 +122,7 @@
       "status": "done",
       "passes": true,
       "attempts": 1,
-      "commit": "9c8318c"
+      "commit": "1703768"
     },
     {
       "id": "p4-ws1-iter-c-weekly-digest-card",
@@ -142,7 +142,7 @@
       "status": "done",
       "passes": true,
       "attempts": 1,
-      "commit": "855b984"
+      "commit": "1703768"
     },
     {
       "id": "p4-ws2-iter-a-health-metrics-api",
