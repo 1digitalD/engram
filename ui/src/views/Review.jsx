@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Calendar,
   Inbox,
@@ -16,6 +16,8 @@ import {
   LayoutGrid,
   FileWarning,
   RotateCcw,
+  Archive,
+  ExternalLink,
 } from 'lucide-react';
 import useStore from '../stores/useStore';
 import { summariesAPI, proposalsAPI } from '../api/engram';
@@ -216,7 +218,8 @@ function WorkflowStepPanel({ stepIndex, step, flow, patchFlow, eyebrow, badge, c
   );
 }
 export default function Review() {
-  const { notes, tasks, projects, areas, addToast } = useStore();
+  const navigate = useNavigate();
+  const { notes, tasks, projects, areas, addToast, updateNote } = useStore();
   const {
     state: reviewFlow,
     setState: setReviewFlow,
@@ -236,16 +239,21 @@ export default function Review() {
 
   const orphanNotes = useMemo(
     () =>
-      notes.filter(
-        (n) =>
-          !n.is_archived &&
-          !n.person_id &&
-          n.bucket !== 'INBOX' &&
-          !(n.project_id || ((n.project_ids?.length ?? 0) > 0)) &&
-          !n.area_id
-      ),
+      notes.filter((n) => {
+        if (n.is_archived) return false;
+        if (n.bucket === 'INBOX') return false;
+        const linkTotal = Number(n.link_count) || 0;
+        if (linkTotal !== 0) return false;
+        const hasProject = !!(n.project_id || (n.project_ids?.length ?? 0) > 0);
+        if (hasProject) return false;
+        if (n.area_id) return false;
+        return true;
+      }),
     [notes]
   );
+  const [orphanRowBusyId, setOrphanRowBusyId] = useState(null);
+  const [orphanBulkBusy, setOrphanBulkBusy] = useState(false);
+
   const [granularity, setGranularity] = useState('WEEKLY');
   const [anchorDate, setAnchorDate] = useState(() => isoDateLocal());
 
@@ -379,6 +387,68 @@ export default function Review() {
     await runProposalActions(ids, 'accept');
     clearProposalSelection();
     setProposalBulkBusy(false);
+  };
+
+  const handleOrphanProjectChange = async (noteId, projectId) => {
+    if (orphanBulkBusy || orphanRowBusyId) return;
+    setOrphanRowBusyId(noteId);
+    try {
+      await updateNote(noteId, { project_id: projectId || null });
+    } finally {
+      setOrphanRowBusyId(null);
+    }
+  };
+
+  const handleOrphanAreaChange = async (noteId, areaId) => {
+    if (orphanBulkBusy || orphanRowBusyId) return;
+    setOrphanRowBusyId(noteId);
+    try {
+      await updateNote(noteId, { area_id: areaId || null });
+    } finally {
+      setOrphanRowBusyId(null);
+    }
+  };
+
+  const handleOrphanArchiveOne = async (noteId) => {
+    if (orphanBulkBusy || orphanRowBusyId) return;
+    setOrphanRowBusyId(noteId);
+    try {
+      await updateNote(noteId, { is_archived: true });
+    } finally {
+      setOrphanRowBusyId(null);
+    }
+  };
+
+  const handleBulkArchiveOrphans = async () => {
+    if (orphanNotes.length === 0 || orphanBulkBusy) return;
+    const msg = `Archive all ${orphanNotes.length} orphan note${orphanNotes.length === 1 ? '' : 's'}? They will leave active lists.`;
+    if (!window.confirm(msg)) return;
+    setOrphanBulkBusy(true);
+    const ids = orphanNotes.map((n) => n.id);
+    let ok = 0;
+    let firstErr = null;
+    for (const id of ids) {
+      try {
+        await updateNote(id, { is_archived: true }, { silent: true });
+        ok += 1;
+      } catch (e) {
+        firstErr = e;
+        break;
+      }
+    }
+    setOrphanBulkBusy(false);
+    if (firstErr) {
+      addToast({
+        type: 'error',
+        message: firstErr.message || `Archived ${ok} notes, then an error occurred`,
+      });
+    } else {
+      addToast({
+        type: 'success',
+        message:
+          ok === 1 ? 'Archived 1 orphan note' : `Archived ${ok} orphan notes`,
+      });
+    }
   };
 
   const loadSummaries = useCallback(async () => {
@@ -613,22 +683,111 @@ export default function Review() {
           flow={reviewFlow}
           patchFlow={setReviewFlow}
           badge={orphanNotes.length}
-          eyebrow="No project · no area · not inbox"
+          eyebrow="0 links · no project · no area · not inbox"
         >
           <p className={styles.workflowLead}>
-            Notes lacking project &amp; area placement — skim here, then deepen from note detail where needed.
+            Notes with no graph links and no project or area — assign context, open links on the note,
+            or archive if obsolete.
           </p>
           {orphanNotes.length === 0 ? (
-            <p className={styles.empty}>No orphan notes matched this heuristic.</p>
+            <p className={styles.empty}>No orphan notes right now.</p>
           ) : (
-            <div className={styles.noteList}>
-              {orphanNotes.slice(0, 10).map((n) => (
-                <NoteCard key={n.id} note={n} />
-              ))}
-              {orphanNotes.length > 10 ? (
-                <p className={styles.summaryMuted}>+ {orphanNotes.length - 10} more orphans</p>
-              ) : null}
-            </div>
+            <>
+              <div className={styles.orphanToolbar}>
+                <button
+                  type="button"
+                  className={styles.proposalsToolbarBtnMuted}
+                  disabled={orphanBulkBusy || !!orphanRowBusyId}
+                  onClick={handleBulkArchiveOrphans}
+                >
+                  {orphanBulkBusy ? (
+                    <Loader2 size={14} className="spin" aria-hidden />
+                  ) : (
+                    <Archive size={14} aria-hidden />
+                  )}
+                  Archive all orphans
+                </button>
+              </div>
+              <ul className={styles.orphanList} aria-label="Orphan notes">
+                {orphanNotes.map((n) => {
+                  const rowBusy = orphanRowBusyId === n.id;
+                  const disabled = orphanBulkBusy || (!!orphanRowBusyId && !rowBusy);
+                  const projVal =
+                    (Array.isArray(n.project_ids) && n.project_ids[0]) || n.project_id || '';
+                  return (
+                    <li key={n.id} className={styles.orphanRow}>
+                      <Link to={`/notes/${n.id}`} className={styles.orphanTitle}>
+                        {notePreviewLine(n)}
+                      </Link>
+                      <div className={styles.orphanControls}>
+                        <label className={styles.orphanField}>
+                          <span className={styles.orphanFieldLabel}>Project</span>
+                          <select
+                            className={styles.orphanSelect}
+                            value={projVal}
+                            disabled={disabled}
+                            aria-label={`Assign project for note ${notePreviewLine(n)}`}
+                            onChange={(e) =>
+                              handleOrphanProjectChange(n.id, e.target.value || null)
+                            }
+                          >
+                            <option value="">—</option>
+                            {activeProjects.map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.name || 'Untitled'}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className={styles.orphanField}>
+                          <span className={styles.orphanFieldLabel}>Area</span>
+                          <select
+                            className={styles.orphanSelect}
+                            value={n.area_id || ''}
+                            disabled={disabled}
+                            aria-label={`Assign area for note ${notePreviewLine(n)}`}
+                            onChange={(e) =>
+                              handleOrphanAreaChange(n.id, e.target.value || null)
+                            }
+                          >
+                            <option value="">—</option>
+                            {activeAreas.map((a) => (
+                              <option key={a.id} value={a.id}>
+                                {a.name || 'Untitled'}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <div className={styles.orphanRowActions}>
+                          <button
+                            type="button"
+                            className={styles.proposalsToolbarBtn}
+                            disabled={disabled}
+                            onClick={() => navigate(`/notes/${n.id}`)}
+                          >
+                            <ExternalLink size={14} aria-hidden />
+                            Quick link
+                          </button>
+                          <button
+                            type="button"
+                            className={styles.proposalsToolbarBtnMuted}
+                            disabled={disabled}
+                            onClick={() => handleOrphanArchiveOne(n.id)}
+                          >
+                            {rowBusy ? (
+                              <Loader2 size={14} className="spin" aria-hidden />
+                            ) : (
+                              <Archive size={14} aria-hidden />
+                            )}
+                            Archive
+                          </button>
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
           )}
         </WorkflowStepPanel>
 

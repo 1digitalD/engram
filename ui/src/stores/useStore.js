@@ -171,7 +171,8 @@ const useStore = create((set, get) => ({
     }
   },
 
-  updateNote: async (id, data) => {
+  updateNote: async (id, data, opts = {}) => {
+    const { silent } = opts;
     try {
       const res = await notesAPI.update(id, data);
       const updated = res.data;
@@ -179,7 +180,7 @@ const useStore = create((set, get) => ({
         notes: s.notes.map(n => n.id === id ? updated : n),
         activeNote: s.activeNote?.id === id ? updated : s.activeNote,
       }));
-      get().addToast({ type: 'success', message: 'Note updated' });
+      if (!silent) get().addToast({ type: 'success', message: 'Note updated' });
       return updated;
     } catch (e) {
       get().addToast({ type: 'error', message: e.message });
