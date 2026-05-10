@@ -14,6 +14,11 @@ def load_sqlite_extensions(db_instance):
             dbapi_conn.enable_load_extension(True)
             sqlite_vec.load(dbapi_conn)
             dbapi_conn.enable_load_extension(False)
-        except Exception:
-            # sqlite-vec not installed — vector search disabled gracefully
+        except ModuleNotFoundError:
+            # sqlite-vec not installed in this environment — vector search disabled gracefully
             pass
+        except Exception as e:
+            # sqlite-vec may fail if the shared library doesn't support extension loading
+            # gracefully degrade to FTS5-only search
+            import logging
+            logging.getLogger(__name__).debug(f"sqlite-vec not available: {e}")
