@@ -32,8 +32,6 @@ Design reference: Linear meets Roam Research — the spatial clarity and keyboar
 --accent-blue:   #60A5FA   (blue — info, resources)
 
 --bucket-inbox:  #7C6AFF
---bucket-projects:#4ADE80
---bucket-areas:  #60A5FA
 --bucket-resources:#FBBF24
 --bucket-archives:#55556A
 ```

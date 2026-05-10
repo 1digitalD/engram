@@ -10,7 +10,9 @@ const BUCKET_LABELS = {
 };
 
 export function BucketBadge({ bucket }) {
-  if (!bucket) return null;
+  // Only show badge for RESOURCE and ARCHIVE — INBOX is the implicit default
+  // (notes without entity links default to INBOX)
+  if (!bucket || bucket === 'INBOX' || bucket === 'PROJECTS' || bucket === 'AREAS') return null;
   return (
     <span className={`${styles.badge} ${styles[`bucket${bucket.charAt(0) + bucket.slice(1).toLowerCase()}`] || styles.default}`}>
       {BUCKET_LABELS[bucket] || bucket}

@@ -1,61 +1,67 @@
 import React, { useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { Loader2, Sparkles, X } from 'lucide-react';
+import { Loader2, Sparkles, X, Check, ChevronDown } from 'lucide-react';
 import remarkGfm from 'remark-gfm';
 import Modal from '../ui/Modal';
 import useStore from '../../stores/useStore';
 import styles from './NoteEditor.module.css';
 
-const BUCKETS = ['INBOX', 'PROJECTS', 'AREAS', 'RESOURCES', 'ARCHIVES'];
-const BUCKET_LABELS = {
-  INBOX:     'Inbox',
-  PROJECTS:  'Projects',
-  AREAS:     'Areas',
-  RESOURCES: 'Resources',
-  ARCHIVES:  'Archives',
-};
-
-function initialProjectIds(data) {
-  if (!data) return [];
-  if (Array.isArray(data.project_ids) && data.project_ids.length) {
-    return [...data.project_ids];
-  }
-  if (data.project_id) return [data.project_id];
-  return [];
-}
+const ENTITY_TYPES = [
+  { key: 'project', label: 'Project', icon: '📁' },
+  { key: 'area',    label: 'Area',    icon: '🎯' },
+  { key: 'person',  label: 'Person',  icon: '👤' },
+];
 
 export default function NoteEditor({ onClose, onSaved, initialData }) {
   const { createNote, updateNote, projects, areas, people } = useStore();
   const [rawText, setRawText] = useState(initialData?.raw_text || '');
-  const [bucket, setBucket] = useState(initialData?.bucket || 'INBOX');
-  const [selectedProjectIds, setSelectedProjectIds] = useState(() => initialProjectIds(initialData));
-  const [projectQuery, setProjectQuery] = useState('');
-  const [projectPickerOpen, setProjectPickerOpen] = useState(false);
-  const projectComboRef = useRef(null);
+  const [selectedProjectIds, setSelectedProjectIds] = useState(() => {
+    if (!initialData) return [];
+    if (Array.isArray(initialData.project_ids) && initialData.project_ids.length) return [...initialData.project_ids];
+    if (initialData.project_id) return [initialData.project_id];
+    return [];
+  });
   const [areaId, setAreaId] = useState(initialData?.area_id || '');
   const [personId, setPersonId] = useState(initialData?.person_id || '');
   const [activeTab, setActiveTab] = useState('write');
   const [saving, setSaving] = useState(false);
 
+  // Entity picker state per type
+  const [pickers, setPickers] = useState({
+    project: { query: '', open: false },
+    area:    { query: '', open: false },
+    person:  { query: '', open: false },
+  });
+  const pickerRefs = { project: useRef(null), area: useRef(null), person: useRef(null) };
+
   const isEdit = !!initialData?.id;
+
+  // Build suggestions from ai_meta if present (note creation or editing)
+  const aiSuggestions = initialData?.ai_meta || {};
 
   useEffect(() => {
     setRawText(initialData?.raw_text || '');
-    setBucket(initialData?.bucket || 'INBOX');
-    setSelectedProjectIds(initialProjectIds(initialData));
+    setSelectedProjectIds(() => {
+      if (!initialData) return [];
+      if (Array.isArray(initialData.project_ids) && initialData.project_ids.length) return [...initialData.project_ids];
+      if (initialData.project_id) return [initialData.project_id];
+      return [];
+    });
     setAreaId(initialData?.area_id || '');
     setPersonId(initialData?.person_id || '');
-    setProjectQuery('');
-    setProjectPickerOpen(false);
   }, [initialData?.id]);
 
+  // Close pickers on outside click
   useEffect(() => {
-    const onDocClick = (e) => {
-      if (!projectComboRef.current) return;
-      if (!projectComboRef.current.contains(e.target)) setProjectPickerOpen(false);
+    const handler = (e) => {
+      Object.entries(pickerRefs).forEach(([type, ref]) => {
+        if (ref.current && !ref.current.contains(e.target)) {
+          setPickers(p => ({ ...p, [type]: { ...p[type], open: false } }));
+        }
+      });
     };
-    document.addEventListener('mousedown', onDocClick);
-    return () => document.removeEventListener('mousedown', onDocClick);
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
   }, []);
 
   const handleSubmit = async (e) => {
@@ -65,10 +71,8 @@ export default function NoteEditor({ onClose, onSaved, initialData }) {
     try {
       const data = {
         raw_text: rawText.trim(),
-        bucket,
-        ...(isEdit && { project_ids: selectedProjectIds }),
-        ...(!isEdit && selectedProjectIds.length > 0 && { project_ids: selectedProjectIds }),
-        ...(areaId   && { area_id: areaId }),
+        ...(selectedProjectIds.length > 0 && { project_ids: selectedProjectIds }),
+        ...(areaId  && { area_id: areaId }),
         ...(personId && { person_id: personId }),
       };
       if (isEdit) {
@@ -82,23 +86,59 @@ export default function NoteEditor({ onClose, onSaved, initialData }) {
     }
   };
 
-  const addProject = (pid) => {
-    if (!pid || selectedProjectIds.includes(pid)) return;
-    setSelectedProjectIds((ids) => [...ids, pid]);
-    setProjectQuery('');
-    setProjectPickerOpen(false);
+  // ─── Entity picker helpers ────────────────────────────────
+
+  const setPicker = (type, patch) => setPickers(p => ({ ...p, [type]: { ...p[type], ...patch } }));
+
+  const filteredCandidates = (type, query) => {
+    const q = query.trim().toLowerCase();
+    if (type === 'project') {
+      return projects
+        .filter(p => !p.is_archived)
+        .filter(p => !selectedProjectIds.includes(p.id))
+        .filter(p => !q || (p.name || '').toLowerCase().includes(q))
+        .slice(0, 10);
+    }
+    if (type === 'area') {
+      return areas
+        .filter(a => !a.is_archived)
+        .filter(a => !q || (a.name || '').toLowerCase().includes(q))
+        .slice(0, 10);
+    }
+    if (type === 'person') {
+      return people
+        .filter(p => !q || (p.name || '').toLowerCase().includes(q))
+        .slice(0, 10);
+    }
+    return [];
   };
 
-  const removeProjectChip = (pid) => {
-    setSelectedProjectIds((ids) => ids.filter((x) => x !== pid));
+  const addEntity = (type, id) => {
+    if (type === 'project') {
+      if (selectedProjectIds.includes(id)) return;
+      setSelectedProjectIds(ids => [...ids, id]);
+    } else if (type === 'area') {
+      setAreaId(id);
+    } else if (type === 'person') {
+      setPersonId(id);
+    }
+    setPicker(type, { query: '', open: false });
   };
 
-  const q = projectQuery.trim().toLowerCase();
-  const projectCandidates = projects
-    .filter((p) => !p.is_archived)
-    .filter((p) => !selectedProjectIds.includes(p.id))
-    .filter((p) => !q || (p.name || '').toLowerCase().includes(q))
-    .slice(0, 12);
+  const removeEntity = (type, id) => {
+    if (type === 'project') setSelectedProjectIds(ids => ids.filter(x => x !== id));
+    else if (type === 'area') setAreaId('');
+    else if (type === 'person') setPersonId('');
+  };
+
+  const acceptSuggestion = (type, id, label) => {
+    addEntity(type, id);
+  };
+
+  // Build entity display configs
+  const selectedProjects = selectedProjectIds.map(id => projects.find(p => p.id === id)).filter(Boolean);
+  const selectedArea = areas.find(a => a.id === areaId);
+  const selectedPerson = people.find(p => p.id === personId);
 
   return (
     <Modal
@@ -116,40 +156,30 @@ export default function NoteEditor({ onClose, onSaved, initialData }) {
             disabled={saving || !rawText.trim()}
           >
             {saving ? <Loader2 size={14} className="spin" /> : null}
-            {isEdit ? 'Save Changes' : 'Save & Classify'}
+            {isEdit ? 'Save Changes' : 'Save'}
           </button>
         </>
       }
     >
       <form id="note-form" onSubmit={handleSubmit} className={styles.form}>
-        <div className={styles.tabs} role="tablist" aria-label="Editor mode">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === 'write'}
+        {/* Tabs */}
+        <div className={styles.tabs} role="tablist">
+          <button type="button" role="tab" aria-selected={activeTab === 'write'}
             className={`${styles.tab} ${activeTab === 'write' ? styles.tabActive : ''}`}
-            onClick={() => setActiveTab('write')}
-          >
-            Write
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === 'preview'}
+            onClick={() => setActiveTab('write')}>Write</button>
+          <button type="button" role="tab" aria-selected={activeTab === 'preview'}
             className={`${styles.tab} ${activeTab === 'preview' ? styles.tabActive : ''}`}
-            onClick={() => setActiveTab('preview')}
-          >
-            Preview
-          </button>
+            onClick={() => setActiveTab('preview')}>Preview</button>
         </div>
 
+        {/* Write / Preview */}
         {activeTab === 'write' ? (
           <textarea
             className={styles.textarea}
-            placeholder="Capture a thought, link, idea, or decision..."
+            placeholder="Capture a thought, link, idea, or decision…"
             value={rawText}
             onChange={e => setRawText(e.target.value)}
-            rows={6}
+            rows={7}
             autoFocus
           />
         ) : (
@@ -162,85 +192,81 @@ export default function NoteEditor({ onClose, onSaved, initialData }) {
           </div>
         )}
 
-        {!isEdit && rawText.trim().length > 10 && (
-          <p className={styles.aiHint}>
-            <Sparkles size={12} />
-            AI will classify this note, extract tasks, and link it to entities on save.
-          </p>
+        {/* AI Suggestions Banner */}
+        {!isEdit && rawText.trim().length > 10 && (aiSuggestions?.suggested_project || aiSuggestions?.suggested_area) && (
+          <div className={styles.aiSuggestions}>
+            <span className={styles.aiSuggestionsLabel}><Sparkles size={12} /> AI suggests:</span>
+            <div className={styles.aiSuggestionsChips}>
+              {aiSuggestions.suggested_project && (
+                <button
+                  type="button"
+                  className={styles.aiSuggestChip}
+                  onClick={() => {
+                    const match = projects.find(p =>
+                      p.name?.toLowerCase().includes(aiSuggestions.suggested_project.toLowerCase())
+                    );
+                    if (match) addEntity('project', match.id);
+                  }}
+                >
+                  <span>📁 {aiSuggestions.suggested_project}</span>
+                  <Check size={12} />
+                </button>
+              )}
+              {aiSuggestions.suggested_area && (
+                <button
+                  type="button"
+                  className={styles.aiSuggestChip}
+                  onClick={() => {
+                    const match = areas.find(a =>
+                      a.name?.toLowerCase().includes(aiSuggestions.suggested_area.toLowerCase())
+                    );
+                    if (match) addEntity('area', match.id);
+                  }}
+                >
+                  <span>🎯 {aiSuggestions.suggested_area}</span>
+                  <Check size={12} />
+                </button>
+              )}
+            </div>
+          </div>
         )}
 
-        <div className={styles.fields}>
-          {/* Bucket */}
-          <div className={styles.field}>
-            <label className={styles.label}>Bucket</label>
-            <select
-              value={bucket}
-              onChange={e => setBucket(e.target.value)}
-              className={styles.select}
-            >
-              {BUCKETS.map(b => (
-                <option key={b} value={b}>{BUCKET_LABELS[b]}</option>
+        {/* Entity Linking Section */}
+        <div className={styles.entitySection}>
+          {/* Projects (multi) */}
+          <div className={styles.entityGroup}>
+            <label className={styles.entityLabel}>Projects</label>
+            <div className={styles.entityChips}>
+              {selectedProjects.map(p => (
+                <span key={p.id} className={styles.entityChip}>
+                  <span>📁</span>
+                  <span>{p.name}</span>
+                  <button type="button" onClick={() => removeEntity('project', p.id)}><X size={11} /></button>
+                </span>
               ))}
-            </select>
-          </div>
-
-          {/* Projects (multi chip + search) */}
-          <div className={`${styles.field} ${styles.fieldWide}`}>
-            <label className={styles.label} htmlFor="note-editor-project-search">Projects</label>
-            <div className={styles.projectChipStack}>
-              {selectedProjectIds.length > 0 && (
-                <div className={styles.projectChips} aria-label="Selected projects">
-                  {selectedProjectIds.map((pid) => {
-                    const p = projects.find((x) => x.id === pid);
-                    const label = p?.name || pid.slice(0, 8);
-                    return (
-                      <span key={pid} className={styles.editorProjectChip}>
-                        <span className={styles.editorProjectChipLabel}>{label}</span>
-                        <button
-                          type="button"
-                          className={styles.editorProjectChipRemove}
-                          aria-label={`Remove ${label}`}
-                          onClick={() => removeProjectChip(pid)}
-                        >
-                          <X size={12} strokeWidth={2.5} />
-                        </button>
-                      </span>
-                    );
-                  })}
-                </div>
-              )}
-              <div className={styles.projectCombo} ref={projectComboRef}>
+              <div className={styles.entityCombo} ref={pickerRefs.project}>
                 <input
-                  id="note-editor-project-search"
                   type="search"
                   autoComplete="off"
-                  className={styles.projectSearchInput}
-                  placeholder="Type to search projects…"
-                  value={projectQuery}
-                  onChange={(e) => {
-                    setProjectQuery(e.target.value);
-                    setProjectPickerOpen(true);
-                  }}
-                  onFocus={() => setProjectPickerOpen(true)}
-                  aria-expanded={projectPickerOpen}
-                  aria-controls="note-editor-project-suggestions"
+                  placeholder="Add project…"
+                  className={styles.entitySearchInput}
+                  value={pickers.project.query}
+                  onChange={e => { setPicker('project', { query: e.target.value, open: true }); }}
+                  onFocus={() => setPicker('project', { open: true })}
+                  aria-expanded={pickers.project.open}
                   aria-autocomplete="list"
                 />
-                {projectPickerOpen && projectCandidates.length > 0 && (
-                  <ul
-                    id="note-editor-project-suggestions"
-                    className={styles.projectSuggestions}
-                    role="listbox"
-                  >
-                    {projectCandidates.map((p) => (
+                {pickers.project.open && (
+                  <ul className={styles.entityDropdown} role="listbox">
+                    {filteredCandidates('project', pickers.project.query).length === 0 && (
+                      <li className={styles.entityDropdownEmpty}>No projects found</li>
+                    )}
+                    {filteredCandidates('project', pickers.project.query).map(p => (
                       <li key={p.id} role="option">
-                        <button
-                          type="button"
-                          className={styles.projectSuggestionBtn}
-                          onMouseDown={(e) => e.preventDefault()}
-                          onClick={() => addProject(p.id)}
-                        >
-                          {p.name}
+                        <button type="button" className={styles.entityDropdownItem}
+                          onMouseDown={e => e.preventDefault()}
+                          onClick={() => addEntity('project', p.id)}>
+                          📁 {p.name}
                         </button>
                       </li>
                     ))}
@@ -250,34 +276,92 @@ export default function NoteEditor({ onClose, onSaved, initialData }) {
             </div>
           </div>
 
-          {/* Area */}
-          <div className={styles.field}>
-            <label className={styles.label}>Area</label>
-            <select
-              value={areaId}
-              onChange={e => setAreaId(e.target.value)}
-              className={styles.select}
-            >
-              <option value="">— None —</option>
-              {areas.map(a => (
-                <option key={a.id} value={a.id}>{a.name}</option>
-              ))}
-            </select>
+          {/* Area (single) */}
+          <div className={styles.entityGroup}>
+            <label className={styles.entityLabel}>Area</label>
+            <div className={styles.entityChips}>
+              {selectedArea && (
+                <span className={styles.entityChip}>
+                  <span>🎯</span>
+                  <span>{selectedArea.name}</span>
+                  <button type="button" onClick={() => removeEntity('area', areaId)}><X size={11} /></button>
+                </span>
+              )}
+              <div className={styles.entityCombo} ref={pickerRefs.area}>
+                <input
+                  type="search"
+                  autoComplete="off"
+                  placeholder={selectedArea ? '' : 'Add area…'}
+                  className={styles.entitySearchInput}
+                  value={pickers.area.query}
+                  onChange={e => { setPicker('area', { query: e.target.value, open: true }); }}
+                  onFocus={() => setPicker('area', { open: true })}
+                  aria-expanded={pickers.area.open}
+                  aria-autocomplete="list"
+                  disabled={!!selectedArea}
+                />
+                {pickers.area.open && !selectedArea && (
+                  <ul className={styles.entityDropdown} role="listbox">
+                    {filteredCandidates('area', pickers.area.query).length === 0 && (
+                      <li className={styles.entityDropdownEmpty}>No areas found</li>
+                    )}
+                    {filteredCandidates('area', pickers.area.query).map(a => (
+                      <li key={a.id} role="option">
+                        <button type="button" className={styles.entityDropdownItem}
+                          onMouseDown={e => e.preventDefault()}
+                          onClick={() => addEntity('area', a.id)}>
+                          🎯 {a.name}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
           </div>
 
-          {/* Person */}
-          <div className={styles.field}>
-            <label className={styles.label}>Person</label>
-            <select
-              value={personId}
-              onChange={e => setPersonId(e.target.value)}
-              className={styles.select}
-            >
-              <option value="">— None —</option>
-              {people.map(p => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </select>
+          {/* Person (single) */}
+          <div className={styles.entityGroup}>
+            <label className={styles.entityLabel}>Person</label>
+            <div className={styles.entityChips}>
+              {selectedPerson && (
+                <span className={styles.entityChip}>
+                  <span>👤</span>
+                  <span>{selectedPerson.name}</span>
+                  <button type="button" onClick={() => removeEntity('person', personId)}><X size={11} /></button>
+                </span>
+              )}
+              <div className={styles.entityCombo} ref={pickerRefs.person}>
+                <input
+                  type="search"
+                  autoComplete="off"
+                  placeholder={selectedPerson ? '' : 'Add person…'}
+                  className={styles.entitySearchInput}
+                  value={pickers.person.query}
+                  onChange={e => { setPicker('person', { query: e.target.value, open: true }); }}
+                  onFocus={() => setPicker('person', { open: true })}
+                  aria-expanded={pickers.person.open}
+                  aria-autocomplete="list"
+                  disabled={!!selectedPerson}
+                />
+                {pickers.person.open && !selectedPerson && (
+                  <ul className={styles.entityDropdown} role="listbox">
+                    {filteredCandidates('person', pickers.person.query).length === 0 && (
+                      <li className={styles.entityDropdownEmpty}>No people found</li>
+                    )}
+                    {filteredCandidates('person', pickers.person.query).map(p => (
+                      <li key={p.id} role="option">
+                        <button type="button" className={styles.entityDropdownItem}
+                          onMouseDown={e => e.preventDefault()}
+                          onClick={() => addEntity('person', p.id)}>
+                          👤 {p.name}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </form>

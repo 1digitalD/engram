@@ -135,6 +135,18 @@ export default function NoteDetailView() {
     await updateNote(note.id, { project_ids: ids });
   };
 
+  const handleRemoveAreaFromNote = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    await updateNote(note.id, { area_id: null });
+  };
+
+  const handleRemovePersonFromNote = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    await updateNote(note.id, { person_id: null });
+  };
+
   const startEditing = () => {
     setDraftText(note.raw_text || '');
     setIsEditing(true);
@@ -336,13 +348,33 @@ export default function NoteDetailView() {
               </span>
             ))}
             {area && (
-              <span className={styles.entityChip}>
-                <Map size={12} /> {area.name}
+              <span className={styles.projectChipLinkWrap}>
+                <Link to={`/areas/${area.id}`} className={styles.entityChip}>
+                  <Map size={12} /> {area.name}
+                </Link>
+                <button
+                  type="button"
+                  className={styles.projectChipRemove}
+                  aria-label={`Remove ${area.name} from this note`}
+                  onClick={handleRemoveAreaFromNote}
+                >
+                  <X size={12} strokeWidth={2.5} />
+                </button>
               </span>
             )}
             {person && (
-              <span className={styles.entityChip}>
-                <User size={12} /> {person.name}
+              <span className={styles.projectChipLinkWrap}>
+                <Link to={`/people/${person.id}`} className={styles.entityChip}>
+                  <User size={12} /> {person.name}
+                </Link>
+                <button
+                  type="button"
+                  className={styles.projectChipRemove}
+                  aria-label={`Remove ${person.name} from this note`}
+                  onClick={handleRemovePersonFromNote}
+                >
+                  <X size={12} strokeWidth={2.5} />
+                </button>
               </span>
             )}
           </div>

@@ -3,7 +3,6 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Link, useNavigate } from 'react-router-dom';
 import { MoreHorizontal, Trash2, Edit2 } from 'lucide-react';
-import { BucketBadge } from '../ui/Badge';
 import useStore from '../../stores/useStore';
 import styles from './NoteCard.module.css';
 
@@ -29,8 +28,17 @@ const markdownComponents = {
   ),
 };
 
+function EntityChip({ to, children, emoji }) {
+  return (
+    <Link to={to} className={styles.entityChip} onClick={e => e.stopPropagation()}>
+      <span>{emoji}</span>
+      <span>{children}</span>
+    </Link>
+  );
+}
+
 export default function NoteCard({ note, onEdit }) {
-  const { deleteNote, projects } = useStore();
+  const { deleteNote, projects, areas, people } = useStore();
   const [menuOpen, setMenuOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const navigate = useNavigate();
@@ -38,6 +46,9 @@ export default function NoteCard({ note, onEdit }) {
   const project = note.project_id
     ? projects.find(p => p.id === note.project_id)
     : null;
+
+  const area = note.area_id ? areas.find(a => a.id === note.area_id) : null;
+  const person = note.person_id ? people.find(p => p.id === note.person_id) : null;
 
   const rawText = note.raw_text || '';
   const metadataOnlyImport = isMetadataOnlyImport(rawText);
@@ -51,12 +62,14 @@ export default function NoteCard({ note, onEdit }) {
   return (
     <div className={`${styles.card} ${expanded ? styles.expanded : ''}`}>
       <div className={styles.header}>
-        <BucketBadge bucket={note.bucket} />
-        {project && (
-          <Link to={`/projects/${project.id}`} className={styles.projectChip}>
-            {project.name}
-          </Link>
-        )}
+        <div className={styles.entityChips}>
+          {project && <EntityChip to={`/projects/${project.id}`} emoji="📁">{project.name}</EntityChip>}
+          {area    && <EntityChip to={`/areas/${area.id}`}       emoji="🎯">{area.name}</EntityChip>}
+          {person  && <EntityChip to={`/people/${person.id}`}    emoji="👤">{person.name}</EntityChip>}
+          {!project && !area && !person && (
+            <span className={styles.inboxBadge}>Inbox</span>
+          )}
+        </div>
         <span className={styles.date}>{date}</span>
         <div className={styles.actions}>
           <button
