@@ -3,7 +3,7 @@ from sqlalchemy import or_
 from flask import request, jsonify
 from api import api_bp
 from extensions import db
-from models import Note, BucketType, Tag, Project, Area
+from models import Note, BucketType, Tag, Project, Area, Person
 from services.search import search_notes
 
 
@@ -333,49 +333,103 @@ def update_note(note_id):
     if "ai_meta" in data:
         note.ai_meta = data["ai_meta"]
 
-    # Re-classify on demand
+    # Re-classify / extract on demand
     if classify_requested:
-        from services.classifier import classify_note
-        existing_projects = [p.name for p in Project.query.filter_by(is_archived=False).all()]
-        existing_areas    = [a.name for a in Area.query.all()]
-        result = classify_note(note.raw_text, projects=existing_projects, areas=existing_areas)
-        suggested_project = result.get("suggested_project")
-        suggested_area     = result.get("suggested_area")
+        from services.extractor import extract
 
-        # Resolve suggested project
-        resolved_project_id = None
-        if suggested_project:
-            m = Project.query.filter(Project.name.ilike(f"%{suggested_project}%")).first()
-            if m: resolved_project_id = m.id
+        all_projects = [p.name for p in Project.query.filter_by(is_archived=False).all()]
+        all_areas    = [a.name for a in Area.query.all()]
+        result = extract(note.raw_text, projects=all_projects, area_names=all_areas)
+
+        # Multi-project linking: resolve all mentioned projects
+        all_project_ids: list[str] = []
+        if result.suggested_project:
+            matched = Project.query.filter(
+                Project.name.ilike(f"%{result.suggested_project}%")
+            ).first()
+            if matched:
+                all_project_ids.append(matched.id)
+        # Resolve additional projects hinted by tasks
+        for task in (result.tasks or []):
+            if task.project_hint:
+                matched = Project.query.filter(
+                    Project.name.ilike(f"%{task.project_hint}%")
+                ).first()
+                if matched and matched.id not in all_project_ids:
+                    all_project_ids.append(matched.id)
+
         # Resolve suggested area
         resolved_area_id = None
-        if suggested_area:
-            m = Area.query.filter(Area.name.ilike(f"%{suggested_area}%")).first()
-            if m: resolved_area_id = m.id
-        # Auto-link entity (only when note doesn't already have one)
-        # Check existing project links via association table
+        if result.suggested_area:
+            m = Area.query.filter(Area.name.ilike(f"%{result.suggested_area}%")).first()
+            if m:
+                resolved_area_id = m.id
+
+        # Auto-link projects (only when note has no existing links)
         note_project_links = db.session.execute(
             db.text("SELECT project_id FROM note_projects WHERE note_id = :nid"),
             {"nid": note.id}
         ).fetchall()
         note_has_project_link = any(row[0] for row in note_project_links)
 
-        if resolved_project_id and not note.project_id and not note_has_project_link:
-            db.session.execute(
-                db.text("INSERT INTO note_projects (note_id, project_id) VALUES (:nid, :pid)"),
-                {"nid": note.id, "pid": resolved_project_id}
-            )
+        if all_project_ids and not note.project_id and not note_has_project_link:
+            for pid in all_project_ids:
+                db.session.execute(
+                    db.text("INSERT INTO note_projects (note_id, project_id) VALUES (:nid, :pid)"),
+                    {"nid": note.id, "pid": pid}
+                )
         if resolved_area_id and not note.area_id:
             note.area_id = resolved_area_id
-        # Update ai_meta with classifier result
+
+        # Extract tasks: create Task records for extracted action items
+        if result.tasks:
+            from models import Task, TaskStatus
+            for etask in result.tasks:
+                due = etask.due_date or None
+                pid = None
+                if etask.project_hint:
+                    m = Project.query.filter(Project.name.ilike(f"%{etask.project_hint}%")).first()
+                    if m:
+                        pid = m.id
+                task = Task(
+                    title=etask.title,
+                    note_id=note.id,
+                    project_id=pid or note.project_id,
+                    area_id=resolved_area_id or note.area_id,
+                    status=TaskStatus.PENDING,
+                    priority=etask.priority,
+                    due_date=due,
+                )
+                db.session.add(task)
+
+        # Extract people: link or create person records
+        if result.people:
+            for ep in result.people:
+                person = Person.query.filter(Person.name.ilike(ep.name)).first()
+                if not person:
+                    person = Person(name=ep.name, email=ep.email or None)
+                    db.session.add(person)
+                    db.session.flush()
+                # Link to note if not already linked
+                if not note.person_id:
+                    note.person_id = person.id
+
+        # Update ai_meta
         note.ai_meta = {
-            "confidence": result.get("confidence", 0.0),
-            "reasoning": result.get("reasoning", ""),
-            "bucket": result.get("bucket", "INBOX"),
-            "suggested_project": suggested_project,
-            "suggested_area": suggested_area,
-            "suggested_tags": result.get("suggested_tags", []),
-            "source": "on-demand-classify",
+            "confidence": result.confidence,
+            "reasoning": result.reasoning,
+            "bucket": result.para_bucket,
+            "suggested_project": result.suggested_project,
+            "suggested_area": result.suggested_area,
+            "suggested_tags": result.tags,
+            "extracted_tasks": [
+                {"title": t.title, "priority": t.priority, "due_date": t.due_date, "project_hint": t.project_hint}
+                for t in (result.tasks or [])
+            ],
+            "extracted_people": [
+                {"name": p.name} for p in (result.people or [])
+            ],
+            "source": "on-demand-extract",
         }
 
     if "tag_ids" in data:
