@@ -1,69 +1,77 @@
 import React, { useState } from 'react';
-import { ArrowRight, Sparkles } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Sparkles, Check } from 'lucide-react';
 import useStore from '../stores/useStore';
 import NoteCard from '../components/notes/NoteCard';
 import NoteEditor from '../components/notes/NoteEditor';
 import EmptyState from '../components/ui/EmptyState';
-import { BucketBadge } from '../components/ui/Badge';
 import styles from './Inbox.module.css';
 
-const ROUTABLE_BUCKETS = new Set(['PROJECTS', 'AREAS', 'RESOURCES', 'ARCHIVES']);
-
-function AiSuggestionRow({ note, onApplyBucket }) {
+function AiSuggestionRow({ note, onAcceptProject, onAcceptArea }) {
   const meta = note.ai_meta;
   if (!meta) return null;
 
-  const suggested = typeof meta.bucket === 'string' ? meta.bucket.toUpperCase() : '';
-  const canApplyBucket = suggested && ROUTABLE_BUCKETS.has(suggested) && note.bucket === 'INBOX';
+  const suggestedProject = meta.suggested_project;
+  const suggestedArea = meta.suggested_area;
   const reasonStr = meta.reasoning != null ? String(meta.reasoning) : '';
-  const reasoningSnip = reasonStr
-    ? reasonStr.slice(0, 120) + (reasonStr.length > 120 ? '…' : '')
-    : '';
+  const reasoningSnip = reasonStr ? reasonStr.slice(0, 120) + (reasonStr.length > 120 ? '…' : '') : '';
+
+  if (!suggestedProject && !suggestedArea && !reasoningSnip) return null;
 
   return (
     <div className={styles.aiSuggest}>
       <div className={styles.aiSuggestHeader}>
-        <Sparkles size={14} className={styles.aiSuggestIcon} />
-        <span className={styles.aiSuggestLabel}>AI suggestion</span>
-        {suggested ? <BucketBadge bucket={suggested} /> : null}
+        <Sparkles size={13} className={styles.aiSuggestIcon} />
+        <span className={styles.aiSuggestLabel}>AI suggests</span>
         {meta.confidence != null && (
           <span className={styles.aiSuggestConf}>{Math.round(Number(meta.confidence) * 100)}%</span>
         )}
       </div>
-      {(meta.suggested_project || meta.suggested_area) && (
-        <p className={styles.aiSuggestHints}>
-          {meta.suggested_project && <span>Project hint: {meta.suggested_project}</span>}
-          {meta.suggested_area && <span>Area hint: {meta.suggested_area}</span>}
-        </p>
-      )}
-      {reasoningSnip && <p className={styles.aiSuggestReason}>{reasoningSnip}</p>}
-      {canApplyBucket && (
-        <button type="button" className={styles.aiApplyBtn} onClick={() => onApplyBucket(note, suggested)}>
-          Apply suggested bucket ({suggested})
+      {suggestedProject && (
+        <button type="button" className={styles.entitySuggestChip} onClick={() => onAcceptProject(note, suggestedProject)}>
+          <span>📁</span>
+          <span>{suggestedProject}</span>
+          <Check size={11} />
         </button>
       )}
+      {suggestedArea && (
+        <button type="button" className={styles.entitySuggestChip} onClick={() => onAcceptArea(note, suggestedArea)}>
+          <span>🎯</span>
+          <span>{suggestedArea}</span>
+          <Check size={11} />
+        </button>
+      )}
+      {reasoningSnip && <p className={styles.aiSuggestReason}>{reasoningSnip}</p>}
     </div>
   );
 }
 
 export default function Inbox() {
-  const { notes, updateNote } = useStore();
+  const { notes, projects, areas, people, updateNote } = useStore();
   const [editingNote, setEditingNote] = useState(null);
   const [showEditor, setShowEditor] = useState(false);
 
+  // Filter to truly inbox-y notes: bucket=INBOX OR no entity links
+  // (notes with project/area/person links but still bucket=INBOX are still "unrouted")
   const inbox = notes.filter(n => n.bucket === 'INBOX');
-
-  const handleRoute = async (note, bucket) => {
-    await updateNote(note.id, { bucket });
-  };
-
-  const handleApplyAiBucket = async (note, bucket) => {
-    await updateNote(note.id, { bucket });
-  };
 
   const sorted = [...inbox].sort(
     (a, b) => new Date(b.created_at) - new Date(a.created_at)
   );
+
+  const acceptProject = async (note, projectName) => {
+    const match = projects.find(p => p.name?.toLowerCase().includes(projectName.toLowerCase()));
+    if (!match) return;
+    await updateNote(note.id, {
+      project_ids: note.project_ids ? [...note.project_ids, match.id] : [match.id],
+    });
+  };
+
+  const acceptArea = async (note, areaName) => {
+    const match = areas.find(a => a.name?.toLowerCase().includes(areaName.toLowerCase()));
+    if (!match) return;
+    await updateNote(note.id, { area_id: match.id });
+  };
 
   return (
     <div className={styles.page}>
@@ -71,7 +79,9 @@ export default function Inbox() {
         <div>
           <h1>Inbox</h1>
           <p className={styles.count}>{sorted.length} items needing attention</p>
-          <p className={styles.hint}>Review captured items and route them to the right bucket.</p>
+          <p className={styles.hint}>
+            Notes without project or area links. Click AI suggestions to route, or open to edit links.
+          </p>
         </div>
       </div>
 
@@ -85,30 +95,21 @@ export default function Inbox() {
         <div className={styles.list}>
           {sorted.map(note => (
             <div key={note.id} className={styles.inboxItem}>
-              <div className={styles.noteArea}>
-                <AiSuggestionRow note={note} onApplyBucket={handleApplyAiBucket} />
-                <NoteCard note={note} onEdit={() => { setEditingNote(note); setShowEditor(true); }} />
-              </div>
-              <div className={styles.routing}>
-                <p className={styles.routingLabel}>Route to:</p>
-                {['PROJECTS', 'AREAS', 'RESOURCES', 'ARCHIVES'].map(b => (
-                  <button
-                    key={b}
-                    className={styles.routeBtn}
-                    onClick={() => handleRoute(note, b)}
-                    title={`Move to ${b}`}
-                  >
-                    {b === 'PROJECTS' ? 'Project' : b === 'AREAS' ? 'Area' : b === 'RESOURCES' ? 'Resource' : 'Archive'}
-                    <ArrowRight size={12} />
-                  </button>
-                ))}
-              </div>
+              <AiSuggestionRow
+                note={note}
+                onAcceptProject={acceptProject}
+                onAcceptArea={acceptArea}
+              />
+              <NoteCard
+                note={note}
+                onEdit={() => { setEditingNote(note); setShowEditor(true); }}
+              />
             </div>
           ))}
         </div>
       )}
 
-      {(showEditor) && (
+      {showEditor && (
         <NoteEditor
           initialData={editingNote}
           onClose={() => { setShowEditor(false); setEditingNote(null); }}
