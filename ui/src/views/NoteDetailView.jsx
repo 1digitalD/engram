@@ -52,6 +52,7 @@ export default function NoteDetailView() {
   const [proposalActionId, setProposalActionId] = useState(null);
 
   const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [classifying, setClassifying] = useState(false);
 
   const note = notes.find(n => n.id === id);
 
@@ -191,6 +192,19 @@ export default function NoteDetailView() {
     navigate('/notes');
   };
 
+  const handleClassify = async () => {
+    if (classifying) return;
+    setClassifying(true);
+    try {
+      await updateNote(note.id, { classify: true });
+      addToast({ type: 'success', message: 'AI re-classified this note' });
+    } catch (e) {
+      addToast({ type: 'error', message: 'Classification failed' });
+    } finally {
+      setClassifying(false);
+    }
+  };
+
   const handleAddLink = async () => {
     if (!linkPick || linkBusy) return;
     setLinkBusy(true);
@@ -281,6 +295,15 @@ export default function NoteDetailView() {
                 <Edit2 size={13} /> Edit
               </button>
             )}
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={handleClassify}
+              disabled={classifying}
+              title="Re-run AI classification on this note"
+            >
+              {classifying ? <Loader2 size={13} className="spin" /> : <Sparkles size={13} />}
+              Classify
+            </button>
             <button className="btn btn-ghost btn-sm" onClick={handleDelete}>
               <Trash2 size={13} />
             </button>

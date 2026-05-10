@@ -311,6 +311,7 @@ def update_note(note_id):
         return jsonify({"error": "no JSON body"}), 400
 
     text_changed = False
+    classify_requested = data.get("classify", False)
     if "raw_text" in data:
         new_text = data["raw_text"]
         if note.raw_text != new_text:
@@ -331,6 +332,41 @@ def update_note(note_id):
         note.is_archived = data["is_archived"]
     if "ai_meta" in data:
         note.ai_meta = data["ai_meta"]
+
+    # Re-classify on demand
+    if classify_requested:
+        from services.classifier import classify_note
+        existing_projects = [p.name for p in Project.query.all() if not p.is_archived]
+        existing_areas    = [a.name for a in Area.query.all() if not a.is_archived]
+        result = classify_note(note.raw_text, projects=existing_projects, areas=existing_areas)
+        suggested_project = result.get("suggested_project")
+        suggested_area     = result.get("suggested_area")
+
+        # Resolve suggested project
+        resolved_project_id = None
+        if suggested_project:
+            m = Project.query.filter(Project.name.ilike(f"%{suggested_project}%")).first()
+            if m: resolved_project_id = m.id
+        # Resolve suggested area
+        resolved_area_id = None
+        if suggested_area:
+            m = Area.query.filter(Area.name.ilike(f"%{suggested_area}%")).first()
+            if m: resolved_area_id = m.id
+        # Auto-link entity (only when note doesn't already have one)
+        if resolved_project_id and not note.project_id and not (note.project_ids and len(note.project_ids) > 0):
+            note.project_ids = [resolved_project_id]
+        if resolved_area_id and not note.area_id:
+            note.area_id = resolved_area_id
+        # Update ai_meta with classifier result
+        note.ai_meta = {
+            "confidence": result.get("confidence", 0.0),
+            "reasoning": result.get("reasoning", ""),
+            "bucket": result.get("bucket", "INBOX"),
+            "suggested_project": suggested_project,
+            "suggested_area": suggested_area,
+            "suggested_tags": result.get("suggested_tags", []),
+            "source": "on-demand-classify",
+        }
 
     if "tag_ids" in data:
         tags = []
