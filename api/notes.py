@@ -3,7 +3,7 @@ from sqlalchemy import or_
 from flask import request, jsonify
 from api import api_bp
 from extensions import db
-from models import Note, BucketType, Tag, Project
+from models import Note, BucketType, Tag, Project, Area
 from services.search import search_notes
 
 
@@ -336,8 +336,8 @@ def update_note(note_id):
     # Re-classify on demand
     if classify_requested:
         from services.classifier import classify_note
-        existing_projects = [p.name for p in Project.query.all() if not p.is_archived]
-        existing_areas    = [a.name for a in Area.query.all() if not a.is_archived]
+        existing_projects = [p.name for p in Project.query.filter_by(is_archived=False).all()]
+        existing_areas    = [a.name for a in Area.query.all()]
         result = classify_note(note.raw_text, projects=existing_projects, areas=existing_areas)
         suggested_project = result.get("suggested_project")
         suggested_area     = result.get("suggested_area")
@@ -353,8 +353,18 @@ def update_note(note_id):
             m = Area.query.filter(Area.name.ilike(f"%{suggested_area}%")).first()
             if m: resolved_area_id = m.id
         # Auto-link entity (only when note doesn't already have one)
-        if resolved_project_id and not note.project_id and not (note.project_ids and len(note.project_ids) > 0):
-            note.project_ids = [resolved_project_id]
+        # Check existing project links via association table
+        note_project_links = db.session.execute(
+            db.text("SELECT project_id FROM note_projects WHERE note_id = :nid"),
+            {"nid": note.id}
+        ).fetchall()
+        note_has_project_link = any(row[0] for row in note_project_links)
+
+        if resolved_project_id and not note.project_id and not note_has_project_link:
+            db.session.execute(
+                db.text("INSERT INTO note_projects (note_id, project_id) VALUES (:nid, :pid)"),
+                {"nid": note.id, "pid": resolved_project_id}
+            )
         if resolved_area_id and not note.area_id:
             note.area_id = resolved_area_id
         # Update ai_meta with classifier result
