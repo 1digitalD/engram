@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
 import { Sparkles, Check } from 'lucide-react';
 import useStore from '../stores/useStore';
 import NoteCard from '../components/notes/NoteCard';
@@ -59,8 +58,17 @@ export default function Inbox() {
     (a, b) => new Date(b.created_at) - new Date(a.created_at)
   );
 
+  const resolveEntity = (list, name) => {
+    const lower = name.toLowerCase();
+    return list.find(e => e.name?.toLowerCase() === lower)
+        || (() => {
+          const matches = list.filter(e => e.name?.toLowerCase().includes(lower));
+          return matches.length === 1 ? matches[0] : null;
+        })();
+  };
+
   const acceptProject = async (note, projectName) => {
-    const match = projects.find(p => p.name?.toLowerCase().includes(projectName.toLowerCase()));
+    const match = resolveEntity(projects.filter(p => !p.is_archived), projectName);
     if (!match) return;
     await updateNote(note.id, {
       project_ids: note.project_ids ? [...note.project_ids, match.id] : [match.id],
@@ -68,7 +76,7 @@ export default function Inbox() {
   };
 
   const acceptArea = async (note, areaName) => {
-    const match = areas.find(a => a.name?.toLowerCase().includes(areaName.toLowerCase()));
+    const match = resolveEntity(areas.filter(a => !a.is_archived), areaName);
     if (!match) return;
     await updateNote(note.id, { area_id: match.id });
   };

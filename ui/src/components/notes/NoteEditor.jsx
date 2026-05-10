@@ -1,16 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { Loader2, Sparkles, X, Check, ChevronDown } from 'lucide-react';
+import { Loader2, Sparkles, X, Check } from 'lucide-react';
 import remarkGfm from 'remark-gfm';
 import Modal from '../ui/Modal';
 import useStore from '../../stores/useStore';
 import styles from './NoteEditor.module.css';
 
-const ENTITY_TYPES = [
-  { key: 'project', label: 'Project', icon: '📁' },
-  { key: 'area',    label: 'Area',    icon: '🎯' },
-  { key: 'person',  label: 'Person',  icon: '👤' },
-];
 
 export default function NoteEditor({ onClose, onSaved, initialData }) {
   const { createNote, updateNote, projects, areas, people } = useStore();
@@ -131,10 +126,6 @@ export default function NoteEditor({ onClose, onSaved, initialData }) {
     else if (type === 'person') setPersonId('');
   };
 
-  const acceptSuggestion = (type, id, label) => {
-    addEntity(type, id);
-  };
-
   // Build entity display configs
   const selectedProjects = selectedProjectIds.map(id => projects.find(p => p.id === id)).filter(Boolean);
   const selectedArea = areas.find(a => a.id === areaId);
@@ -202,9 +193,10 @@ export default function NoteEditor({ onClose, onSaved, initialData }) {
                   type="button"
                   className={styles.aiSuggestChip}
                   onClick={() => {
-                    const match = projects.find(p =>
-                      p.name?.toLowerCase().includes(aiSuggestions.suggested_project.toLowerCase())
-                    );
+                    const name = aiSuggestions.suggested_project.toLowerCase();
+                    const exact = projects.find(p => p.name?.toLowerCase() === name);
+                    const subs  = projects.filter(p => p.name?.toLowerCase().includes(name));
+                    const match = exact || (subs.length === 1 ? subs[0] : null);
                     if (match) addEntity('project', match.id);
                   }}
                 >
@@ -217,9 +209,10 @@ export default function NoteEditor({ onClose, onSaved, initialData }) {
                   type="button"
                   className={styles.aiSuggestChip}
                   onClick={() => {
-                    const match = areas.find(a =>
-                      a.name?.toLowerCase().includes(aiSuggestions.suggested_area.toLowerCase())
-                    );
+                    const name = aiSuggestions.suggested_area.toLowerCase();
+                    const exact = areas.find(a => a.name?.toLowerCase() === name);
+                    const subs  = areas.filter(a => a.name?.toLowerCase().includes(name));
+                    const match = exact || (subs.length === 1 ? subs[0] : null);
                     if (match) addEntity('area', match.id);
                   }}
                 >
@@ -256,12 +249,14 @@ export default function NoteEditor({ onClose, onSaved, initialData }) {
                   aria-expanded={pickers.project.open}
                   aria-autocomplete="list"
                 />
-                {pickers.project.open && (
+                {pickers.project.open && (() => {
+                  const candidates = filteredCandidates('project', pickers.project.query);
+                  return (
                   <ul className={styles.entityDropdown} role="listbox">
-                    {filteredCandidates('project', pickers.project.query).length === 0 && (
+                    {candidates.length === 0 && (
                       <li className={styles.entityDropdownEmpty}>No projects found</li>
                     )}
-                    {filteredCandidates('project', pickers.project.query).map(p => (
+                    {candidates.map(p => (
                       <li key={p.id} role="option">
                         <button type="button" className={styles.entityDropdownItem}
                           onMouseDown={e => e.preventDefault()}
@@ -271,7 +266,8 @@ export default function NoteEditor({ onClose, onSaved, initialData }) {
                       </li>
                     ))}
                   </ul>
-                )}
+                  );
+                })()}
               </div>
             </div>
           </div>
@@ -300,12 +296,14 @@ export default function NoteEditor({ onClose, onSaved, initialData }) {
                   aria-autocomplete="list"
                   disabled={!!selectedArea}
                 />
-                {pickers.area.open && !selectedArea && (
+                {pickers.area.open && !selectedArea && (() => {
+                  const candidates = filteredCandidates('area', pickers.area.query);
+                  return (
                   <ul className={styles.entityDropdown} role="listbox">
-                    {filteredCandidates('area', pickers.area.query).length === 0 && (
+                    {candidates.length === 0 && (
                       <li className={styles.entityDropdownEmpty}>No areas found</li>
                     )}
-                    {filteredCandidates('area', pickers.area.query).map(a => (
+                    {candidates.map(a => (
                       <li key={a.id} role="option">
                         <button type="button" className={styles.entityDropdownItem}
                           onMouseDown={e => e.preventDefault()}
@@ -315,7 +313,8 @@ export default function NoteEditor({ onClose, onSaved, initialData }) {
                       </li>
                     ))}
                   </ul>
-                )}
+                  );
+                })()}
               </div>
             </div>
           </div>
@@ -344,12 +343,14 @@ export default function NoteEditor({ onClose, onSaved, initialData }) {
                   aria-autocomplete="list"
                   disabled={!!selectedPerson}
                 />
-                {pickers.person.open && !selectedPerson && (
+                {pickers.person.open && !selectedPerson && (() => {
+                  const candidates = filteredCandidates('person', pickers.person.query);
+                  return (
                   <ul className={styles.entityDropdown} role="listbox">
-                    {filteredCandidates('person', pickers.person.query).length === 0 && (
+                    {candidates.length === 0 && (
                       <li className={styles.entityDropdownEmpty}>No people found</li>
                     )}
-                    {filteredCandidates('person', pickers.person.query).map(p => (
+                    {candidates.map(p => (
                       <li key={p.id} role="option">
                         <button type="button" className={styles.entityDropdownItem}
                           onMouseDown={e => e.preventDefault()}
@@ -359,7 +360,8 @@ export default function NoteEditor({ onClose, onSaved, initialData }) {
                       </li>
                     ))}
                   </ul>
-                )}
+                  );
+                })()}
               </div>
             </div>
           </div>

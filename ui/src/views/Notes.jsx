@@ -32,7 +32,7 @@ export default function Notes() {
     const tagMatches = !tagFilter || n.tag_names?.includes(tagFilter);
 
     if (filter === 'all') return tagMatches;
-    if (filter === 'inbox')  return tagMatches && n.bucket === 'INBOX' && !n.project_id && !n.area_id;
+    if (filter === 'inbox')  return tagMatches && n.bucket === 'INBOX';
     if (filter === 'resource') return tagMatches && n.bucket === 'RESOURCES';
     if (filter === 'archive')  return tagMatches && n.bucket === 'ARCHIVES';
     if (filter === 'project') {
