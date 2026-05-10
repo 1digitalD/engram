@@ -329,6 +329,8 @@ def update_note(note_id):
         note.person_id = data["person_id"]
     if "is_archived" in data:
         note.is_archived = data["is_archived"]
+    if "ai_meta" in data:
+        note.ai_meta = data["ai_meta"]
 
     if "tag_ids" in data:
         tags = []
