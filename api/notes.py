@@ -330,7 +330,14 @@ def update_note(note_id):
         note.person_id = data["person_id"]
     if "is_archived" in data:
         note.is_archived = data["is_archived"]
-    # ai_meta is server-only; ignore caller-supplied value (classifier sets it below)
+
+    # Preserve caller-supplied ai_meta unless classify=true (which regenerates it below)
+    if "ai_meta" in data and not classify_requested:
+        caller_meta = data["ai_meta"]
+        if isinstance(caller_meta, dict):
+            note.ai_meta = caller_meta
+
+    # ai_meta is server-only when classify=true (classifier regenerates it below)
 
     # Re-classify / extract on demand
     if classify_requested:
