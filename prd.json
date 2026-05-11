@@ -298,9 +298,169 @@
         "failed": 0
       },
       "commit": "9a1b9f6"
+    },
+    {
+      "id": "C2-LINKS-API",
+      "title": "Universal Entity Links API",
+      "description": "Build a universal entity links API that surfaces all connections for any entity type. Include link_type filtering, direction-agnostic queries, pagination, and link strength indicators. Write tests.",
+      "cycle": "2",
+      "phase": "relationships+ux",
+      "status": "pending",
+      "passes": false,
+      "blocked": false,
+      "attempts": 0,
+      "reads": [
+        "docs/API_SPEC.md",
+        "docs/TECH_SPEC.md",
+        "services/link_service.py",
+        "models.py"
+      ],
+      "writes": [
+        "api/links.py"
+      ],
+      "acceptanceCriteria": [
+        "GET /api/v2/links/:entity_id returns all links (src and dst) for an entity",
+        "Supports link_type filter: /api/v2/links/:entity_id?link_type=related",
+        "Supports pagination with limit/offset",
+        "Returns link strength/weight indicators",
+        "Direction-agnostic: links work both ways",
+        "pytest tests/test_links_api.py -v passes"
+      ],
+      "blockedBy": [
+        "C1-VALIDATE"
+      ],
+      "validationCommands": [
+        "pytest tests/test_links_api.py -v"
+      ]
+    },
+    {
+      "id": "C2-EDITOR",
+      "title": "TipTap Note Editor",
+      "description": "Build a TipTap-based rich text editor for notes. Include slash commands for quick actions (/task, /link, /tag), AI assistant integration in the editor toolbar, and live preview. Write frontend tests.",
+      "cycle": "2",
+      "phase": "relationships+ux",
+      "status": "pending",
+      "passes": false,
+      "blocked": false,
+      "attempts": 0,
+      "reads": [
+        "ui/",
+        "package.json"
+      ],
+      "writes": [
+        "ui/components/Editor/",
+        "ui/components/Editor/TipTapEditor.tsx"
+      ],
+      "acceptanceCriteria": [
+        "TipTap editor renders in the note view",
+        "Slash commands create tasks, links, and tags",
+        "AI assistant button in the editor toolbar",
+        "Live preview works for markdown content",
+        "Frontend tests pass: cd ui && npm test -- --testPathPattern=Editor"
+      ],
+      "blockedBy": [
+        "C1-VALIDATE"
+      ],
+      "validationCommands": [
+        "cd ui && npm test -- --testPathPattern=Editor"
+      ]
+    },
+    {
+      "id": "C2-KANBAN",
+      "title": "Task Kanban Board",
+      "description": "Build a Kanban board view for tasks with columns for each status (pending, in_progress, done). Drag-and-drop to change status. Filter by project/area/tag. Write frontend tests.",
+      "cycle": "2",
+      "phase": "relationships+ux",
+      "status": "pending",
+      "passes": false,
+      "blocked": false,
+      "attempts": 0,
+      "reads": [
+        "ui/",
+        "docs/API_SPEC.md"
+      ],
+      "writes": [
+        "ui/components/Kanban/"
+      ],
+      "acceptanceCriteria": [
+        "Kanban board shows task columns for each status",
+        "Drag-and-drop moves tasks between columns",
+        "Filtering by project/area/tag works",
+        "Column counts update on move",
+        "Frontend tests pass: cd ui && npm test -- --testPathPattern=Kanban"
+      ],
+      "blockedBy": [
+        "C1-VALIDATE"
+      ],
+      "validationCommands": [
+        "cd ui && npm test -- --testPathPattern=Kanban"
+      ]
+    },
+    {
+      "id": "C2-SURFACING",
+      "title": "Proactive Related Entities",
+      "description": "Surface related entities proactively in the UI. Show related notes, projects, areas, and people when viewing an entity. Include a 'connections' sidebar panel. Write frontend tests.",
+      "cycle": "2",
+      "phase": "relationships+ux",
+      "status": "pending",
+      "passes": false,
+      "blocked": false,
+      "attempts": 0,
+      "reads": [
+        "ui/",
+        "docs/API_SPEC.md",
+        "services/link_service.py"
+      ],
+      "writes": [
+        "ui/components/ConnectionsPanel/"
+      ],
+      "acceptanceCriteria": [
+        "Connections panel shows when viewing any entity",
+        "Panel lists related entities grouped by type",
+        "Clicking a related entity navigates to it",
+        "Panel updates when links change",
+        "Frontend tests pass: cd ui && npm test -- --testPathPattern=Connections"
+      ],
+      "blockedBy": [
+        "C1-VALIDATE"
+      ],
+      "validationCommands": [
+        "cd ui && npm test -- --testPathPattern=Connections"
+      ]
+    },
+    {
+      "id": "C2-VALIDATE",
+      "title": "Full Suite + Build",
+      "description": "Run full test suite (backend + frontend), verify build, ensure no regressions from Cycle 2 changes. Run pytest and npm build.",
+      "cycle": "2",
+      "phase": "relationships+ux",
+      "status": "pending",
+      "passes": false,
+      "blocked": false,
+      "attempts": 0,
+      "reads": [
+        "prd.json",
+        "EXECUTION-TRACKER.md"
+      ],
+      "writes": [],
+      "acceptanceCriteria": [
+        "pytest tests/ -q passes",
+        "cd ui && npm run build succeeds",
+        "No regressions introduced by Cycle 2"
+      ],
+      "blockedBy": [
+        "C2-LINKS-API",
+        "C2-EDITOR",
+        "C2-KANBAN",
+        "C2-SURFACING"
+      ],
+      "validationCommands": [
+        "pytest tests/ -q",
+        "cd ui && npm run build"
+      ]
     }
   ],
   "metadata": {
-    "updatedAt": "2026-05-11T19:10:00.000000+00:00"
+    "updatedAt": "2026-05-11T23:00:19.910429+00:00"
   }
 }
