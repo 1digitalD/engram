@@ -83,7 +83,7 @@ def list_notes():
 
     if bucket:
         try:
-            b = BucketType(bucket.upper())
+            b = BucketType(bucket.upper()).value
             q = q.filter(Note.bucket == b)
         except ValueError:
             pass
@@ -203,10 +203,10 @@ def _create_note_simple(data: dict, raw_text: str):
     from services.classifier import classify_note
 
     explicit_bucket = data.get("bucket")
-    bucket = BucketType.INBOX
+    bucket = BucketType.INBOX.value
     if explicit_bucket:
         try:
-            bucket = BucketType(explicit_bucket.upper())
+            bucket = BucketType(explicit_bucket.upper()).value
         except ValueError:
             pass
 
@@ -223,9 +223,9 @@ def _create_note_simple(data: dict, raw_text: str):
         existing_areas = [a.name for a in Area.query.all()]
         result = classify_note(raw_text, projects=existing_projects, areas=existing_areas)
         try:
-            bucket = BucketType(result.get("bucket", "INBOX").upper())
+            bucket = BucketType(result.get("bucket", "INBOX").upper()).value
         except ValueError:
-            bucket = BucketType.INBOX
+            bucket = BucketType.INBOX.value
 
         suggested_project = result.get("suggested_project")
         suggested_area = result.get("suggested_area")
@@ -241,10 +241,10 @@ def _create_note_simple(data: dict, raw_text: str):
             if m:
                 resolved_area_id = m.id
 
-        if resolved_project_id and bucket == BucketType.INBOX:
-            bucket = BucketType.PROJECTS
-        elif resolved_area_id and bucket == BucketType.INBOX:
-            bucket = BucketType.AREAS
+        if resolved_project_id and bucket == BucketType.INBOX.value:
+            bucket = BucketType.PROJECTS.value
+        elif resolved_area_id and bucket == BucketType.INBOX.value:
+            bucket = BucketType.AREAS.value
 
         if result.get("suggested_tags"):
             tag_objects = _resolve_or_create_tags(result["suggested_tags"])
