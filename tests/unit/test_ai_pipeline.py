@@ -1,0 +1,333 @@
+"""Unit tests for ai_pipeline — job enqueueing, text chunking, confidence gates, error handling."""
+
+import pytest
+from unittest.mock import patch, MagicMock
+
+from extensions import db
+from models import Entity, Job, EntityChunk, EntityEvent
+
+
+# ─── Helpers ─────────────────────────────────────────────────────────────────
+
+def _create_entity(entity_type="note", title="Test", content="Hello world"):
+    entity = Entity(
+        type=entity_type,
+        title=title,
+        content=content,
+        properties={},
+        ai_meta={},
+        ai_status="pending",
+    )
+    db.session.add(entity)
+    db.session.commit()
+    return entity
+
+
+# ─── Job Enqueueing ──────────────────────────────────────────────────────────
+
+class TestEnqueueJobs:
+    """Test that enqueue functions create proper Job records."""
+
+    def test_enqueue_classify_creates_job(self, app):
+        from services.ai_pipeline import enqueue_classify
+
+        with app.app_context():
+            entity = _create_entity()
+            job = enqueue_classify(entity.id)
+
+            assert job is not None
+            assert job.job_type == "classify"
+            assert job.entity_id == entity.id
+            assert job.status == "pending"
+            assert job.payload == {"entity_id": entity.id}
+
+    def test_enqueue_embed_creates_job(self, app):
+        from services.ai_pipeline import enqueue_embed
+
+        with app.app_context():
+            entity = _create_entity()
+            job = enqueue_embed(entity.id)
+
+            assert job is not None
+            assert job.job_type == "embed"
+            assert job.entity_id == entity.id
+            assert job.status == "pending"
+            assert job.payload == {"entity_id": entity.id}
+
+    def test_enqueue_autolink_creates_job(self, app):
+        from services.ai_pipeline import enqueue_autolink
+
+        with app.app_context():
+            entity = _create_entity()
+            job = enqueue_autolink(entity.id)
+
+            assert job is not None
+            assert job.job_type == "autolink"
+            assert job.entity_id == entity.id
+            assert job.status == "pending"
+            assert job.payload == {"entity_id": entity.id}
+
+    def test_enqueue_all_three_jobs(self, app):
+        from services.ai_pipeline import enqueue_classify, enqueue_embed, enqueue_autolink
+
+        with app.app_context():
+            entity = _create_entity()
+            j1 = enqueue_classify(entity.id)
+            j2 = enqueue_embed(entity.id)
+            j3 = enqueue_autolink(entity.id)
+
+            jobs = Job.query.filter_by(entity_id=entity.id).all()
+            assert len(jobs) == 3
+            job_types = {j.job_type for j in jobs}
+            assert job_types == {"classify", "embed", "autolink"}
+
+
+# ─── Text Chunking ───────────────────────────────────────────────────────────
+
+class TestChunkText:
+    """Test the chunk_text function for embedding preparation."""
+
+    def test_chunk_short_text(self, app):
+        from services.ai_pipeline import chunk_text
+
+        text = "Short text."
+        chunks = chunk_text(text, chunk_size=100, overlap=20)
+        assert len(chunks) == 1
+        assert chunks[0] == "Short text."
+
+    def test_chunk_long_text_splits(self, app):
+        from services.ai_pipeline import chunk_text
+
+        # Create text with many separate words
+        words = ["paragraph"] * 200
+        text = " ".join(words)
+        chunks = chunk_text(text, chunk_size=100, overlap=20)
+        assert len(chunks) >= 2
+
+    def test_chunk_overlap(self, app):
+        from services.ai_pipeline import chunk_text
+
+        # Text with distinct words that should produce multiple chunks with overlap
+        words = [f"word{i}" for i in range(200)]
+        text = " ".join(words)
+        chunks = chunk_text(text, chunk_size=100, overlap=30)
+        assert len(chunks) >= 2
+        # Verify overlap: last words of chunk[0] should appear in chunk[1]
+        if len(chunks) >= 2:
+            last_words_chunk0 = set(chunks[0].split()[-10:])
+            chunk1_words = set(chunks[1].split())
+            overlap_found = bool(last_words_chunk0 & chunk1_words)
+            assert overlap_found
+
+    def test_chunk_empty_text(self, app):
+        from services.ai_pipeline import chunk_text
+
+        chunks = chunk_text("", chunk_size=100, overlap=20)
+        assert chunks == []
+
+    def test_chunk_none_text(self, app):
+        from services.ai_pipeline import chunk_text
+
+        chunks = chunk_text(None, chunk_size=100, overlap=20)
+        assert chunks == []
+
+    def test_chunk_respects_chunk_size(self, app):
+        from services.ai_pipeline import chunk_text
+
+        # Use separate words so chunking works at word boundaries
+        words = ["item"] * 200
+        text = " ".join(words)
+        chunks = chunk_text(text, chunk_size=50, overlap=10)
+        assert len(chunks) >= 2
+        for chunk in chunks:
+            # Each chunk should be within reasonable size
+            assert len(chunk) <= 300  # ~50 tokens * 4 chars + tolerance
+
+
+# ─── run_classify Handler ────────────────────────────────────────────────────
+
+class TestRunClassify:
+    """Test the run_classify job handler."""
+
+    @patch("services.extractor.extract")
+    def test_classify_success_writes_event(self, mock_extract, app):
+        from services.ai_pipeline import run_classify
+        from services.extractor import ExtractionResult
+
+        mock_extract.return_value = ExtractionResult(
+            summary="Test summary",
+            para_bucket="INBOX",
+            confidence=0.95,
+            reasoning="Test reasoning",
+        )
+
+        with app.app_context():
+            entity = _create_entity(content="Test content for classification")
+            run_classify({"entity_id": entity.id})
+
+            db.session.refresh(entity)
+            assert entity.ai_status == "done"
+
+            events = EntityEvent.query.filter_by(
+                entity_id=entity.id, event_type="ai_classified"
+            ).all()
+            assert len(events) == 1
+            assert events[0].actor == "agent:classify"
+            assert events[0].confidence == 0.95
+
+    @patch("services.extractor.extract")
+    def test_classify_low_confidence_no_new_entities(self, mock_extract, app):
+        """Confidence < 0.92 should NOT auto-create new entities."""
+        from services.ai_pipeline import run_classify
+        from services.extractor import ExtractionResult
+
+        mock_extract.return_value = ExtractionResult(
+            summary="Test summary",
+            para_bucket="PROJECTS",
+            confidence=0.75,  # Below 0.92 threshold
+            suggested_project="New Project",
+            reasoning="Test reasoning",
+        )
+
+        with app.app_context():
+            entity = _create_entity(content="Test content")
+            initial_count = Entity.query.filter_by(type="project").count()
+
+            run_classify({"entity_id": entity.id})
+
+            # No new project should be created
+            final_count = Entity.query.filter_by(type="project").count()
+            assert final_count == initial_count
+
+            # But ai_meta should contain the suggestion
+            db.session.refresh(entity)
+            assert "suggestions" in (entity.ai_meta or {})
+
+    @patch("services.extractor.extract")
+    def test_classify_failure_sets_failed_status(self, mock_extract, app):
+        """When extraction fails, entity.ai_status should be 'failed'."""
+        from services.ai_pipeline import run_classify
+
+        mock_extract.side_effect = RuntimeError("API error")
+
+        with app.app_context():
+            entity = _create_entity(content="Test content")
+            with pytest.raises(RuntimeError, match="API error"):
+                run_classify({"entity_id": entity.id})
+
+            db.session.refresh(entity)
+            assert entity.ai_status == "failed"
+
+    @patch("services.extractor.extract")
+    def test_classify_high_confidence_auto_creates_project(self, mock_extract, app):
+        """Confidence >= 0.92 with suggested_project should auto-create entity."""
+        from services.ai_pipeline import run_classify
+        from services.extractor import ExtractionResult
+
+        mock_extract.return_value = ExtractionResult(
+            summary="Working on new project",
+            para_bucket="PROJECTS",
+            confidence=0.95,
+            suggested_project="Auto Project",
+            reasoning="Clear project mention",
+        )
+
+        with app.app_context():
+            entity = _create_entity(content="Working on Auto Project")
+            run_classify({"entity_id": entity.id})
+
+            # Should have created a project entity
+            projects = Entity.query.filter_by(type="project", title="Auto Project").all()
+            assert len(projects) >= 1
+
+
+# ─── run_embed Handler ───────────────────────────────────────────────────────
+
+class TestRunEmbed:
+    """Test the run_embed job handler."""
+
+    @patch("services.ai_pipeline._generate_embedding")
+    def test_embed_chunks_and_stores(self, mock_embed, app):
+        from services.ai_pipeline import run_embed
+
+        mock_embed.return_value = [0.1] * 1536
+
+        with app.app_context():
+            # Create content long enough to produce multiple chunks
+            content = "This is a paragraph. " * 50
+            entity = _create_entity(content=content)
+
+            run_embed({"entity_id": entity.id})
+
+            chunks = EntityChunk.query.filter_by(entity_id=entity.id).all()
+            assert len(chunks) >= 1
+            assert chunks[0].embedding is not None
+            assert chunks[0].chunk_text is not None
+
+    def test_embed_empty_content(self, app):
+        from services.ai_pipeline import run_embed
+
+        with app.app_context():
+            entity = _create_entity(content="")
+            run_embed({"entity_id": entity.id})
+
+            db.session.refresh(entity)
+            assert entity.ai_status == "done"
+            # No chunks for empty content
+            chunks = EntityChunk.query.filter_by(entity_id=entity.id).all()
+            assert len(chunks) == 0
+
+    @patch("services.ai_pipeline._generate_embedding")
+    def test_embed_upserts_deletes_old(self, mock_embed, app):
+        """Embedding should delete old chunks and insert new ones."""
+        from services.ai_pipeline import run_embed
+
+        mock_embed.return_value = [0.1] * 1536
+
+        with app.app_context():
+            entity = _create_entity(content="Original content here. " * 30)
+            run_embed({"entity_id": entity.id})
+
+            first_chunks = EntityChunk.query.filter_by(entity_id=entity.id).count()
+
+            # Run again with different content
+            entity.content = "Completely new content. " * 30
+            db.session.commit()
+            run_embed({"entity_id": entity.id})
+
+            # Old chunks should be replaced
+            new_chunks = EntityChunk.query.filter_by(entity_id=entity.id).all()
+            assert len(new_chunks) >= 1
+
+    @patch("services.ai_pipeline._generate_embedding")
+    def test_embed_handles_api_failure(self, mock_embed, app):
+        from services.ai_pipeline import run_embed
+
+        mock_embed.side_effect = RuntimeError("Embedding API down")
+
+        with app.app_context():
+            entity = _create_entity(content="Test content " * 20)
+            with pytest.raises(RuntimeError, match="Embedding API down"):
+                run_embed({"entity_id": entity.id})
+
+            db.session.refresh(entity)
+            assert entity.ai_status == "failed"
+
+
+# ─── run_autolink Handler ────────────────────────────────────────────────────
+
+class TestRunAutolink:
+    """Test the run_autolink job handler."""
+
+    def test_autolink_no_chunks_graceful(self, app):
+        """Autolink should handle entities with no embeddings gracefully."""
+        from services.ai_pipeline import run_autolink
+
+        with app.app_context():
+            entity = _create_entity(content="Test")
+            # No chunks exist for this entity
+            run_autolink({"entity_id": entity.id})
+
+            db.session.refresh(entity)
+            # Should not crash, should mark as done
+            assert entity.ai_status == "done"

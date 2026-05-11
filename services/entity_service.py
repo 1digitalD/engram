@@ -351,19 +351,11 @@ def _delete_links_for_entity(entity_id):
 
 def _enqueue_classify(entity_id):
     """Enqueue a classify job for the entity."""
-    job = Job(
-        job_type="classify",
-        entity_id=entity_id,
-        payload={"entity_id": entity_id},
-    )
-    db.session.add(job)
+    from services.ai_pipeline import enqueue_classify
+    return enqueue_classify(entity_id)
 
 
 def _enqueue_embed(entity_id):
     """Enqueue an embed job for the entity."""
-    job = Job(
-        job_type="embed",
-        entity_id=entity_id,
-        payload={"entity_id": entity_id},
-    )
-    db.session.add(job)
+    from services.ai_pipeline import enqueue_embed
+    return enqueue_embed(entity_id)

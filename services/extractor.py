@@ -238,7 +238,7 @@ def extract(content: str, projects: list = None, area_names: list = None) -> Ext
                 )},
             ],
             response_format=ExtractionResult,
-            temperature=0.1,
+            temperature=0,
             max_tokens=800,
         )
         result = response.choices[0].message.parsed
