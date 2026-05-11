@@ -64,9 +64,38 @@
         "migrationTags": 12,
         "migrationLinks": 54
       }
+    },
+    {
+      "id": "C1-MODELS",
+      "title": "SQLAlchemy Models",
+      "description": "Full rewrite of models.py: Entity, EntityLink, EntityTag, EntityChunk, EntityEvent, Job, Tag. All columns from SCHEMA.sql. to_dict() returns full API response shape including backward-compat aliases (raw_text, is_archived, name aliases for Cycle 1 compatibility). Write unit tests for model construction, to_dict(), repr.",
+      "cycle": "1",
+      "phase": "foundation",
+      "status": "pending",
+      "passes": false,
+      "blocked": false,
+      "attempts": 0,
+      "reads": [
+        "docs/SCHEMA.sql",
+        "docs/TECH_SPEC.md",
+        "models.py"
+      ],
+      "writes": [
+        "models.py",
+        "tests/unit/test_models.py"
+      ],
+      "acceptanceCriteria": [
+        "All model classes (Entity, EntityLink, EntityTag, EntityChunk, EntityEvent, Job, Tag) instantiate correctly from SCHEMA.sql columns",
+        "to_dict() returns the entity response shape matching docs/API_SPEC.md including backward-compat aliases",
+        "Do not touch any API file or any service file",
+        "All tests in tests/unit/test_models.py pass"
+      ],
+      "validationCommands": [
+        "pytest tests/unit/test_models.py -v"
+      ]
     }
   ],
   "metadata": {
-    "updatedAt": "2026-05-11T18:21:20.820510+00:00"
+    "updatedAt": "2026-05-11T18:42:58.797003+00:00"
   }
 }
