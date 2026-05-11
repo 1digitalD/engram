@@ -93,9 +93,199 @@
       "validationCommands": [
         "pytest tests/unit/test_models.py -v"
       ]
+    },
+    {
+      "id": "C1-SERVICES-CORE",
+      "title": "entity_service + link_service",
+      "description": "Write services/entity_service.py and services/link_service.py. create/update/archive/delete for entities. create_link/delete_link for entity links with cascade preview and orphan detection. Write tests/unit/test_lifecycle.py and tests/integration/test_entities.py and tests/integration/test_links.py.",
+      "cycle": "1",
+      "phase": "foundation",
+      "status": "pending",
+      "passes": false,
+      "blocked": false,
+      "attempts": 0,
+      "reads": [
+        "docs/TECH_SPEC.md",
+        "docs/PRD.md",
+        "models.py"
+      ],
+      "writes": [
+        "services/entity_service.py",
+        "services/link_service.py",
+        "tests/unit/test_lifecycle.py",
+        "tests/integration/test_entities.py",
+        "tests/integration/test_links.py"
+      ],
+      "acceptanceCriteria": [
+        "entity_service.create/update/archive/delete_preview work correctly",
+        "link_service.create_link/delete_link with cascade preview and orphan detection",
+        "All status transitions enforce correctly",
+        "pytest tests/unit/test_lifecycle.py tests/integration/test_entities.py tests/integration/test_links.py passes"
+      ],
+      "blockedBy": [
+        "C1-MODELS"
+      ],
+      "validationCommands": [
+        "pytest tests/unit/test_lifecycle.py tests/integration/test_entities.py tests/integration/test_links.py -v"
+      ]
+    },
+    {
+      "id": "C1-JOBS",
+      "title": "Job Worker",
+      "description": "Write services/job_worker.py: polling loop, get_next_job (FOR UPDATE SKIP LOCKED), process_job, exponential backoff. Write tests/integration/test_jobs.py.",
+      "cycle": "1",
+      "phase": "foundation",
+      "status": "pending",
+      "passes": false,
+      "blocked": false,
+      "attempts": 0,
+      "reads": [
+        "docs/TECH_SPEC.md",
+        "docs/SCHEMA.sql"
+      ],
+      "writes": [
+        "services/job_worker.py",
+        "tests/integration/test_jobs.py"
+      ],
+      "acceptanceCriteria": [
+        "Job enqueue and process works",
+        "Failed jobs retry with exponential backoff",
+        "Jobs past max_attempts are skipped",
+        "FOR UPDATE SKIP LOCKED prevents double-pickup",
+        "pytest tests/integration/test_jobs.py passes"
+      ],
+      "blockedBy": [
+        "C1-MODELS"
+      ],
+      "validationCommands": [
+        "pytest tests/integration/test_jobs.py -v"
+      ]
+    },
+    {
+      "id": "C1-AI-PIPELINE",
+      "title": "Unified Async AI Pipeline",
+      "description": "Write services/ai_pipeline.py and services/extractor.py. Unified async pipeline using Job system. extractor.py reads entity raw_text, chunks it, queues embedding job.",
+      "cycle": "1",
+      "phase": "foundation",
+      "status": "pending",
+      "passes": false,
+      "blocked": false,
+      "attempts": 0,
+      "reads": [
+        "docs/TECH_SPEC.md",
+        "docs/SCHEMA.sql"
+      ],
+      "writes": [
+        "services/ai_pipeline.py",
+        "services/extractor.py"
+      ],
+      "acceptanceCriteria": [
+        "AI pipeline dispatches jobs to job worker",
+        "Extractor chunks entity raw_text and queues embedding jobs",
+        "Pipeline handles errors gracefully"
+      ],
+      "blockedBy": [
+        "C1-MODELS",
+        "C1-JOBS"
+      ],
+      "validationCommands": []
+    },
+    {
+      "id": "C1-API",
+      "title": "Update All API Routes",
+      "description": "Update all API routes in api/ to use new models and services. Ensures routes match docs/API_SPEC.md.",
+      "cycle": "1",
+      "phase": "foundation",
+      "status": "pending",
+      "passes": false,
+      "blocked": false,
+      "attempts": 0,
+      "reads": [
+        "docs/API_SPEC.md",
+        "models.py",
+        "services/entity_service.py"
+      ],
+      "writes": [
+        "api/notes.py",
+        "api/tasks.py",
+        "api/projects.py",
+        "api/areas.py",
+        "api/resources.py",
+        "api/people.py",
+        "api/search.py"
+      ],
+      "acceptanceCriteria": [
+        "All API routes respond correctly with new model shapes",
+        "Backward-compat aliases work in API responses",
+        "pytest tests/ -q passes"
+      ],
+      "blockedBy": [
+        "C1-MODELS",
+        "C1-SERVICES-CORE",
+        "C1-AI-PIPELINE"
+      ],
+      "validationCommands": [
+        "pytest tests/ -q"
+      ]
+    },
+    {
+      "id": "C1-SEARCH",
+      "title": "Postgres FTS + pgvector Search",
+      "description": "Write services/embeddings.py and services/search.py. Use Postgres pgvector for semantic search. Implement full-text search using Postgres FTS.",
+      "cycle": "1",
+      "phase": "foundation",
+      "status": "pending",
+      "passes": false,
+      "blocked": false,
+      "attempts": 0,
+      "reads": [
+        "docs/SCHEMA.sql",
+        "docs/TECH_SPEC.md"
+      ],
+      "writes": [
+        "services/embeddings.py",
+        "services/search.py"
+      ],
+      "acceptanceCriteria": [
+        "Entity embeddings stored in entity_chunks with pgvector",
+        "Semantic search returns relevant entities",
+        "Postgres FTS works for keyword search"
+      ],
+      "blockedBy": [
+        "C1-MODELS"
+      ],
+      "validationCommands": []
+    },
+    {
+      "id": "C1-VALIDATE",
+      "title": "Full Suite + Migration Validation",
+      "description": "Run full test suite against the migrated Postgres database. Validate all C1 tasks together. Ensure no regressions.",
+      "cycle": "1",
+      "phase": "foundation",
+      "status": "pending",
+      "passes": false,
+      "blocked": false,
+      "attempts": 0,
+      "reads": [
+        "docs/SCHEMA.sql",
+        "prd.json"
+      ],
+      "writes": [],
+      "acceptanceCriteria": [
+        "Full test suite passes on migrated Postgres DB",
+        "All C1 tasks validated together",
+        "No regressions introduced"
+      ],
+      "blockedBy": [
+        "C1-API",
+        "C1-SEARCH"
+      ],
+      "validationCommands": [
+        "pytest tests/ -q"
+      ]
     }
   ],
   "metadata": {
-    "updatedAt": "2026-05-11T18:42:58.797003+00:00"
+    "updatedAt": "2026-05-11T19:05:41.366279+00:00"
   }
 }
