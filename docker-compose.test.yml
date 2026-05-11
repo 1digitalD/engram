@@ -1,0 +1,19 @@
+# Engram v2 — isolated test database
+# Usage: docker compose -f docker-compose.test.yml up -d
+
+services:
+  postgres_test:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: engram
+      POSTGRES_PASSWORD: engram
+      POSTGRES_DB: engram_test
+    ports:
+      - "5433:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U engram -d engram_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 10

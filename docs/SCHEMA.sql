@@ -57,8 +57,8 @@ CREATE TABLE IF NOT EXISTS entities (
 ALTER TABLE entities
     ADD COLUMN IF NOT EXISTS priority  TEXT
         GENERATED ALWAYS AS (properties->>'priority') STORED,
-    ADD COLUMN IF NOT EXISTS due_date  TIMESTAMPTZ
-        GENERATED ALWAYS AS ((NULLIF(properties->>'due_date',''))::TIMESTAMPTZ) STORED,
+    ADD COLUMN IF NOT EXISTS due_date  TEXT
+        GENERATED ALWAYS AS (properties->>'due_date') STORED,
     ADD COLUMN IF NOT EXISTS bucket    TEXT
         GENERATED ALWAYS AS (properties->>'bucket') STORED;
 

@@ -25,10 +25,10 @@
       "description": "Implement docs/AGENT_PLAN.md C1-INFRA. Bootstrap Engram v2 infrastructure around Postgres 16 + pgvector, schema application, test DB config, environment examples, and SQLite-to-Postgres migration script. Reconcile with current repo reality: docker-compose.yml, .env.example, docs/SCHEMA.sql, and scripts/apply_schema.sh already exist, but docker-compose.test.yml and scripts/migrate_sqlite_to_postgres.py are missing.",
       "cycle": "1",
       "phase": "foundation",
-      "status": "pending",
-      "passes": false,
+      "status": "done",
+      "passes": true,
       "blocked": false,
-      "attempts": 0,
+      "attempts": 1,
       "reads": [
         "docs/SCHEMA.sql",
         "docs/TECH_SPEC.md",
@@ -55,7 +55,18 @@
         "docker compose up -d postgres_test",
         "TEST_DATABASE_URL=${TEST_DATABASE_URL:-postgresql://engram:engram@localhost:5433/engram_test} DATABASE_URL=${TEST_DATABASE_URL:-postgresql://engram:engram@localhost:5433/engram_test} scripts/apply_schema.sh",
         "psql ${TEST_DATABASE_URL:-postgresql://engram:engram@localhost:5433/engram_test} -c '\\dt'"
-      ]
+      ],
+      "completedAt": "2026-05-11T18:21:46.437966+00:00",
+      "commit": "1f4fc83",
+      "validation": {
+        "schemaTables": 7,
+        "migrationEntities": 392,
+        "migrationTags": 12,
+        "migrationLinks": 54
+      }
     }
-  ]
+  ],
+  "metadata": {
+    "updatedAt": "2026-05-11T18:21:20.820510+00:00"
+  }
 }

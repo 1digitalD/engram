@@ -1,6 +1,6 @@
 # Engram v2 — Execution Tracker
 
-Last updated: 2026-05-10
+Last updated: 2026-05-11
 Branch: `claude/busy-wozniak-e23763` → target: `main`
 Architecture: Postgres + pgvector (replaces SQLite + sqlite-vec)
 
@@ -28,6 +28,7 @@ Architecture: Postgres + pgvector (replaces SQLite + sqlite-vec)
 | Task | Agent | Status | Commit | Tests | Notes |
 |---|---|---|---|---|---|
 | Setup: AGENTS.md, .env.example, requirements.txt | manual | done | 5977f5d | — | v2 pivot commit |
+| C1-INFRA | manual | done | pending | schema apply + migration smoke | Added isolated test compose, hardened schema apply, fixed immutable generated column, added SQLite→Postgres migration with row-count validation. |
 
 ## Cycle 1 — Foundation
 
@@ -35,7 +36,7 @@ Architecture: Postgres + pgvector (replaces SQLite + sqlite-vec)
 
 | Task | Description | Status | Blocked by |
 |---|---|---|---|
-| C1-INFRA | Docker + schema + migration script | pending | — |
+| C1-INFRA | Docker + schema + migration script | done | — |
 | C1-MODELS | SQLAlchemy models rewrite | pending | C1-INFRA |
 | C1-SERVICES-CORE | entity_service + link_service | pending | C1-MODELS |
 | C1-JOBS | Job worker + retry | pending | C1-MODELS |
