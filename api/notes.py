@@ -115,7 +115,7 @@ def list_notes():
         q = q.filter(Note.is_archived == False)
 
     total = q.count()
-    notes = q.order_by(Note.modified_at.desc()).offset(offset).limit(limit).all()
+    notes = q.order_by(Note.created_at.desc()).offset(offset).limit(limit).all()
 
     return jsonify({
         "data": [n.to_dict() for n in notes],
@@ -319,7 +319,7 @@ def update_note(note_id):
             text_changed = True
     if "bucket" in data:
         try:
-            note.bucket = BucketType(data["bucket"].upper())
+            note.bucket = BucketType(data["bucket"].upper()).value
         except ValueError:
             pass
     if "project_ids" in data or "project_id" in data:
