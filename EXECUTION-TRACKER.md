@@ -90,3 +90,5 @@ If the session resets:
 - **2026-05-11 16:16** C2-LINKS-API → e54a779: C2-LINKS-API: completed, merged from opencode worktree
 
 - **2026-05-11 16:40** C2-EDITOR → ce5f5e3: C2-EDITOR: completed, merged from opencode worktree
+
+- **2026-05-11 16:46** C2-KANBAN → 7e8f664: C2-KANBAN: completed, merged from opencode worktree
