@@ -72,9 +72,9 @@
       "cycle": "1",
       "phase": "foundation",
       "status": "pending",
-      "passes": false,
+      "passes": true,
       "blocked": false,
-      "attempts": 0,
+      "attempts": 1,
       "reads": [
         "docs/SCHEMA.sql",
         "docs/TECH_SPEC.md",
@@ -92,7 +92,8 @@
       ],
       "validationCommands": [
         "pytest tests/unit/test_models.py -v"
-      ]
+      ],
+      "commit": "5b3a367"
     },
     {
       "id": "C1-SERVICES-CORE",

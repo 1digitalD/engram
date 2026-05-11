@@ -1,29 +1,400 @@
+"""Engram v2 — SQLAlchemy models (Postgres-backed).
+
+All seven canonical tables from docs/SCHEMA.sql:
+  Entity, EntityLink, EntityTag, EntityChunk, EntityEvent, Job, Tag
+"""
+
 import uuid
-from datetime import datetime
-from enum import Enum as PyEnum
+from datetime import datetime, timezone
 
 from sqlalchemy import (
     Column,
     String,
     Text,
     DateTime,
-    Boolean,
-    ForeignKey,
-    Table,
-    Enum,
     Integer,
     Float,
-    func,
-    select,
-    event,
-    or_,
+    Boolean,
+    ForeignKey,
+    JSON,
+    CheckConstraint,
     UniqueConstraint,
+    TypeDecorator,
+    Text as SqlText,
 )
-from sqlalchemy.orm import Session as SaSession
-from sqlalchemy.dialects.sqlite import JSON
 from sqlalchemy.orm import relationship
 
 from extensions import db
+
+
+# ─── Custom Types ────────────────────────────────────────────────────────────
+
+
+class Vector(TypeDecorator):
+    """pgvector VECTOR(1536) — falls back to TEXT when pgvector is unavailable."""
+
+    impl = SqlText
+    cache_ok = True
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return None
+        if isinstance(value, (list, tuple)):
+            return f"[{','.join(str(v) for v in value)}]"
+        return value
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return None
+        if isinstance(value, str) and value.startswith("["):
+            try:
+                return [float(x) for x in value.strip("[]").split(",")]
+            except (ValueError, AttributeError):
+                return value
+        return value
+
+
+# ─── Base ────────────────────────────────────────────────────────────────────
+
+
+class BaseModel(db.Model):
+    __abstract__ = True
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+
+
+# ─── Tags ────────────────────────────────────────────────────────────────────
+
+
+class Tag(BaseModel):
+    __tablename__ = "tags"
+
+    name = Column(Text, nullable=False, unique=True)
+    color = Column(Text, nullable=True)
+    updated_at = Column(
+        DateTime, nullable=False, default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+    # Relationships
+    entity_tags = relationship("EntityTag", back_populates="tag")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "color": self.color,
+            "created_at": _iso(self.created_at),
+            "updated_at": _iso(self.updated_at),
+        }
+
+    def __repr__(self):
+        return f"<Tag {self.id[:8]} name={self.name!r}>"
+
+
+# ─── Entity Tags (junction table) ────────────────────────────────────────────
+
+
+class EntityTag(db.Model):
+    __tablename__ = "entity_tags"
+
+    entity_id = Column(String(36), ForeignKey("entities.id", ondelete="CASCADE"), primary_key=True)
+    tag_id = Column(String(36), ForeignKey("tags.id", ondelete="CASCADE"), primary_key=True)
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+
+    entity = relationship("Entity", back_populates="entity_tags")
+    tag = relationship("Tag", back_populates="entity_tags")
+
+    def to_dict(self):
+        return {
+            "entity_id": self.entity_id,
+            "tag_id": self.tag_id,
+            "created_at": _iso(self.created_at),
+        }
+
+    def __repr__(self):
+        return f"<EntityTag entity={self.entity_id[:8]} tag={self.tag_id[:8]}>"
+
+
+# ─── Entity Links ────────────────────────────────────────────────────────────
+
+
+class EntityLink(BaseModel):
+    __tablename__ = "entity_links"
+    __table_args__ = (
+        UniqueConstraint("src_id", "dst_id", "link_type", name="uq_entity_links_src_dst_type"),
+        CheckConstraint("src_id <> dst_id", name="chk_no_self_link"),
+    )
+
+    src_id = Column(String(36), ForeignKey("entities.id", ondelete="CASCADE"), nullable=False)
+    dst_id = Column(String(36), ForeignKey("entities.id", ondelete="CASCADE"), nullable=False)
+    link_type = Column(Text, nullable=False, default="related")
+    weight = Column(Float, nullable=False, default=1.0)
+    source = Column(Text, nullable=False, default="manual")
+    confidence = Column(Float, nullable=True)
+    evidence = Column(Text, nullable=True)
+
+    src_entity = relationship("Entity", foreign_keys=[src_id], back_populates="outgoing_links")
+    dst_entity = relationship("Entity", foreign_keys=[dst_id], back_populates="incoming_links")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "src_id": self.src_id,
+            "dst_id": self.dst_id,
+            "link_type": self.link_type,
+            "weight": self.weight,
+            "source": self.source,
+            "confidence": self.confidence,
+            "evidence": self.evidence,
+            "created_at": _iso(self.created_at),
+        }
+
+    def __repr__(self):
+        return f"<EntityLink {self.id[:8]} {self.src_id[:8]}→{self.dst_id[:8]} type={self.link_type!r}>"
+
+
+# ─── Entity Chunks (embeddings) ──────────────────────────────────────────────
+
+
+class EntityChunk(BaseModel):
+    __tablename__ = "entity_chunks"
+    __table_args__ = (
+        UniqueConstraint("entity_id", "chunk_index", name="uq_entity_chunks_entity_index"),
+    )
+
+    entity_id = Column(String(36), ForeignKey("entities.id", ondelete="CASCADE"), nullable=False)
+    chunk_index = Column(Integer, nullable=False, default=0)
+    chunk_text = Column(Text, nullable=False)
+    embedding = Column(Vector(1536), nullable=True)
+    embedding_model = Column(Text, nullable=False, default="text-embedding-3-small")
+
+    entity = relationship("Entity", back_populates="chunks")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "entity_id": self.entity_id,
+            "chunk_index": self.chunk_index,
+            "chunk_text": self.chunk_text,
+            "embedding_model": self.embedding_model,
+            "created_at": _iso(self.created_at),
+        }
+
+    def __repr__(self):
+        return f"<EntityChunk {self.id[:8]} entity={self.entity_id[:8]} idx={self.chunk_index}>"
+
+
+# ─── Entity Events (audit log) ───────────────────────────────────────────────
+
+
+class EntityEvent(BaseModel):
+    __tablename__ = "entity_events"
+
+    entity_id = Column(String(36), ForeignKey("entities.id", ondelete="CASCADE"), nullable=False)
+    event_type = Column(Text, nullable=False)
+    actor = Column(Text, nullable=False)
+    old_value = Column(JSON, nullable=True)
+    new_value = Column(JSON, nullable=True)
+    confidence = Column(Float, nullable=True)
+    reason = Column(Text, nullable=True)
+
+    entity = relationship("Entity", back_populates="events")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "entity_id": self.entity_id,
+            "event_type": self.event_type,
+            "actor": self.actor,
+            "old_value": self.old_value,
+            "new_value": self.new_value,
+            "confidence": self.confidence,
+            "reason": self.reason,
+            "created_at": _iso(self.created_at),
+        }
+
+    def __repr__(self):
+        return f"<EntityEvent {self.id[:8]} type={self.event_type!r} actor={self.actor!r}>"
+
+
+# ─── Entity (single-table inheritance) ───────────────────────────────────────
+
+
+class Entity(BaseModel):
+    __tablename__ = "entities"
+
+    # Discriminator
+    type = Column(Text, nullable=False)
+
+    # Universal base fields
+    title = Column(Text, nullable=True)
+    content = Column(Text, nullable=True)
+
+    # Lifecycle
+    status = Column(Text, nullable=False, default="active")
+    lifecycle = Column(Text, nullable=False, default="active")
+    follow_up_at = Column(DateTime, nullable=True)
+    source = Column(Text, nullable=True)
+    reference_url = Column(Text, nullable=True)
+
+    # Type-specific fields (JSONB)
+    properties = Column(JSON, nullable=False, default=dict)
+
+    # AI metadata
+    ai_meta = Column(JSON, nullable=False, default=dict)
+    ai_status = Column(Text, nullable=False, default="pending")
+
+    # Generated columns (read-only — populated by Postgres)
+    priority = Column(Text, nullable=True)
+    due_date = Column(Text, nullable=True)
+    bucket = Column(Text, nullable=True)
+    search_vector = Column(Text, nullable=True)
+
+    updated_at = Column(
+        DateTime, nullable=False, default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+    # Relationships
+    entity_tags = relationship("EntityTag", back_populates="entity", cascade="all, delete-orphan")
+    outgoing_links = relationship(
+        "EntityLink", foreign_keys="EntityLink.src_id", back_populates="src_entity",
+        cascade="all, delete-orphan",
+    )
+    incoming_links = relationship(
+        "EntityLink", foreign_keys="EntityLink.dst_id", back_populates="dst_entity",
+    )
+    chunks = relationship("EntityChunk", back_populates="entity", cascade="all, delete-orphan")
+    events = relationship("EntityEvent", back_populates="entity", cascade="all, delete-orphan")
+    jobs = relationship("Job", back_populates="entity")
+
+    def to_dict(self):
+        """Return full API response shape with backward-compat aliases."""
+        # Resolve tag data from relationship or test-time attributes
+        tag_ids = []
+        tags = []
+        if hasattr(self, "_tag_objects"):
+            tags = [
+                {"id": t.id, "name": t.name, "color": t.color}
+                for t in self._tag_objects
+            ]
+            tag_ids = [t.id for t in self._tag_objects]
+        elif self.entity_tags:
+            for et in self.entity_tags:
+                tag_ids.append(et.tag_id)
+                if hasattr(et, "tag") and et.tag:
+                    tags.append({"id": et.tag.id, "name": et.tag.name, "color": et.tag.color})
+
+        # Link count from relationship or test-time attribute
+        link_count = getattr(self, "_link_count", None)
+        if link_count is None:
+            link_count = (
+                len(self.outgoing_links) + len(self.incoming_links)
+                if hasattr(self, "outgoing_links") and hasattr(self, "incoming_links")
+                else 0
+            )
+
+        d = {
+            "id": self.id,
+            "type": self.type,
+            "title": self.title,
+            "content": self.content,
+            "status": self.status,
+            "lifecycle": self.lifecycle,
+            "follow_up_at": _iso(self.follow_up_at),
+            "source": self.source,
+            "reference_url": self.reference_url,
+            "properties": self.properties or {},
+            "ai_meta": self.ai_meta or {},
+            "ai_status": self.ai_status,
+            "tag_ids": tag_ids,
+            "tags": tags,
+            "link_count": link_count,
+            "created_at": _iso(self.created_at),
+            "updated_at": _iso(self.updated_at),
+        }
+
+        # ── Backward-compat aliases (Cycle 1 — removed in Cycle 2) ──
+        # note.raw_text → alias for content
+        d["raw_text"] = self.content
+
+        # note.is_archived / project.is_archived → lifecycle == 'archived'
+        d["is_archived"] = self.lifecycle == "archived"
+
+        # project.name → alias for title
+        d["name"] = self.title
+
+        # task.due_date → alias for follow_up_at
+        d["due_date"] = _iso(self.follow_up_at)
+
+        return d
+
+    def __repr__(self):
+        return f"<Entity {self.id[:8]} type={self.type!r} title={self.title!r}>"
+
+
+# ─── Jobs ────────────────────────────────────────────────────────────────────
+
+
+class Job(BaseModel):
+    __tablename__ = "jobs"
+
+    job_type = Column(Text, nullable=False)
+    entity_id = Column(String(36), ForeignKey("entities.id", ondelete="CASCADE"), nullable=True)
+    payload = Column(JSON, nullable=False, default=dict)
+    status = Column(Text, nullable=False, default="pending")
+    attempts = Column(Integer, nullable=False, default=0)
+    max_attempts = Column(Integer, nullable=False, default=3)
+    error = Column(Text, nullable=True)
+    run_after = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(
+        DateTime, nullable=False, default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+    entity = relationship("Entity", back_populates="jobs")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "job_type": self.job_type,
+            "entity_id": self.entity_id,
+            "payload": self.payload or {},
+            "status": self.status,
+            "attempts": self.attempts,
+            "max_attempts": self.max_attempts,
+            "error": self.error,
+            "run_after": _iso(self.run_after),
+            "created_at": _iso(self.created_at),
+            "updated_at": _iso(self.updated_at),
+        }
+
+    def __repr__(self):
+        return f"<Job {self.id[:8]} type={self.job_type!r} status={self.status!r}>"
+
+
+# ─── Helpers ─────────────────────────────────────────────────────────────────
+
+
+def _iso(dt):
+    """Convert datetime to ISO8601 string, or return None."""
+    if dt is None:
+        return None
+    if isinstance(dt, str):
+        return dt
+    return dt.isoformat()
+
+
+# ─── SQLite/legacy compatibility stubs ───────────────────────────────────────
+# Kept so existing API/service imports do not break. These map to the old
+# SQLite tables and are superseded by the v2 Entity model above.
+# Do NOT use for new code — use Entity + properties instead.
+
+
+from enum import Enum as PyEnum
+from sqlalchemy import Table
 
 
 class BucketType(PyEnum):
@@ -78,597 +449,210 @@ class NoteType(PyEnum):
     DECISION = "DECISION"
 
 
-# Association tables
+# Legacy association tables
 note_tags = Table(
     "note_tags",
     db.Model.metadata,
-    Column("note_id", String(36), ForeignKey("notes.id"), primary_key=True),
-    Column("tag_id", String(36), ForeignKey("tags.id"), primary_key=True),
+    Column("note_id", String(36), primary_key=True),
+    Column("tag_id", String(36), primary_key=True),
 )
 
 note_projects = Table(
     "note_projects",
     db.Model.metadata,
-    Column(
-        "note_id",
-        String(36),
-        ForeignKey("notes.id", ondelete="CASCADE"),
-        primary_key=True,
-    ),
-    Column(
-        "project_id",
-        String(36),
-        ForeignKey("projects.id", ondelete="CASCADE"),
-        primary_key=True,
-    ),
+    Column("note_id", String(36), primary_key=True),
+    Column("project_id", String(36), primary_key=True),
 )
 
 resource_tags = Table(
     "resource_tags",
     db.Model.metadata,
-    Column(
-        "resource_id",
-        String(36),
-        ForeignKey("resources.id", ondelete="CASCADE"),
-        primary_key=True,
-    ),
-    Column("tag_id", String(36), ForeignKey("tags.id", ondelete="CASCADE"), primary_key=True),
+    Column("resource_id", String(36), primary_key=True),
+    Column("tag_id", String(36), primary_key=True),
 )
 
 
-# ─── Base ────────────────────────────────────────────────────────────────────
+class Note(BaseModel):
+    __tablename__ = "notes"
+    raw_text = Column(Text, nullable=False)
+    bucket = Column(Text, default="INBOX")
+    note_type = Column(Text, default="NOTE", nullable=False)
+    is_archived = Column(Boolean, default=False)
+    ai_meta = Column(JSON, nullable=True)
+    project_id = Column(String(36), nullable=True)
+    area_id = Column(String(36), nullable=True)
+    person_id = Column(String(36), nullable=True)
 
-
-class BaseModel(db.Model):
-    __abstract__ = True
-
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    created_at = Column(DateTime, default=datetime.utcnow)
-    modified_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-
-# ─── Tags ────────────────────────────────────────────────────────────────────
-
-
-class Tag(BaseModel):
-    __tablename__ = "tags"
-
-    name = Column(String(255), unique=True, nullable=False)
-    color = Column(String(7), nullable=True)
-
-    notes = relationship("Note", secondary=note_tags, back_populates="tags")
-    resources = relationship("Resource", secondary=resource_tags, back_populates="tags")
-
-    def to_dict(self):
-        note_count = db.session.scalar(
-            select(func.count())
-            .select_from(note_tags)
-            .where(note_tags.c.tag_id == self.id)
-        ) or 0
-        resource_count = db.session.scalar(
-            select(func.count())
-            .select_from(resource_tags)
-            .where(resource_tags.c.tag_id == self.id)
-        ) or 0
+    def to_dict(self, include_relations=True):
         return {
-            "id": self.id,
-            "name": self.name,
-            "color": self.color,
-            "created_at": self.created_at.isoformat(),
-            "modified_at": self.modified_at.isoformat(),
-            "note_count": note_count,
-            "resource_count": resource_count,
+            "id": self.id, "raw_text": self.raw_text,
+            "bucket": self.bucket, "note_type": self.note_type,
+            "is_archived": self.is_archived, "ai_meta": self.ai_meta,
+            "created_at": _iso(self.created_at), "modified_at": _iso(self.modified_at) if hasattr(self, "modified_at") else None,
+            "project_id": self.project_id, "area_id": self.area_id, "person_id": self.person_id,
         }
 
-
-# ─── Projects ────────────────────────────────────────────────────────────────
+    def __repr__(self):
+        return f"<Note {self.id[:8]}>"
 
 
 class Project(BaseModel):
     __tablename__ = "projects"
-
-    name = Column(String(255), nullable=False)
+    name = Column(Text, nullable=False)
     description = Column(Text, nullable=True)
-    priority = Column(Enum(Priority), default=Priority.MEDIUM)
-    color = Column(String(7), nullable=True)
+    priority = Column(Text, default="MEDIUM")
+    color = Column(Text, nullable=True)
     deadline = Column(DateTime, nullable=True)
     is_archived = Column(Boolean, default=False)
-    area_id = Column(String(36), ForeignKey("areas.id"), nullable=True)
-
-    notes = relationship(
-        "Note",
-        secondary=note_projects,
-        back_populates="projects",
-    )
-    tasks = relationship("Task", back_populates="project")
-    area = relationship("Area", back_populates="projects")
+    area_id = Column(String(36), nullable=True)
 
     def to_dict(self, include_notes=False):
-        # Use scalar count queries to avoid loading all related rows
-        note_count = db.session.scalar(
-            select(func.count())
-            .select_from(note_projects)
-            .where(note_projects.c.project_id == self.id)
-        ) or 0
-        task_count = db.session.scalar(
-            select(func.count(Task.id)).where(Task.project_id == self.id)
-        ) or 0
-        d = {
-            "id": self.id,
-            "name": self.name,
-            "description": self.description,
-            "priority": self.priority.value if self.priority else None,
-            "color": self.color,
-            "deadline": self.deadline.isoformat() if self.deadline else None,
-            "is_archived": self.is_archived,
-            "area_id": self.area_id,
-            "area_name": self.area.name if self.area else None,
-            "created_at": self.created_at.isoformat(),
-            "modified_at": self.modified_at.isoformat(),
-            "note_count": note_count,
-            "task_count": task_count,
-        }
-        if include_notes:
-            d["notes"] = [n.to_dict() for n in (self.notes or [])]
-        return d
+        return {"id": self.id, "name": self.name}
 
-
-# ─── Areas ───────────────────────────────────────────────────────────────────
+    def __repr__(self):
+        return f"<Project {self.id[:8]}>"
 
 
 class Area(BaseModel):
     __tablename__ = "areas"
-
-    name = Column(String(255), nullable=False)
+    name = Column(Text, nullable=False)
     description = Column(Text, nullable=True)
-    color = Column(String(7), nullable=True)
-
-    notes = relationship("Note", back_populates="area")
-    projects = relationship("Project", back_populates="area")
-    tasks = relationship("Task", back_populates="area")
-    resources = relationship("Resource", back_populates="area")
-    summaries = relationship("Summary", back_populates="area")
+    color = Column(Text, nullable=True)
 
     def to_dict(self, include_notes=False):
-        note_count = db.session.scalar(
-            select(func.count(Note.id)).where(Note.area_id == self.id)
-        ) or 0
-        project_count = db.session.scalar(
-            select(func.count(Project.id)).where(Project.area_id == self.id)
-        ) or 0
-        task_count = db.session.scalar(
-            select(func.count(Task.id)).where(Task.area_id == self.id)
-        ) or 0
-        resource_count = db.session.scalar(
-            select(func.count(Resource.id)).where(Resource.area_id == self.id)
-        ) or 0
-        d = {
-            "id": self.id,
-            "name": self.name,
-            "description": self.description,
-            "color": self.color,
-            "created_at": self.created_at.isoformat(),
-            "modified_at": self.modified_at.isoformat(),
-            "note_count": note_count,
-            "project_count": project_count,
-            "task_count": task_count,
-            "resource_count": resource_count,
-        }
-        if include_notes:
-            d["notes"] = [n.to_dict() for n in (self.notes or [])]
-        return d
+        return {"id": self.id, "name": self.name}
 
-
-# ─── Resources ────────────────────────────────────────────────────────────────
+    def __repr__(self):
+        return f"<Area {self.id[:8]}>"
 
 
 class Resource(BaseModel):
     __tablename__ = "resources"
-
-    title = Column(String(500), nullable=False)
-    resource_type = Column(Enum(ResourceType), nullable=False, default=ResourceType.OTHER)
-    url = Column(String(2048), nullable=True)
-    author = Column(String(255), nullable=True)
+    title = Column(Text, nullable=False)
+    resource_type = Column(Text, default="OTHER")
+    url = Column(Text, nullable=True)
+    author = Column(Text, nullable=True)
     published_at = Column(DateTime, nullable=True)
     description = Column(Text, nullable=True)
     my_notes = Column(Text, nullable=True)
     is_read = Column(Boolean, default=False)
     rating = Column(Integer, nullable=True)
-    area_id = Column(String(36), ForeignKey("areas.id"), nullable=True)
-
-    area = relationship("Area", back_populates="resources")
-    tags = relationship("Tag", secondary=resource_tags, back_populates="resources")
+    area_id = Column(String(36), nullable=True)
 
     def to_dict(self, include_relations=True):
-        d = {
-            "id": self.id,
-            "title": self.title,
-            "resource_type": self.resource_type.value if self.resource_type else ResourceType.OTHER.value,
-            "url": self.url,
-            "author": self.author,
-            "published_at": self.published_at.isoformat() if self.published_at else None,
-            "description": self.description,
-            "my_notes": self.my_notes,
-            "is_read": bool(self.is_read),
-            "rating": self.rating,
-            "area_id": self.area_id,
-            "tag_ids": [t.id for t in (self.tags or [])],
-            "created_at": self.created_at.isoformat(),
-            "modified_at": self.modified_at.isoformat(),
-        }
-        if include_relations:
-            d["tags"] = [t.to_dict() for t in (self.tags or [])]
-            d["area"] = self.area.to_dict() if self.area else None
-            d["area_name"] = self.area.name if self.area else None
-        return d
+        return {"id": self.id, "title": self.title}
 
-
-# ─── People ──────────────────────────────────────────────────────────────────
+    def __repr__(self):
+        return f"<Resource {self.id[:8]}>"
 
 
 class Person(BaseModel):
     __tablename__ = "people"
-
-    name = Column(String(255), nullable=False)
-    email = Column(String(255), nullable=True)
-    # Generic bag for platform-specific identifiers: {"discord": "...", "slack": "...", etc.}
+    name = Column(Text, nullable=False)
+    email = Column(Text, nullable=True)
     external_ids = Column(JSON, nullable=True, default=dict)
     notes_text = Column(Text, nullable=True)
     last_contacted_at = Column(DateTime, nullable=True)
 
-    notes = relationship("Note", back_populates="person")
-
     def to_dict(self):
-        return {
-            "id": self.id,
-            "name": self.name,
-            "email": self.email,
-            "external_ids": self.external_ids or {},
-            "notes": self.notes_text,
-            "last_contacted_at": self.last_contacted_at.isoformat() if self.last_contacted_at else None,
-            "created_at": self.created_at.isoformat(),
-            "modified_at": self.modified_at.isoformat(),
-        }
+        return {"id": self.id, "name": self.name}
 
-
-# ─── Notes ──────────────────────────────────────────────────────────────────
-
-
-class Note(BaseModel):
-    __tablename__ = "notes"
-
-    raw_text = Column(Text, nullable=False)
-    bucket = Column(Enum(BucketType), default=BucketType.INBOX)
-    note_type = Column(Enum(NoteType), default=NoteType.NOTE, nullable=False)
-    is_archived = Column(Boolean, default=False)
-    ai_meta = Column(JSON, nullable=True)
-
-    project_id = Column(String(36), ForeignKey("projects.id"), nullable=True)
-    area_id = Column(String(36), ForeignKey("areas.id"), nullable=True)
-    person_id = Column(String(36), ForeignKey("people.id"), nullable=True)
-
-    project = relationship(
-        "Project",
-        foreign_keys=[project_id],
-        overlaps="projects,notes",
-    )
-    projects = relationship(
-        "Project",
-        secondary=note_projects,
-        back_populates="notes",
-        overlaps="project",
-    )
-    area = relationship("Area", back_populates="notes")
-    person = relationship("Person", back_populates="notes")
-    tags = relationship("Tag", secondary=note_tags, back_populates="notes")
-    chunks = relationship("NoteChunk", back_populates="note", cascade="all, delete-orphan")
-    outgoing_links = relationship("Link", foreign_keys="Link.src_id", back_populates="source_note", cascade="all, delete-orphan")
-    incoming_links = relationship("Link", foreign_keys="Link.dst_id", back_populates="dest_note")
-    tasks = relationship("Task", back_populates="source_note", foreign_keys="Task.note_id")
-    summaries = relationship(
-        "Summary",
-        back_populates="note",
-        cascade="all, delete-orphan",
-    )
-
-    def to_dict(self, include_relations=True):
-        task_count = db.session.scalar(
-            select(func.count(Task.id)).where(Task.note_id == self.id)
-        ) or 0
-        plist = list(self.projects or [])
-        by_id = {p.id: p for p in plist}
-        primary = self.project_id
-        if primary and primary in by_id:
-            ordered = [primary] + sorted(
-                [p.id for p in plist if p.id != primary],
-                key=lambda x: x or "",
-            )
-        else:
-            ordered = sorted(by_id.keys(), key=lambda x: x or "")
-        d = {
-            "id": self.id,
-            "raw_text": self.raw_text,
-            "bucket": self.bucket.value if self.bucket else BucketType.INBOX.value,
-            "note_type": self.note_type.value if self.note_type else NoteType.NOTE.value,
-            "is_archived": self.is_archived,
-            "ai_meta": self.ai_meta,
-            "created_at": self.created_at.isoformat(),
-            "modified_at": self.modified_at.isoformat(),
-            "project_id": self.project_id,
-            "project_ids": ordered,
-            "area_id": self.area_id,
-            "person_id": self.person_id,
-            "tag_ids": [t.id for t in (self.tags or [])],
-            "tag_names": [t.name for t in (self.tags or [])],
-            "link_count": len(self.outgoing_links) + len(self.incoming_links),
-            "backlink_count": len(self.incoming_links),
-            "task_count": task_count,
-        }
-        if include_relations:
-            d["project"] = self.project.to_dict() if self.project else None
-            d["projects"] = [
-                p.to_dict() for pid in ordered if (p := by_id.get(pid))
-            ]
-            d["area"] = self.area.to_dict() if self.area else None
-            d["person"] = self.person.to_dict() if self.person else None
-            d["tags"] = [t.to_dict() for t in (self.tags or [])]
-        return d
-
-
-# ─── Tasks ───────────────────────────────────────────────────────────────────
+    def __repr__(self):
+        return f"<Person {self.id[:8]}>"
 
 
 class Task(BaseModel):
     __tablename__ = "tasks"
-
-    title = Column(String(500), nullable=False)
+    title = Column(Text, nullable=False)
     description = Column(Text, nullable=True)
-    status = Column(Enum(TaskStatus), default=TaskStatus.PENDING)
-    priority = Column(Enum(Priority), default=Priority.MEDIUM)
+    status = Column(Text, default="PENDING")
+    priority = Column(Text, default="MEDIUM")
     due_date = Column(DateTime, nullable=True)
-    project_id = Column(String(36), ForeignKey("projects.id"), nullable=True)
-    area_id = Column(String(36), ForeignKey("areas.id"), nullable=True)
-    note_id = Column(String(36), ForeignKey("notes.id"), nullable=True)
-    # Stable key for markdown checkbox lines (- [ ] / - [x]); only set for extractor-managed tasks
+    project_id = Column(String(36), nullable=True)
+    area_id = Column(String(36), nullable=True)
+    note_id = Column(String(36), nullable=True)
     inline_title_hash = Column(String(64), nullable=True)
 
-    project = relationship("Project", back_populates="tasks")
-    area = relationship("Area", back_populates="tasks")
-    source_note = relationship("Note", back_populates="tasks", foreign_keys=[note_id])
-
     def to_dict(self):
-        return {
-            "id": self.id,
-            "title": self.title,
-            "description": self.description,
-            "status": self.status.value if self.status else TaskStatus.PENDING.value,
-            "priority": self.priority.value if self.priority else Priority.MEDIUM.value,
-            "due_date": self.due_date.isoformat() if self.due_date else None,
-            "project_id": self.project_id,
-            "area_id": self.area_id,
-            "area_name": self.area.name if self.area else None,
-            "note_id": self.note_id,
-            "inline_title_hash": self.inline_title_hash,
-            "project": self.project.to_dict() if self.project else None,
-            "created_at": self.created_at.isoformat(),
-            "modified_at": self.modified_at.isoformat(),
-        }
+        return {"id": self.id, "title": self.title}
 
-
-# ─── Summaries ──────────────────────────────────────────────────────────────
+    def __repr__(self):
+        return f"<Task {self.id[:8]}>"
 
 
 class Summary(BaseModel):
     __tablename__ = "summaries"
-
-    note_id = Column(String(36), ForeignKey("notes.id", ondelete="CASCADE"), nullable=False)
-    area_id = Column(String(36), ForeignKey("areas.id"), nullable=True)
+    note_id = Column(String(36), nullable=False)
+    area_id = Column(String(36), nullable=True)
     summary_text = Column(Text, nullable=False)
-    generated_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    summary_type = Column(String(64), nullable=True)
-    granularity = Column(
-        Enum(SummaryGranularity),
-        default=SummaryGranularity.WEEKLY,
-        nullable=False,
-    )
+    generated_at = Column(DateTime, nullable=False)
+    summary_type = Column(Text, nullable=True)
+    granularity = Column(Text, default="WEEKLY", nullable=False)
     date_from = Column(DateTime, nullable=True)
     date_to = Column(DateTime, nullable=True)
     key_themes = Column(JSON, nullable=True)
     action_items = Column(JSON, nullable=True)
-    entity_type = Column(String(32), nullable=True)
-
-    note = relationship("Note", back_populates="summaries")
-    area = relationship("Area", back_populates="summaries")
+    entity_type = Column(Text, nullable=True)
 
     def to_dict(self):
-        return {
-            "id": self.id,
-            "note_id": self.note_id,
-            "area_id": self.area_id,
-            "summary_text": self.summary_text,
-            "generated_at": self.generated_at.isoformat(),
-            "summary_type": self.summary_type,
-            "granularity": self.granularity.value if self.granularity else SummaryGranularity.WEEKLY.value,
-            "date_from": self.date_from.isoformat() if self.date_from else None,
-            "date_to": self.date_to.isoformat() if self.date_to else None,
-            "key_themes": self.key_themes,
-            "action_items": self.action_items,
-            "entity_type": self.entity_type,
-            "created_at": self.created_at.isoformat(),
-            "modified_at": self.modified_at.isoformat(),
-        }
+        return {"id": self.id, "summary_text": self.summary_text}
 
-
-# ─── NoteChunk (for embeddings) ─────────────────────────────────────────────
+    def __repr__(self):
+        return f"<Summary {self.id[:8]}>"
 
 
 class NoteChunk(BaseModel):
     __tablename__ = "note_chunks"
-
-    note_id = Column(String(36), ForeignKey("notes.id"), nullable=False)
+    note_id = Column(String(36), nullable=False)
     chunk_index = Column(Integer, nullable=False, default=0)
     chunk_text = Column(Text, nullable=False)
-    embedding_model = Column(String(64), nullable=False, default="text-embedding-3-small")
-
-    note = relationship("Note", back_populates="chunks")
+    embedding_model = Column(Text, nullable=False, default="text-embedding-3-small")
 
     def to_dict(self):
-        return {
-            "id": self.id,
-            "note_id": self.note_id,
-            "chunk_index": self.chunk_index,
-            "chunk_text": self.chunk_text,
-            "embedding_model": self.embedding_model,
-            "created_at": self.created_at.isoformat(),
-        }
+        return {"id": self.id, "note_id": self.note_id, "chunk_text": self.chunk_text}
 
-
-# ─── Links (knowledge graph) ─────────────────────────────────────────────────
+    def __repr__(self):
+        return f"<NoteChunk {self.id[:8]}>"
 
 
 class Link(BaseModel):
     __tablename__ = "links"
-
-    src_id = Column(String(36), ForeignKey("notes.id"), nullable=False)
-    dst_id = Column(String(36), ForeignKey("notes.id"), nullable=False)
-    link_type = Column(String(32), nullable=False, default="related")
+    src_id = Column(String(36), nullable=False)
+    dst_id = Column(String(36), nullable=False)
+    link_type = Column(Text, nullable=False, default="related")
     weight = Column(Float, default=1.0)
-    source = Column(String(32), nullable=False, default="manual")  # manual|embedding|llm|wikilink
-
-    source_note = relationship("Note", foreign_keys=[src_id], back_populates="outgoing_links")
-    dest_note = relationship("Note", foreign_keys=[dst_id], back_populates="incoming_links")
+    source = Column(Text, nullable=False, default="manual")
 
     def to_dict(self):
-        return {
-            "id": self.id,
-            "src_id": self.src_id,
-            "dst_id": self.dst_id,
-            "link_type": self.link_type,
-            "weight": self.weight,
-            "source": self.source,
-            "created_at": self.created_at.isoformat(),
-        }
+        return {"id": self.id, "src_id": self.src_id, "dst_id": self.dst_id}
 
-
-# ─── Link proposals (AI-suggested links pending human review) ────────────────
+    def __repr__(self):
+        return f"<Link {self.id[:8]}>"
 
 
 class LinkProposal(BaseModel):
-    """
-    Persisted suggestion to link two notes. One row per (src_id, dst_id) pair;
-    dismissed rows block re-insert so pairs are never re-proposed.
-    """
-
     __tablename__ = "link_proposals"
-    __table_args__ = (UniqueConstraint("src_id", "dst_id", name="uq_link_proposals_src_dst"),)
-
-    src_id = Column(String(36), ForeignKey("notes.id"), nullable=False)
-    dst_id = Column(String(36), ForeignKey("notes.id"), nullable=False)
+    src_id = Column(String(36), nullable=False)
+    dst_id = Column(String(36), nullable=False)
     confidence = Column(Float, nullable=False)
     reason = Column(Text, nullable=True)
-    status = Column(
-        Enum(LinkProposalStatus),
-        nullable=False,
-        default=LinkProposalStatus.PENDING,
-    )
-
-    src_note = relationship("Note", foreign_keys=[src_id])
-    dst_note = relationship("Note", foreign_keys=[dst_id])
+    status = Column(Text, nullable=False, default="pending")
 
     def to_dict(self):
-        st = self.status
-        status_val = st.value if isinstance(st, LinkProposalStatus) else st
-        return {
-            "id": self.id,
-            "src_id": self.src_id,
-            "dst_id": self.dst_id,
-            "from_note_id": self.src_id,
-            "to_note_id": self.dst_id,
-            "confidence": self.confidence,
-            "reason": self.reason,
-            "status": status_val,
-            "created_at": self.created_at.isoformat(),
-            "modified_at": self.modified_at.isoformat(),
-        }
+        return {"id": self.id, "src_id": self.src_id, "dst_id": self.dst_id, "status": self.status}
+
+    def __repr__(self):
+        return f"<LinkProposal {self.id[:8]}>"
 
 
-def _sync_note_projects_m2m(session, note: Note) -> None:
-    """Align note_projects rows with scalar project_id and collection order."""
-    plist = list(note.projects or [])
-    if plist:
-        first_id = plist[0].id
-        if note.project_id != first_id:
-            note.project_id = first_id
-        return
-    if note.project_id:
-        proj = session.get(Project, note.project_id)
-        if proj is not None:
-            note.projects.append(proj)
+# ─── SQLite/FTS stubs (kept for app.py imports) ─────────────────────────────
 
-
-@event.listens_for(SaSession, "before_flush")
-def _before_flush_note_projects(session, flush_context, instances):
-    for obj in session.new.union(session.dirty):
-        if isinstance(obj, Note):
-            _sync_note_projects_m2m(session, obj)
-
-
-# ─── FTS5 + sqlite-vec initialization ────────────────────────────────────────
 
 def init_fts(conn=None):
-    """Create FTS5 virtual table for full-text search on notes."""
-    from extensions import db as _db
-    c = conn or _db.engine.connect()
-
-    c.execute(_db.text("""
-        CREATE VIRTUAL TABLE IF NOT EXISTS notes_fts USING fts5(
-            raw_text,
-            content='notes',
-            content_rowid='rowid'
-        )
-    """))
-    c.execute(_db.text("""
-        CREATE TRIGGER IF NOT EXISTS notes_ai AFTER INSERT ON notes BEGIN
-            INSERT INTO notes_fts(rowid, raw_text) VALUES (NEW.rowid, NEW.raw_text);
-        END
-    """))
-    c.execute(_db.text("""
-        CREATE TRIGGER IF NOT EXISTS notes_ad AFTER DELETE ON notes BEGIN
-            INSERT INTO notes_fts(notes_fts, rowid, raw_text) VALUES('delete', OLD.rowid, OLD.raw_text);
-        END
-    """))
-    c.execute(_db.text("""
-        CREATE TRIGGER IF NOT EXISTS notes_au AFTER UPDATE ON notes BEGIN
-            INSERT INTO notes_fts(notes_fts, rowid, raw_text) VALUES('delete', OLD.rowid, OLD.raw_text);
-            INSERT INTO notes_fts(rowid, raw_text) VALUES (NEW.rowid, NEW.raw_text);
-        END
-    """))
-
-    if conn is None:
-        c.commit()
-        c.close()
+    """No-op stub — FTS is now a Postgres generated column."""
+    pass
 
 
 def init_vec(conn=None):
-    """Create sqlite-vec virtual table for vector search on note chunks."""
-    from extensions import db as _db
-    c = conn or _db.engine.connect()
-
-    try:
-        c.execute(_db.text("""
-            CREATE VIRTUAL TABLE IF NOT EXISTS vec_chunks USING vec0(
-                chunk_id TEXT PRIMARY KEY,
-                embedding FLOAT[1536]
-            )
-        """))
-        if conn is None:
-            c.commit()
-    except Exception as e:
-        import logging
-        logging.getLogger(__name__).warning(f"sqlite-vec not available, vector search disabled: {e}")
-    finally:
-        if conn is None:
-            try:
-                c.close()
-            except Exception:
-                pass
+    """No-op stub — vector search is now pgvector HNSW index."""
+    pass
