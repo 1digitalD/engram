@@ -200,9 +200,9 @@
       "cycle": "1",
       "phase": "foundation",
       "status": "pending",
-      "passes": false,
+      "passes": true,
       "blocked": false,
-      "attempts": 0,
+      "attempts": 1,
       "reads": [
         "docs/API_SPEC.md",
         "models.py",
@@ -229,7 +229,8 @@
       ],
       "validationCommands": [
         "pytest tests/test_api.py -v"
-      ]
+      ],
+      "commit": "bfc09a8"
     },
     {
       "id": "C1-SEARCH",
