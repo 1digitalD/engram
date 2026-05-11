@@ -5,6 +5,7 @@ import useStore from '../stores/useStore';
 import NoteCard from '../components/notes/NoteCard';
 import NoteEditor from '../components/notes/NoteEditor';
 import TaskCheckboxRow from '../components/tasks/TaskCheckboxRow';
+import ConnectionsPanel from '../components/ConnectionsPanel/ConnectionsPanel';
 import styles from './ProjectFocus.module.css';
 
 export default function ProjectFocus() {
@@ -94,6 +95,7 @@ export default function ProjectFocus() {
           { key: 'notes', label: `Notes (${projectNotes.length})` },
           { key: 'tasks', label: `Tasks (${projectTasks.length})` },
           { key: 'people', label: `People (${linkedPeople.length})` },
+          { key: 'connections', label: 'Connections' },
         ].map(t => (
           <button
             key={t.key}
@@ -155,6 +157,12 @@ export default function ProjectFocus() {
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {tab === 'connections' && (
+        <div className={styles.content}>
+          <ConnectionsPanel entityId={id} />
         </div>
       )}
 

@@ -10,6 +10,7 @@ import useStore from '../stores/useStore';
 import { linksAPI, proposalsAPI } from '../api/engram';
 import { BucketBadge, TagBadge } from '../components/ui/Badge';
 import TipTapEditor from '../components/Editor/TipTapEditor';
+import ConnectionsPanel from '../components/ConnectionsPanel/ConnectionsPanel';
 import styles from './NoteDetailView.module.css';
 
 function notePreviewLine(n) {
@@ -473,6 +474,8 @@ export default function NoteDetailView() {
         )}
 
         <div className={styles.panels}>
+          <ConnectionsPanel entityId={note.id} refreshKey={linksOut.length + linksIn.length} />
+
           <section className={styles.panel}>
             <h2 className={styles.panelTitle}>
               <Link2 size={14} /> Links &amp; backlinks

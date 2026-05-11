@@ -146,6 +146,11 @@ export const batchAPI = {
     apiRequest('POST', '/batch', { operations, atomic }),
 };
 
+// ── Connections (universal entity links) ──────
+export const connectionsAPI = {
+  forEntity: (id) => apiRequest('GET', `/entities/${id}/links`),
+};
+
 // ── Health ───────────────────────────────────
 export const healthAPI = {
   check: () => apiRequest('GET', '/health'.replace('/api/v1', '')),

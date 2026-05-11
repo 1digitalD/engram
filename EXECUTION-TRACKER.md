@@ -92,3 +92,5 @@ If the session resets:
 - **2026-05-11 16:40** C2-EDITOR → ce5f5e3: C2-EDITOR: completed, merged from opencode worktree
 
 - **2026-05-11 16:46** C2-KANBAN → 7e8f664: C2-KANBAN: completed, merged from opencode worktree
+
+- **2026-05-11 16:56** C2-SURFACING → 077a885: C2-SURFACING: completed, merged from opencode worktree
