@@ -117,4 +117,5 @@ Override per run: `CLAUDE_MODEL=claude-haiku-4-5-20251001 bash scripts/run_task.
 - `archive/PLAN.md` — old phase plan, SQLite-based
 - `archive/SPEC.md` — old spec, superseded by `docs/PRD.md`
 - `archive/prd.json` — old task queue, inactive
+- `archive/v1-prd-before-v2-bootstrap.json` — old v1 executable queue, archived 2026-05-11 when `prd.json` was re-bootstrapped for v2 Cycle 1
 - `archive/AUDIT.md` — historical audit, for reference only
