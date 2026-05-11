@@ -15,4 +15,12 @@ tests/__pycache__/
 ui/node_modules/
 ui/.vite/
 ui/dist/
+
+# macOS
+.DS_Store
+
+# Logs (written by build_overnight.sh)
+logs/
+
+# Build artifacts that don't belong in source
 .gstack/
