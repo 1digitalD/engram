@@ -72,3 +72,5 @@ If the session resets:
 3. Run `git status` to check for uncommitted work.
 4. Resume the first `pending` task in the table above.
 5. Re-run the relevant validation command before continuing.
+
+- **2026-05-11 12:14** C1-MODELS → 1501a0e: C1-MODELS: completed, merged from opencode worktree
