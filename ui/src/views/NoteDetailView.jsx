@@ -9,6 +9,7 @@ import {
 import useStore from '../stores/useStore';
 import { linksAPI, proposalsAPI } from '../api/engram';
 import { BucketBadge, TagBadge } from '../components/ui/Badge';
+import TipTapEditor from '../components/Editor/TipTapEditor';
 import styles from './NoteDetailView.module.css';
 
 function notePreviewLine(n) {
@@ -406,27 +407,25 @@ export default function NoteDetailView() {
         {/* Note body */}
         {isEditing ? (
           <div className={styles.inlineEditor}>
-            <textarea
-              className={styles.inlineTextarea}
-              value={draftText}
-              onChange={e => setDraftText(e.target.value)}
-              onKeyDown={handleEditKeyDown}
-              rows={14}
-              autoFocus
+            <TipTapEditor
+              initialContent={note.raw_text || ''}
+              noteId={note.id}
+              placeholder="Edit note..."
+              onSave={async ({ text }) => {
+                if (!text.trim() || saving) return;
+                setSaving(true);
+                try {
+                  await updateNote(note.id, { raw_text: text });
+                  setIsEditing(false);
+                } finally {
+                  setSaving(false);
+                }
+              }}
             />
             <div className={styles.inlineActions}>
-              <span className={styles.shortcutHint}>Cmd/Ctrl+Enter to save · Esc to cancel</span>
+              <span className={styles.shortcutHint}>Use the editor toolbar to save</span>
               <button type="button" className="btn btn-ghost btn-sm" onClick={cancelEditing} disabled={saving}>
                 Cancel
-              </button>
-              <button
-                type="button"
-                className="btn btn-primary btn-sm"
-                onClick={saveInlineEdit}
-                disabled={saving || !draftText.trim()}
-              >
-                {saving ? <Loader2 size={13} className="spin" /> : null}
-                Save
               </button>
             </div>
           </div>
