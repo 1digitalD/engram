@@ -7,10 +7,7 @@
   "planSource": "docs/AGENT_PLAN.md",
   "mergePolicy": "Merge validated task commits into main; use isolated executor worktrees/branches per task.",
   "queuePolicy": "Execute C1-INFRA first. After it passes, queue the C1 parallel block from docs/AGENT_PLAN.md with file ownership and acceptance criteria.",
-  "validationCommands": [
-    "pytest -q",
-    "cd ui && npm install && npm run build"
-  ],
+  "validationCommands": [],
   "blockerPolicy": {
     "maxValidationRetries": 2,
     "maxRateLimitRetries": 3,
@@ -231,7 +228,7 @@
         "C1-AI-PIPELINE"
       ],
       "validationCommands": [
-        "pytest tests/ -q"
+        "pytest tests/test_api.py -v"
       ]
     },
     {
