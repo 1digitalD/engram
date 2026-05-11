@@ -191,7 +191,9 @@
         "C1-MODELS",
         "C1-JOBS"
       ],
-      "validationCommands": []
+      "validationCommands": [
+        "pytest tests/unit/test_ai_pipeline.py tests/integration/test_ingestion.py -v"
+      ]
     },
     {
       "id": "C1-API",
@@ -257,7 +259,9 @@
       "blockedBy": [
         "C1-MODELS"
       ],
-      "validationCommands": []
+      "validationCommands": [
+        "pytest tests/unit/test_embeddings.py tests/unit/test_search.py -v"
+      ]
     },
     {
       "id": "C1-VALIDATE",
