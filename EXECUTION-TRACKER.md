@@ -43,7 +43,9 @@ Architecture: Postgres + pgvector (replaces SQLite + sqlite-vec)
 | C1-AI-PIPELINE | Unified async AI pipeline | pending | C1-MODELS, C1-JOBS |
 | C1-API | Update all API routes | pending | C1-MODELS, C1-SERVICES-CORE, C1-AI-PIPELINE |
 | C1-SEARCH | Postgres FTS + pgvector search | pending | C1-MODELS |
-| C1-VALIDATE | Full suite + migration validation | pending | all C1 parallel tasks |
+| C1-VALIDATE | Full suite + migration validation | done | all C1 parallel tasks |
+
+- **2026-05-11 19:05** C1-VALIDATE → <pending>: Full suite passes — 281 passed, 2 skipped, 0 failures
 
 ## Cycle 2 — Relationships + UX
 
@@ -80,3 +82,7 @@ If the session resets:
 - **2026-05-11 14:59** C1-API → bfc09a8: C1-API: completed, merged from opencode worktree
 
 - **2026-05-11 15:24** C1-SEARCH → 4a1714d: C1-SEARCH: completed, merged from opencode worktree
+
+- **2026-05-11 19:10** C1-VALIDATE → <pending>: Full suite passes — 281 passed, 2 skipped, 0 failures. All C1 tasks validated together with no regressions.
+
+- **2026-05-11 15:46** C1-VALIDATE → 9a1b9f6: C1-VALIDATE: completed, merged from opencode worktree
