@@ -1,14 +1,12 @@
 """
-Embedding service: generate, store, and query embeddings via sqlite-vec.
+Embedding service: generate, store, and query embeddings via Postgres pgvector.
 Uses OpenAI text-embedding-3-small at 1536 dims.
-Chunks notes using Markdown-heading splits + 400-token sliding window.
+Chunks entity content using sliding window with configurable overlap.
 """
 from __future__ import annotations
 
 import os
-import json
 import logging
-import re
 
 logger = logging.getLogger(__name__)
 
@@ -33,63 +31,59 @@ def _get_client():
 
 # ── Chunking ─────────────────────────────────────────────────────────────────
 
-def _approx_tokens(text: str) -> int:
-    return len(text) // 4
+def chunk_text(text, chunk_size=None, overlap=None):
+    """Split text into overlapping chunks for embedding.
 
+    Uses a sliding window approach at word boundaries.
 
-def _split_chunks(text: str, note_id: str) -> list[tuple[int, str]]:
+    Returns list of text chunks (strings). Empty list if text is empty/None.
     """
-    Split text into chunks with breadcrumb prefix.
-    Returns list of (chunk_index, chunk_text).
-    Strategy: split on Markdown headings first, then sliding window.
-    """
-    # Split on Markdown headings
-    heading_pattern = re.compile(r'^#{1,3}\s+.+$', re.MULTILINE)
-    sections = heading_pattern.split(text)
-    headings = heading_pattern.findall(text)
+    if not text or not text.strip():
+        return []
 
-    # Build labeled sections
-    labeled = []
-    for i, section in enumerate(sections):
-        heading = headings[i - 1] if i > 0 else ""
-        labeled.append((heading, section.strip()))
+    chunk_size = chunk_size or CHUNK_SIZE
+    overlap = overlap or CHUNK_OVERLAP
+
+    chunk_chars = chunk_size * 4
+    overlap_chars = overlap * 4
+
+    if len(text) <= chunk_chars:
+        return [text.strip()]
+
+    words = text.split()
+    if not words:
+        return []
 
     chunks = []
-    idx = 0
+    current_chunk = []
+    current_length = 0
 
-    for heading, section in labeled:
-        if not section:
-            continue
-        prefix = f"{heading}\n" if heading else ""
-        full = prefix + section
-
-        if _approx_tokens(full) <= CHUNK_SIZE:
-            chunks.append((idx, full))
-            idx += 1
-        else:
-            # Sliding window within large section
-            words = full.split()
-            step = CHUNK_SIZE * 4 - CHUNK_OVERLAP * 4  # chars approx
-            start = 0
-            text_len = len(full)
-            while start < text_len:
-                end = start + CHUNK_SIZE * 4
-                chunk = full[start:end]
-                chunks.append((idx, chunk))
-                idx += 1
-                if end >= text_len:
+    for word in words:
+        word_len = len(word) + 1
+        if current_length + word_len > chunk_chars and current_chunk:
+            chunks.append(" ".join(current_chunk))
+            overlap_words = []
+            overlap_len = 0
+            for w in reversed(current_chunk):
+                if overlap_len + len(w) + 1 > overlap_chars:
                     break
-                start += step
+                overlap_words.append(w)
+                overlap_len += len(w) + 1
+            current_chunk = list(reversed(overlap_words))
+            current_length = overlap_len
 
-    if not chunks:
-        chunks = [(0, text[:CHUNK_SIZE * 4])]
+        current_chunk.append(word)
+        current_length += word_len
+
+    if current_chunk:
+        chunks.append(" ".join(current_chunk))
 
     return chunks
 
 
 # ── OpenAI embedding call ─────────────────────────────────────────────────────
 
-def _embed_texts(texts: list[str]) -> list[list[float]]:
+def _embed_texts(texts):
     """Call OpenAI embeddings API. Returns list of embedding vectors."""
     client = _get_client()
     response = client.embeddings.create(
@@ -102,17 +96,16 @@ def _embed_texts(texts: list[str]) -> list[list[float]]:
 
 # ── Storage ──────────────────────────────────────────────────────────────────
 
-def embed_note(note_id: str, text: str):
+def embed_entity(entity_id, text):
     """
-    Generate embeddings for a note and store them in sqlite-vec.
-    Replaces any existing chunks for this note.
+    Generate embeddings for an entity and store them in entity_chunks.
+    Replaces any existing chunks for this entity.
     """
     from extensions import db
-    from models import NoteChunk
+    from models import EntityChunk
 
     try:
         from flask import current_app
-
         if current_app.config.get("TESTING"):
             return
     except RuntimeError:
@@ -121,55 +114,41 @@ def embed_note(note_id: str, text: str):
     if not os.getenv("OPENAI_API_KEY"):
         return
 
-    try:
-        # Remove old chunks
-        NoteChunk.query.filter_by(note_id=note_id).delete()
-        db.session.execute(
-            db.text("DELETE FROM vec_chunks WHERE chunk_id LIKE :prefix"),
-            {"prefix": f"{note_id}_%"}
-        )
+    if not text or not text.strip():
+        return
 
-        chunks = _split_chunks(text, note_id)
-        if not chunks:
+    try:
+        EntityChunk.query.filter_by(entity_id=entity_id).delete()
+        db.session.flush()
+
+        text_chunks = chunk_text(text)
+        if not text_chunks:
             return
 
-        chunk_texts = [c[1] for c in chunks]
-        vectors = _embed_texts(chunk_texts)
+        vectors = _embed_texts(text_chunks)
 
-        for (chunk_idx, chunk_text), vector in zip(chunks, vectors):
-            chunk_id = f"{note_id}_{chunk_idx}"
-
-            # Store metadata
-            nc = NoteChunk(
-                id=chunk_id,
-                note_id=note_id,
-                chunk_index=chunk_idx,
-                chunk_text=chunk_text,
+        for i, (txt, vector) in enumerate(zip(text_chunks, vectors)):
+            chunk = EntityChunk(
+                entity_id=entity_id,
+                chunk_index=i,
+                chunk_text=txt,
+                embedding=vector,
                 embedding_model=EMBEDDING_MODEL,
             )
-            db.session.add(nc)
-
-            # Store vector in sqlite-vec
-            try:
-                db.session.execute(
-                    db.text("INSERT OR REPLACE INTO vec_chunks(chunk_id, embedding) VALUES (:id, :vec)"),
-                    {"id": chunk_id, "vec": json.dumps(vector)}
-                )
-            except Exception as vec_err:
-                logger.debug(f"sqlite-vec insert skipped: {vec_err}")
+            db.session.add(chunk)
 
         db.session.commit()
-        logger.info(f"Embedded note {note_id}: {len(chunks)} chunks")
+        logger.info("Embedded entity %s: %d chunks", entity_id, len(text_chunks))
 
     except Exception as e:
-        logger.error(f"embed_note failed for {note_id}: {e}")
+        logger.error("embed_entity failed for %s: %s", entity_id, e)
         try:
             db.session.rollback()
         except Exception:
             pass
 
 
-def embed_query(query: str) -> list[float] | None:
+def embed_query(query):
     """Embed a search query string. Returns vector or None."""
     if not os.getenv("OPENAI_API_KEY"):
         return None
@@ -177,121 +156,5 @@ def embed_query(query: str) -> list[float] | None:
         vectors = _embed_texts([query])
         return vectors[0] if vectors else None
     except Exception as e:
-        logger.error(f"embed_query failed: {e}")
+        logger.error("embed_query failed: %s", e)
         return None
-
-
-# ── Similarity search ─────────────────────────────────────────────────────────
-
-def semantic_search(query: str, limit: int = 20) -> list[dict]:
-    """
-    Search notes by semantic similarity to query.
-    Returns list of note dicts ordered by similarity.
-    """
-    from extensions import db
-    from models import Note, NoteChunk
-
-    vector = embed_query(query)
-    if vector is None:
-        return []
-
-    try:
-        rows = db.session.execute(
-            db.text("""
-                SELECT vc.chunk_id, vc.distance
-                FROM vec_chunks vc
-                WHERE vc.embedding MATCH :vec AND k = :k
-                ORDER BY vc.distance
-            """),
-            {"vec": json.dumps(vector), "k": limit * 3}
-        ).fetchall()
-
-        # De-duplicate by note_id, keep best (lowest) distance
-        seen = {}
-        for chunk_id, distance in rows:
-            note_id = chunk_id.rsplit("_", 1)[0]
-            if note_id not in seen or distance < seen[note_id]:
-                seen[note_id] = distance
-
-        # Sort by distance, take top limit
-        ranked = sorted(seen.items(), key=lambda x: x[1])[:limit]
-
-        results = []
-        for note_id, distance in ranked:
-            note = db.session.get(Note, note_id)
-            if note and not note.is_archived:
-                d = note.to_dict()
-                d["_score"] = round(1.0 - distance, 4)
-                results.append(d)
-
-        return results
-
-    except Exception as e:
-        logger.debug(f"semantic_search failed (sqlite-vec may not be active): {e}")
-        return []
-
-
-def find_related_note_ids(note_id: str, limit: int = 5, min_similarity: float = 0.80) -> list[tuple[str, float]]:
-    """
-    Find notes similar to a given note using vector search.
-    Returns list of (other_note_id, similarity_score) tuples.
-    """
-    from extensions import db
-    from models import NoteChunk
-
-    # Get any chunk embedding for this note to use as query
-    chunk = NoteChunk.query.filter_by(note_id=note_id).first()
-    if not chunk:
-        return []
-
-    try:
-        rows = db.session.execute(
-            db.text("""
-                SELECT vc.chunk_id, vc.distance
-                FROM vec_chunks vc
-                WHERE vc.embedding MATCH (
-                    SELECT embedding FROM vec_chunks WHERE chunk_id = :cid
-                ) AND k = :k
-                ORDER BY vc.distance
-            """),
-            {"cid": chunk.id, "k": (limit + 1) * 3}
-        ).fetchall()
-
-        seen = {}
-        for chunk_id, distance in rows:
-            other_note_id = chunk_id.rsplit("_", 1)[0]
-            if other_note_id == note_id:
-                continue
-            similarity = 1.0 - distance
-            if similarity >= min_similarity:
-                if other_note_id not in seen or similarity > seen[other_note_id]:
-                    seen[other_note_id] = similarity
-
-        return sorted(seen.items(), key=lambda x: -x[1])[:limit]
-
-    except Exception as e:
-        logger.debug(f"find_related_note_ids failed: {e}")
-        return []
-
-
-def backfill_embeddings():
-    """Embed all notes that don't have chunks yet. For CLI use."""
-    from extensions import db
-    from models import Note, NoteChunk
-
-    notes_without_chunks = (
-        Note.query
-        .filter(~Note.id.in_(
-            db.session.query(NoteChunk.note_id).distinct()
-        ))
-        .all()
-    )
-
-    logger.info(f"Backfilling embeddings for {len(notes_without_chunks)} notes...")
-    for note in notes_without_chunks:
-        try:
-            embed_note(note.id, note.raw_text)
-        except Exception as e:
-            logger.error(f"Failed to embed note {note.id}: {e}")
-
-    logger.info("Backfill complete.")

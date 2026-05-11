@@ -239,9 +239,9 @@
       "cycle": "1",
       "phase": "foundation",
       "status": "pending",
-      "passes": false,
+      "passes": true,
       "blocked": false,
-      "attempts": 0,
+      "attempts": 1,
       "reads": [
         "docs/SCHEMA.sql",
         "docs/TECH_SPEC.md"
@@ -260,7 +260,8 @@
       ],
       "validationCommands": [
         "pytest tests/unit/test_embeddings.py tests/unit/test_search.py -v"
-      ]
+      ],
+      "commit": "4a1714d"
     },
     {
       "id": "C1-VALIDATE",
