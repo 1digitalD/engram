@@ -72,9 +72,54 @@ check_prereqs() {
     ok "All prerequisites passed"
 }
 
+# ── Rate-limit config ─────────────────────────────────────────────────────────
+# Time to sleep between tasks. Each claude --print session consumes a burst of
+# tool-call tokens. 90s is enough for Sonnet-level rate-limit windows to clear
+# without adding more than ~10 min to a 6-task overnight run.
+INTER_TASK_SLEEP="${INTER_TASK_SLEEP:-90}"
+
+# Model to use for all coding tasks. Override with:
+#   CLAUDE_MODEL=claude-haiku-4-5-20251001 bash scripts/build_overnight.sh
+# Haiku is 10x cheaper and sufficient for single-file tasks (C1-JOBS, C1-SEARCH).
+# Sonnet is the right default for multi-file rewrites (C1-MODELS, C1-API).
+CLAUDE_MODEL="${CLAUDE_MODEL:-claude-sonnet-4-6}"
+
+# Max retries for a rate-limited claude invocation (429 / exit 1).
+CLAUDE_MAX_RETRIES="${CLAUDE_MAX_RETRIES:-3}"
+
 # ── Task runner ───────────────────────────────────────────────────────────────
 PASSED_TASKS=()
 FAILED_TASKS=()
+
+# Invoke claude with exponential-backoff retry on failure.
+# Rate-limit exits and transient errors both look like exit 1 from claude --print.
+claude_with_retry() {
+    local task_id="$1"
+    local task_log="$2"
+    local prompt="$3"
+    local attempt=0
+    local delay=60
+
+    while [ $attempt -lt "$CLAUDE_MAX_RETRIES" ]; do
+        attempt=$(( attempt + 1 ))
+        log "$task_id — claude attempt $attempt/$CLAUDE_MAX_RETRIES (model: $CLAUDE_MODEL)"
+
+        if claude --model "$CLAUDE_MODEL" \
+                  --dangerously-skip-permissions \
+                  --print -p "$prompt" \
+                  >> "$task_log" 2>&1; then
+            return 0
+        fi
+
+        if [ $attempt -lt "$CLAUDE_MAX_RETRIES" ]; then
+            warn "$task_id — attempt $attempt failed, retrying in ${delay}s..."
+            sleep "$delay"
+            delay=$(( delay * 2 ))   # 60s → 120s → 240s
+        fi
+    done
+
+    return 1
+}
 
 run_task() {
     local task_id="$1"
@@ -83,7 +128,6 @@ run_task() {
 
     log "━━━ Starting $task_id ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-    # Build the agent prompt from the task spec
     local prompt
     prompt=$(cat <<PROMPT
 You are working in the Engram v2 repository at: $REPO_DIR
@@ -115,12 +159,10 @@ Constraints:
 PROMPT
 )
 
-    # Run claude non-interactively, capture output
-    if claude --print -p "$prompt" > "$task_log" 2>&1; then
+    if claude_with_retry "$task_id" "$task_log" "$prompt"; then
         ok "$task_id completed"
         PASSED_TASKS+=("$task_id")
 
-        # Run validation
         log "Running validation for $task_id: $validate_cmd"
         if eval "$validate_cmd" >> "$task_log" 2>&1; then
             ok "$task_id validation passed"
@@ -130,9 +172,15 @@ PROMPT
             return 1
         fi
     else
-        fail "$task_id FAILED (agent exited non-zero)"
+        fail "$task_id FAILED after $CLAUDE_MAX_RETRIES attempts"
         FAILED_TASKS+=("${task_id}:agent")
         return 1
+    fi
+
+    # Breathe between tasks so the next agent doesn't start into a rate-limit cliff.
+    if [ "${SKIP_SLEEP:-}" != "1" ]; then
+        log "Sleeping ${INTER_TASK_SLEEP}s before next task (set SKIP_SLEEP=1 to disable)..."
+        sleep "$INTER_TASK_SLEEP"
     fi
 }
 

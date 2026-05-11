@@ -78,9 +78,43 @@ psql $TEST_DATABASE_URL -f docs/SCHEMA.sql
 
 ---
 
+## Rate limits and model selection
+
+This project runs via an automated coding loop (`scripts/build_overnight.sh`) that
+spawns one `claude --print` session per task. Each session makes many tool calls
+(file reads, test runs, edits). To avoid hitting Anthropic API rate limits:
+
+**Model defaults**
+
+| Task | Recommended model | Why |
+|---|---|---|
+| C1-MODELS, C1-SERVICES-CORE, C1-AI-PIPELINE, C1-API | `claude-sonnet-4-6` | Multi-file rewrites, complex logic |
+| C1-JOBS, C1-SEARCH, C2-* single-file tasks | `claude-haiku-4-5-20251001` | Simpler scope, 10× cheaper, faster |
+| C1-INFRA (migration script), C3-* | `claude-sonnet-4-6` | Judgment-heavy |
+
+Override per run: `CLAUDE_MODEL=claude-haiku-4-5-20251001 bash scripts/run_task.sh C1-JOBS`
+
+**Pacing**
+
+- `build_overnight.sh` sleeps `$INTER_TASK_SLEEP` seconds (default 90) between tasks.
+- Override: `INTER_TASK_SLEEP=120 bash scripts/build_overnight.sh`
+- Skip for rapid local iteration: `SKIP_SLEEP=1 bash scripts/build_overnight.sh`
+- The script retries a failed `claude` invocation up to `$CLAUDE_MAX_RETRIES` times
+  (default 3) with exponential backoff starting at 60s (60 → 120 → 240).
+
+**If you hit rate limits mid-task**
+
+1. Check `logs/tasks/<task_id>.log` — the agent writes partial progress before exiting.
+2. Check `EXECUTION-TRACKER.md` for any blocker the agent recorded.
+3. Wait 5–10 minutes, then re-run: `bash scripts/run_task.sh <TASK_ID>`
+4. The agent will re-read the spec and pick up from where the code is — it does not
+   resume a session, so ensure any partial file writes are valid Python/JS before re-running.
+
+---
+
 ## Archived (do not use for new work)
 
-- `PLAN.md` — old phase plan, SQLite-based
-- `SPEC.md` — old spec, superseded by `docs/PRD.md`
-- `prd.json` — old task queue, inactive
-- `AUDIT.md` — historical audit, for reference only
+- `archive/PLAN.md` — old phase plan, SQLite-based
+- `archive/SPEC.md` — old spec, superseded by `docs/PRD.md`
+- `archive/prd.json` — old task queue, inactive
+- `archive/AUDIT.md` — historical audit, for reference only
