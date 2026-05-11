@@ -22,3 +22,5 @@ from . import (
     daily,
     resources,
 )
+
+api_v2_bp = links.api_v2_bp

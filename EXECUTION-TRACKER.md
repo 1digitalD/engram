@@ -86,3 +86,5 @@ If the session resets:
 - **2026-05-11 19:10** C1-VALIDATE → <pending>: Full suite passes — 281 passed, 2 skipped, 0 failures. All C1 tasks validated together with no regressions.
 
 - **2026-05-11 15:46** C1-VALIDATE → 9a1b9f6: C1-VALIDATE: completed, merged from opencode worktree
+
+- **2026-05-11 16:16** C2-LINKS-API → e54a779: C2-LINKS-API: completed, merged from opencode worktree

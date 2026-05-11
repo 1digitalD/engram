@@ -1,11 +1,16 @@
-from flask import request, jsonify
+from flask import Blueprint, request, jsonify
 from api import api_bp
 from extensions import db
-from models import Link, Note
+from models import Link, Note, Entity, EntityLink
 from services.links import VALID_LINK_TYPES
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+# ─── V2 Blueprint ────────────────────────────────────────────────────────────
+
+api_v2_bp = Blueprint("api_v2", __name__, url_prefix="/api/v2")
 
 
 @api_bp.route("/links", methods=["GET"])
@@ -101,3 +106,64 @@ def delete_link(link_id):
     db.session.delete(link)
     db.session.commit()
     return jsonify({"success": True}), 200
+
+
+# ─── V2: Universal Entity Links API ──────────────────────────────────────────
+
+
+@api_v2_bp.route("/links/<entity_id>", methods=["GET"])
+def get_entity_links_v2(entity_id):
+    """Universal entity links endpoint — direction-agnostic with filtering and pagination.
+
+    GET /api/v2/links/:entity_id
+    Query params:
+        link_type — filter by link type (e.g. 'related', 'parent')
+        limit     — page size (default 50, max 1000)
+        offset    — page offset (default 0)
+
+    Returns paginated list of all links where the entity is src or dst,
+    with direction indicator, weight/confidence strength fields, and
+    the other entity's basic info.
+    """
+    entity = db.session.get(Entity, entity_id)
+    if entity is None:
+        return jsonify({"error": "entity not found"}), 404
+
+    link_type = request.args.get("link_type")
+    limit = request.args.get("limit", 50, type=int)
+    offset = request.args.get("offset", 0, type=int)
+    limit = max(1, min(limit, 1000))
+
+    query = EntityLink.query.filter(
+        (EntityLink.src_id == entity_id) | (EntityLink.dst_id == entity_id)
+    )
+
+    if link_type:
+        query = query.filter(EntityLink.link_type == link_type)
+
+    total = query.count()
+    links = query.order_by(EntityLink.created_at.desc()).limit(limit).offset(offset).all()
+
+    result = []
+    for link in links:
+        is_outgoing = link.src_id == entity_id
+        other_id = link.dst_id if is_outgoing else link.src_id
+        other_entity = db.session.get(Entity, other_id)
+
+        link_data = link.to_dict()
+        link_data["direction"] = "outgoing" if is_outgoing else "incoming"
+        if other_entity:
+            link_data["other_entity"] = {
+                "id": other_entity.id,
+                "type": other_entity.type,
+                "title": other_entity.title,
+                "lifecycle": other_entity.lifecycle,
+            }
+        result.append(link_data)
+
+    return jsonify({
+        "data": result,
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+    })

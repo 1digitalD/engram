@@ -32,8 +32,9 @@ def create_app(config_name=None):
         load_sqlite_extensions(db)
 
     # Register API blueprint (includes all sub-modules)
-    from api import api_bp
+    from api import api_bp, api_v2_bp
     app.register_blueprint(api_bp)
+    app.register_blueprint(api_v2_bp)
 
     # ── CLI Commands ──────────────────────────────────────────────────────────
 
