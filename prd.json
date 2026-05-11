@@ -102,9 +102,9 @@
       "cycle": "1",
       "phase": "foundation",
       "status": "pending",
-      "passes": false,
+      "passes": true,
       "blocked": false,
-      "attempts": 0,
+      "attempts": 1,
       "reads": [
         "docs/TECH_SPEC.md",
         "docs/PRD.md",
@@ -128,7 +128,8 @@
       ],
       "validationCommands": [
         "pytest tests/unit/test_lifecycle.py tests/integration/test_entities.py tests/integration/test_links.py -v"
-      ]
+      ],
+      "commit": "d8e5e37"
     },
     {
       "id": "C1-JOBS",

@@ -1,0 +1,209 @@
+"""Entity link service — create, delete, query, cascade preview.
+
+Manages entity_links with parent cardinality enforcement,
+orphan detection, and delete cascade preview.
+"""
+
+from extensions import db
+from models import Entity, EntityLink, EntityEvent
+
+
+# ─── Link CRUD ───────────────────────────────────────────────────────────────
+
+
+def create_link(src_id, dst_id, link_type="related", source="manual",
+                confidence=None, evidence=None, actor="user"):
+    """Create a link between two entities.
+
+    Args:
+        src_id: Source entity UUID.
+        dst_id: Destination entity UUID.
+        link_type: Type of link ('parent', 'related', 'references', etc.).
+        source: Origin ('manual', 'ai', 'embedding', 'system').
+        confidence: Confidence score (0-1) for AI/embedding links.
+        evidence: Reasoning or note about the link.
+        actor: Who created the link.
+
+    Returns:
+        The created EntityLink instance.
+
+    Raises:
+        ValueError: If src/dst not found, self-link, duplicate, or
+                    parent cardinality violated.
+    """
+    src = Entity.query.get(src_id)
+    if src is None:
+        raise ValueError(f"source entity {src_id} not found")
+    dst = Entity.query.get(dst_id)
+    if dst is None:
+        raise ValueError(f"destination entity {dst_id} not found")
+
+    if src_id == dst_id:
+        raise ValueError("cannot link entity to itself")
+
+    # Enforce parent cardinality: one parent max per entity
+    if link_type == "parent":
+        existing = EntityLink.query.filter_by(
+            src_id=src_id, link_type="parent"
+        ).first()
+        if existing:
+            raise ValueError(
+                f"entity {src_id} already has a parent link "
+                f"to {existing.dst_id}"
+            )
+
+    # Check for duplicate
+    existing = EntityLink.query.filter_by(
+        src_id=src_id, dst_id=dst_id, link_type=link_type
+    ).first()
+    if existing:
+        raise ValueError(
+            f"link already exists: {src_id} -> {dst_id} ({link_type})"
+        )
+
+    link = EntityLink(
+        src_id=src_id,
+        dst_id=dst_id,
+        link_type=link_type,
+        source=source,
+        confidence=confidence,
+        evidence=evidence,
+    )
+    db.session.add(link)
+    db.session.flush()
+
+    # Write events on both entities
+    _write_event(src_id, "link_added", actor,
+                 new_value={"link_id": link.id, "dst_id": dst_id,
+                            "link_type": link_type},
+                 reason=evidence)
+    _write_event(dst_id, "link_added", actor,
+                 new_value={"link_id": link.id, "src_id": src_id,
+                            "link_type": link_type},
+                 reason=evidence)
+
+    db.session.commit()
+    return link
+
+
+def delete_link(link_id, actor="user"):
+    """Delete a link and write removal events on both entities.
+
+    Args:
+        link_id: UUID of the link to delete.
+        actor: Who deleted the link.
+
+    Raises:
+        ValueError: If link not found.
+    """
+    link = EntityLink.query.get(link_id)
+    if link is None:
+        raise ValueError(f"link {link_id} not found")
+
+    src_id = link.src_id
+    dst_id = link.dst_id
+    link_type = link.link_type
+
+    db.session.delete(link)
+
+    _write_event(src_id, "link_removed", actor,
+                 old_value={"link_id": link_id, "dst_id": dst_id,
+                            "link_type": link_type})
+    _write_event(dst_id, "link_removed", actor,
+                 old_value={"link_id": link_id, "src_id": src_id,
+                            "link_type": link_type})
+
+    db.session.commit()
+
+
+def get_links(entity_id, direction="both", link_types=None):
+    """Get links for an entity.
+
+    Args:
+        entity_id: UUID of the entity.
+        direction: 'outgoing', 'incoming', or 'both'.
+        link_types: Optional list of link_type strings to filter by.
+
+    Returns:
+        List of EntityLink instances.
+    """
+    query = EntityLink.query
+
+    if direction == "outgoing":
+        query = query.filter_by(src_id=entity_id)
+    elif direction == "incoming":
+        query = query.filter_by(dst_id=entity_id)
+    else:
+        query = query.filter(
+            (EntityLink.src_id == entity_id) | (EntityLink.dst_id == entity_id)
+        )
+
+    if link_types:
+        query = query.filter(EntityLink.link_type.in_(link_types))
+
+    return query.all()
+
+
+def delete_preview(entity_id):
+    """Preview cascade delete impact for an entity.
+
+    Returns:
+        dict with:
+            entity: the entity dict
+            safe_to_cascade: list of entity IDs that would be orphaned
+                (only connected to this entity)
+            blocked: list of entity IDs that have other connections
+    """
+    entity = Entity.query.get(entity_id)
+    if entity is None:
+        raise ValueError(f"entity {entity_id} not found")
+
+    # Find all entities linked to this one
+    outgoing = EntityLink.query.filter_by(src_id=entity_id).all()
+    incoming = EntityLink.query.filter_by(dst_id=entity_id).all()
+
+    linked_ids = set()
+    for link in outgoing:
+        linked_ids.add(link.dst_id)
+    for link in incoming:
+        linked_ids.add(link.src_id)
+
+    safe_to_cascade = []
+    blocked = []
+
+    for linked_id in linked_ids:
+        # Check if this linked entity has any other connections besides this one
+        other_links = EntityLink.query.filter(
+            ((EntityLink.src_id == linked_id) | (EntityLink.dst_id == linked_id))
+            & (EntityLink.src_id != entity_id)
+            & (EntityLink.dst_id != entity_id)
+        ).all()
+
+        if other_links:
+            blocked.append(linked_id)
+        else:
+            safe_to_cascade.append(linked_id)
+
+    return {
+        "entity": entity.to_dict(),
+        "safe_to_cascade": safe_to_cascade,
+        "blocked": blocked,
+    }
+
+
+# ─── Internal helpers ────────────────────────────────────────────────────────
+
+
+def _write_event(entity_id, event_type, actor, old_value=None, new_value=None,
+                 confidence=None, reason=None):
+    """Write an entity_events record."""
+    event = EntityEvent(
+        entity_id=entity_id,
+        event_type=event_type,
+        actor=actor,
+        old_value=old_value,
+        new_value=new_value,
+        confidence=confidence,
+        reason=reason,
+    )
+    db.session.add(event)
