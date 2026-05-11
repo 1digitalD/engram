@@ -363,7 +363,7 @@
         "C1-VALIDATE"
       ],
       "validationCommands": [
-        "cd ui && npm test -- --testPathPattern=Editor"
+        "cd ui && npm install && npm test -- --testPathPattern=Editor"
       ]
     },
     {
@@ -394,7 +394,7 @@
         "C1-VALIDATE"
       ],
       "validationCommands": [
-        "cd ui && npm test -- --testPathPattern=Kanban"
+        "cd ui && npm install && npm test -- --testPathPattern=Kanban"
       ]
     },
     {
@@ -426,7 +426,7 @@
         "C1-VALIDATE"
       ],
       "validationCommands": [
-        "cd ui && npm test -- --testPathPattern=Connections"
+        "cd ui && npm install && npm test -- --testPathPattern=Connections"
       ]
     },
     {
