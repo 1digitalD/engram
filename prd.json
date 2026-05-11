@@ -138,9 +138,9 @@
       "cycle": "1",
       "phase": "foundation",
       "status": "pending",
-      "passes": false,
+      "passes": true,
       "blocked": false,
-      "attempts": 0,
+      "attempts": 1,
       "reads": [
         "docs/TECH_SPEC.md",
         "docs/SCHEMA.sql"
@@ -161,7 +161,8 @@
       ],
       "validationCommands": [
         "pytest tests/integration/test_jobs.py -v"
-      ]
+      ],
+      "commit": "d99485a"
     },
     {
       "id": "C1-AI-PIPELINE",
