@@ -168,3 +168,39 @@ def v2_get_entity_links(entity_id):
         "limit": limit,
         "offset": offset,
     })
+
+
+@api_v2_bp.route("/entity-links", methods=["POST"])
+def v2_create_entity_link():
+    """Create a link between two entities."""
+    data = request.get_json(silent=True) or {}
+    src_id = data.get("src_id")
+    dst_id = data.get("dst_id")
+    link_type = data.get("link_type", "related")
+
+    if not src_id or not dst_id:
+        return jsonify({"error": "src_id and dst_id are required"}), 400
+
+    try:
+        link = svc_create_link(
+            src_id=src_id,
+            dst_id=dst_id,
+            link_type=link_type,
+            source=data.get("source", "manual"),
+            confidence=data.get("confidence"),
+            evidence=data.get("evidence"),
+            actor="user",
+        )
+        return jsonify({"data": link.to_dict()}), 201
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@api_v2_bp.route("/entity-links/<link_id>", methods=["DELETE"])
+def v2_delete_entity_link(link_id):
+    """Delete an entity link."""
+    try:
+        svc_delete_link(link_id, actor="user")
+        return jsonify({"success": True}), 200
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 404

@@ -3,6 +3,7 @@
 Uses the Flask app fixture with in-memory SQLite.
 """
 
+import json
 import pytest
 
 from extensions import db
@@ -249,3 +250,181 @@ class TestLinkDeletePreview:
             preview = delete_preview(parent.id)
             assert child1.id in preview["safe_to_cascade"]
             assert child2.id in preview["safe_to_cascade"]
+
+
+# ─── V2 API: POST /api/v2/entity-links ───────────────────────────────────────
+
+
+class TestV2CreateEntityLink:
+    def _create_entity(self, **kwargs):
+        entity = create_entity(
+            entity_type=kwargs.pop("entity_type", "note"),
+            title=kwargs.pop("title", "Test"),
+            actor="user",
+            **kwargs,
+        )
+        db.session.commit()
+        return str(entity.id)
+
+    def test_create_link_success(self, client, app):
+        with app.app_context():
+            src_id = self._create_entity(title="Src")
+            dst_id = self._create_entity(title="Dst")
+
+        res = client.post("/api/v2/entity-links", json={
+            "src_id": src_id,
+            "dst_id": dst_id,
+        })
+        assert res.status_code == 201
+        data = json.loads(res.data)
+        assert "data" in data
+        assert data["data"]["src_id"] == src_id
+        assert data["data"]["dst_id"] == dst_id
+        assert data["data"]["link_type"] == "related"
+
+    def test_create_link_with_type(self, client, app):
+        with app.app_context():
+            src_id = self._create_entity(title="Src")
+            dst_id = self._create_entity(title="Dst")
+
+        res = client.post("/api/v2/entity-links", json={
+            "src_id": src_id,
+            "dst_id": dst_id,
+            "link_type": "references",
+        })
+        assert res.status_code == 201
+        data = json.loads(res.data)
+        assert data["data"]["link_type"] == "references"
+
+    def test_create_link_with_metadata(self, client, app):
+        with app.app_context():
+            src_id = self._create_entity(title="Src")
+            dst_id = self._create_entity(title="Dst")
+
+        res = client.post("/api/v2/entity-links", json={
+            "src_id": src_id,
+            "dst_id": dst_id,
+            "source": "ai",
+            "confidence": 0.92,
+            "evidence": "similar content",
+        })
+        assert res.status_code == 201
+        data = json.loads(res.data)
+        assert data["data"]["source"] == "ai"
+        assert data["data"]["confidence"] == 0.92
+        assert data["data"]["evidence"] == "similar content"
+
+    def test_create_link_missing_fields_returns_400(self, client):
+        res = client.post("/api/v2/entity-links", json={"src_id": "abc"})
+        assert res.status_code == 400
+        data = json.loads(res.data)
+        assert "error" in data
+
+    def test_create_link_empty_body_returns_400(self, client):
+        res = client.post("/api/v2/entity-links", json={})
+        assert res.status_code == 400
+        data = json.loads(res.data)
+        assert "error" in data
+
+    def test_create_self_link_returns_400(self, client, app):
+        with app.app_context():
+            entity_id = self._create_entity(title="Self")
+
+        res = client.post("/api/v2/entity-links", json={
+            "src_id": entity_id,
+            "dst_id": entity_id,
+        })
+        assert res.status_code == 400
+        data = json.loads(res.data)
+        assert "error" in data
+
+    def test_create_duplicate_link_returns_400(self, client, app):
+        with app.app_context():
+            src_id = self._create_entity(title="Src")
+            dst_id = self._create_entity(title="Dst")
+            create_link(src_id, dst_id, actor="user")
+
+        res = client.post("/api/v2/entity-links", json={
+            "src_id": src_id,
+            "dst_id": dst_id,
+        })
+        assert res.status_code == 400
+        data = json.loads(res.data)
+        assert "error" in data
+
+    def test_create_duplicate_different_type_allowed(self, client, app):
+        with app.app_context():
+            src_id = self._create_entity(title="Src")
+            dst_id = self._create_entity(title="Dst")
+            create_link(src_id, dst_id, link_type="related", actor="user")
+
+        res = client.post("/api/v2/entity-links", json={
+            "src_id": src_id,
+            "dst_id": dst_id,
+            "link_type": "references",
+        })
+        assert res.status_code == 201
+
+    def test_parent_cardinality_enforced_returns_400(self, client, app):
+        with app.app_context():
+            src_id = self._create_entity(title="Task", entity_type="task")
+            dst1_id = self._create_entity(title="P1", entity_type="project")
+            dst2_id = self._create_entity(title="P2", entity_type="project")
+            create_link(src_id, dst1_id, link_type="parent", actor="user")
+
+        res = client.post("/api/v2/entity-links", json={
+            "src_id": src_id,
+            "dst_id": dst2_id,
+            "link_type": "parent",
+        })
+        assert res.status_code == 400
+        data = json.loads(res.data)
+        assert "error" in data
+
+    def test_create_link_entity_not_found_returns_400(self, client, app):
+        with app.app_context():
+            src_id = self._create_entity(title="Src")
+
+        res = client.post("/api/v2/entity-links", json={
+            "src_id": src_id,
+            "dst_id": "00000000-0000-0000-0000-000000000000",
+        })
+        assert res.status_code == 400
+        data = json.loads(res.data)
+        assert "error" in data
+
+
+# ─── V2 API: DELETE /api/v2/entity-links/:id ─────────────────────────────────
+
+
+class TestV2DeleteEntityLink:
+    def _create_entity(self, **kwargs):
+        entity = create_entity(
+            entity_type=kwargs.pop("entity_type", "note"),
+            title=kwargs.pop("title", "Test"),
+            actor="user",
+            **kwargs,
+        )
+        db.session.commit()
+        return str(entity.id)
+
+    def test_delete_link_success(self, client, app):
+        with app.app_context():
+            src_id = self._create_entity(title="Src")
+            dst_id = self._create_entity(title="Dst")
+            link = create_link(src_id, dst_id, actor="user")
+            link_id = str(link.id)
+
+        res = client.delete(f"/api/v2/entity-links/{link_id}")
+        assert res.status_code == 200
+        data = json.loads(res.data)
+        assert data["success"] is True
+
+        with app.app_context():
+            assert EntityLink.query.get(link.id) is None
+
+    def test_delete_link_not_found_returns_404(self, client):
+        res = client.delete("/api/v2/entity-links/00000000-0000-0000-0000-000000000000")
+        assert res.status_code == 404
+        data = json.loads(res.data)
+        assert "error" in data
