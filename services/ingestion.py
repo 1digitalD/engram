@@ -3,12 +3,14 @@ Multi-modal ingestion pipeline.
 Handles text, image, PDF, and URL inputs — extracts content, classifies,
 resolves entities, and auto-creates records at ≥ 85% confidence.
 """
+from __future__ import annotations
 import os
 import base64
 import logging
 import re
 import threading
 from datetime import datetime
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
