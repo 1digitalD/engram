@@ -1,12 +1,12 @@
 import logging
 import os
+import threading
 
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 
 from config import config
-from extensions import db, load_sqlite_extensions
-from models import init_fts, init_vec
+from extensions import db
 
 logging.basicConfig(
     level=logging.INFO,
@@ -27,32 +27,34 @@ def create_app(config_name=None):
     # Init DB
     db.init_app(app)
 
-    # Load sqlite-vec extension on every connection (graceful if not installed)
-    with app.app_context():
-        load_sqlite_extensions(db)
-
     # Register API blueprint (includes all sub-modules)
     from api import api_bp, api_v2_bp
     app.register_blueprint(api_bp)
     app.register_blueprint(api_v2_bp)
 
+    # Register AI pipeline handlers
+    from services.ai_pipeline import register_handlers
+    register_handlers()
+
+    # Start job worker on boot (non-blocking background thread)
+    def _start_worker():
+        try:
+            from services.job_worker import start_worker
+            start_worker(app)
+            logger.info("Job worker started")
+        except Exception as e:
+            logger.warning("Job worker failed to start: %s", e)
+
+    with app.app_context():
+        threading.Thread(target=_start_worker, daemon=True).start()
+
     # ── CLI Commands ──────────────────────────────────────────────────────────
 
     @app.cli.command("init-db")
     def init_db_cmd():
-        """Create all tables, FTS5, and sqlite-vec virtual tables."""
+        """Create all tables from SCHEMA.sql."""
         with app.app_context():
             db.create_all()
-            try:
-                init_fts()
-                logger.info("FTS5 initialized.")
-            except Exception as e:
-                logger.warning(f"FTS5 init warning (may already exist): {e}")
-            try:
-                init_vec()
-                logger.info("sqlite-vec initialized.")
-            except Exception as e:
-                logger.warning(f"sqlite-vec init warning: {e}")
             print("Database ready.")
 
     @app.cli.command("embed-backfill")
@@ -73,7 +75,7 @@ def create_app(config_name=None):
             status["db"] = "error"
 
         try:
-            db.session.execute(db.text("SELECT * FROM vec_chunks LIMIT 1"))
+            db.session.execute(db.text("SELECT * FROM entity_chunks LIMIT 1"))
             status["vec"] = "ok"
         except Exception:
             status["vec"] = "unavailable"
