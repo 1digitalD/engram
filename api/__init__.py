@@ -23,4 +23,5 @@ from . import (
     daily,
     resources,
     ai_selection,
+    feedback,
 )

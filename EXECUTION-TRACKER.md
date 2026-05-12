@@ -156,3 +156,5 @@ If the session resets:
 - **2026-05-12 12:20** V2-API-02 → bb3098a: V2-API-02: completed, merged from opencode worktree
 
 - **2026-05-12 12:32** V2-API-03 → 658f0e4: V2-API-03: completed, merged from opencode worktree
+
+- **2026-05-12 12:40** V2-API-04 → 595aa11: V2-API-04: completed, merged from opencode worktree

@@ -13,6 +13,7 @@ from unittest.mock import patch
 
 from extensions import db
 from models import Entity, EntityEvent
+from services.feedback import record_feedback
 
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -515,3 +516,153 @@ class TestFeedbackAppliedToClassification:
             # But we can query the calibrated version
             calibrated = calibrate_confidence(0.9, para_bucket="INBOX")
             assert calibrated < 0.9
+
+
+# ─── API Endpoints ───────────────────────────────────────────────────────────
+
+class TestFeedbackAPI:
+    """Test the v2 API endpoints for feedback."""
+
+    def test_post_feedback_success(self, app, client):
+        entity_id = None
+        with app.app_context():
+            entity = _create_entity()
+            _create_classification_event(entity.id, confidence=0.85)
+            entity_id = str(entity.id)
+
+        resp = client.post("/api/v2/feedback", json={
+            "entity_id": entity_id,
+            "verdict": "correct",
+            "reason": "Looks good",
+        })
+        assert resp.status_code == 201
+        data = resp.get_json()
+        assert data["verdict"] == "correct"
+        assert data["reason"] == "Looks good"
+        assert data["entity_id"] == entity_id
+
+    def test_post_feedback_missing_entity_id(self, client):
+        resp = client.post("/api/v2/feedback", json={
+            "verdict": "correct",
+        })
+        assert resp.status_code == 400
+        assert "entity_id" in resp.get_json()["error"]
+
+    def test_post_feedback_missing_verdict(self, client):
+        resp = client.post("/api/v2/feedback", json={
+            "entity_id": "some-id",
+        })
+        assert resp.status_code == 400
+        assert "verdict" in resp.get_json()["error"]
+
+    def test_post_feedback_invalid_verdict(self, app, client):
+        entity_id = None
+        with app.app_context():
+            entity = _create_entity()
+            _create_classification_event(entity.id, confidence=0.8)
+            entity_id = str(entity.id)
+
+        resp = client.post("/api/v2/feedback", json={
+            "entity_id": entity_id,
+            "verdict": "maybe",
+        })
+        assert resp.status_code == 400
+
+    def test_post_feedback_no_classification(self, app, client):
+        entity_id = None
+        with app.app_context():
+            entity = _create_entity()
+            entity_id = str(entity.id)
+
+        resp = client.post("/api/v2/feedback", json={
+            "entity_id": entity_id,
+            "verdict": "correct",
+        })
+        assert resp.status_code == 400
+
+    def test_get_feedback_stats_empty(self, client):
+        resp = client.get("/api/v2/feedback/stats")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["total"] == 0
+        assert data["accuracy_rate"] is None
+
+    def test_get_feedback_stats_with_data(self, app, client):
+        with app.app_context():
+            for i in range(4):
+                e = _create_entity(title=f"Entity {i}")
+                _create_classification_event(e.id, confidence=0.8)
+                verdict = "correct" if i < 3 else "incorrect"
+                record_feedback(entity_id=e.id, verdict=verdict)
+
+        resp = client.get("/api/v2/feedback/stats")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["total"] == 4
+        assert data["correct"] == 3
+        assert data["incorrect"] == 1
+        assert data["accuracy_rate"] == pytest.approx(0.75)
+        assert "by_bucket" in data
+
+    def test_get_feedback_corrections_empty(self, client):
+        resp = client.get("/api/v2/feedback/corrections")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["signals"] == []
+        assert data["total"] == 0
+
+    def test_get_feedback_corrections_with_data(self, app, client):
+        with app.app_context():
+            for i in range(3):
+                e = _create_entity(title=f"Entity {i}")
+                _create_classification_event(e.id, para_bucket="INBOX", confidence=0.8)
+                record_feedback(
+                    entity_id=e.id,
+                    verdict="incorrect",
+                    reason=f"Wrong classification #{i}",
+                )
+
+        resp = client.get("/api/v2/feedback/corrections")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["total"] == 3
+        assert all(s["verdict"] == "incorrect" for s in data["signals"])
+
+    def test_get_feedback_corrections_filter_by_verdict(self, app, client):
+        with app.app_context():
+            e1 = _create_entity(title="E1")
+            e2 = _create_entity(title="E2")
+            _create_classification_event(e1.id, confidence=0.8)
+            _create_classification_event(e2.id, confidence=0.9)
+            record_feedback(entity_id=e1.id, verdict="incorrect")
+            record_feedback(entity_id=e2.id, verdict="correct")
+
+        resp = client.get("/api/v2/feedback/corrections?verdict=incorrect")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["total"] == 1
+
+    def test_get_feedback_corrections_filter_by_bucket(self, app, client):
+        with app.app_context():
+            for bucket in ["INBOX", "PROJECTS"]:
+                e = _create_entity(title=f"Entity {bucket}")
+                _create_classification_event(e.id, para_bucket=bucket, confidence=0.8)
+                record_feedback(entity_id=e.id, verdict="incorrect")
+
+        resp = client.get("/api/v2/feedback/corrections?para_bucket=INBOX")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["total"] == 1
+        assert data["signals"][0]["para_bucket"] == "INBOX"
+
+    def test_get_feedback_corrections_limit(self, app, client):
+        with app.app_context():
+            for i in range(10):
+                e = _create_entity(title=f"Entity {i}")
+                _create_classification_event(e.id, confidence=0.8)
+                record_feedback(entity_id=e.id, verdict="incorrect")
+
+        resp = client.get("/api/v2/feedback/corrections?limit=3")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["total"] == 3

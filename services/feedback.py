@@ -67,7 +67,7 @@ def record_feedback(entity_id, verdict, reason=None):
         event_type="ai_correction",
         actor="user",
         old_value={
-            "classification_id": classification.id,
+            "classification_id": str(classification.id),
         },
         new_value={
             "verdict": verdict,

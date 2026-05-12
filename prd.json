@@ -1316,7 +1316,10 @@
       ],
       "blockedBy": [
         "V2-INFRA-06"
-      ]
+      ],
+      "passes": true,
+      "commit": "595aa11",
+      "attempts": 1
     },
     {
       "id": "V2-TEST-01",
