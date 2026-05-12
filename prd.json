@@ -900,7 +900,10 @@
       ],
       "blockedBy": [
         "V2-INGEST-01"
-      ]
+      ],
+      "passes": true,
+      "commit": "024b220",
+      "attempts": 1
     },
     {
       "id": "V2-SERVICES-02",

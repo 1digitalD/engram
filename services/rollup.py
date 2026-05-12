@@ -1,14 +1,40 @@
-"""Project completion rollup: summarize project notes → area retrospective note."""
+"""Project completion rollup: summarize project notes → area retrospective note.
+
+v2 rewrite: uses Entity, EntityLink, EntityTag, create_entity, archive_entity,
+create_link. Replaces Note.query with Entity queries, project.name with
+project.title, note.raw_text with note.content.
+"""
 
 from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import or_, select
+from sqlalchemy import select
 
 from extensions import db
-from models import BucketType, Note, Project, Tag, note_projects
+from models import Entity, EntityLink, EntityTag, Tag
+from services.entity_service import archive_entity
+from services.link_service import create_link
 from services.summarizer import Summarizer
+
+
+class _NoteAdapter:
+    """Adapt an Entity to look like a legacy Note for the summarizer."""
+
+    def __init__(self, entity: Entity):
+        self._entity = entity
+
+    @property
+    def raw_text(self) -> str:
+        return self._entity.content or ""
+
+    @property
+    def id(self) -> str:
+        return self._entity.id
+
+    @property
+    def created_at(self):
+        return self._entity.created_at
 
 
 def _resolve_or_create_tags(tag_names: list[str]) -> list[Tag]:
@@ -25,23 +51,24 @@ def _resolve_or_create_tags(tag_names: list[str]) -> list[Tag]:
     return tags
 
 
-def _notes_for_project(project_id: str) -> list[Note]:
-    """Active notes linked via M2M or legacy ``project_id``."""
-    nid_subq = select(note_projects.c.note_id).where(
-        note_projects.c.project_id == project_id
+def _entities_for_project(project_id: str) -> list[Entity]:
+    """Active note-type entities linked to the project via EntityLink."""
+    linked_subq = select(EntityLink.src_id).where(
+        EntityLink.dst_id == project_id
     )
     return (
-        Note.query.filter(
-            Note.is_archived.is_(False),
-            or_(Note.project_id == project_id, Note.id.in_(nid_subq)),
+        Entity.query.filter(
+            Entity.type == "note",
+            Entity.lifecycle == "active",
+            Entity.id.in_(linked_subq),
         )
-        .order_by(Note.created_at.asc())
+        .order_by(Entity.created_at.asc())
         .distinct()
         .all()
     )
 
 
-def _retrospective_body_markdown(project_name: str, sections: dict) -> str:
+def _retrospective_body_markdown(project_title: str, sections: dict) -> str:
     """Build markdown body from retrospective section strings."""
     if sections.get("_empty_project"):
         filler = "_No notes were linked to this project._"
@@ -53,7 +80,7 @@ def _retrospective_body_markdown(project_name: str, sections: dict) -> str:
         outstanding_items = (sections.get("outstanding_items") or "").strip() or "_None noted._"
 
     return (
-        f"# Project retrospective: {project_name}\n\n"
+        f"# Project retrospective: {project_title}\n\n"
         "## What was accomplished\n\n"
         f"{accomplished}\n\n"
         "## Key decisions\n\n"
@@ -66,71 +93,81 @@ def _retrospective_body_markdown(project_name: str, sections: dict) -> str:
     )
 
 
-def _maybe_queue_embedding(note_id: str, raw_text: str) -> None:
-    try:
-        from flask import has_request_context
-
-        if has_request_context():
-            from api.notes import _queue_embedding
-
-            _queue_embedding(note_id, raw_text)
-    except Exception:
-        pass
-
-
 def rollup_project_to_area(
     project_id: str,
     *,
     summarizer: Summarizer | None = None,
-) -> Note:
+) -> Entity:
     """
-    Summarize all notes linked to ``project_id`` with Claude, create a summary note
-    in the project's parent Area with hashtags ``#retrospective`` and
-    ``#project-complete``, then archive the project.
+    Summarize all notes linked to ``project_id`` with Claude, create a summary
+    note Entity in the project's parent Area with hashtags ``#retrospective``
+    and ``#project-complete``, then archive the project.
 
-    Returns the new ``Note``.
+    Returns the new summary ``Entity`` (type='note').
     """
-    project = db.session.get(Project, project_id)
+    project = Entity.query.filter_by(id=project_id, type="project").first()
     if not project:
         raise ValueError(f"project not found: {project_id}")
-    if not project.area_id:
+
+    area_id = (project.properties or {}).get("area_id")
+    if not area_id:
         raise ValueError("project has no parent area; cannot rollup to area")
 
-    notes = _notes_for_project(project_id)
+    area_id = str(area_id)
+    project_id_str = str(project_id)
+
+    note_entities = _entities_for_project(project_id_str)
     svc = summarizer or Summarizer()
 
-    if not notes:
+    if not note_entities:
         sections = {"_empty_project": True}
         token_hint = {"token_count": 0, "model_used": svc._model}
     else:
-        result = svc.summarize_project_retrospective(notes, project.name)
-        sections = {k: result.get(k, "") for k in ("accomplished", "key_decisions", "lessons_learned", "outstanding_items")}
+        adapted = [_NoteAdapter(e) for e in note_entities]
+        result = svc.summarize_project_retrospective(adapted, project.title)
+        sections = {
+            k: result.get(k, "")
+            for k in ("accomplished", "key_decisions", "lessons_learned", "outstanding_items")
+        }
         token_hint = {
             "token_count": result.get("token_count", 0),
             "model_used": result.get("model_used"),
         }
 
-    raw_text = _retrospective_body_markdown(project.name, sections)
+    content = _retrospective_body_markdown(project.title, sections)
 
     tag_objs = _resolve_or_create_tags(["retrospective", "project-complete"])
-    summary_note = Note(
-        raw_text=raw_text,
-        bucket=BucketType.AREAS,
-        area_id=project.area_id,
-        project_id=None,
+
+    summary_note = Entity(
+        type="note",
+        title=f"Retrospective: {project.title}",
+        content=content,
+        properties={"bucket": "AREAS", "area_id": area_id},
+        source="rollup",
+        lifecycle="active",
         ai_meta={
             "rollup": True,
-            "rollup_project_id": project_id,
+            "rollup_project_id": project_id_str,
             "rollup_generated_at": datetime.utcnow().isoformat() + "Z",
-            "rollup_note_count": len(notes),
+            "rollup_note_count": len(note_entities),
             **token_hint,
         },
+        ai_status="pending",
     )
-    summary_note.tags = tag_objs
     db.session.add(summary_note)
+    db.session.flush()
 
-    project.is_archived = True
+    for tag in tag_objs:
+        db.session.add(EntityTag(entity_id=summary_note.id, tag_id=tag.id))
 
-    db.session.commit()
-    _maybe_queue_embedding(summary_note.id, summary_note.raw_text)
+    create_link(
+        src_id=summary_note.id,
+        dst_id=project_id_str,
+        link_type="related",
+        source="rollup",
+        actor="system",
+    )
+
+    archive_entity(project_id_str, actor="system")
+
     return summary_note
