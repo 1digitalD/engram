@@ -64,56 +64,72 @@ def extract_inline_tasks(
     project_id: Optional[str] = None,
     area_id: Optional[str] = None,
 ) -> list[dict]:
-    """
-    Upsert Task rows for markdown checkbox lines on this note; cancel extractor-managed
-    rows whose checkbox lines disappeared.
+    """Deprecated: no-op. Use extract_and_create_inline_tasks instead."""
+    import warnings
+    warnings.warn(
+        "extract_inline_tasks is deprecated and returns an empty list. "
+        "Use extract_and_create_inline_tasks instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    logger.warning("extract_inline_tasks called — deprecated, returning []")
+    return []
 
-    Keys tasks by (note_id, inline_title_hash). Only rows with non-null inline_title_hash
-    are cancelled when their line is removed; manually linked tasks (note_id set, hash null)
-    are left unchanged.
+
+def extract_and_create_inline_tasks(
+    source_entity_id: str,
+    raw_text: str,
+    project_id: Optional[str] = None,
+    area_id: Optional[str] = None,
+) -> list[dict]:
+    """Parse inline checkbox lines and create Entity(type='task') records.
+
+    For each parsed checkbox line, creates a task Entity via create_entity
+    and links it to the source entity via create_link.
+
+    Args:
+        source_entity_id: The entity this note/text belongs to.
+        raw_text: Text containing markdown checkbox lines (- [ ] / - [x]).
+        project_id: Optional project to associate tasks with.
+        area_id: Optional area to associate tasks with.
+
+    Returns:
+        List of created task entity dicts.
     """
-    from models import Task, TaskStatus
-    from extensions import db
+    from services.entity_service import create_entity
+    from services.link_service import create_link
 
     parsed = parse_inline_checkbox_lines(raw_text)
-    current_hashes = {h for h, _, _ in parsed}
-
-    if current_hashes:
-        stale = Task.query.filter(
-            Task.note_id == note_id,
-            Task.inline_title_hash.isnot(None),
-            ~Task.inline_title_hash.in_(current_hashes),
-        )
-    else:
-        stale = Task.query.filter(
-            Task.note_id == note_id,
-            Task.inline_title_hash.isnot(None),
-        )
-    for task in stale.all():
-        task.status = TaskStatus.CANCELLED
+    results: list[dict] = []
 
     for h, title, status in parsed:
-        task = Task.query.filter_by(note_id=note_id, inline_title_hash=h).first()
-        if task:
-            task.title = title
-            task.status = status
-            task.project_id = project_id
-            task.area_id = area_id
-        else:
-            task = Task(
-                title=title,
-                note_id=note_id,
-                project_id=project_id,
-                area_id=area_id,
-                status=status,
-                inline_title_hash=h,
-            )
-            db.session.add(task)
-    db.session.flush()
-    results: list[dict] = []
-    for h, _, _ in parsed:
-        task = Task.query.filter_by(note_id=note_id, inline_title_hash=h).one()
-        results.append(task.to_dict())
+        properties = {
+            "inline_title_hash": h,
+            "source_entity_id": source_entity_id,
+        }
+        if project_id:
+            properties["project_id"] = project_id
+        if area_id:
+            properties["area_id"] = area_id
+
+        task_entity = create_entity(
+            entity_type="task",
+            title=title,
+            properties=properties,
+            source="inline_extract",
+            actor="agent:extractor",
+        )
+
+        create_link(
+            src_id=source_entity_id,
+            dst_id=task_entity.id,
+            link_type="contains",
+            source="inline_extract",
+            actor="agent:extractor",
+        )
+
+        results.append(task_entity.to_dict())
+
     return results
 
 
