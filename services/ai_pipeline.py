@@ -607,7 +607,7 @@ def _create_or_link_project(entity, project_name, confidence):
                 "type": "project",
                 "title": project_name,
                 "action": "linked_existing",
-                "entity_id": existing.id,
+                "entity_id": str(existing.id),
             },
             confidence=confidence,
         )
@@ -642,7 +642,7 @@ def _create_or_link_project(entity, project_name, confidence):
                 "type": "project",
                 "title": project_name,
                 "action": "created_new",
-                "entity_id": project.id,
+                "entity_id": str(project.id),
             },
             confidence=confidence,
         )

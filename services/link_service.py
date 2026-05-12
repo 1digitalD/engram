@@ -6,6 +6,16 @@ orphan detection, and delete cascade preview.
 
 from extensions import db
 from models import Entity, EntityLink, EntityEvent
+from services.entity_service import _get_entity
+from sqlalchemy.exc import DataError
+
+
+def _get_link(link_id):
+    """Safely get link by ID, handling invalid UUID formats."""
+    try:
+        return EntityLink.query.get(link_id)
+    except DataError:
+        return None
 
 
 # ─── Link CRUD ───────────────────────────────────────────────────────────────
@@ -31,10 +41,10 @@ def create_link(src_id, dst_id, link_type="related", source="manual",
         ValueError: If src/dst not found, self-link, duplicate, or
                     parent cardinality violated.
     """
-    src = Entity.query.get(src_id)
+    src = _get_entity(src_id)
     if src is None:
         raise ValueError(f"source entity {src_id} not found")
-    dst = Entity.query.get(dst_id)
+    dst = _get_entity(dst_id)
     if dst is None:
         raise ValueError(f"destination entity {dst_id} not found")
 
@@ -96,7 +106,7 @@ def delete_link(link_id, actor="user"):
     Raises:
         ValueError: If link not found.
     """
-    link = EntityLink.query.get(link_id)
+    link = _get_link(link_id)
     if link is None:
         raise ValueError(f"link {link_id} not found")
 
@@ -154,7 +164,7 @@ def delete_preview(entity_id):
                 (only connected to this entity)
             blocked: list of entity IDs that have other connections
     """
-    entity = Entity.query.get(entity_id)
+    entity = _get_entity(entity_id)
     if entity is None:
         raise ValueError(f"entity {entity_id} not found")
 

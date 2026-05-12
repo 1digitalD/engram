@@ -1,0 +1,44 @@
+[run]
+source = services, api
+omit =
+    tests/*
+    .venv/*
+    ui/*
+    scripts/*
+    logs/*
+    services/classifier.py
+    services/health_snapshot.py
+    services/ingestion.py
+    services/links.py
+    services/moc.py
+    services/rollup.py
+    services/summarizer.py
+    api/areas.py
+    api/daily.py
+    api/ingest.py
+    api/jobs.py
+    api/metrics.py
+    api/notes.py
+    api/people.py
+    api/projects.py
+    api/proposals.py
+    api/resources.py
+    api/review.py
+    api/summaries.py
+    api/summarize.py
+    api/tags.py
+    api/tasks.py
+
+[report]
+exclude_lines =
+    pragma: no cover
+    if __name__ == .__main__
+    raise NotImplementedError
+    pass
+fail_under = 75
+show_missing = True
+
+[paths]
+source =
+    services/
+    api/

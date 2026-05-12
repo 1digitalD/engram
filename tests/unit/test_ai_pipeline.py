@@ -37,9 +37,9 @@ class TestEnqueueJobs:
 
             assert job is not None
             assert job.job_type == "classify"
-            assert job.entity_id == entity.id
+            assert job.entity_id == str(entity.id)
             assert job.status == "pending"
-            assert job.payload == {"entity_id": entity.id}
+            assert job.payload == {"entity_id": str(entity.id)}
 
     def test_enqueue_embed_creates_job(self, app):
         from services.ai_pipeline import enqueue_embed
@@ -50,9 +50,9 @@ class TestEnqueueJobs:
 
             assert job is not None
             assert job.job_type == "embed"
-            assert job.entity_id == entity.id
+            assert job.entity_id == str(entity.id)
             assert job.status == "pending"
-            assert job.payload == {"entity_id": entity.id}
+            assert job.payload == {"entity_id": str(entity.id)}
 
     def test_enqueue_autolink_creates_job(self, app):
         from services.ai_pipeline import enqueue_autolink
@@ -63,9 +63,9 @@ class TestEnqueueJobs:
 
             assert job is not None
             assert job.job_type == "autolink"
-            assert job.entity_id == entity.id
+            assert job.entity_id == str(entity.id)
             assert job.status == "pending"
-            assert job.payload == {"entity_id": entity.id}
+            assert job.payload == {"entity_id": str(entity.id)}
 
     def test_enqueue_all_three_jobs(self, app):
         from services.ai_pipeline import enqueue_classify, enqueue_embed, enqueue_autolink
@@ -76,7 +76,7 @@ class TestEnqueueJobs:
             j2 = enqueue_embed(entity.id)
             j3 = enqueue_autolink(entity.id)
 
-            jobs = Job.query.filter_by(entity_id=entity.id).all()
+            jobs = Job.query.filter_by(entity_id=str(entity.id)).all()
             assert len(jobs) == 3
             job_types = {j.job_type for j in jobs}
             assert job_types == {"classify", "embed", "autolink"}
@@ -169,7 +169,7 @@ class TestRunClassify:
             assert entity.ai_status == "done"
 
             events = EntityEvent.query.filter_by(
-                entity_id=entity.id, event_type="ai_classified"
+                entity_id=str(entity.id), event_type="ai_classified"
             ).all()
             assert len(events) == 1
             assert events[0].actor == "agent:classify"
@@ -259,7 +259,7 @@ class TestRunEmbed:
 
             run_embed({"entity_id": entity.id})
 
-            chunks = EntityChunk.query.filter_by(entity_id=entity.id).all()
+            chunks = EntityChunk.query.filter_by(entity_id=str(entity.id)).all()
             assert len(chunks) >= 1
             assert chunks[0].embedding is not None
             assert chunks[0].chunk_text is not None
@@ -274,7 +274,7 @@ class TestRunEmbed:
             db.session.refresh(entity)
             assert entity.ai_status == "done"
             # No chunks for empty content
-            chunks = EntityChunk.query.filter_by(entity_id=entity.id).all()
+            chunks = EntityChunk.query.filter_by(entity_id=str(entity.id)).all()
             assert len(chunks) == 0
 
     @patch("services.ai_pipeline._generate_embedding")
@@ -288,7 +288,7 @@ class TestRunEmbed:
             entity = _create_entity(content="Original content here. " * 30)
             run_embed({"entity_id": entity.id})
 
-            first_chunks = EntityChunk.query.filter_by(entity_id=entity.id).count()
+            first_chunks = EntityChunk.query.filter_by(entity_id=str(entity.id)).count()
 
             # Run again with different content
             entity.content = "Completely new content. " * 30
@@ -296,7 +296,7 @@ class TestRunEmbed:
             run_embed({"entity_id": entity.id})
 
             # Old chunks should be replaced
-            new_chunks = EntityChunk.query.filter_by(entity_id=entity.id).all()
+            new_chunks = EntityChunk.query.filter_by(entity_id=str(entity.id)).all()
             assert len(new_chunks) >= 1
 
     @patch("services.ai_pipeline._generate_embedding")

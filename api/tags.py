@@ -2,6 +2,15 @@ from flask import request, jsonify
 from api import api_bp
 from extensions import db
 from models import Tag
+from sqlalchemy.exc import DataError
+
+
+def _get_tag(tag_id):
+    """Safely get tag by ID, handling invalid UUID formats."""
+    try:
+        return db.session.get(Tag, tag_id)
+    except DataError:
+        return None
 
 
 @api_bp.route("/tags", methods=["GET"])
@@ -12,7 +21,7 @@ def list_tags():
 
 @api_bp.route("/tags/<tag_id>", methods=["GET"])
 def get_tag(tag_id):
-    tag = db.session.get(Tag, tag_id)
+    tag = _get_tag(tag_id)
     if not tag:
         return jsonify({"error": "not found"}), 404
     return jsonify({"data": tag.to_dict()})
@@ -36,7 +45,7 @@ def create_tag():
 
 @api_bp.route("/tags/<tag_id>", methods=["PATCH", "PUT"])
 def update_tag(tag_id):
-    tag = db.session.get(Tag, tag_id)
+    tag = _get_tag(tag_id)
     if not tag:
         return jsonify({"error": "not found"}), 404
 
@@ -51,7 +60,7 @@ def update_tag(tag_id):
 
 @api_bp.route("/tags/<tag_id>", methods=["DELETE"])
 def delete_tag(tag_id):
-    tag = db.session.get(Tag, tag_id)
+    tag = _get_tag(tag_id)
     if not tag:
         return jsonify({"error": "not found"}), 404
     db.session.delete(tag)

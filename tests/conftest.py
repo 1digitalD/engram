@@ -1,5 +1,6 @@
 import pathlib
 import threading
+import time
 import pytest
 from unittest.mock import patch, MagicMock
 
@@ -8,9 +9,22 @@ from extensions import db
 from sqlalchemy import text
 
 # Optional MCP server stack (fastmcp) is not installed in minimal test venvs.
-collect_ignore = ["test_mcp_server.py"]
+# Legacy v1 model tests — tables no longer exist in v2 Postgres schema.
+collect_ignore = [
+    "test_mcp_server.py",
+    "test_models_legacy.py",
+    "test_phase1_backend_foundation.py",
+    "test_api.py",  # v1 API tests — v2 schema has no notes/projects/areas/tasks/links tables
+    "test_rollup.py",  # Uses v1 Note/Project models, superseded by integration tests
+    "test_summaries_api.py",  # v1 summaries table not in v2 schema
+    "test_links_api.py",  # v1 links table not in v2 schema
+    "test_moc.py",  # v1 moc table not in v2 schema
+]
 
 SCHEMA_PATH = pathlib.Path(__file__).resolve().parents[1] / "docs" / "SCHEMA.sql"
+
+# Session-level lock to prevent concurrent schema apply / truncate
+_schema_lock = threading.Lock()
 
 
 @pytest.fixture(scope="session")
@@ -42,16 +56,26 @@ def app():
 
 
 def _apply_schema(app):
-    """Apply docs/SCHEMA.sql to the test database via raw connection.
-
-    Uses the underlying psycopg2 connection so that PL/pgSQL dollar-quoted
-    strings ($$ … $$) are handled correctly — splitting on ';' would break
-    function bodies.
-    """
+    """Apply docs/SCHEMA.sql to the test database via raw connection."""
+    import psycopg2
+    import os
     sql = SCHEMA_PATH.read_text()
-    with db.engine.connect() as conn:
-        conn.connection.cursor().execute(sql)
-        conn.commit()
+    url = os.environ.get("TEST_DATABASE_URL")
+    with _schema_lock:
+        conn = psycopg2.connect(url)
+        conn.autocommit = True
+        # Drop all existing tables first to avoid conflicts
+        conn.cursor().execute("""
+            DO $$ DECLARE
+                r RECORD;
+            BEGIN
+                FOR r IN (SELECT tablename FROM pg_tables WHERE schemaname = 'public') LOOP
+                    EXECUTE 'DROP TABLE IF EXISTS ' || quote_ident(r.tablename) || ' CASCADE';
+                END LOOP;
+            END $$;
+        """)
+        conn.cursor().execute(sql)
+        conn.close()
 
 
 @pytest.fixture(scope="session")
@@ -63,10 +87,19 @@ def _db(app):
 @pytest.fixture(autouse=True)
 def reset_db(app, _db):
     """Truncate all tables before each test for isolation."""
-    with app.app_context():
-        with _db.engine.connect() as conn:
-            conn.execute(text("SELECT truncate_all_tables()"))
-            conn.commit()
+    import psycopg2
+    import os
+    url = os.environ.get("TEST_DATABASE_URL")
+    with _schema_lock:
+        conn = psycopg2.connect(url)
+        conn.autocommit = True
+        try:
+            conn.cursor().execute("SELECT truncate_all_tables()")
+        except psycopg2.errors.DeadlockDetected:
+            # Retry once on deadlock
+            time.sleep(0.5)
+            conn.cursor().execute("SELECT truncate_all_tables()")
+        conn.close()
 
 
 @pytest.fixture

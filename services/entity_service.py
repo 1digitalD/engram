@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 
 from extensions import db
 from models import Entity, EntityEvent, EntityLink, Job
+from sqlalchemy.exc import DataError
 
 # ─── Default initial status per entity type ──────────────────────────────────
 
@@ -52,6 +53,17 @@ VALID_TRANSITIONS = {
         "archived": ["active"],
     },
 }
+
+
+def _get_entity(entity_id):
+    """Safely get entity by ID, handling invalid UUID formats.
+
+    Returns None if entity not found or ID is not a valid UUID.
+    """
+    try:
+        return Entity.query.get(entity_id)
+    except DataError:
+        return None
 
 
 # ─── Entity CRUD ─────────────────────────────────────────────────────────────
@@ -116,7 +128,7 @@ def update_entity(entity_id, fields, actor="user"):
     Raises:
         ValueError: If entity not found or is deleted/archived.
     """
-    entity = Entity.query.get(entity_id)
+    entity = _get_entity(entity_id)
     if entity is None:
         raise ValueError(f"entity {entity_id} not found")
     if entity.lifecycle in ("archived", "deleted"):
@@ -154,7 +166,7 @@ def transition_status(entity_id, new_status, actor="user", reason=None):
     Raises:
         ValueError: If entity not found, transition invalid, or entity archived.
     """
-    entity = Entity.query.get(entity_id)
+    entity = _get_entity(entity_id)
     if entity is None:
         raise ValueError(f"entity {entity_id} not found")
     if entity.lifecycle == "deleted":
@@ -199,7 +211,7 @@ def archive_entity(entity_id, actor="user"):
     Raises:
         ValueError: If entity not found or already archived/deleted.
     """
-    entity = Entity.query.get(entity_id)
+    entity = _get_entity(entity_id)
     if entity is None:
         raise ValueError(f"entity {entity_id} not found")
     if entity.lifecycle == "archived":
@@ -229,7 +241,7 @@ def delete_preview(entity_id):
                 (only connected to this entity)
             blocked: list of entity IDs that have other connections
     """
-    entity = Entity.query.get(entity_id)
+    entity = _get_entity(entity_id)
     if entity is None:
         raise ValueError(f"entity {entity_id} not found")
 
@@ -279,7 +291,7 @@ def delete_entity(entity_id, cascade_orphans=False):
     Raises:
         ValueError: If entity not found.
     """
-    entity = Entity.query.get(entity_id)
+    entity = _get_entity(entity_id)
     if entity is None:
         raise ValueError(f"entity {entity_id} not found")
 
@@ -296,7 +308,7 @@ def delete_entity(entity_id, cascade_orphans=False):
     deleted_ids = []
 
     for orphan_id in preview["safe_to_cascade"]:
-        orphan = Entity.query.get(orphan_id)
+        orphan = _get_entity(orphan_id)
         if orphan:
             _write_event(orphan_id, "deleted", "system",
                          old_value={"lifecycle": orphan.lifecycle},
