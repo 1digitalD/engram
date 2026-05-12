@@ -1,36 +1,50 @@
+"""People API — Entity-based with backward-compat response shape."""
+
 from flask import request, jsonify
 from api import api_bp
 from extensions import db
-from models import Person
+from models import Entity, EntityTag, Tag
+from services.entity_service import create_entity, update_entity
 
 
 @api_bp.route("/people", methods=["GET"])
 def list_people():
-    people = Person.query.order_by(Person.name).all()
+    q = Entity.query.filter_by(type="person", lifecycle="active")
+    people = q.order_by(Entity.title).all()
     return jsonify({"data": [p.to_dict() for p in people]})
 
 
 @api_bp.route("/people", methods=["POST"])
 def create_person():
     data = request.get_json()
-    if not data or not data.get("name"):
-        return jsonify({"error": "name is required"}), 400
+    if not data or not data.get("title"):
+        return jsonify({"error": "title is required"}), 400
 
-    person = Person(
-        name=data["name"],
-        email=data.get("email"),
-        external_ids=data.get("external_ids") or {},
-        notes_text=data.get("notes"),
-        last_contacted_at=data.get("last_contacted_at"),
+    properties = {}
+    if data.get("email"):
+        properties["email"] = data["email"]
+    if data.get("external_ids"):
+        properties["external_ids"] = data["external_ids"]
+    if data.get("notes"):
+        properties["notes_text"] = data["notes"]
+    if data.get("last_contacted_at"):
+        properties["last_contacted_at"] = data["last_contacted_at"]
+    if data.get("content"):
+        properties["notes_text"] = data["content"]
+
+    entity = create_entity(
+        entity_type="person",
+        title=data["title"],
+        content=data.get("content"),
+        properties=properties,
+        actor="user",
     )
-    db.session.add(person)
-    db.session.commit()
-    return jsonify({"data": person.to_dict()}), 201
+    return jsonify({"data": entity.to_dict()}), 201
 
 
 @api_bp.route("/people/<person_id>", methods=["GET"])
 def get_person(person_id):
-    person = db.session.get(Person, person_id)
+    person = Entity.query.filter_by(id=person_id, type="person").first()
     if not person:
         return jsonify({"error": "not found"}), 404
     return jsonify({"data": person.to_dict()})
@@ -38,26 +52,39 @@ def get_person(person_id):
 
 @api_bp.route("/people/<person_id>", methods=["PATCH"])
 def update_person(person_id):
-    person = db.session.get(Person, person_id)
+    person = Entity.query.filter_by(id=person_id, type="person").first()
     if not person:
         return jsonify({"error": "not found"}), 404
 
     data = request.get_json()
-    for field in ("name", "email", "last_contacted_at"):
-        if field in data:
-            setattr(person, field, data[field])
-    if "external_ids" in data:
-        person.external_ids = {**(person.external_ids or {}), **data["external_ids"]}
-    if "notes" in data:
-        person.notes_text = data["notes"]
+    fields = {}
+    if "title" in data:
+        fields["title"] = data["title"]
+    if "content" in data:
+        fields["content"] = data["content"]
 
-    db.session.commit()
+    props = dict(person.properties or {})
+    if "email" in data:
+        props["email"] = data["email"]
+    if "external_ids" in data:
+        props["external_ids"] = {**(props.get("external_ids") or {}), **data["external_ids"]}
+    if "notes" in data:
+        props["notes_text"] = data["notes"]
+    if "last_contacted_at" in data:
+        props["last_contacted_at"] = data["last_contacted_at"]
+    if props != (person.properties or {}):
+        fields["properties"] = props
+
+    if fields:
+        update_entity(person_id, fields, actor="user")
+        person = Entity.query.get(person_id)
+
     return jsonify({"data": person.to_dict()})
 
 
 @api_bp.route("/people/<person_id>", methods=["DELETE"])
 def delete_person(person_id):
-    person = db.session.get(Person, person_id)
+    person = Entity.query.filter_by(id=person_id, type="person").first()
     if not person:
         return jsonify({"error": "not found"}), 404
     db.session.delete(person)

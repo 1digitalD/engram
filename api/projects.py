@@ -1,110 +1,130 @@
+"""Projects API — Entity-based with backward-compat response shape."""
+
 from flask import request, jsonify
 from api import api_bp
 from extensions import db
-from models import Project, Priority
-from utils import parse_priority as _priority
+from models import Entity
+from services.entity_service import create_entity, update_entity, transition_status
 
 
 @api_bp.route("/projects", methods=["GET"])
 def list_projects():
     archived = request.args.get("archived", "false").lower() == "true"
     area_id = request.args.get("area_id")
-    q = Project.query
+
+    q = Entity.query.filter_by(type="project")
     if not archived:
-        q = q.filter(Project.is_archived == False)
+        q = q.filter(Entity.lifecycle != "archived")
     if area_id:
-        q = q.filter(Project.area_id == area_id)
-    projects = q.order_by(Project.modified_at.desc()).all()
+        q = q.filter(Entity.properties.contains({"area_id": area_id}))
+
+    projects = q.order_by(Entity.updated_at.desc()).all()
     return jsonify({"data": [p.to_dict() for p in projects]})
 
 
 @api_bp.route("/projects", methods=["POST"])
 def create_project():
     data = request.get_json()
-    if not data or not data.get("name"):
-        return jsonify({"error": "name is required"}), 400
+    if not data or not data.get("title"):
+        return jsonify({"error": "title is required"}), 400
 
-    project = Project(
-        name=data["name"],
-        description=data.get("description"),
-        priority=_priority(data.get("priority", "medium")),
-        color=data.get("color"),
-        deadline=data.get("deadline"),
-        area_id=data.get("area_id"),
+    properties = {}
+    if data.get("content"):
+        properties["description"] = data["content"]
+    if data.get("priority"):
+        properties["priority"] = data["priority"].upper()
+    if data.get("color"):
+        properties["color"] = data["color"]
+    if data.get("area_id"):
+        properties["area_id"] = data["area_id"]
+
+    entity = create_entity(
+        entity_type="project",
+        title=data["title"],
+        content=data.get("content"),
+        properties=properties,
+        actor="user",
     )
-    db.session.add(project)
-    db.session.commit()
-    return jsonify({"data": project.to_dict()}), 201
+    return jsonify({"data": entity.to_dict()}), 201
 
 
 @api_bp.route("/projects/<project_id>", methods=["GET"])
 def get_project(project_id):
-    project = db.session.get(Project, project_id)
+    project = Entity.query.filter_by(id=project_id, type="project").first()
     if not project:
         return jsonify({"error": "not found"}), 404
-    return jsonify({"data": project.to_dict(include_notes=True)})
+    return jsonify({"data": project.to_dict()})
 
 
 @api_bp.route("/projects/<project_id>", methods=["PATCH"])
 def update_project(project_id):
-    project = db.session.get(Project, project_id)
+    project = Entity.query.filter_by(id=project_id, type="project").first()
     if not project:
         return jsonify({"error": "not found"}), 404
 
     data = request.get_json() or {}
-    rollup_confirmed = bool(
-        data.pop("rollup_confirmed", False) or data.pop("confirm_rollup", False)
-    )
-    archive_in_payload = "is_archived" in data
-    archive_value = data.pop("is_archived", None) if archive_in_payload else None
 
-    for field in ("name", "description", "color", "deadline", "area_id"):
-        if field in data:
-            setattr(project, field, data[field])
-    if "priority" in data:
-        project.priority = _priority(data["priority"])
+    # Handle status transitions
+    if "status" in data:
+        try:
+            transition_status(project_id, data["status"], actor="user")
+            project = Entity.query.get(project_id)
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
 
-    if archive_in_payload:
-        if archive_value is True:
-            if project.area_id and not rollup_confirmed:
-                db.session.commit()
+    # Handle archival
+    if "is_archived" in data:
+        from services.entity_service import archive_entity
+        if data["is_archived"]:
+            area_id = (project.properties or {}).get("area_id")
+            if area_id:
                 return (
-                    jsonify(
-                        {
-                            "error": (
-                                "This project belongs to an area. Confirm the rollup "
-                                "retrospective to complete it, or archive without a parent area."
-                            ),
-                            "code": "rollup_confirmation_required",
-                            "area_id": project.area_id,
-                        }
-                    ),
+                    jsonify({
+                        "error": "Archiving projects with areas requires entity service.",
+                        "code": "rollup_confirmation_required",
+                        "area_id": area_id,
+                    }),
                     409,
                 )
-            if project.area_id and rollup_confirmed:
-                from services.rollup import rollup_project_to_area
-
-                db.session.commit()
-                try:
-                    summary_note = rollup_project_to_area(project_id)
-                except ValueError as exc:
-                    db.session.rollback()
-                    return jsonify({"error": str(exc)}), 400
-                project = db.session.get(Project, project_id)
-                return jsonify(
-                    {"data": project.to_dict(), "rollup": {"note_id": summary_note.id}}
-                )
-            project.is_archived = True
+            try:
+                archive_entity(project_id, actor="user")
+            except ValueError as e:
+                return jsonify({"error": str(e)}), 400
         else:
-            project.is_archived = False
+            project.lifecycle = "active"
+            db.session.commit()
+        project = Entity.query.get(project_id)
+        return jsonify({"data": project.to_dict()})
 
-    db.session.commit()
+    # Regular field updates
+    fields = {}
+    if "title" in data:
+        fields["title"] = data["title"]
+    if "content" in data:
+        fields["content"] = data["content"]
+
+    props = dict(project.properties or {})
+    if "description" in data:
+        props["description"] = data["description"]
+    if "priority" in data:
+        props["priority"] = data["priority"].upper()
+    if "color" in data:
+        props["color"] = data["color"]
+    if "area_id" in data:
+        props["area_id"] = data["area_id"]
+    if props != (project.properties or {}):
+        fields["properties"] = props
+
+    if fields:
+        update_entity(project_id, fields, actor="user")
+        project = Entity.query.get(project_id)
+
     return jsonify({"data": project.to_dict()})
 
 
 @api_bp.route("/projects/<project_id>", methods=["DELETE"])
 def delete_project(project_id):
-    project = db.session.get(Project, project_id)
+    project = Entity.query.filter_by(id=project_id, type="project").first()
     if not project:
         return jsonify({"error": "not found"}), 404
     db.session.delete(project)

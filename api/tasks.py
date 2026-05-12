@@ -1,8 +1,10 @@
+"""Tasks API — Entity-based with backward-compat response shape."""
+
 from flask import request, jsonify
 from api import api_bp
 from extensions import db
-from models import Task, TaskStatus, Priority
-from utils import parse_priority as _priority
+from models import Entity
+from services.entity_service import create_entity, update_entity, transition_status
 
 
 @api_bp.route("/tasks", methods=["GET"])
@@ -10,29 +12,22 @@ def list_tasks():
     status = request.args.get("status")
     project_id = request.args.get("project_id")
     area_id = request.args.get("area_id")
-    note_id = request.args.get("note_id")
 
-    q = Task.query
+    q = Entity.query.filter_by(type="task")
     if status:
-        try:
-            s = TaskStatus(status.upper())
-            q = q.filter(Task.status == s)
-        except ValueError:
-            pass
+        q = q.filter(Entity.status == status.lower())
     if project_id:
-        q = q.filter(Task.project_id == project_id)
+        q = q.filter(Entity.properties.contains({"project_id": project_id}))
     if area_id:
-        q = q.filter(Task.area_id == area_id)
-    if note_id:
-        q = q.filter(Task.note_id == note_id)
+        q = q.filter(Entity.properties.contains({"area_id": area_id}))
 
-    tasks = q.order_by(Task.modified_at.desc()).all()
+    tasks = q.order_by(Entity.updated_at.desc()).all()
     return jsonify({"data": [t.to_dict() for t in tasks]})
 
 
 @api_bp.route("/tasks/<task_id>", methods=["GET"])
 def get_task(task_id):
-    task = db.session.get(Task, task_id)
+    task = Entity.query.filter_by(id=task_id, type="task").first()
     if not task:
         return jsonify({"error": "not found"}), 404
     return jsonify({"data": task.to_dict()})
@@ -44,45 +39,94 @@ def create_task():
     if not data or not data.get("title"):
         return jsonify({"error": "title is required"}), 400
 
-    task = Task(
+    properties = {}
+    if data.get("content"):
+        properties["description"] = data["content"]
+    if data.get("priority"):
+        properties["priority"] = data["priority"].upper()
+    if data.get("project_id"):
+        properties["project_id"] = data["project_id"]
+    if data.get("area_id"):
+        properties["area_id"] = data["area_id"]
+    if data.get("note_id"):
+        properties["note_id"] = data["note_id"]
+
+    follow_up_at = None
+    if data.get("follow_up_at"):
+        from datetime import datetime
+        try:
+            follow_up_at = datetime.fromisoformat(data["follow_up_at"].replace("Z", "+00:00"))
+        except (ValueError, TypeError):
+            pass
+
+    entity = create_entity(
+        entity_type="task",
         title=data["title"],
-        description=data.get("description"),
-        priority=_priority(data.get("priority", "medium")),
-        due_date=data.get("due_date"),
-        project_id=data.get("project_id"),
-        area_id=data.get("area_id"),
-        note_id=data.get("note_id"),
+        content=data.get("content"),
+        properties=properties,
+        follow_up_at=follow_up_at,
+        actor="user",
     )
-    db.session.add(task)
-    db.session.commit()
-    return jsonify({"data": task.to_dict()}), 201
+    return jsonify({"data": entity.to_dict()}), 201
 
 
 @api_bp.route("/tasks/<task_id>", methods=["PATCH", "PUT"])
 def update_task(task_id):
-    task = db.session.get(Task, task_id)
+    task = Entity.query.filter_by(id=task_id, type="task").first()
     if not task:
         return jsonify({"error": "not found"}), 404
 
     data = request.get_json()
-    for field in ("title", "description", "due_date", "project_id", "area_id", "note_id"):
-        if field in data:
-            setattr(task, field, data[field])
+    fields = {}
+    if "title" in data:
+        fields["title"] = data["title"]
+    if "content" in data:
+        fields["content"] = data["content"]
+    if "description" in data:
+        fields["content"] = data["description"]
+
+    props = dict(task.properties or {})
+    if "priority" in data:
+        props["priority"] = data["priority"].upper()
+    if "project_id" in data:
+        props["project_id"] = data["project_id"]
+    if "area_id" in data:
+        props["area_id"] = data["area_id"]
+    if "note_id" in data:
+        props["note_id"] = data["note_id"]
+    if "description" in data:
+        props["description"] = data["description"]
+    if props != (task.properties or {}):
+        fields["properties"] = props
+
+    if "follow_up_at" in data:
+        from datetime import datetime
+        try:
+            fields["follow_up_at"] = datetime.fromisoformat(data["follow_up_at"].replace("Z", "+00:00"))
+        except (ValueError, TypeError):
+            pass
+
     if "status" in data:
         try:
-            task.status = TaskStatus(data["status"].upper())
-        except ValueError:
-            pass
-    if "priority" in data:
-        task.priority = _priority(data["priority"])
+            transition_status(task_id, data["status"].lower(), actor="user")
+            task = Entity.query.get(task_id)
+            if fields:
+                update_entity(task_id, fields, actor="user")
+                task = Entity.query.get(task_id)
+            return jsonify({"data": task.to_dict()})
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
 
-    db.session.commit()
+    if fields:
+        update_entity(task_id, fields, actor="user")
+        task = Entity.query.get(task_id)
+
     return jsonify({"data": task.to_dict()})
 
 
 @api_bp.route("/tasks/<task_id>", methods=["DELETE"])
 def delete_task(task_id):
-    task = db.session.get(Task, task_id)
+    task = Entity.query.filter_by(id=task_id, type="task").first()
     if not task:
         return jsonify({"error": "not found"}), 404
     db.session.delete(task)

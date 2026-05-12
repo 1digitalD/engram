@@ -21,6 +21,5 @@ from . import (
     batch,
     daily,
     resources,
+    search,
 )
-
-api_v2_bp = links.api_v2_bp

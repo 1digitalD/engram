@@ -605,9 +605,896 @@
         "cd ui && npm install && npm test"
       ],
       "commit": "febff9e"
+    },
+    {
+      "id": "V2-INFRA-01",
+      "cycle": "overhaul",
+      "phase": "0-infra",
+      "title": "Switch config.py to PostgreSQL",
+      "description": "Change config.py: set SQLALCHEMY_DATABASE_URI default to postgresql://localhost/engram, set TestingConfig to use TEST_DATABASE_URL env var, remove JOBS_SYNC from TestingConfig.",
+      "reads": [
+        "config.py",
+        "docs/V2_OVERHAUL_PLAN.md"
+      ],
+      "writes": [
+        "config.py"
+      ],
+      "acceptanceCriteria": [
+        "Default DATABASE_URL is postgresql://... not sqlite:///...",
+        "TestingConfig uses TEST_DATABASE_URL env var",
+        "JOBS_SYNC removed from TestingConfig"
+      ],
+      "validationCommands": [
+        "python3 -c \"from config import config; c = config['testing'](); print(c.SQLALCHEMY_DATABASE_URI)\""
+      ],
+      "blockedBy": []
+    },
+    {
+      "id": "V2-INFRA-02",
+      "cycle": "overhaul",
+      "phase": "0-infra",
+      "title": "Rewrite tests/conftest.py for Postgres",
+      "description": "Replace conftest with session-scoped app that uses SCHEMA.sql instead of db.create_all(). Use TRUNCATE between tests for isolation. Remove SQLite-specific code.",
+      "reads": [
+        "tests/conftest.py",
+        "docs/SCHEMA.sql",
+        "docs/V2_OVERHAUL_PLAN.md"
+      ],
+      "writes": [
+        "tests/conftest.py"
+      ],
+      "acceptanceCriteria": [
+        "conftest uses SCHEMA.sql not db.create_all()",
+        "Session-scoped app fixture with per-test truncation",
+        "Tests run against TEST_DATABASE_URL Postgres"
+      ],
+      "validationCommands": [
+        "TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test pytest tests/unit/test_models.py -q"
+      ],
+      "blockedBy": [
+        "V2-INFRA-01"
+      ]
+    },
+    {
+      "id": "V2-INFRA-03",
+      "cycle": "overhaul",
+      "phase": "0-infra",
+      "title": "Clean up app.py: remove SQLite cruft, wire job worker",
+      "description": "Remove load_sqlite_extensions import and call. Remove init_fts, init_vec imports. Register AI pipeline handlers. Start job worker on boot. Fix health endpoint to check entity_chunks not vec_chunks.",
+      "reads": [
+        "app.py",
+        "docs/V2_OVERHAUL_PLAN.md"
+      ],
+      "writes": [
+        "app.py"
+      ],
+      "acceptanceCriteria": [
+        "No SQLite-specific code in app.py",
+        "Job worker starts on app boot (or logs warning)",
+        "Health endpoint returns pgvector status correctly"
+      ],
+      "validationCommands": [
+        "FLASK_ENV=development python3 -c \"from app import create_app; app = create_app(); print('OK')\""
+      ],
+      "blockedBy": [
+        "V2-INFRA-02"
+      ]
+    },
+    {
+      "id": "V2-INFRA-04",
+      "cycle": "overhaul",
+      "phase": "0-infra",
+      "title": "Remove load_sqlite_extensions from extensions.py",
+      "description": "Remove the load_sqlite_extensions function entirely. File should only contain db = SQLAlchemy().",
+      "reads": [
+        "extensions.py"
+      ],
+      "writes": [
+        "extensions.py"
+      ],
+      "acceptanceCriteria": [
+        "No SQLite-related functions in extensions.py"
+      ],
+      "validationCommands": [
+        "python3 -c \"from extensions import db; print(db)\""
+      ],
+      "blockedBy": [
+        "V2-INFRA-03"
+      ]
+    },
+    {
+      "id": "V2-INFRA-05",
+      "cycle": "overhaul",
+      "phase": "0-infra",
+      "title": "Verify schema applies clean; all 7 tables present",
+      "description": "Drop and recreate test database. Apply docs/SCHEMA.sql. Verify all 7 tables, generated columns (search_vector), HNSW index, and pgvector operator work.",
+      "reads": [
+        "docs/SCHEMA.sql"
+      ],
+      "writes": [],
+      "acceptanceCriteria": [
+        "All 7 canonical tables exist",
+        "search_vector generated column exists",
+        "HNSW index exists",
+        "pgvector <-> operator works"
+      ],
+      "validationCommands": [
+        "psql postgresql://engram:engram@localhost:5433/engram_test -c \"SELECT '[1,2,3]'::vector <-> '[1,2,3]'::vector;\""
+      ],
+      "blockedBy": [
+        "V2-INFRA-04"
+      ]
+    },
+    {
+      "id": "V2-INFRA-06",
+      "cycle": "overhaul",
+      "phase": "0-infra",
+      "title": "Run migration script against production Postgres",
+      "description": "Backup SQLite, then run the migration script to populate Postgres with v1 data. Validate row counts pre/post.",
+      "reads": [
+        "scripts/migrate_sqlite_to_postgres.py",
+        "docs/V2_OVERHAUL_PLAN.md"
+      ],
+      "writes": [],
+      "acceptanceCriteria": [
+        "SQLite backed up to .v2-overhaul-backup",
+        "Migration script runs without errors",
+        "Row counts match between source and target",
+        "Postgres has data in entities, tags, entity_links tables"
+      ],
+      "validationCommands": [
+        "python3 scripts/migrate_sqlite_to_postgres.py --sqlite instance/engram.db --database-url postgresql://engram:engram@localhost:5432/engram"
+      ],
+      "blockedBy": [
+        "V2-INFRA-05"
+      ]
+    },
+    {
+      "id": "V2-AUDIT-01",
+      "cycle": "overhaul",
+      "phase": "1-audit",
+      "title": "Confirm old-model import inventory",
+      "description": "Run grep for remaining v1 model imports. Verify zero results. No code changes.",
+      "reads": [
+        "docs/V2_OVERHAUL_PLAN.md"
+      ],
+      "writes": [],
+      "acceptanceCriteria": [
+        "grep for v1 model imports returns zero results in api/ and services/"
+      ],
+      "validationCommands": [
+        "! grep -rn 'from models import.*Note\\|from models import.*Task\\|from models import.*Project\\|from models import.*Link\\|from models import.*Summary' api/ services/ --include='*.py' | head -5"
+      ],
+      "blockedBy": [
+        "V2-INFRA-06"
+      ]
+    },
+    {
+      "id": "V2-INGEST-01",
+      "cycle": "overhaul",
+      "phase": "2-ingest",
+      "title": "Rewrite services/ingestion.py for v2 Entity model",
+      "description": "Rewrite ingestion to use Entity, EntityTag, create_entity, create_link instead of Note, Project, Task, Area, Person. Replace embed_note/find_related_note_ids calls with job queue. Change threading to enqueue_embed/enqueue_autolink.",
+      "reads": [
+        "services/ingestion.py",
+        "services/entity_service.py",
+        "services/link_service.py",
+        "services/ai_pipeline.py",
+        "models.py"
+      ],
+      "writes": [
+        "services/ingestion.py"
+      ],
+      "acceptanceCriteria": [
+        "POST /ingest creates Entity records",
+        "Tags attached via EntityTag",
+        "Links created via create_link",
+        "Embed/autolink jobs enqueued via ai_pipeline"
+      ],
+      "validationCommands": [
+        "TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test pytest tests/unit/test_ingestion.py tests/integration/test_ingestion.py -v"
+      ],
+      "blockedBy": [
+        "V2-INFRA-06"
+      ]
+    },
+    {
+      "id": "V2-INGEST-02",
+      "cycle": "overhaul",
+      "phase": "2-ingest",
+      "title": "Add missing shims to services/embeddings.py",
+      "description": "Add embed_note() and find_related_note_ids() compatibility shims that delegate to the v2 implementations (embed_entity and services.search.find_related).",
+      "reads": [
+        "services/embeddings.py",
+        "services/search.py"
+      ],
+      "writes": [
+        "services/embeddings.py"
+      ],
+      "acceptanceCriteria": [
+        "embed_note delegates to embed_entity",
+        "find_related_note_ids delegates to find_related"
+      ],
+      "validationCommands": [
+        "python3 -c \"from services.embeddings import find_related_note_ids, embed_note; print('OK')\""
+      ],
+      "blockedBy": [
+        "V2-INFRA-06"
+      ]
+    },
+    {
+      "id": "V2-SERVICES-01",
+      "cycle": "overhaul",
+      "phase": "3-services",
+      "title": "Rewrite services/rollup.py for Entity model",
+      "description": "Rewrite rollup to use Entity, EntityLink, EntityTag, create_entity, archive_entity, create_link. Replace Note.query with Entity queries, project.name with project.title, note.raw_text with note.content.",
+      "reads": [
+        "services/rollup.py",
+        "services/entity_service.py",
+        "services/link_service.py",
+        "models.py"
+      ],
+      "writes": [
+        "services/rollup.py"
+      ],
+      "acceptanceCriteria": [
+        "Rollup creates Entity-based summary notes",
+        "Links created via create_link",
+        "Archive uses archive_entity"
+      ],
+      "validationCommands": [
+        "TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test pytest tests/test_rollup.py -v"
+      ],
+      "blockedBy": [
+        "V2-INGEST-01"
+      ]
+    },
+    {
+      "id": "V2-SERVICES-02",
+      "cycle": "overhaul",
+      "phase": "3-services",
+      "title": "Rewrite services/summarizer.py for Entity model",
+      "description": "Rewrite summarizer to use Entity, EntityLink. Replace Note, Project, Area queries with Entity query + type filter. Replace note.raw_text with note.content. Replace area.name with area.title.",
+      "reads": [
+        "services/summarizer.py",
+        "models.py",
+        "docs/V2_OVERHAUL_PLAN.md"
+      ],
+      "writes": [
+        "services/summarizer.py"
+      ],
+      "acceptanceCriteria": [
+        "Summarizer uses Entity model",
+        "Area summaries link correctly"
+      ],
+      "validationCommands": [
+        "TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test pytest -k \"summariz\" -v"
+      ],
+      "blockedBy": [
+        "V2-SERVICES-01"
+      ]
+    },
+    {
+      "id": "V2-SERVICES-03",
+      "cycle": "overhaul",
+      "phase": "3-services",
+      "title": "Stub extract_inline_tasks and add replacement",
+      "description": "Make extract_inline_tasks a no-op with deprecation warning. Add extract_and_create_inline_tasks that creates Entity(type='task') records via create_entity + create_link.",
+      "reads": [
+        "services/extractor.py",
+        "services/entity_service.py",
+        "services/link_service.py",
+        "docs/V2_OVERHAUL_PLAN.md"
+      ],
+      "writes": [
+        "services/extractor.py"
+      ],
+      "acceptanceCriteria": [
+        "extract_inline_tasks returns empty list with warning",
+        "extract_and_create_inline_tasks creates Entity tasks with links"
+      ],
+      "validationCommands": [
+        "python3 -c \"from services.extractor import extract_inline_tasks, extract_and_create_inline_tasks; print('OK')\""
+      ],
+      "blockedBy": [
+        "V2-INGEST-01"
+      ]
+    },
+    {
+      "id": "V2-SERVICES-04",
+      "cycle": "overhaul",
+      "phase": "3-services",
+      "title": "Rewrite api/links.py for Entity/EntityLink model",
+      "description": "Rewrite links API to use Entity and EntityLink. Replace Link.query, Note.query with EntityLink and Entity queries. Replace direct Link() creation with svc_create_link. Add v2 routes on api_v2_bp.",
+      "reads": [
+        "api/links.py",
+        "services/link_service.py",
+        "models.py",
+        "docs/V2_OVERHAUL_PLAN.md"
+      ],
+      "writes": [
+        "api/links.py"
+      ],
+      "acceptanceCriteria": [
+        "list_links uses EntityLink.query",
+        "create_link uses link_service.create_link",
+        "V2 endpoint GET /api/v2/links/:entity_id works"
+      ],
+      "validationCommands": [
+        "TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test pytest tests/test_links_api.py -v"
+      ],
+      "blockedBy": [
+        "V2-INGEST-02"
+      ]
+    },
+    {
+      "id": "V2-SERVICES-05",
+      "cycle": "overhaul",
+      "phase": "3-services",
+      "title": "Rewrite services/moc.py for Entity model",
+      "description": "Rewrite Map of Content generation to use Entity, EntityLink, create_entity, create_link. Replace Note references with Entity queries. Replace raw_text with content. Remove _queue_embedding import.",
+      "reads": [
+        "services/moc.py",
+        "services/entity_service.py",
+        "services/link_service.py",
+        "models.py",
+        "docs/V2_OVERHAUL_PLAN.md"
+      ],
+      "writes": [
+        "services/moc.py"
+      ],
+      "acceptanceCriteria": [
+        "MOC uses Entity model",
+        "No _queue_embedding import",
+        "Links created via create_link"
+      ],
+      "validationCommands": [
+        "TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test pytest -k \"moc\" -v"
+      ],
+      "blockedBy": [
+        "V2-INGEST-01"
+      ]
+    },
+    {
+      "id": "V2-SERVICES-06",
+      "cycle": "overhaul",
+      "phase": "3-services",
+      "title": "Rewrite api/batch.py for Entity model",
+      "description": "Rewrite batch operations to use Entity, create_entity, transition_status. Replace Note, Task with Entity queries. Replace task.status assignment with transition_status.",
+      "reads": [
+        "api/batch.py",
+        "services/entity_service.py",
+        "models.py",
+        "docs/V2_OVERHAUL_PLAN.md"
+      ],
+      "writes": [
+        "api/batch.py"
+      ],
+      "acceptanceCriteria": [
+        "Batch create_note uses Entity",
+        "Batch update_task uses transition_status",
+        "Tag operations use EntityTag"
+      ],
+      "validationCommands": [
+        "TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test pytest tests/unit/test_batch_api.py -v"
+      ],
+      "blockedBy": [
+        "V2-INGEST-01",
+        "V2-SERVICES-03"
+      ]
+    },
+    {
+      "id": "V2-SERVICES-07",
+      "cycle": "overhaul",
+      "phase": "3-services",
+      "title": "Rewrite api/daily.py for Entity model",
+      "description": "Rewrite daily notes to use Entity and create_entity. Replace Note with Entity queries. Replace raw_text with content. Remove extract_inline_tasks call.",
+      "reads": [
+        "api/daily.py",
+        "services/entity_service.py",
+        "models.py",
+        "docs/V2_OVERHAUL_PLAN.md"
+      ],
+      "writes": [
+        "api/daily.py"
+      ],
+      "acceptanceCriteria": [
+        "Daily notes use Entity model",
+        "Append works with entity_service"
+      ],
+      "validationCommands": [
+        "TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test pytest -k \"daily\" -v"
+      ],
+      "blockedBy": [
+        "V2-SERVICES-03"
+      ]
+    },
+    {
+      "id": "V2-SERVICES-08",
+      "cycle": "overhaul",
+      "phase": "3-services",
+      "title": "Rewrite api/review.py for Entity model",
+      "description": "Rewrite weekly digest to use Entity and EntityLink counts. Replace Note, Task, Project, Link queries with Entity + type filter and EntityLink counts.",
+      "reads": [
+        "api/review.py",
+        "models.py",
+        "docs/V2_OVERHAUL_PLAN.md"
+      ],
+      "writes": [
+        "api/review.py"
+      ],
+      "acceptanceCriteria": [
+        "Weekly digest uses Entity model",
+        "All count queries work against Postgres"
+      ],
+      "validationCommands": [
+        "TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test pytest -k \"weekly_digest or review\" -v"
+      ],
+      "blockedBy": [
+        "V2-INFRA-06"
+      ]
+    },
+    {
+      "id": "V2-SERVICES-09",
+      "cycle": "overhaul",
+      "phase": "3-services",
+      "title": "Rewrite api/summaries.py for Entity model",
+      "description": "Rewrite summaries API to use Entity and EntityLink. Replace Note, Project, Area queries with Entity + type filter. Replace entity.name with entity.title, note.raw_text with note.content.",
+      "reads": [
+        "api/summaries.py",
+        "models.py",
+        "docs/V2_OVERHAUL_PLAN.md"
+      ],
+      "writes": [
+        "api/summaries.py"
+      ],
+      "acceptanceCriteria": [
+        "Summaries use Entity model",
+        "Project/area summary generation works with Entity queries"
+      ],
+      "validationCommands": [
+        "TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test pytest -k \"summar\" -v"
+      ],
+      "blockedBy": [
+        "V2-INFRA-06"
+      ]
+    },
+    {
+      "id": "V2-SERVICES-10",
+      "cycle": "overhaul",
+      "phase": "3-services",
+      "title": "Rewrite services/link_proposer.py for Entity model",
+      "description": "Rewrite link proposer to use Entity, EntityLink, EntityTag. Bulk-load tags and project links. Use Entity.lifecycle instead of Note.is_archived, Entity.updated_at instead of Note.modified_at, Entity.content instead of Note.raw_text.",
+      "reads": [
+        "services/link_proposer.py",
+        "models.py",
+        "docs/V2_OVERHAUL_PLAN.md"
+      ],
+      "writes": [
+        "services/link_proposer.py"
+      ],
+      "acceptanceCriteria": [
+        "Link proposer uses Entity queries",
+        "No N+1 tag/project queries",
+        "Bulk batch loading pattern"
+      ],
+      "validationCommands": [
+        "TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test pytest tests/test_link_proposer.py -v"
+      ],
+      "blockedBy": [
+        "V2-INGEST-01",
+        "V2-INGEST-02"
+      ]
+    },
+    {
+      "id": "V2-SERVICES-11",
+      "cycle": "overhaul",
+      "phase": "3-services",
+      "title": "Rewrite api/proposals.py for Entity model",
+      "description": "Rewrite proposals API to use EntityLink and link_service.create_link. Replace Link with EntityLink in _link_exists and accept_link_proposal.",
+      "reads": [
+        "api/proposals.py",
+        "services/link_service.py",
+        "models.py",
+        "docs/V2_OVERHAUL_PLAN.md"
+      ],
+      "writes": [
+        "api/proposals.py"
+      ],
+      "acceptanceCriteria": [
+        "Link existence check uses EntityLink",
+        "Proposal acceptance uses create_link"
+      ],
+      "validationCommands": [
+        "TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test pytest -k \"proposal\" -v"
+      ],
+      "blockedBy": [
+        "V2-SERVICES-10"
+      ]
+    },
+    {
+      "id": "V2-API-01",
+      "cycle": "overhaul",
+      "phase": "4-api",
+      "title": "Implement POST /entity-links and DELETE /entity-links/:id",
+      "description": "Add v2 entity link creation/deletion endpoints to api_v2_bp. Include validation (self-link rejection, duplicate detection, parent cardinality). Write tests.",
+      "reads": [
+        "api/links.py",
+        "services/link_service.py",
+        "docs/V2_OVERHAUL_PLAN.md"
+      ],
+      "writes": [
+        "api/links.py"
+      ],
+      "acceptanceCriteria": [
+        "POST /api/v2/entity-links creates links between entities",
+        "Self-link returns 400",
+        "Duplicate link returns 400",
+        "DELETE /api/v2/entity-links/:id removes link"
+      ],
+      "validationCommands": [
+        "TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test pytest tests/integration/test_links.py -v"
+      ],
+      "blockedBy": [
+        "V2-SERVICES-04"
+      ]
+    },
+    {
+      "id": "V2-API-02",
+      "cycle": "overhaul",
+      "phase": "4-api",
+      "title": "Implement GET /entities/:id/delete-preview",
+      "description": "Add delete-preview endpoint to api_v2_bp. Wire DELETE /notes/:id etc. to entity_service.delete_entity.",
+      "reads": [
+        "api/links.py",
+        "services/link_service.py",
+        "docs/V2_OVERHAUL_PLAN.md"
+      ],
+      "writes": [
+        "api/links.py",
+        "api/notes.py",
+        "api/tasks.py",
+        "api/projects.py",
+        "api/areas.py"
+      ],
+      "acceptanceCriteria": [
+        "DELETE preview returns orphan analysis",
+        "DELETE with cascade=true deletes entity"
+      ],
+      "validationCommands": [
+        "TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test pytest -k \"delete_preview\" -v"
+      ],
+      "blockedBy": [
+        "V2-API-01"
+      ]
+    },
+    {
+      "id": "V2-API-03",
+      "cycle": "overhaul",
+      "phase": "4-api",
+      "title": "Implement POST /ai/propose-from-selection",
+      "description": "Create api/ai_selection.py with 4 AI actions: classify, extract_task, create_link, improve_writing. Wire into api/__init__.py. Update frontend TipTapEditor to call the endpoint.",
+      "reads": [
+        "docs/V2_OVERHAUL_PLAN.md",
+        "docs/API_SPEC.md",
+        "models.py",
+        "services/entity_service.py",
+        "services/extractor.py"
+      ],
+      "writes": [
+        "api/ai_selection.py",
+        "api/__init__.py",
+        "ui/src/components/Editor/TipTapEditor.tsx"
+      ],
+      "acceptanceCriteria": [
+        "POST extracts task creates Entity task",
+        "POST propose-link returns candidates",
+        "Invalid action returns 400"
+      ],
+      "validationCommands": [
+        "TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test pytest tests/integration/test_ai_actions.py -v"
+      ],
+      "blockedBy": [
+        "V2-INFRA-06"
+      ]
+    },
+    {
+      "id": "V2-API-04",
+      "cycle": "overhaul",
+      "phase": "4-api",
+      "title": "Wire services/feedback.py into API",
+      "description": "Create api/feedback.py with POST /feedback, GET /feedback/stats, GET /feedback/corrections endpoints on api_v2_bp. Wire into api/__init__.py.",
+      "reads": [
+        "services/feedback.py",
+        "docs/V2_OVERHAUL_PLAN.md"
+      ],
+      "writes": [
+        "api/feedback.py",
+        "api/__init__.py"
+      ],
+      "acceptanceCriteria": [
+        "POST /feedback records feedback as entity_event",
+        "GET /stats returns accuracy breakdown"
+      ],
+      "validationCommands": [
+        "TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test pytest tests/unit/test_feedback.py -v"
+      ],
+      "blockedBy": [
+        "V2-INFRA-06"
+      ]
+    },
+    {
+      "id": "V2-TEST-01",
+      "cycle": "overhaul",
+      "phase": "5-test",
+      "title": "Prove tsvector FTS works; fix SQL injection in search.py",
+      "description": "Fix _fts_only fragile string-replace SQL injection with parameterized queries. Write integration tests proving FTS finds by title and content with type filter.",
+      "reads": [
+        "services/search.py",
+        "docs/V2_OVERHAUL_PLAN.md"
+      ],
+      "writes": [
+        "services/search.py",
+        "tests/integration/test_search_api.py"
+      ],
+      "acceptanceCriteria": [
+        "FTS search finds by title",
+        "FTS search finds by content",
+        "Type filter works",
+        "No string-replace SQL injection"
+      ],
+      "validationCommands": [
+        "TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test pytest tests/integration/test_search_api.py -v -k \"fts\""
+      ],
+      "blockedBy": [
+        "V2-SERVICES-04",
+        "V2-SERVICES-10"
+      ]
+    },
+    {
+      "id": "V2-TEST-02",
+      "cycle": "overhaul",
+      "phase": "5-test",
+      "title": "Prove pgvector HNSW search works",
+      "description": "Write integration tests proving pgvector <-> operator works and semantic search returns correctly ranked results.",
+      "reads": [
+        "services/search.py",
+        "docs/V2_OVERHAUL_PLAN.md"
+      ],
+      "writes": [
+        "tests/integration/test_search_api.py"
+      ],
+      "acceptanceCriteria": [
+        "Semantic search returns similar entities first",
+        "pgvector <-> operator returns correct distance"
+      ],
+      "validationCommands": [
+        "TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test pytest tests/integration/test_search_api.py -v -k \"semantic or pgvector\""
+      ],
+      "blockedBy": [
+        "V2-SERVICES-04",
+        "V2-SERVICES-10"
+      ]
+    },
+    {
+      "id": "V2-TEST-03",
+      "cycle": "overhaul",
+      "phase": "5-test",
+      "title": "Prove FOR UPDATE SKIP LOCKED works",
+      "description": "Enable concurrent job pickup tests. Verify SKIP LOCKED prevents double-pickup. Remove SQLite skip decorators.",
+      "reads": [
+        "services/job_worker.py",
+        "tests/integration/test_jobs.py",
+        "docs/V2_OVERHAUL_PLAN.md"
+      ],
+      "writes": [
+        "tests/integration/test_jobs.py"
+      ],
+      "acceptanceCriteria": [
+        "SKIP LOCKED prevents double-pickup",
+        "All tests pass against Postgres"
+      ],
+      "validationCommands": [
+        "TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test pytest tests/integration/test_jobs.py -v"
+      ],
+      "blockedBy": [
+        "V2-INFRA-06"
+      ]
+    },
+    {
+      "id": "V2-TEST-04",
+      "cycle": "overhaul",
+      "phase": "5-test",
+      "title": "Full suite + coverage gate",
+      "description": "Run full pytest with coverage. Create .coveragerc. Validate >= 80% on services/ and api/.",
+      "reads": [
+        "docs/V2_OVERHAUL_PLAN.md"
+      ],
+      "writes": [
+        ".coveragerc"
+      ],
+      "acceptanceCriteria": [
+        "pytest -q passes against Postgres",
+        "Coverage >= 80% for services/ and api/"
+      ],
+      "validationCommands": [
+        "TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test pytest --cov=. --cov-report=term-missing -q"
+      ],
+      "blockedBy": [
+        "V2-TEST-01",
+        "V2-TEST-02",
+        "V2-TEST-03",
+        "V2-API-03",
+        "V2-API-04"
+      ]
+    },
+    {
+      "id": "V2-TEST-05",
+      "cycle": "overhaul",
+      "phase": "5-test",
+      "title": "Frontend build + smoke test",
+      "description": "Run npm run build to verify frontend compiles. Smoke test key pages load against the updated API.",
+      "reads": [],
+      "writes": [],
+      "acceptanceCriteria": [
+        "cd ui && npm run build succeeds"
+      ],
+      "validationCommands": [
+        "cd ui && npm run build"
+      ],
+      "blockedBy": [
+        "V2-API-03",
+        "V2-SERVICES-06",
+        "V2-SERVICES-07",
+        "V2-SERVICES-08",
+        "V2-SERVICES-09",
+        "V2-SERVICES-11"
+      ]
+    },
+    {
+      "id": "V2-CLEANUP-01",
+      "cycle": "overhaul",
+      "phase": "6-cleanup",
+      "title": "Delete old model classes from models.py",
+      "description": "Delete all v1 model classes (BucketType through LinkProposal, lines 422-796). Delete init_fts and init_vec functions. Pre-condition: grep for old-model imports returns zero results.",
+      "reads": [
+        "models.py",
+        "docs/V2_OVERHAUL_PLAN.md"
+      ],
+      "writes": [
+        "models.py"
+      ],
+      "acceptanceCriteria": [
+        "No v1 model classes remaining",
+        "Full test suite still passes"
+      ],
+      "validationCommands": [
+        "TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test pytest -q"
+      ],
+      "blockedBy": [
+        "V2-TEST-04",
+        "V2-SERVICES-02",
+        "V2-SERVICES-05",
+        "V2-SERVICES-09",
+        "V2-SERVICES-10",
+        "V2-SERVICES-11"
+      ]
+    },
+    {
+      "id": "V2-CLEANUP-02",
+      "cycle": "overhaul",
+      "phase": "6-cleanup",
+      "title": "Delete dead services/links.py",
+      "description": "Delete services/links.py. Confirm no remaining imports.",
+      "reads": [
+        "services/links.py"
+      ],
+      "writes": [
+        "services/links.py"
+      ],
+      "acceptanceCriteria": [
+        "services/links.py deleted",
+        "No remaining imports reference it"
+      ],
+      "validationCommands": [
+        "grep -rn \"from services.links import\\|from services import links\" . --include='*.py' --exclude-dir='.venv' && echo 'found' || echo 'clean'"
+      ],
+      "blockedBy": [
+        "V2-CLEANUP-01"
+      ]
+    },
+    {
+      "id": "V2-CLEANUP-03",
+      "cycle": "overhaul",
+      "phase": "6-cleanup",
+      "title": "Fix SCHEMA.sql: primary key types and missing tables",
+      "description": "Change UUID PRIMARY KEY to TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text. Add summaries and link_proposals tables. Re-apply schema to test DB.",
+      "reads": [
+        "docs/SCHEMA.sql",
+        "docs/V2_OVERHAUL_PLAN.md"
+      ],
+      "writes": [
+        "docs/SCHEMA.sql"
+      ],
+      "acceptanceCriteria": [
+        "Primary keys use TEXT not UUID",
+        "summaries table exists",
+        "link_proposals table exists"
+      ],
+      "validationCommands": [
+        "psql postgresql://engram:engram@localhost:5433/engram_test -f docs/SCHEMA.sql 2>&1 | tail -3"
+      ],
+      "blockedBy": [
+        "V2-CLEANUP-01"
+      ]
+    },
+    {
+      "id": "V2-CLEANUP-04",
+      "cycle": "overhaul",
+      "phase": "6-cleanup",
+      "title": "Update AGENTS.md and EXECUTION-TRACKER.md",
+      "description": "Remove SQLite references from AGENTS.md. Add overhaul completion entry to EXECUTION-TRACKER.md.",
+      "reads": [
+        "AGENTS.md",
+        "EXECUTION-TRACKER.md",
+        "docs/V2_OVERHAUL_PLAN.md"
+      ],
+      "writes": [
+        "AGENTS.md",
+        "EXECUTION-TRACKER.md"
+      ],
+      "acceptanceCriteria": [
+        "No SQLite references in AGENTS.md",
+        "Overhaul completion documented"
+      ],
+      "validationCommands": [],
+      "blockedBy": [
+        "V2-CLEANUP-01"
+      ]
+    },
+    {
+      "id": "V2-CLEANUP-05",
+      "cycle": "overhaul",
+      "phase": "6-cleanup",
+      "title": "Remove/archive old v1 test files",
+      "description": "Move old v1 test files (test_api.py, test_phase1_backend_foundation.py, test_rollup.py, test_link_proposer.py, test_models_legacy.py) to tests/archive/.",
+      "reads": [
+        "docs/V2_OVERHAUL_PLAN.md"
+      ],
+      "writes": [
+        "tests/archive/"
+      ],
+      "acceptanceCriteria": [
+        "Old v1 tests archived",
+        "No stale v1 test files in tests/ root"
+      ],
+      "validationCommands": [
+        "mkdir -p tests/archive && mv tests/test_api.py tests/test_phase1_backend_foundation.py tests/test_rollup.py tests/test_link_proposer.py tests/test_models_legacy.py tests/archive/ 2>/dev/null; echo 'done'"
+      ],
+      "blockedBy": [
+        "V2-CLEANUP-01"
+      ]
+    },
+    {
+      "id": "V2-CLEANUP-06",
+      "cycle": "overhaul",
+      "phase": "6-cleanup",
+      "title": "Replace Entity.query.get() with db.session.get()",
+      "description": "Find all .query.get() calls in api/ and services/ and replace with db.session.get().",
+      "reads": [],
+      "writes": [],
+      "acceptanceCriteria": [
+        "No .query.get() calls remain in api/ or services/"
+      ],
+      "validationCommands": [
+        "! grep -rn '\\.query\\.get(' api/ services/ --include='*.py' | head -5"
+      ],
+      "blockedBy": [
+        "V2-CLEANUP-01"
+      ]
     }
   ],
   "metadata": {
-    "updatedAt": "2026-05-12T00:50:36.611142+00:00"
+    "updatedAt": "2026-05-12T06:47:18.997858+00:00"
   }
 }
