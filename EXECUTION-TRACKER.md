@@ -94,3 +94,7 @@ If the session resets:
 - **2026-05-11 16:46** C2-KANBAN → 7e8f664: C2-KANBAN: completed, merged from opencode worktree
 
 - **2026-05-11 16:56** C2-SURFACING → 077a885: C2-SURFACING: completed, merged from opencode worktree
+
+- **2026-05-11 23:15** C2-VALIDATE → <pending>: Full suite passes — 301 passed, 2 skipped, 0 failures. Frontend build succeeds. No regressions from Cycle 2 changes.
+
+- **2026-05-11 17:03** C2-VALIDATE → 76582e4: C2-VALIDATE: completed, merged from opencode worktree
