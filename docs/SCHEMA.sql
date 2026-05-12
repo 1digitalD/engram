@@ -221,6 +221,23 @@ CREATE INDEX IF NOT EXISTS jobs_pending_idx
 
 CREATE INDEX IF NOT EXISTS jobs_entity_idx ON jobs (entity_id);
 
+-- ─── Link Proposals (AI-suggested links for human review) ─────────────────────
+
+CREATE TABLE IF NOT EXISTS link_proposals (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    src_id      UUID NOT NULL,
+    dst_id      UUID NOT NULL,
+    confidence  FLOAT NOT NULL,
+    reason      TEXT,
+    status      TEXT NOT NULL DEFAULT 'pending'
+                CHECK (status IN ('pending', 'accepted', 'dismissed')),
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS link_proposals_status_idx ON link_proposals (status);
+CREATE INDEX IF NOT EXISTS link_proposals_src_idx    ON link_proposals (src_id);
+CREATE INDEX IF NOT EXISTS link_proposals_dst_idx    ON link_proposals (dst_id);
+
 -- ─── Updated_at triggers ──────────────────────────────────────────────────────
 
 CREATE OR REPLACE FUNCTION set_updated_at()
@@ -251,6 +268,7 @@ CREATE OR REPLACE FUNCTION truncate_all_tables()
 RETURNS VOID AS $$
 BEGIN
     TRUNCATE TABLE
+        link_proposals,
         entity_events,
         entity_chunks,
         entity_links,

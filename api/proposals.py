@@ -8,7 +8,8 @@ from flask import jsonify, request
 
 from api import api_bp
 from extensions import db
-from models import Link, LinkProposal, LinkProposalStatus
+from models import EntityLink, LinkProposal, LinkProposalStatus
+from services import link_service
 from services.link_proposer import propose_links
 from sqlalchemy import or_
 
@@ -18,12 +19,12 @@ _LINK_TYPE = "related"
 
 
 def _link_exists(src_id: str, dst_id: str) -> bool:
-    q = Link.query.filter(
+    q = EntityLink.query.filter(
         or_(
-            (Link.src_id == src_id) & (Link.dst_id == dst_id),
-            (Link.src_id == dst_id) & (Link.dst_id == src_id),
+            (EntityLink.src_id == src_id) & (EntityLink.dst_id == dst_id),
+            (EntityLink.src_id == dst_id) & (EntityLink.dst_id == src_id),
         ),
-        Link.link_type == _LINK_TYPE,
+        EntityLink.link_type == _LINK_TYPE,
     ).first()
     return q is not None
 
@@ -117,24 +118,27 @@ def accept_link_proposal(proposal_id):
 
     link_payload = None
     if not _link_exists(proposal.src_id, proposal.dst_id):
-        link = Link(
-            src_id=proposal.src_id,
-            dst_id=proposal.dst_id,
-            link_type=_LINK_TYPE,
-            weight=proposal.confidence,
-            source="llm",
-        )
-        db.session.add(link)
-        db.session.flush()
-        link_payload = link.to_dict()
+        try:
+            link = link_service.create_link(
+                src_id=proposal.src_id,
+                dst_id=proposal.dst_id,
+                link_type=_LINK_TYPE,
+                source="llm",
+                confidence=proposal.confidence,
+                evidence=proposal.reason,
+                actor="agent:proposer",
+            )
+            link_payload = link.to_dict()
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
     else:
         existing = (
-            Link.query.filter(
+            EntityLink.query.filter(
                 or_(
-                    (Link.src_id == proposal.src_id) & (Link.dst_id == proposal.dst_id),
-                    (Link.src_id == proposal.dst_id) & (Link.dst_id == proposal.src_id),
+                    (EntityLink.src_id == proposal.src_id) & (EntityLink.dst_id == proposal.dst_id),
+                    (EntityLink.src_id == proposal.dst_id) & (EntityLink.dst_id == proposal.src_id),
                 ),
-                Link.link_type == _LINK_TYPE,
+                EntityLink.link_type == _LINK_TYPE,
             )
             .first()
         )

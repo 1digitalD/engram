@@ -1193,7 +1193,10 @@
       ],
       "blockedBy": [
         "V2-SERVICES-10"
-      ]
+      ],
+      "passes": true,
+      "commit": "cde03ec",
+      "attempts": 1
     },
     {
       "id": "V2-API-01",

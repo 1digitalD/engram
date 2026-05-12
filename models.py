@@ -24,6 +24,7 @@ from sqlalchemy import (
     Enum as SAEnum,
     event,
     FetchedValue,
+    text,
 )
 from sqlalchemy.orm import relationship
 
@@ -68,8 +69,8 @@ def _enum_values(enum_cls):
 class BaseModel(db.Model):
     __abstract__ = True
 
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    id = Column(String(36), primary_key=True, server_default=text("gen_random_uuid()::text"))
+    created_at = Column(DateTime, nullable=False, server_default=text("now()"))
 
 
 # ─── Tags ────────────────────────────────────────────────────────────────────

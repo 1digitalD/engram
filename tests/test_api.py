@@ -897,23 +897,28 @@ def test_jobs_summarize_requires_granularity(client, app):
 
 def test_link_proposals_generate_list_accept_and_idempotent_generate(client, app):
     with app.app_context():
+        from models import EntityTag
+
         tag = Tag(name="proposal-api-shared")
-        note_a = Note(
-            raw_text="quarterly planning themes and roadmap draft for proposal-api-shared",
-            bucket=BucketType.INBOX,
+        entity_a = Entity(
+            type="note",
+            content="quarterly planning themes and roadmap draft for proposal-api-shared",
         )
-        note_b = Note(
-            raw_text="follow up on quarterly planning themes for proposal-api-shared next week",
-            bucket=BucketType.INBOX,
+        entity_b = Entity(
+            type="note",
+            content="follow up on quarterly planning themes for proposal-api-shared next week",
         )
-        note_a.tags.append(tag)
-        note_b.tags.append(tag)
-        db.session.add_all([tag, note_a, note_b])
+        db.session.add_all([tag, entity_a, entity_b])
+        db.session.flush()
+        db.session.add_all([
+            EntityTag(entity_id=entity_a.id, tag_id=tag.id),
+            EntityTag(entity_id=entity_b.id, tag_id=tag.id),
+        ])
         db.session.commit()
 
         gen = client.post(
             "/api/v1/proposals/generate",
-            data=json.dumps({"note_ids": [note_a.id, note_b.id], "min_confidence": 0.35}),
+            data=json.dumps({"note_ids": [str(entity_a.id), str(entity_b.id)], "min_confidence": 0.35}),
             content_type="application/json",
         )
         assert gen.status_code == 200, gen.data
@@ -935,12 +940,12 @@ def test_link_proposals_generate_list_accept_and_idempotent_generate(client, app
         assert body["link"] is not None
         assert body["link"]["source"] == "llm"
 
-        link_rows = Link.query.count()
+        link_rows = EntityLink.query.count()
         assert link_rows == 1
 
         gen2 = client.post(
             "/api/v1/proposals/generate",
-            data=json.dumps({"note_ids": [note_a.id, note_b.id], "min_confidence": 0.35}),
+            data=json.dumps({"note_ids": [str(entity_a.id), str(entity_b.id)], "min_confidence": 0.35}),
             content_type="application/json",
         )
         assert gen2.status_code == 200
@@ -949,17 +954,22 @@ def test_link_proposals_generate_list_accept_and_idempotent_generate(client, app
 
 def test_link_proposals_dismiss(client, app):
     with app.app_context():
+        from models import EntityTag
+
         tag = Tag(name="dismiss-tag")
-        a = Note(raw_text="alpha one two three four five six", bucket=BucketType.INBOX)
-        b = Note(raw_text="beta one two three four five seven", bucket=BucketType.INBOX)
-        a.tags.append(tag)
-        b.tags.append(tag)
+        a = Entity(type="note", content="alpha one two three four five six")
+        b = Entity(type="note", content="beta one two three four five seven")
         db.session.add_all([tag, a, b])
+        db.session.flush()
+        db.session.add_all([
+            EntityTag(entity_id=a.id, tag_id=tag.id),
+            EntityTag(entity_id=b.id, tag_id=tag.id),
+        ])
         db.session.commit()
 
         client.post(
             "/api/v1/proposals/generate",
-            data=json.dumps({"note_ids": [a.id, b.id], "min_confidence": 0.32}),
+            data=json.dumps({"note_ids": [str(a.id), str(b.id)], "min_confidence": 0.32}),
             content_type="application/json",
         )
         items = json.loads(client.get("/api/v1/proposals").data)["data"]
@@ -974,7 +984,7 @@ def test_link_proposals_dismiss(client, app):
 
         gen = client.post(
             "/api/v1/proposals/generate",
-            data=json.dumps({"note_ids": [a.id, b.id], "min_confidence": 0.32}),
+            data=json.dumps({"note_ids": [str(a.id), str(b.id)], "min_confidence": 0.32}),
             content_type="application/json",
         )
         assert json.loads(gen.data)["data"]["created"] == 0
@@ -992,18 +1002,23 @@ def test_link_proposals_list_status_filter_and_invalid(client, app):
 
 def test_link_proposals_list_filter_by_note_id(client, app):
     with app.app_context():
+        from models import EntityTag
+
         tag = Tag(name="note-filter-prop")
-        a = Note(raw_text="note filter alpha proposal shared tag x9", bucket=BucketType.INBOX)
-        b = Note(raw_text="note filter beta proposal shared tag x9", bucket=BucketType.INBOX)
-        c = Note(raw_text="note filter gamma unrelated lone", bucket=BucketType.INBOX)
-        a.tags.append(tag)
-        b.tags.append(tag)
+        a = Entity(type="note", content="note filter alpha proposal shared tag x9")
+        b = Entity(type="note", content="note filter beta proposal shared tag x9")
+        c = Entity(type="note", content="note filter gamma unrelated lone")
         db.session.add_all([tag, a, b, c])
+        db.session.flush()
+        db.session.add_all([
+            EntityTag(entity_id=a.id, tag_id=tag.id),
+            EntityTag(entity_id=b.id, tag_id=tag.id),
+        ])
         db.session.commit()
 
         client.post(
             "/api/v1/proposals/generate",
-            data=json.dumps({"note_ids": [a.id, b.id, c.id], "min_confidence": 0.28}),
+            data=json.dumps({"note_ids": [str(a.id), str(b.id), str(c.id)], "min_confidence": 0.28}),
             content_type="application/json",
         )
         all_pending = json.loads(client.get("/api/v1/proposals?status=pending").data)["data"]
@@ -1014,13 +1029,13 @@ def test_link_proposals_list_filter_by_note_id(client, app):
         )["data"]
         assert for_a
         assert all(
-            x["src_id"] == a.id or x["dst_id"] == a.id for x in for_a
+            x["src_id"] == str(a.id) or x["dst_id"] == str(a.id) for x in for_a
         )
         for_c = json.loads(
             client.get(f"/api/v1/proposals?status=pending&note_id={c.id}").data
         )["data"]
         assert all(
-            x["src_id"] == c.id or x["dst_id"] == c.id for x in for_c
+            x["src_id"] == str(c.id) or x["dst_id"] == str(c.id) for x in for_c
         )
 
 
