@@ -1,10 +1,9 @@
 """
-Batch operations endpoint.
+Batch operations endpoint — v2 Entity model.
 Agents can submit multiple note/task/project reads and writes in one request.
 Each operation: { "op": "create_note|update_note|get_note|create_task|update_task" + relevant fields }
 
-Unlike the old test_client() approach, each operation calls service/ORM functions
-directly — no HTTP round-trips, no broken atomic rollbacks.
+All operations use Entity, create_entity, transition_status, EntityTag.
 """
 from flask import request, jsonify
 from api import api_bp
@@ -25,90 +24,112 @@ def _op_create_note(body: dict) -> dict:
     result = run_ingestion(content=raw_text, source=body.get("source", "batch"))
     if "error" in result:
         return result
-    return {"note": result["note"], "tasks": result.get("tasks", []), "confident": result.get("confident")}
+    return {"note": result.get("entity") or result.get("note"), "tasks": result.get("tasks", []), "confident": result.get("confident")}
 
 
 def _op_get_note(body: dict) -> dict:
-    from models import Note
+    from models import Entity
     note_id = body.get("note_id") or body.get("id")
     if not note_id:
         return {"error": "note_id is required"}
-    note = db.session.get(Note, note_id)
+    note = Entity.query.filter_by(id=note_id, type="note").first()
     if not note:
         return {"error": f"note {note_id} not found"}
     return {"note": note.to_dict()}
 
 
 def _op_update_note(body: dict) -> dict:
-    from models import Note, BucketType, Tag
+    from models import Entity, EntityTag, Tag
     note_id = body.get("note_id") or body.get("id")
     if not note_id:
         return {"error": "note_id is required"}
-    note = db.session.get(Note, note_id)
+    note = Entity.query.filter_by(id=note_id, type="note").first()
     if not note:
         return {"error": f"note {note_id} not found"}
     text_changed = False
-    if "raw_text" in body:
-        new_text = body["raw_text"]
-        if note.raw_text != new_text:
-            note.raw_text = new_text
+    if "raw_text" in body or "content" in body:
+        new_text = body.get("raw_text") or body.get("content")
+        if note.content != new_text:
+            note.content = new_text
             text_changed = True
     if "bucket" in body:
-        try:
-            note.bucket = BucketType(body["bucket"].upper())
-        except ValueError:
-            pass
-    for field in ("project_id", "area_id", "person_id", "is_archived"):
+        props = dict(note.properties or {})
+        props["bucket"] = body["bucket"].upper()
+        note.properties = props
+    for field in ("is_archived",):
         if field in body:
-            setattr(note, field, body[field])
+            if field == "is_archived" and body[field]:
+                note.lifecycle = "archived"
+            else:
+                setattr(note, field, body[field])
     if "tag_names" in body:
         from api.notes import _resolve_or_create_tags
-        note.tags = _resolve_or_create_tags(body["tag_names"])
+        EntityTag.query.filter_by(entity_id=note.id).delete()
+        tags = _resolve_or_create_tags(body["tag_names"])
+        db.session.flush()
+        for tag in tags:
+            db.session.add(EntityTag(entity_id=note.id, tag_id=tag.id))
     if text_changed:
         from services.extractor import extract_inline_tasks
-
-        extract_inline_tasks(note.id, note.raw_text, note.project_id, note.area_id)
+        extract_inline_tasks(note.id, note.content, note.properties.get("project_id"), note.properties.get("area_id"))
     db.session.commit()
     return {"note": note.to_dict()}
 
 
 def _op_create_task(body: dict) -> dict:
-    from models import Task
-    from utils import parse_priority
+    from services.entity_service import create_entity
     title = body.get("title")
     if not title:
         return {"error": "title is required"}
-    task = Task(
+    props = {}
+    if body.get("priority"):
+        from utils import parse_priority
+        props["priority"] = parse_priority(body["priority"]).value
+    if body.get("due_date"):
+        props["due_date"] = body["due_date"]
+    task = create_entity(
+        entity_type="task",
         title=title,
-        description=body.get("description"),
-        priority=parse_priority(body.get("priority", "medium")),
-        due_date=body.get("due_date"),
-        project_id=body.get("project_id"),
+        content=body.get("description"),
+        properties=props if props else None,
+        source=body.get("source", "batch"),
+        actor="user",
     )
-    db.session.add(task)
-    db.session.commit()
     return {"task": task.to_dict()}
 
 
 def _op_update_task(body: dict) -> dict:
-    from models import Task, TaskStatus
-    from utils import parse_priority
+    from models import Entity
+    from services.entity_service import transition_status, update_entity
     task_id = body.get("task_id") or body.get("id")
     if not task_id:
         return {"error": "task_id is required"}
-    task = db.session.get(Task, task_id)
+    task = Entity.query.filter_by(id=task_id, type="task").first()
     if not task:
         return {"error": f"task {task_id} not found"}
-    for field in ("title", "description", "due_date", "project_id"):
-        if field in body:
-            setattr(task, field, body[field])
     if "status" in body:
         try:
-            task.status = TaskStatus(body["status"].upper())
+            transition_status(task_id, body["status"], actor="user")
+            task = Entity.query.filter_by(id=task_id, type="task").first()
+        except ValueError as e:
+            return {"error": str(e)}
+    fields = {}
+    for field in ("title", "content"):
+        if field in body:
+            fields[field] = body[field]
+    if "description" in body:
+        fields["content"] = body["description"]
+    if "priority" in body:
+        from utils import parse_priority
+        props = dict(task.properties or {})
+        props["priority"] = parse_priority(body["priority"]).value
+        fields["properties"] = props
+    if fields:
+        try:
+            update_entity(task_id, fields, actor="user")
+            task = Entity.query.filter_by(id=task_id, type="task").first()
         except ValueError:
             pass
-    if "priority" in body:
-        task.priority = parse_priority(body["priority"])
     db.session.commit()
     return {"task": task.to_dict()}
 
