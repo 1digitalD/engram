@@ -1,15 +1,17 @@
 """
-Multi-modal ingestion pipeline.
+Multi-modal ingestion pipeline — v2 Entity model.
+
 Handles text, image, PDF, and URL inputs — extracts content, classifies,
-resolves entities, and auto-creates records at ≥ 85% confidence.
+resolves entities, and auto-creates Entity records at >= 85% confidence.
+
+Tags attached via EntityTag. Links created via EntityLink.
+Embed/autolink jobs enqueued via ai_pipeline job queue.
 """
 from __future__ import annotations
-import os
+
 import base64
 import logging
 import re
-import threading
-from datetime import datetime
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -24,7 +26,6 @@ def extract_from_pdf(pdf_bytes: bytes) -> str:
     try:
         import pymupdf4llm
         import pymupdf
-        import io
         doc = pymupdf.open(stream=pdf_bytes, filetype="pdf")
         md = pymupdf4llm.to_markdown(doc)
         return md
@@ -87,8 +88,8 @@ def _normalize(s: str) -> str:
 
 def _resolve_entity(name: str, existing: list, fuzzy_threshold: int = 88) -> object | None:
     """
-    Find an entity in `existing` whose `.name` matches `name`.
-    Cascade: exact normalized match → rapidfuzz token_set_ratio ≥ fuzzy_threshold.
+    Find an entity in `existing` whose `.title` matches `name`.
+    Cascade: exact normalized match -> rapidfuzz token_set_ratio >= fuzzy_threshold.
     Returns the matched ORM object or None.
     """
     if not name or not existing:
@@ -97,7 +98,7 @@ def _resolve_entity(name: str, existing: list, fuzzy_threshold: int = 88) -> obj
     norm = _normalize(name)
 
     for entity in existing:
-        if _normalize(entity.name) == norm:
+        if _normalize(entity.title or "") == norm:
             return entity
 
     try:
@@ -105,7 +106,7 @@ def _resolve_entity(name: str, existing: list, fuzzy_threshold: int = 88) -> obj
         best_score = 0
         best_match = None
         for entity in existing:
-            score = fuzz.token_set_ratio(_normalize(entity.name), norm)
+            score = fuzz.token_set_ratio(_normalize(entity.title or ""), norm)
             if score > best_score:
                 best_score = score
                 best_match = entity
@@ -115,12 +116,6 @@ def _resolve_entity(name: str, existing: list, fuzzy_threshold: int = 88) -> obj
         pass
 
     return None
-
-
-# Convenience aliases kept for any external callers
-resolve_project = _resolve_entity
-resolve_area = _resolve_entity
-resolve_person = _resolve_entity
 
 
 # ── Main pipeline ────────────────────────────────────────────────────────────
@@ -135,13 +130,13 @@ def run_ingestion(
 ) -> dict:
     """
     Full ingestion pipeline. Accepts text + optional media.
-    Returns a dict with created/matched entities and the note.
+    Returns a dict with created/matched entities.
 
-    confidence ≥ CONFIDENCE_THRESHOLD → auto-create entities
-    confidence < threshold → note goes to INBOX, entities stored in ai_meta only
+    confidence >= CONFIDENCE_THRESHOLD -> auto-create entities
+    confidence < threshold -> entity goes to INBOX bucket, suggestions in ai_meta only
     """
     from extensions import db
-    from models import Note, BucketType, Tag, Project, Area, Person, Task
+    from models import Entity, EntityTag, EntityLink, Tag
 
     # ── Step 1: Extract content from media ──────────────────────────────────
     media_text = ""
@@ -193,12 +188,15 @@ def run_ingestion(
         return {"error": "no content to process"}
 
     # ── Step 2: Load existing entities for context ───────────────────────────
-    existing_projects = Project.query.filter_by(is_archived=False).all()
-    existing_areas = Area.query.all()
-    existing_people = Person.query.all()
+    existing_projects = Entity.query.filter_by(
+        type="project", lifecycle="active"
+    ).all()
+    existing_areas = Entity.query.filter_by(
+        type="area", lifecycle="active"
+    ).all()
 
-    project_names = [p.name for p in existing_projects]
-    area_names = [a.name for a in existing_areas]
+    project_names = [p.title for p in existing_projects if p.title]
+    area_names = [a.title for a in existing_areas if a.title]
 
     # ── Step 3: AI extraction ────────────────────────────────────────────────
     from services.extractor import extract
@@ -206,65 +204,56 @@ def run_ingestion(
 
     confident = extraction.confidence >= CONFIDENCE_THRESHOLD
 
-    # ── Step 4: Entity resolution + auto-create ──────────────────────────────
-    resolved_project = None
-    resolved_area = None
-    resolved_person = None  # primary person associated with the note
-    created_tasks = []
-    resolved_people = []
-
+    # ── Step 4: Determine bucket ─────────────────────────────────────────────
     bucket_str = extraction.para_bucket
-    try:
-        bucket = BucketType(bucket_str.upper())
-    except ValueError:
-        bucket = BucketType.INBOX
-
     if not confident:
-        bucket = BucketType.INBOX
+        bucket_str = "INBOX"
 
-    # Resolve / create project
+    # ── Step 5: Resolve / create project ─────────────────────────────────────
+    resolved_project = None
     if extraction.suggested_project and confident:
-        resolved_project = resolve_project(extraction.suggested_project, existing_projects)
+        resolved_project = _resolve_entity(extraction.suggested_project, existing_projects)
         if not resolved_project:
-            resolved_project = Project(
-                name=extraction.suggested_project,
-                description=f"Auto-created during ingestion of: {full_content[:80]}",
+            resolved_project = Entity(
+                type="project",
+                title=extraction.suggested_project,
+                content=f"Auto-created during ingestion of: {full_content[:80]}",
+                properties={},
+                lifecycle="active",
+                ai_meta={"source": "ingestion"},
+                ai_status="pending",
             )
             db.session.add(resolved_project)
-            db.session.flush()  # get ID before commit
+            db.session.flush()
 
-        if resolved_project and bucket == BucketType.INBOX:
-            bucket = BucketType.PROJECTS
+        if resolved_project and bucket_str == "INBOX":
+            bucket_str = "PROJECTS"
 
-    # Resolve / create area
+    # ── Step 6: Resolve / create area ────────────────────────────────────────
+    resolved_area = None
     if extraction.suggested_area and not resolved_project and confident:
-        resolved_area = resolve_area(extraction.suggested_area, existing_areas)
+        resolved_area = _resolve_entity(extraction.suggested_area, existing_areas)
         if not resolved_area:
-            resolved_area = Area(name=extraction.suggested_area)
+            resolved_area = Entity(
+                type="area",
+                title=extraction.suggested_area,
+                properties={},
+                lifecycle="active",
+                ai_meta={"source": "ingestion"},
+                ai_status="pending",
+            )
             db.session.add(resolved_area)
             db.session.flush()
 
-        if resolved_area and bucket == BucketType.INBOX:
-            bucket = BucketType.AREAS
+        if resolved_area and bucket_str == "INBOX":
+            bucket_str = "AREAS"
 
-    # Resolve / create people
+    # ── Step 7: Resolve people (store in ai_meta, no separate entities) ──────
+    resolved_people = []
     for ep in extraction.people:
-        person = resolve_person(ep.name, existing_people + resolved_people)
-        if not person:
-            if confident:
-                person = Person(name=ep.name, email=ep.email)
-                db.session.add(person)
-                db.session.flush()
-                resolved_people.append(person)
-            # else: store mention in ai_meta only
-        else:
-            resolved_people.append(person)
+        resolved_people.append({"name": ep.name, "email": ep.email})
 
-    # Primary person = first one mentioned
-    if resolved_people:
-        resolved_person = resolved_people[0]
-
-    # Resolve / create tags
+    # ── Step 8: Resolve / create tags ────────────────────────────────────────
     tag_objects = []
     for tag_name in extraction.tags:
         name = tag_name.lower().strip()
@@ -274,9 +263,10 @@ def run_ingestion(
         if not tag:
             tag = Tag(name=name)
             db.session.add(tag)
+            db.session.flush()
         tag_objects.append(tag)
 
-    # ── Step 5: Create the note ──────────────────────────────────────────────
+    # ── Step 9: Create the note Entity ───────────────────────────────────────
     ai_meta = {
         "source": source,
         "confidence": extraction.confidence,
@@ -292,84 +282,107 @@ def run_ingestion(
         "media_url": media_url,
     }
 
-    note = Note(
-        raw_text=full_content,
-        bucket=bucket,
-        project_id=resolved_project.id if resolved_project else None,
-        area_id=resolved_area.id if resolved_area else None,
-        person_id=resolved_person.id if resolved_person else None,
+    entity = Entity(
+        type="note",
+        title=extraction.summary[:100] if extraction.summary else None,
+        content=full_content,
+        properties={"bucket": bucket_str},
+        source=source,
+        lifecycle="active",
         ai_meta=ai_meta,
+        ai_status="pending",
     )
-    note.tags = tag_objects
-    db.session.add(note)
+    db.session.add(entity)
     db.session.flush()
 
-    # ── Step 6: Create tasks ─────────────────────────────────────────────────
+    # ── Step 10: Attach tags via EntityTag ───────────────────────────────────
+    for tag in tag_objects:
+        et = EntityTag(entity_id=entity.id, tag_id=tag.id)
+        db.session.add(et)
+
+    # ── Step 11: Create links to project/area ────────────────────────────────
+    if resolved_project:
+        link = EntityLink(
+            src_id=entity.id,
+            dst_id=resolved_project.id,
+            link_type="related",
+            source="ingestion",
+            confidence=extraction.confidence,
+        )
+        db.session.add(link)
+
+    if resolved_area:
+        link = EntityLink(
+            src_id=entity.id,
+            dst_id=resolved_area.id,
+            link_type="related",
+            source="ingestion",
+            confidence=extraction.confidence,
+        )
+        db.session.add(link)
+
+    # ── Step 12: Create task Entities from extraction ────────────────────────
+    created_tasks = []
     if confident and extraction.tasks:
         for et in extraction.tasks:
-            # Resolve task's project hint
+            task_props = {"priority": et.priority}
+            if et.due_date:
+                task_props["due_date"] = et.due_date
+
+            task = Entity(
+                type="task",
+                title=et.title,
+                content=None,
+                properties=task_props,
+                source="ingestion",
+                status="pending",
+                lifecycle="active",
+                ai_meta={"source_note_id": entity.id},
+                ai_status="pending",
+            )
+            db.session.add(task)
+            db.session.flush()
+            created_tasks.append(task)
+
+            # Link task to parent note
+            task_link = EntityLink(
+                src_id=task.id,
+                dst_id=entity.id,
+                link_type="related",
+                source="ingestion",
+            )
+            db.session.add(task_link)
+
+            # Link task to project if available
             task_project_id = resolved_project.id if resolved_project else None
             if et.project_hint and not task_project_id:
-                tp = resolve_project(et.project_hint, existing_projects)
+                tp = _resolve_entity(et.project_hint, existing_projects)
                 if tp:
                     task_project_id = tp.id
 
-            due = None
-            if et.due_date:
-                try:
-                    due = datetime.fromisoformat(et.due_date)
-                except ValueError:
-                    pass
-
-            from models import Priority, TaskStatus
-            try:
-                priority = Priority(et.priority.upper())
-            except ValueError:
-                priority = Priority.MEDIUM
-
-            task = Task(
-                title=et.title,
-                project_id=task_project_id,
-                priority=priority,
-                due_date=due,
-            )
-            db.session.add(task)
-            created_tasks.append(task)
-
-    from services.extractor import extract_inline_tasks
-
-    extract_inline_tasks(
-        note.id,
-        full_content,
-        note.project_id,
-        note.area_id,
-    )
+            if task_project_id:
+                proj_link = EntityLink(
+                    src_id=task.id,
+                    dst_id=task_project_id,
+                    link_type="related",
+                    source="ingestion",
+                )
+                db.session.add(proj_link)
 
     db.session.commit()
 
-    # Queue embedding + auto-link in background (with app context)
+    # ── Step 13: Enqueue embed/autolink jobs via ai_pipeline ─────────────────
     try:
-        from flask import current_app
-        app = current_app._get_current_object()
-
-        def _bg_embed_and_link(note_id, text, _app):
-            with _app.app_context():
-                _background_embed(note_id, text)
-                _background_autolink(note_id)
-
-        threading.Thread(
-            target=_bg_embed_and_link,
-            args=(note.id, full_content, app),
-            daemon=True,
-        ).start()
-    except RuntimeError:
-        # Outside request context (e.g. tests) — skip background work
-        pass
+        from services.ai_pipeline import enqueue_embed, enqueue_autolink
+        enqueue_embed(entity.id)
+        enqueue_autolink(entity.id)
+    except Exception as e:
+        logger.warning(f"AI job enqueue failed for {entity.id}: {e}")
 
     return {
-        "note": note.to_dict(),
+        "entity": entity.to_dict(),
         "tasks": [t.to_dict() for t in created_tasks],
-        "people": [p.to_dict() for p in resolved_people],
+        "people": resolved_people,
         "project": resolved_project.to_dict() if resolved_project else None,
         "area": resolved_area.to_dict() if resolved_area else None,
         "confident": confident,
@@ -381,22 +394,3 @@ def run_ingestion(
             "tags": extraction.tags,
         },
     }
-
-
-def _background_embed(note_id: str, text: str):
-    try:
-        from services.embeddings import embed_note
-        embed_note(note_id, text)
-    except Exception as e:
-        logger.warning(f"Background embedding failed for {note_id}: {e}")
-
-
-def _background_autolink(note_id: str):
-    try:
-        from services.embeddings import find_related_note_ids
-        from services.links import create_embedding_links
-        related = find_related_note_ids(note_id, limit=5, min_similarity=0.82)
-        if related:
-            create_embedding_links(note_id, related)
-    except Exception as e:
-        logger.debug(f"Auto-link skipped for {note_id}: {e}")

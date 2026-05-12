@@ -48,14 +48,15 @@ def enqueue_classify(entity_id):
     Returns:
         The created Job instance.
     """
+    eid = str(entity_id)
     job = Job(
         job_type="classify",
-        entity_id=entity_id,
-        payload={"entity_id": entity_id},
+        entity_id=eid,
+        payload={"entity_id": eid},
     )
     db.session.add(job)
     db.session.flush()
-    logger.info("Enqueued classify job for entity %s", entity_id)
+    logger.info("Enqueued classify job for entity %s", eid)
     return job
 
 
@@ -68,14 +69,15 @@ def enqueue_embed(entity_id):
     Returns:
         The created Job instance.
     """
+    eid = str(entity_id)
     job = Job(
         job_type="embed",
-        entity_id=entity_id,
-        payload={"entity_id": entity_id},
+        entity_id=eid,
+        payload={"entity_id": eid},
     )
     db.session.add(job)
     db.session.flush()
-    logger.info("Enqueued embed job for entity %s", entity_id)
+    logger.info("Enqueued embed job for entity %s", eid)
     return job
 
 
@@ -88,14 +90,15 @@ def enqueue_autolink(entity_id):
     Returns:
         The created Job instance.
     """
+    eid = str(entity_id)
     job = Job(
         job_type="autolink",
-        entity_id=entity_id,
-        payload={"entity_id": entity_id},
+        entity_id=eid,
+        payload={"entity_id": eid},
     )
     db.session.add(job)
     db.session.flush()
-    logger.info("Enqueued autolink job for entity %s", entity_id)
+    logger.info("Enqueued autolink job for entity %s", eid)
     return job
 
 
@@ -615,7 +618,7 @@ def _create_or_link_project(entity, project_name, confidence):
             title=project_name,
             content=f"Auto-created during classification of entity {entity.id}",
             properties={},
-            ai_meta={"source": "ai_classify", "parent_entity_id": entity.id},
+            ai_meta={"source": "ai_classify", "parent_entity_id": str(entity.id)},
             ai_status="done",
         )
         db.session.add(project)
@@ -674,7 +677,7 @@ def _create_or_link_area(entity, area_name, confidence):
             title=area_name,
             content=f"Auto-created during classification of entity {entity.id}",
             properties={},
-            ai_meta={"source": "ai_classify", "parent_entity_id": entity.id},
+            ai_meta={"source": "ai_classify", "parent_entity_id": str(entity.id)},
             ai_status="done",
         )
         db.session.add(area)

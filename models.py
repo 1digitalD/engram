@@ -23,6 +23,7 @@ from sqlalchemy import (
     Text as SqlText,
     Enum as SAEnum,
     event,
+    FetchedValue,
 )
 from sqlalchemy.orm import relationship
 
@@ -254,10 +255,10 @@ class Entity(BaseModel):
     ai_status = Column(Text, nullable=False, default="pending")
 
     # Generated columns (read-only — populated by Postgres)
-    priority = Column(Text, nullable=True)
-    due_date = Column(Text, nullable=True)
-    bucket = Column(Text, nullable=True)
-    search_vector = Column(Text, nullable=True)
+    priority = Column(Text, nullable=True, server_default=FetchedValue())
+    due_date = Column(Text, nullable=True, server_default=FetchedValue())
+    bucket = Column(Text, nullable=True, server_default=FetchedValue())
+    search_vector = Column(Text, nullable=True, server_default=FetchedValue())
 
     updated_at = Column(
         DateTime, nullable=False, default=lambda: datetime.now(timezone.utc),

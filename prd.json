@@ -842,7 +842,10 @@
         "TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test pytest tests/unit/test_ingestion.py tests/integration/test_ingestion.py -v"
       ],
       "blockedBy": [],
-      "status": "in_progress"
+      "status": "in_progress",
+      "passes": true,
+      "commit": "4513c87",
+      "attempts": 1
     },
     {
       "id": "V2-INGEST-02",

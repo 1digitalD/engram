@@ -37,16 +37,21 @@ def create_app(config_name=None):
     register_handlers()
 
     # Start job worker on boot (non-blocking background thread)
-    def _start_worker():
-        try:
-            from services.job_worker import start_worker
-            start_worker(app)
-            logger.info("Job worker started")
-        except Exception as e:
-            logger.warning("Job worker failed to start: %s", e)
+    # Skip in testing mode to avoid background DB connections
+    is_testing = app.config.get("TESTING", False)
+    if not is_testing:
+        def _start_worker():
+            try:
+                from services.job_worker import start_worker
+                start_worker(app)
+                logger.info("Job worker started")
+            except Exception as e:
+                logger.warning("Job worker failed to start: %s", e)
 
-    with app.app_context():
-        threading.Thread(target=_start_worker, daemon=True).start()
+        with app.app_context():
+            threading.Thread(target=_start_worker, daemon=True).start()
+    else:
+        logger.info("Skipping job worker (testing mode)")
 
     # ── CLI Commands ──────────────────────────────────────────────────────────
 
@@ -117,8 +122,7 @@ def create_app(config_name=None):
     return app
 
 
-app = create_app()
-
 if __name__ == "__main__":
+    app = create_app()
     port = int(os.getenv("PORT", 5001))
     app.run(host="0.0.0.0", port=port, debug=True)

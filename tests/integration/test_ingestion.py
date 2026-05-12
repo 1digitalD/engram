@@ -5,6 +5,7 @@ All OpenAI calls are mocked.
 """
 
 import time
+import threading
 from unittest.mock import patch, MagicMock
 
 import pytest
@@ -26,6 +27,17 @@ from services.job_worker import (
 
 def _clear_handlers():
     _HANDLERS.clear()
+
+
+def _reset_worker():
+    """Fully reset worker state for clean test isolation."""
+    import services.job_worker as jw
+    jw._stop_event.set()
+    if jw._worker_thread is not None:
+        jw._worker_thread.join(timeout=2)
+    jw._worker_thread = None
+    jw._worker_app = None
+    jw._stop_event = threading.Event()
 
 
 def _create_entity(entity_type="note", title="Test", content="Hello world"):
@@ -273,13 +285,13 @@ class TestBackgroundWorkerPipeline:
 
     def setup_method(self):
         _clear_handlers()
+        _reset_worker()
         # Re-register AI pipeline handlers after clearing
         from services.ai_pipeline import register_handlers
         register_handlers()
 
     def teardown_method(self):
-        if is_worker_running():
-            stop_worker()
+        stop_worker()
 
     @patch("services.extractor.extract")
     @patch("services.ai_pipeline._generate_embedding")

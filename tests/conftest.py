@@ -1,4 +1,5 @@
 import pathlib
+import threading
 import pytest
 from unittest.mock import patch, MagicMock
 
@@ -15,10 +16,29 @@ SCHEMA_PATH = pathlib.Path(__file__).resolve().parents[1] / "docs" / "SCHEMA.sql
 @pytest.fixture(scope="session")
 def app():
     """Session-scoped Flask app. Schema is applied once at session start."""
+    # Stop any lingering worker from previous sessions and fully reset state
+    try:
+        from services import job_worker
+        job_worker._stop_event.set()
+        if job_worker._worker_thread is not None:
+            job_worker._worker_thread.join(timeout=2)
+        job_worker._worker_thread = None
+        job_worker._worker_app = None
+        job_worker._stop_event = threading.Event()
+    except Exception:
+        pass
+
     app = create_app("testing")
     with app.app_context():
         _apply_schema(app)
     yield app
+
+    # Clean up worker on session teardown
+    try:
+        from services.job_worker import stop_worker
+        stop_worker(timeout=2)
+    except Exception:
+        pass
 
 
 def _apply_schema(app):
@@ -41,11 +61,12 @@ def _db(app):
 
 
 @pytest.fixture(autouse=True)
-def reset_db(_db):
+def reset_db(app, _db):
     """Truncate all tables before each test for isolation."""
-    with _db.engine.connect() as conn:
-        conn.execute(text("SELECT truncate_all_tables()"))
-        conn.commit()
+    with app.app_context():
+        with _db.engine.connect() as conn:
+            conn.execute(text("SELECT truncate_all_tables()"))
+            conn.commit()
 
 
 @pytest.fixture

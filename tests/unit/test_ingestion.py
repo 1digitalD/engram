@@ -1,4 +1,4 @@
-"""Unit tests for services/ingestion.py.
+"""Unit tests for services/ingestion.py — v2 Entity model.
 
 Note: services/ingestion.py uses Python 3.10+ type syntax (object | None).
 These tests are skipped on Python < 3.10.
@@ -13,7 +13,7 @@ import base64
 from unittest.mock import patch, MagicMock
 
 from extensions import db
-from models import Note, Project, Area, Person, Tag, BucketType
+from models import Entity, EntityTag, EntityLink, Tag
 
 
 class TestExtractFromPDF:
@@ -83,22 +83,19 @@ class TestNormalize:
 class TestResolveEntity:
     def test_resolve_exact_match(self):
         from services.ingestion import _resolve_entity
-        existing = [MagicMock(name="Test Project")]
-        existing[0].name = "Test Project"
+        existing = [MagicMock(title="Test Project")]
         result = _resolve_entity("Test Project", existing)
         assert result is existing[0]
 
     def test_resolve_normalized_match(self):
         from services.ingestion import _resolve_entity
-        existing = [MagicMock(name="Test Project!")]
-        existing[0].name = "Test Project!"
+        existing = [MagicMock(title="Test Project!")]
         result = _resolve_entity("test project", existing)
         assert result is existing[0]
 
     def test_resolve_no_match(self):
         from services.ingestion import _resolve_entity
-        existing = [MagicMock(name="Something Else")]
-        existing[0].name = "Something Else"
+        existing = [MagicMock(title="Something Else")]
         result = _resolve_entity("Test Project", existing)
         assert result is None
 
@@ -112,6 +109,12 @@ class TestResolveEntity:
         result = _resolve_entity("Test", [])
         assert result is None
 
+    def test_resolve_none_title(self):
+        from services.ingestion import _resolve_entity
+        existing = [MagicMock(title=None)]
+        result = _resolve_entity("Test", existing)
+        assert result is None
+
 
 class TestRunIngestion:
     def test_ingestion_no_content_error(self, app):
@@ -120,7 +123,7 @@ class TestRunIngestion:
             result = run_ingestion(content="")
             assert "error" in result
 
-    def test_ingestion_confident_creates_note(self, app):
+    def test_ingestion_creates_entity(self, app):
         from services.ingestion import run_ingestion
         from services.extractor import ExtractionResult
 
@@ -138,11 +141,16 @@ class TestRunIngestion:
 
         with app.app_context():
             with patch("services.extractor.extract", return_value=mock_ext):
-                with patch("services.extractor.extract_inline_tasks"):
-                    result = run_ingestion(content="Test content", source="test")
-                    assert "note" in result
-                    assert result["confident"] is True
-                    assert result["extraction"]["confidence"] == 0.9
+                result = run_ingestion(content="Test content", source="test")
+                assert "entity" in result
+                assert result["confident"] is True
+                assert result["extraction"]["confidence"] == 0.9
+
+                # Verify Entity record was created
+                entity = db.session.get(Entity, result["entity"]["id"])
+                assert entity is not None
+                assert entity.type == "note"
+                assert entity.content == "Test content"
 
     def test_ingestion_low_confidence_goes_to_inbox(self, app):
         from services.ingestion import run_ingestion
@@ -162,11 +170,10 @@ class TestRunIngestion:
 
         with app.app_context():
             with patch("services.extractor.extract", return_value=mock_ext):
-                with patch("services.extractor.extract_inline_tasks"):
-                    result = run_ingestion(content="Test content", source="test")
-                    assert result["confident"] is False
-                    note = db.session.get(Note, result["note"]["id"])
-                    assert note.bucket == BucketType.INBOX
+                result = run_ingestion(content="Test content", source="test")
+                assert result["confident"] is False
+                entity = db.session.get(Entity, result["entity"]["id"])
+                assert entity.properties.get("bucket") == "INBOX"
 
     def test_ingestion_creates_project(self, app):
         from services.ingestion import run_ingestion
@@ -186,10 +193,14 @@ class TestRunIngestion:
 
         with app.app_context():
             with patch("services.extractor.extract", return_value=mock_ext):
-                with patch("services.extractor.extract_inline_tasks"):
-                    result = run_ingestion(content="Test content about New Project", source="test")
-                    assert result["project"] is not None
-                    assert result["project"]["name"] == "New Project"
+                result = run_ingestion(content="Test content about New Project", source="test")
+                assert result["project"] is not None
+                assert result["project"]["name"] == "New Project"
+
+                # Verify project is an Entity with type='project'
+                project = db.session.get(Entity, result["project"]["id"])
+                assert project.type == "project"
+                assert project.title == "New Project"
 
     def test_ingestion_creates_area(self, app):
         from services.ingestion import run_ingestion
@@ -209,17 +220,28 @@ class TestRunIngestion:
 
         with app.app_context():
             with patch("services.extractor.extract", return_value=mock_ext):
-                with patch("services.extractor.extract_inline_tasks"):
-                    result = run_ingestion(content="Test content about Health", source="test")
-                    assert result["area"] is not None
-                    assert result["area"]["name"] == "Health"
+                result = run_ingestion(content="Test content about Health", source="test")
+                assert result["area"] is not None
+                assert result["area"]["name"] == "Health"
+
+                area = db.session.get(Entity, result["area"]["id"])
+                assert area.type == "area"
+                assert area.title == "Health"
 
     def test_ingestion_resolves_existing_project(self, app):
         from services.ingestion import run_ingestion
         from services.extractor import ExtractionResult
 
         with app.app_context():
-            project = Project(name="Existing Project", description="Test")
+            project = Entity(
+                type="project",
+                title="Existing Project",
+                content="Test",
+                properties={},
+                lifecycle="active",
+                ai_meta={},
+                ai_status="pending",
+            )
             db.session.add(project)
             db.session.commit()
 
@@ -236,10 +258,9 @@ class TestRunIngestion:
             )
 
             with patch("services.extractor.extract", return_value=mock_ext):
-                with patch("services.extractor.extract_inline_tasks"):
-                    result = run_ingestion(content="Test content", source="test")
-                    assert result["project"]["id"] == project.id
-                    assert Project.query.count() == 1
+                result = run_ingestion(content="Test content", source="test")
+                assert result["project"]["id"] == project.id
+                assert Entity.query.filter_by(type="project").count() == 1
 
     def test_ingestion_with_tags(self, app):
         from services.ingestion import run_ingestion
@@ -259,10 +280,111 @@ class TestRunIngestion:
 
         with app.app_context():
             with patch("services.extractor.extract", return_value=mock_ext):
-                with patch("services.extractor.extract_inline_tasks"):
-                    result = run_ingestion(content="Test content", source="test")
-                    note = db.session.get(Note, result["note"]["id"])
-                    assert len(note.tags) == 2
+                result = run_ingestion(content="Test content", source="test")
+                entity_id = result["entity"]["id"]
+
+                # Verify tags attached via EntityTag
+                entity_tags = EntityTag.query.filter_by(entity_id=entity_id).all()
+                assert len(entity_tags) == 2
+
+                tag_names = [et.tag.name for et in entity_tags]
+                assert "important" in tag_names
+                assert "review" in tag_names
+
+    def test_ingestion_creates_links(self, app):
+        from services.ingestion import run_ingestion
+        from services.extractor import ExtractionResult
+
+        mock_ext = ExtractionResult(
+            confidence=0.9,
+            para_bucket="INBOX",
+            suggested_project="Linked Project",
+            suggested_area=None,
+            tasks=[],
+            people=[],
+            tags=[],
+            summary="Test",
+            reasoning="Test",
+        )
+
+        with app.app_context():
+            with patch("services.extractor.extract", return_value=mock_ext):
+                result = run_ingestion(content="Test content", source="test")
+                entity_id = result["entity"]["id"]
+                project_id = result["project"]["id"]
+
+                # Verify link created between entity and project
+                link = EntityLink.query.filter_by(
+                    src_id=entity_id,
+                    dst_id=project_id,
+                    link_type="related",
+                ).first()
+                assert link is not None
+                assert link.source == "ingestion"
+
+    def test_ingestion_enqueues_jobs(self, app):
+        from services.ingestion import run_ingestion
+        from services.extractor import ExtractionResult
+        from models import Job
+
+        mock_ext = ExtractionResult(
+            confidence=0.9,
+            para_bucket="PROJECTS",
+            suggested_project=None,
+            suggested_area=None,
+            tasks=[],
+            people=[],
+            tags=[],
+            summary="Test",
+            reasoning="Test",
+        )
+
+        with app.app_context():
+            with patch("services.extractor.extract", return_value=mock_ext):
+                result = run_ingestion(content="Test content", source="test")
+                entity_id = result["entity"]["id"]
+
+                # Verify embed and autolink jobs were enqueued
+                jobs = Job.query.filter_by(entity_id=entity_id).all()
+                job_types = [j.job_type for j in jobs]
+                assert "embed" in job_types
+                assert "autolink" in job_types
+
+    def test_ingestion_creates_task_entities(self, app):
+        from services.ingestion import run_ingestion
+        from services.extractor import ExtractionResult, ExtractedTask
+
+        mock_ext = ExtractionResult(
+            confidence=0.9,
+            para_bucket="PROJECTS",
+            suggested_project=None,
+            suggested_area=None,
+            tasks=[
+                ExtractedTask(title="Follow up with team", priority="HIGH"),
+            ],
+            people=[],
+            tags=[],
+            summary="Test",
+            reasoning="Test",
+        )
+
+        with app.app_context():
+            with patch("services.extractor.extract", return_value=mock_ext):
+                result = run_ingestion(content="Test content", source="test")
+                assert len(result["tasks"]) == 1
+
+                # Verify task is an Entity with type='task'
+                task = db.session.get(Entity, result["tasks"][0]["id"])
+                assert task.type == "task"
+                assert task.title == "Follow up with team"
+                assert task.properties.get("priority") == "HIGH"
+
+                # Verify task linked to parent note
+                link = EntityLink.query.filter_by(
+                    src_id=task.id,
+                    dst_id=result["entity"]["id"],
+                ).first()
+                assert link is not None
 
     def test_ingestion_with_pdf_media(self, app):
         from services.ingestion import run_ingestion
@@ -284,15 +406,14 @@ class TestRunIngestion:
 
         with app.app_context():
             with patch("services.extractor.extract", return_value=mock_ext):
-                with patch("services.extractor.extract_inline_tasks"):
-                    with patch("services.ingestion.extract_from_pdf", return_value="PDF content"):
-                        result = run_ingestion(
-                            content="Test",
-                            media_base64=pdf_b64,
-                            media_type="pdf",
-                            source="test",
-                        )
-                        assert "note" in result
+                with patch("services.ingestion.extract_from_pdf", return_value="PDF content"):
+                    result = run_ingestion(
+                        content="Test",
+                        media_base64=pdf_b64,
+                        media_type="pdf",
+                        source="test",
+                    )
+                    assert "entity" in result
 
     def test_ingestion_with_url_media(self, app):
         from services.ingestion import run_ingestion
@@ -312,23 +433,23 @@ class TestRunIngestion:
 
         with app.app_context():
             with patch("services.extractor.extract", return_value=mock_ext):
-                with patch("services.extractor.extract_inline_tasks"):
-                    with patch("services.ingestion.extract_from_url", return_value="URL content"):
-                        result = run_ingestion(
-                            content="Test",
-                            media_url="https://example.com",
-                            media_type="url",
-                            source="test",
-                        )
-                        assert "note" in result
+                with patch("services.ingestion.extract_from_url", return_value="URL content"):
+                    result = run_ingestion(
+                        content="Test",
+                        media_url="https://example.com",
+                        media_type="url",
+                        source="test",
+                    )
+                    assert "entity" in result
 
-    def test_ingestion_invalid_bucket_defaults_to_inbox(self, app):
+    def test_ingestion_low_confidence_defaults_to_inbox(self, app):
         from services.ingestion import run_ingestion
         from services.extractor import ExtractionResult
 
+        # Low confidence forces INBOX regardless of para_bucket
         mock_ext = ExtractionResult(
-            confidence=0.9,
-            para_bucket="UNKNOWN_BUCKET",
+            confidence=0.5,
+            para_bucket="PROJECTS",
             suggested_project=None,
             suggested_area=None,
             tasks=[],
@@ -340,7 +461,6 @@ class TestRunIngestion:
 
         with app.app_context():
             with patch("services.extractor.extract", return_value=mock_ext):
-                with patch("services.extractor.extract_inline_tasks"):
-                    result = run_ingestion(content="Test content", source="test")
-                    note = db.session.get(Note, result["note"]["id"])
-                    assert note.bucket == BucketType.INBOX
+                result = run_ingestion(content="Test content", source="test")
+                entity = db.session.get(Entity, result["entity"]["id"])
+                assert entity.properties.get("bucket") == "INBOX"
