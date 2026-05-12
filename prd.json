@@ -1106,7 +1106,10 @@
       ],
       "blockedBy": [
         "V2-INFRA-06"
-      ]
+      ],
+      "passes": true,
+      "commit": "bbeac42",
+      "attempts": 1
     },
     {
       "id": "V2-SERVICES-09",

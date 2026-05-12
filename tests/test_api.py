@@ -1043,57 +1043,75 @@ def test_weekly_digest_empty(client, app):
 
 
 def test_weekly_digest_counts_rolling_window(client, app):
+    from datetime import timezone
+
     with app.app_context():
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         recent = now - timedelta(days=2)
         stale = now - timedelta(days=30)
 
-        n_in = Note(raw_text="# in window", bucket=BucketType.INBOX)
+        n_in = Entity(type="note", content="# in window")
         n_in.created_at = recent
-        n_out = Note(raw_text="# too old", bucket=BucketType.INBOX)
+        db.session.add(n_in)
+        db.session.commit()
+
+        n_out = Entity(type="note", content="# too old")
         n_out.created_at = stale
-        db.session.add_all([n_in, n_out])
+        db.session.add(n_out)
+        db.session.commit()
 
-        a = Note(raw_text="link a", bucket=BucketType.INBOX)
-        b = Note(raw_text="link b", bucket=BucketType.INBOX)
-        c = Note(raw_text="link c", bucket=BucketType.INBOX)
-        d = Note(raw_text="link d", bucket=BucketType.INBOX)
-        for x in (a, b, c, d):
-            x.created_at = recent
-        db.session.add_all([a, b, c, d])
-        db.session.flush()
+        entities_for_links = []
+        for text in ("link a", "link b", "link c", "link d"):
+            e = Entity(type="note", content=text)
+            e.created_at = recent
+            db.session.add(e)
+            db.session.commit()
+            entities_for_links.append(e)
 
-        link_in = Link(src_id=a.id, dst_id=b.id)
+        a, b, c, d = entities_for_links
+
+        link_in = EntityLink(src_id=a.id, dst_id=b.id)
         link_in.created_at = recent
-        link_out = Link(src_id=c.id, dst_id=d.id)
+        db.session.add(link_in)
+        db.session.commit()
+
+        link_out = EntityLink(src_id=c.id, dst_id=d.id)
         link_out.created_at = stale
-        db.session.add_all([link_in, link_out])
+        db.session.add(link_out)
+        db.session.commit()
 
-        t_in = Task(title="recent task", priority=Priority.MEDIUM)
+        t_in = Entity(type="task", title="recent task")
         t_in.created_at = recent
-        t_out = Task(title="old task", priority=Priority.MEDIUM)
+        db.session.add(t_in)
+        db.session.commit()
+
+        t_out = Entity(type="task", title="old task")
         t_out.created_at = stale
-        db.session.add_all([t_in, t_out])
+        db.session.add(t_out)
+        db.session.commit()
 
-        archived_recent = Project(name="Done recently", is_archived=True, priority=Priority.MEDIUM)
+        archived_recent = Entity(type="project", title="Done recently", lifecycle="archived")
         archived_recent.created_at = stale
-        archived_recent.modified_at = recent
+        archived_recent.updated_at = recent
+        db.session.add(archived_recent)
+        db.session.commit()
 
-        archived_old = Project(name="Done ages ago", is_archived=True, priority=Priority.MEDIUM)
+        archived_old = Entity(type="project", title="Done ages ago", lifecycle="archived")
         archived_old.created_at = stale
-        archived_old.modified_at = stale
+        archived_old.updated_at = stale
+        db.session.add(archived_old)
+        db.session.commit()
 
-        active = Project(name="Still active", is_archived=False, priority=Priority.MEDIUM)
+        active = Entity(type="project", title="Still active", lifecycle="active")
         active.created_at = recent
-        active.modified_at = recent
-        db.session.add_all([archived_recent, archived_old, active])
-
+        active.updated_at = recent
+        db.session.add(active)
         db.session.commit()
 
     res = client.get("/api/v1/review/weekly-digest")
     assert res.status_code == 200
     data = json.loads(res.data)
-    # n_in, a, b, c, d = 5 notes in window (tagged created_at recent)
+    # n_in, a, b, c, d = 5 notes in window (created_at recent)
     assert data["notes_captured"] == 5
     assert data["tasks_created"] == 1
     assert data["connections_made"] == 1

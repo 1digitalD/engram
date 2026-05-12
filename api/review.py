@@ -1,27 +1,27 @@
 """Review-facing aggregates backed by DB queries."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from flask import jsonify, request
 from sqlalchemy import func, select
 
 from api import api_bp
 from extensions import db
-from models import Link, Note, Project, Task
+from models import Entity, EntityLink
 
 
 def _digest_since(days: int = 7) -> datetime:
-    return datetime.utcnow() - timedelta(days=days)
+    return datetime.now(timezone.utc) - timedelta(days=days)
 
 
 @api_bp.route("/review/weekly-digest", methods=["GET"])
 def weekly_digest():
     """
     Rolling UTC window: last `days` days (default 7).
-    - notes_captured: notes created in window
-    - tasks_created: tasks created in window
-    - projects_completed: archived projects whose modified_at falls in window
-    - connections_made: links created in window
+    - notes_captured: entities of type 'note' created in window
+    - tasks_created: entities of type 'task' created in window
+    - projects_completed: archived projects whose updated_at falls in window
+    - connections_made: entity links created in window
     """
     raw_days = request.args.get("days")
     days = 7
@@ -32,15 +32,26 @@ def weekly_digest():
             days = 7
 
     since = _digest_since(days)
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
-    notes_q = db.session.scalar(select(func.count(Note.id)).where(Note.created_at >= since))
-    tasks_q = db.session.scalar(select(func.count(Task.id)).where(Task.created_at >= since))
-    links_q = db.session.scalar(select(func.count(Link.id)).where(Link.created_at >= since))
-    projects_q = db.session.scalar(
-        select(func.count(Project.id)).where(
-            Project.is_archived.is_(True),
-            Project.modified_at >= since,
+    notes_count = db.session.scalar(
+        select(func.count(Entity.id))
+        .where(Entity.type == "note", Entity.created_at >= since)
+    )
+    tasks_count = db.session.scalar(
+        select(func.count(Entity.id))
+        .where(Entity.type == "task", Entity.created_at >= since)
+    )
+    links_count = db.session.scalar(
+        select(func.count(EntityLink.id))
+        .where(EntityLink.created_at >= since)
+    )
+    projects_completed = db.session.scalar(
+        select(func.count(Entity.id))
+        .where(
+            Entity.type == "project",
+            Entity.lifecycle == "archived",
+            Entity.updated_at >= since,
         )
     )
 
@@ -49,9 +60,9 @@ def weekly_digest():
             "days": days,
             "date_from": since.isoformat() + "Z",
             "date_to": now.isoformat() + "Z",
-            "notes_captured": int(notes_q or 0),
-            "tasks_created": int(tasks_q or 0),
-            "projects_completed": int(projects_q or 0),
-            "connections_made": int(links_q or 0),
+            "notes_captured": int(notes_count or 0),
+            "tasks_created": int(tasks_count or 0),
+            "projects_completed": int(projects_completed or 0),
+            "connections_made": int(links_count or 0),
         }
     )
