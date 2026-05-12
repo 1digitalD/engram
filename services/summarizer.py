@@ -69,7 +69,7 @@ def _group_notes_by_date_sorted(notes: list) -> list[tuple[Any, list]]:
 
 def _format_note_line(note: Any, day) -> str:
     ts = _note_created_at(note).isoformat()
-    text = (note.raw_text or "").strip().replace("\n", " ")
+    text = (getattr(note, 'raw_text', None) or getattr(note, 'content', '') or '').strip().replace("\n", " ")
     if len(text) > 2000:
         text = text[:1997] + "..."
     return f"- [{day.isoformat()} {ts}] ({note.id}): {text}"
@@ -446,7 +446,7 @@ class Summarizer:
         summaries written.
         """
         from extensions import db
-        from models import Area, Note, Summary, SummaryGranularity
+        from models import Entity, EntityLink, Summary, SummaryGranularity
 
         try:
             gran = SummaryGranularity[str(granularity.strip().upper())]
@@ -457,27 +457,30 @@ class Summarizer:
         created = 0
 
         if area_id is not None:
-            area = db.session.get(Area, area_id)
+            area = db.session.get(Entity, area_id)
             if not area:
                 raise ValueError(f"area not found: {area_id}")
             areas = [area]
         else:
-            areas = Area.query.order_by(Area.name).all()
+            areas = Entity.query.filter_by(type="area").order_by(Entity.title).all()
 
         for area in areas:
+            linked_note_ids = (
+                db.session.query(EntityLink.src_id)
+                .filter(EntityLink.dst_id == area.id, EntityLink.link_type == "area")
+                .subquery()
+            )
             notes = (
-                Note.query.filter(
-                    Note.area_id == area.id,
-                    Note.created_at >= since,
-                )
-                .order_by(Note.created_at.asc())
+                Entity.query
+                .filter(Entity.type == "note", Entity.created_at >= since, Entity.id.in_(linked_note_ids))
+                .order_by(Entity.created_at.asc())
                 .all()
             )
             if not notes:
                 continue
 
             result = self.summarize_notes(
-                notes, granularity=gran.value, entity_name=area.name
+                notes, granularity=gran.value, entity_name=area.title
             )
             times = [n.created_at or datetime.utcnow() for n in notes]
             summary = Summary(
