@@ -77,7 +77,7 @@ def update_person(person_id):
 
     if fields:
         update_entity(person_id, fields, actor="user")
-        person = Entity.query.get(person_id)
+        person = db.session.get(Entity, person_id)
 
     return jsonify({"data": person.to_dict()})
 

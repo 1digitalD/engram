@@ -67,7 +67,7 @@ def update_area(area_id):
 
     if fields:
         update_entity(area_id, fields, actor="user")
-        area = Entity.query.get(area_id)
+        area = db.session.get(Entity, area_id)
 
     return jsonify({"data": area.to_dict()})
 

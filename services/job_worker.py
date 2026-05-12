@@ -95,7 +95,7 @@ def _get_next_job_postgres(now):
     if row is None:
         return None
 
-    job = Job.query.get(row.id)
+    job = db.session.get(Job, row.id)
     if job is None:
         return None
 

@@ -155,7 +155,7 @@ def create_note():
     _apply_tags(entity, data)
 
     db.session.commit()
-    entity = Entity.query.get(entity.id)
+    entity = db.session.get(Entity, entity.id)
 
     response = _entity_to_note_response(entity)
     resp_data = {"data": response}
@@ -211,7 +211,7 @@ def update_note(note_id):
 
     if fields:
         update_entity(note_id, fields, actor="user")
-        note = Entity.query.get(note_id)
+        note = db.session.get(Entity, note_id)
 
     # Apply project links
     if "project_ids" in data or "project_id" in data:
@@ -221,7 +221,7 @@ def update_note(note_id):
     _apply_tags(note, data)
 
     db.session.commit()
-    note = Entity.query.get(note_id)
+    note = db.session.get(Entity, note_id)
 
     return jsonify({"data": _entity_to_note_response(note)})
 

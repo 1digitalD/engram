@@ -109,17 +109,17 @@ def update_task(task_id):
     if "status" in data:
         try:
             transition_status(task_id, data["status"].lower(), actor="user")
-            task = Entity.query.get(task_id)
+            task = db.session.get(Entity, task_id)
             if fields:
                 update_entity(task_id, fields, actor="user")
-                task = Entity.query.get(task_id)
+                task = db.session.get(Entity, task_id)
             return jsonify({"data": task.to_dict()})
         except ValueError as e:
             return jsonify({"error": str(e)}), 400
 
     if fields:
         update_entity(task_id, fields, actor="user")
-        task = Entity.query.get(task_id)
+        task = db.session.get(Entity, task_id)
 
     return jsonify({"data": task.to_dict()})
 

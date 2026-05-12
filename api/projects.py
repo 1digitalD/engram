@@ -68,7 +68,7 @@ def update_project(project_id):
     if "status" in data:
         try:
             transition_status(project_id, data["status"], actor="user")
-            project = Entity.query.get(project_id)
+            project = db.session.get(Entity, project_id)
         except ValueError as e:
             return jsonify({"error": str(e)}), 400
 
@@ -93,7 +93,7 @@ def update_project(project_id):
         else:
             project.lifecycle = "active"
             db.session.commit()
-        project = Entity.query.get(project_id)
+        project = db.session.get(Entity, project_id)
         return jsonify({"data": project.to_dict()})
 
     # Regular field updates
@@ -117,7 +117,7 @@ def update_project(project_id):
 
     if fields:
         update_entity(project_id, fields, actor="user")
-        project = Entity.query.get(project_id)
+        project = db.session.get(Entity, project_id)
 
     return jsonify({"data": project.to_dict()})
 

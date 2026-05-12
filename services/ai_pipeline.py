@@ -193,7 +193,7 @@ def run_classify(payload):
     if not entity_id:
         raise ValueError("classify job missing entity_id in payload")
 
-    entity = Entity.query.get(entity_id)
+    entity = db.session.get(Entity, entity_id)
     if entity is None:
         raise ValueError(f"entity {entity_id} not found")
 
@@ -318,7 +318,7 @@ def run_embed(payload):
     if not entity_id:
         raise ValueError("embed job missing entity_id in payload")
 
-    entity = Entity.query.get(entity_id)
+    entity = db.session.get(Entity, entity_id)
     if entity is None:
         raise ValueError(f"entity {entity_id} not found")
 
@@ -396,7 +396,7 @@ def run_autolink(payload):
     if not entity_id:
         raise ValueError("autolink job missing entity_id in payload")
 
-    entity = Entity.query.get(entity_id)
+    entity = db.session.get(Entity, entity_id)
     if entity is None:
         raise ValueError(f"entity {entity_id} not found")
 

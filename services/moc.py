@@ -119,7 +119,7 @@ def generate_map_of_content(entity_ids: list[str]) -> Entity:
 
     entities: list[Entity] = []
     for eid in ordered:
-        e = Entity.query.get(eid)
+        e = db.session.get(Entity, eid)
         if not e:
             raise ValueError(f"entity not found: {eid}")
         entities.append(e)

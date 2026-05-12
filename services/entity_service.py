@@ -61,7 +61,7 @@ def _get_entity(entity_id):
     Returns None if entity not found or ID is not a valid UUID.
     """
     try:
-        return Entity.query.get(entity_id)
+        return db.session.get(Entity, entity_id)
     except DataError:
         return None
 

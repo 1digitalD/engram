@@ -116,7 +116,7 @@ def update_resource(resource_id):
 
     if fields:
         update_entity(resource_id, fields, actor="user")
-        resource = Entity.query.get(resource_id)
+        resource = db.session.get(Entity, resource_id)
 
     # Handle tags
     if "tag_ids" in data:
@@ -127,7 +127,7 @@ def update_resource(resource_id):
                 entity_tag = EntityTag(entity_id=resource_id, tag_id=tag.id)
                 db.session.add(entity_tag)
         db.session.commit()
-        resource = Entity.query.get(resource_id)
+        resource = db.session.get(Entity, resource_id)
 
     return jsonify({"data": resource.to_dict()})
 

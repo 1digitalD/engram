@@ -13,7 +13,7 @@ from sqlalchemy.exc import DataError
 def _get_link(link_id):
     """Safely get link by ID, handling invalid UUID formats."""
     try:
-        return EntityLink.query.get(link_id)
+        return db.session.get(EntityLink, link_id)
     except DataError:
         return None
 
