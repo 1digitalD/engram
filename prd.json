@@ -627,7 +627,10 @@
       "validationCommands": [
         "python3 -c \"from config import config; c = config['testing'](); print(c.SQLALCHEMY_DATABASE_URI)\""
       ],
-      "blockedBy": []
+      "blockedBy": [],
+      "passes": true,
+      "commit": "3b81ea3",
+      "attempts": 1
     },
     {
       "id": "V2-INFRA-02",
