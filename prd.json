@@ -1164,7 +1164,10 @@
       "blockedBy": [
         "V2-INGEST-01",
         "V2-INGEST-02"
-      ]
+      ],
+      "passes": true,
+      "commit": "85a7db4",
+      "attempts": 1
     },
     {
       "id": "V2-SERVICES-11",
