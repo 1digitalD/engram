@@ -72,7 +72,6 @@ psql $TEST_DATABASE_URL -f docs/SCHEMA.sql
 
 - **Postgres requires pgvector extension.** Use `docker compose up -d` which uses `pgvector/pgvector:pg16` image.
 - **`ui/node_modules` is not tracked.** Run `npm install` before `npm run build`.
-- **SQLite files (`engram.db`) are the migration source**, not the runtime DB. After C1-INFRA completes, Postgres is the only DB.
 - **OpenAI and Anthropic keys must be mocked in tests.** Never make real API calls in the test suite. See `tests/conftest.py` for `mock_openai` and `mock_embed` fixtures.
 - **`tests/conftest.py` is shared.** Coordinate with other agents before modifying it.
 
@@ -114,7 +113,7 @@ Override per run: `CLAUDE_MODEL=claude-haiku-4-5-20251001 bash scripts/run_task.
 
 ## Archived (do not use for new work)
 
-- `archive/PLAN.md` — old phase plan, SQLite-based
+- `archive/PLAN.md` — old phase plan, archived
 - `archive/SPEC.md` — old spec, superseded by `docs/PRD.md`
 - `archive/prd.json` — old task queue, inactive
 - `archive/v1-prd-before-v2-bootstrap.json` — old v1 executable queue, archived 2026-05-11 when `prd.json` was re-bootstrapped for v2 Cycle 1
