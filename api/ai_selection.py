@@ -1,4 +1,4 @@
-"""POST /api/v1/ai/propose-from-selection — AI actions on selected text.
+"""POST /api/v2/ai/propose-from-selection — AI actions on selected text.
 
 Supports 4 actions:
 - classify: PARA classification of selected text
@@ -11,7 +11,7 @@ All AI actions write entity_events for auditability.
 
 import logging
 from flask import request, jsonify
-from api import api_bp
+from api import api_v2_bp
 from extensions import db
 from models import Entity, EntityEvent
 from services.entity_service import create_entity
@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 VALID_ACTIONS = {"classify", "extract_task", "create_link", "improve_writing"}
 
 
-@api_bp.route("/ai/propose-from-selection", methods=["POST"])
+@api_v2_bp.route("/ai/propose-from-selection", methods=["POST"])
 def propose_from_selection():
     """Run an AI action on selected text from the editor."""
     data = request.get_json(silent=True) or {}

@@ -84,7 +84,7 @@ def _op_create_task(body: dict) -> dict:
     props = {}
     if body.get("priority"):
         from utils import parse_priority
-        props["priority"] = parse_priority(body["priority"]).value
+        props["priority"] = parse_priority(body["priority"])
     if body.get("due_date"):
         props["due_date"] = body["due_date"]
     task = create_entity(
@@ -122,7 +122,7 @@ def _op_update_task(body: dict) -> dict:
     if "priority" in body:
         from utils import parse_priority
         props = dict(task.properties or {})
-        props["priority"] = parse_priority(body["priority"]).value
+        props["priority"] = parse_priority(body["priority"])
         fields["properties"] = props
     if fields:
         try:

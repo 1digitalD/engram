@@ -431,7 +431,7 @@ class TestDeleteEntity:
             result = delete_entity(entity.id, cascade_orphans=False)
             assert result["deleted"] == []
             # Entity should still exist
-            assert Entity.query.get(entity.id) is not None
+            assert db.session.get(Entity, entity.id) is not None
 
     def test_delete_with_cascade(self, app):
         with app.app_context():
@@ -449,8 +449,8 @@ class TestDeleteEntity:
             assert parent.id in result["deleted"]
             assert child.id in result["deleted"]
             # Both should be gone
-            assert Entity.query.get(parent.id) is None
-            assert Entity.query.get(child.id) is None
+            assert db.session.get(Entity, parent.id) is None
+            assert db.session.get(Entity, child.id) is None
 
     def test_delete_blocked_not_cascaded(self, app):
         with app.app_context():
@@ -470,7 +470,7 @@ class TestDeleteEntity:
             assert a.id in result["deleted"]
             # B should NOT be deleted (has other connections)
             assert b.id not in result["deleted"]
-            assert Entity.query.get(b.id) is not None
+            assert db.session.get(Entity, b.id) is not None
 
     def test_delete_not_found(self, app):
         with app.app_context():
@@ -489,4 +489,4 @@ class TestDeleteEntity:
             assert preview["entity"]["id"] == entity.id
             # After delete, entity and its events are cascade-deleted
             delete_entity(entity.id, cascade_orphans=True)
-            assert Entity.query.get(entity.id) is None
+            assert db.session.get(Entity, entity.id) is None

@@ -131,7 +131,7 @@ class TestDeleteLink:
             dst = create_entity(entity_type="note", title="Dst", actor="user")
             link = create_link(src.id, dst.id, actor="user")
             delete_link(link.id, actor="user")
-            assert EntityLink.query.get(link.id) is None
+            assert db.session.get(EntityLink, link.id) is None
 
     def test_delete_link_writes_events(self, app):
         with app.app_context():
@@ -421,7 +421,7 @@ class TestV2DeleteEntityLink:
         assert data["success"] is True
 
         with app.app_context():
-            assert EntityLink.query.get(link.id) is None
+            assert db.session.get(EntityLink, link.id) is None
 
     def test_delete_link_not_found_returns_404(self, client):
         res = client.delete("/api/v2/entity-links/00000000-0000-0000-0000-000000000000")

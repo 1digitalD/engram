@@ -1,14 +1,11 @@
 """Shared utility functions used across the API and services."""
-from models import Priority
+
+VALID_PRIORITIES = {"low", "medium", "high", "urgent"}
 
 
-def parse_priority(val) -> Priority:
-    """Coerce a string or Priority enum value into a Priority enum. Defaults to MEDIUM."""
+def parse_priority(val) -> str:
+    """Normalize a priority value to a lowercase string. Defaults to 'medium'."""
     if val is None:
-        return Priority.MEDIUM
-    if isinstance(val, Priority):
-        return val
-    try:
-        return Priority(str(val).upper())
-    except (ValueError, AttributeError):
-        return Priority.MEDIUM
+        return "medium"
+    normalized = str(val).lower()
+    return normalized if normalized in VALID_PRIORITIES else "medium"

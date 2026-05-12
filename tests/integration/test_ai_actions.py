@@ -1,4 +1,4 @@
-"""Integration tests for POST /api/v1/ai/propose-from-selection.
+"""Integration tests for POST /api/v2/ai/propose-from-selection.
 
 Tests the 4 AI actions: classify, extract_task, create_link, improve_writing.
 All OpenAI calls are mocked.
@@ -30,7 +30,7 @@ def _create_entity(**kwargs):
 
 class TestInvalidAction:
     def test_invalid_action_returns_400(self, client):
-        res = client.post("/api/v1/ai/propose-from-selection", json={
+        res = client.post("/api/v2/ai/propose-from-selection", json={
             "action": "unknown_action",
             "text": "some text",
         })
@@ -39,7 +39,7 @@ class TestInvalidAction:
         assert "error" in data
 
     def test_missing_action_returns_400(self, client):
-        res = client.post("/api/v1/ai/propose-from-selection", json={
+        res = client.post("/api/v2/ai/propose-from-selection", json={
             "text": "some text",
         })
         assert res.status_code == 400
@@ -47,7 +47,7 @@ class TestInvalidAction:
         assert "error" in data
 
     def test_missing_text_returns_400(self, client):
-        res = client.post("/api/v1/ai/propose-from-selection", json={
+        res = client.post("/api/v2/ai/propose-from-selection", json={
             "action": "classify",
         })
         assert res.status_code == 400
@@ -55,7 +55,7 @@ class TestInvalidAction:
         assert "error" in data
 
     def test_empty_body_returns_400(self, client):
-        res = client.post("/api/v1/ai/propose-from-selection", json={})
+        res = client.post("/api/v2/ai/propose-from-selection", json={})
         assert res.status_code == 400
 
 
@@ -73,7 +73,7 @@ class TestClassifyAction:
             reasoning="Clear project mention",
         )
 
-        res = client.post("/api/v1/ai/propose-from-selection", json={
+        res = client.post("/api/v2/ai/propose-from-selection", json={
             "action": "classify",
             "text": "We need to finish the rocket launch by Friday",
         })
@@ -97,7 +97,7 @@ class TestClassifyAction:
             reasoning="Ongoing responsibility",
         )
 
-        res = client.post("/api/v1/ai/propose-from-selection", json={
+        res = client.post("/api/v2/ai/propose-from-selection", json={
             "action": "classify",
             "text": "Weekly gym routine and meal prep",
         })
@@ -128,7 +128,7 @@ class TestExtractTaskAction:
         with app.app_context():
             initial_count = Entity.query.filter_by(type="task").count()
 
-        res = client.post("/api/v1/ai/propose-from-selection", json={
+        res = client.post("/api/v2/ai/propose-from-selection", json={
             "action": "extract_task",
             "text": "Need to follow up with the design team about the new mockups by Friday",
         })
@@ -154,7 +154,7 @@ class TestExtractTaskAction:
             tasks=[ExtractedTask(title="Review PR", priority="MEDIUM")],
         )
 
-        res = client.post("/api/v1/ai/propose-from-selection", json={
+        res = client.post("/api/v2/ai/propose-from-selection", json={
             "action": "extract_task",
             "text": "Remember to review the PR tomorrow",
         })
@@ -182,7 +182,7 @@ class TestCreateLinkAction:
             e3 = _create_entity(title="Cooking Recipes", content="Italian cooking recipes")
             entity_ids = [str(e1.id), str(e2.id), str(e3.id)]
 
-        res = client.post("/api/v1/ai/propose-from-selection", json={
+        res = client.post("/api/v2/ai/propose-from-selection", json={
             "action": "create_link",
             "text": "Python best practices and tips",
             "source_entity_id": entity_ids[0],
@@ -193,7 +193,7 @@ class TestCreateLinkAction:
         assert "candidates" in data["result"]
 
     def test_propose_link_no_candidates_when_no_entities(self, client):
-        res = client.post("/api/v1/ai/propose-from-selection", json={
+        res = client.post("/api/v2/ai/propose-from-selection", json={
             "action": "create_link",
             "text": "Some random text",
         })
@@ -207,7 +207,7 @@ class TestCreateLinkAction:
 
 class TestImproveWritingAction:
     def test_improve_writing_returns_improved_text(self, client):
-        res = client.post("/api/v1/ai/propose-from-selection", json={
+        res = client.post("/api/v2/ai/propose-from-selection", json={
             "action": "improve_writing",
             "text": "this is a badly written sentance with erors",
         })

@@ -1,6 +1,7 @@
 """Tests for V2-API-02: DELETE preview endpoint and cascade delete wiring."""
 
 import pytest
+from extensions import db
 from models import Entity
 from services.entity_service import create_entity
 from services.link_service import create_link
@@ -77,7 +78,7 @@ class TestDeleteNotesAPI:
         assert "blocked" in data
         # Entity should still exist
         with app.app_context():
-            assert Entity.query.get(entity_id) is not None
+            assert db.session.get(Entity, entity_id) is not None
 
     def test_delete_note_with_cascade(self, client, app):
         """DELETE /notes/:id?cascade=true deletes entity."""
@@ -90,7 +91,7 @@ class TestDeleteNotesAPI:
         data = resp.get_json()
         assert entity_id in data["deleted"]
         with app.app_context():
-            assert Entity.query.get(entity_id) is None
+            assert db.session.get(Entity, entity_id) is None
 
     def test_delete_note_not_found(self, client):
         resp = client.delete("/api/v1/notes/00000000-0000-0000-0000-000000000000")
@@ -111,7 +112,7 @@ class TestDeleteTasksAPI:
         data = resp.get_json()
         assert "safe_to_cascade" in data
         with app.app_context():
-            assert Entity.query.get(entity_id) is not None
+            assert db.session.get(Entity, entity_id) is not None
 
     def test_delete_task_with_cascade(self, client, app):
         with app.app_context():
@@ -123,7 +124,7 @@ class TestDeleteTasksAPI:
         data = resp.get_json()
         assert entity_id in data["deleted"]
         with app.app_context():
-            assert Entity.query.get(entity_id) is None
+            assert db.session.get(Entity, entity_id) is None
 
 
 # ─── DELETE /projects/:id with cascade ───────────────────────────────────────
@@ -140,7 +141,7 @@ class TestDeleteProjectsAPI:
         data = resp.get_json()
         assert "safe_to_cascade" in data
         with app.app_context():
-            assert Entity.query.get(entity_id) is not None
+            assert db.session.get(Entity, entity_id) is not None
 
     def test_delete_project_with_cascade(self, client, app):
         with app.app_context():
@@ -152,7 +153,7 @@ class TestDeleteProjectsAPI:
         data = resp.get_json()
         assert entity_id in data["deleted"]
         with app.app_context():
-            assert Entity.query.get(entity_id) is None
+            assert db.session.get(Entity, entity_id) is None
 
 
 # ─── DELETE /areas/:id with cascade ──────────────────────────────────────────
@@ -169,7 +170,7 @@ class TestDeleteAreasAPI:
         data = resp.get_json()
         assert "safe_to_cascade" in data
         with app.app_context():
-            assert Entity.query.get(entity_id) is not None
+            assert db.session.get(Entity, entity_id) is not None
 
     def test_delete_area_with_cascade(self, client, app):
         with app.app_context():
@@ -181,4 +182,4 @@ class TestDeleteAreasAPI:
         data = resp.get_json()
         assert entity_id in data["deleted"]
         with app.app_context():
-            assert Entity.query.get(entity_id) is None
+            assert db.session.get(Entity, entity_id) is None
