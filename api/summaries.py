@@ -9,7 +9,7 @@ from sqlalchemy import or_
 
 from api import api_bp
 from extensions import db
-from models import Summary, SummaryGranularity, Note, Project, Area
+from models import Summary, SummaryGranularity, Entity, EntityLink
 
 logger = logging.getLogger(__name__)
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -67,8 +67,8 @@ def create_summary():
     if not note_id or summary_text is None:
         return jsonify({"error": "note_id and summary_text required"}), 400
 
-    note = db.session.get(Note, note_id)
-    if not note:
+    entity = db.session.get(Entity, note_id)
+    if not entity:
         return jsonify({"error": "note not found"}), 404
 
     gran = _parse_granularity(data.get("granularity")) or SummaryGranularity.WEEKLY
@@ -104,12 +104,13 @@ def generate_summary():
     if not entity_type or not entity_id:
         return jsonify({"error": "entity_type and entity_id required"}), 400
 
-    if entity_type == "project":
-        entity = db.session.get(Project, entity_id)
-    elif entity_type == "area":
-        entity = db.session.get(Area, entity_id)
-    else:
+    if entity_type not in ("project", "area"):
         return jsonify({"error": "entity_type must be 'project' or 'area'"}), 400
+
+    entity = Entity.query.filter(
+        Entity.type == entity_type,
+        Entity.id == entity_id,
+    ).first()
 
     if not entity:
         return jsonify({"error": "entity not found"}), 404
@@ -119,30 +120,29 @@ def generate_summary():
     monday = monday.replace(hour=0, minute=0, second=0, microsecond=0)
     sunday = monday + timedelta(days=7)
 
-    if entity_type == "project":
-        notes = (
-            Note.query.filter(
-                Note.project_id == entity_id,
-                Note.created_at >= monday,
-                Note.created_at < sunday,
-            )
-            .order_by(Note.created_at.asc())
-            .all()
+    # Find notes linked to this entity via EntityLink
+    linked_note_ids = (
+        db.session.query(EntityLink.src_id)
+        .filter(
+            EntityLink.dst_id == entity_id,
+            EntityLink.link_type == entity_type,
         )
-    else:
-        notes = (
-            Note.query.filter(
-                Note.area_id == entity_id,
-                Note.created_at >= monday,
-                Note.created_at < sunday,
-            )
-            .order_by(Note.created_at.asc())
-            .all()
+        .subquery()
+    )
+    notes = (
+        Entity.query.filter(
+            Entity.type == "note",
+            Entity.created_at >= monday,
+            Entity.created_at < sunday,
+            Entity.id.in_(linked_note_ids),
         )
+        .order_by(Entity.created_at.asc())
+        .all()
+    )
 
     anchor_note_id = data.get("note_id")
     if anchor_note_id:
-        anchor = db.session.get(Note, anchor_note_id)
+        anchor = db.session.get(Entity, anchor_note_id)
         if not anchor:
             return jsonify({"error": "note_id not found"}), 404
     elif notes:
@@ -150,9 +150,9 @@ def generate_summary():
     else:
         return jsonify({"error": "no notes in range for this entity; pass note_id"}), 400
 
-    note_texts = "\n".join([f"- {n.raw_text}" for n in notes]) if notes else "(No notes captured this week)"
+    note_texts = "\n".join([f"- {n.content}" for n in notes]) if notes else "(No notes captured this week)"
 
-    prompt = f"""You are generating a weekly summary for {entity_type}: {entity.name}.
+    prompt = f"""You are generating a weekly summary for {entity_type}: {entity.title}.
 
 Notes from this week:
 {note_texts}
@@ -229,8 +229,8 @@ def patch_summary(summary_id):
     if "action_items" in data:
         summary.action_items = data["action_items"]
     if "note_id" in data:
-        note = db.session.get(Note, data["note_id"])
-        if not note:
+        entity = db.session.get(Entity, data["note_id"])
+        if not entity:
             return jsonify({"error": "note not found"}), 404
         summary.note_id = data["note_id"]
 
