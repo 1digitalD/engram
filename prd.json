@@ -1078,7 +1078,10 @@
       ],
       "blockedBy": [
         "V2-SERVICES-03"
-      ]
+      ],
+      "passes": true,
+      "commit": "323ed17",
+      "attempts": 1
     },
     {
       "id": "V2-SERVICES-08",

@@ -1,10 +1,16 @@
+"""Daily notes API — v2 Entity model.
+
+Daily notes are Entity(type='note') records. Creation uses entity_service.
+Content replaces raw_text. Inline task extraction removed (handled by AI pipeline).
+"""
 from datetime import datetime
 
 from flask import jsonify, request
 
 from api import api_bp
 from extensions import db
-from models import BucketType, Note
+from models import Entity
+from services.entity_service import create_entity
 
 
 DAILY_HEADING_PREFIX = "# Daily — "
@@ -25,11 +31,12 @@ def _daily_template(date_value):
 
 def _find_daily_note(date_value):
     return (
-        Note.query.filter(
-            Note.bucket == BucketType.INBOX,
-            Note.raw_text.startswith(f"{DAILY_HEADING_PREFIX}{date_value}"),
+        Entity.query.filter(
+            Entity.type == "note",
+            Entity.lifecycle == "active",
+            Entity.content.startswith(f"{DAILY_HEADING_PREFIX}{date_value}"),
         )
-        .order_by(Note.created_at.asc())
+        .order_by(Entity.created_at.asc())
         .first()
     )
 
@@ -39,32 +46,36 @@ def _get_or_create_daily_note(date_value):
     if note:
         return note, False
 
-    note = Note(raw_text=_daily_template(date_value), bucket=BucketType.INBOX)
-    db.session.add(note)
-    db.session.commit()
+    note = create_entity(
+        entity_type="note",
+        title=f"Daily — {date_value}",
+        content=_daily_template(date_value),
+        source="daily",
+        actor="user",
+    )
     return note, True
 
 
-def _append_to_notes_section(raw_text, content):
+def _append_to_notes_section(content, new_content):
     notes_heading = "## Notes"
-    notes_index = raw_text.find(notes_heading)
-    block = content.strip()
+    notes_index = content.find(notes_heading)
+    block = new_content.strip()
 
     if notes_index == -1:
-        base = raw_text.rstrip()
+        base = content.rstrip()
         if not base:
             return f"{notes_heading}\n\n{block}\n"
         return f"{base}\n\n{notes_heading}\n\n{block}\n"
 
     insert_start = notes_index + len(notes_heading)
-    next_heading_index = raw_text.find("\n## ", insert_start)
+    next_heading_index = content.find("\n## ", insert_start)
 
     if next_heading_index == -1:
-        before = raw_text.rstrip()
+        before = content.rstrip()
         return f"{before}\n\n{block}\n"
 
-    before = raw_text[:next_heading_index].rstrip()
-    after = raw_text[next_heading_index:].lstrip("\n")
+    before = content[:next_heading_index].rstrip()
+    after = content[next_heading_index:].lstrip("\n")
     return f"{before}\n\n{block}\n\n{after}"
 
 
@@ -93,10 +104,7 @@ def append_daily_note():
         return jsonify({"error": "content is required"}), 400
 
     note, _created = _get_or_create_daily_note(date_value)
-    note.raw_text = _append_to_notes_section(note.raw_text, content)
-    from services.extractor import extract_inline_tasks
-
-    extract_inline_tasks(note.id, note.raw_text, note.project_id, note.area_id)
+    note.content = _append_to_notes_section(note.content, content)
     db.session.commit()
 
     return jsonify({"data": note.to_dict()})

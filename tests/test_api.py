@@ -67,20 +67,21 @@ def test_get_daily_note_creates_with_template(client, app):
         assert res.status_code == 200
         data = json.loads(res.data)["data"]
 
-        assert data["bucket"] == "INBOX"
+        assert data["type"] == "note"
         assert data["raw_text"] == (
             "# Daily — 2026-05-08\n\n"
             "## Focus\n\n"
             "## Notes\n\n"
             "## Tasks\n"
         )
-        assert Note.query.count() == 1
+        assert Entity.query.filter_by(type="note").count() == 1
 
 
 def test_get_daily_note_fetches_existing_inbox_daily_note(client, app):
     with app.app_context():
-        existing = Note(
-            raw_text=(
+        existing = Entity(
+            type="note",
+            content=(
                 "# Daily — 2026-05-08\n\n"
                 "## Focus\n\n"
                 "Keep going\n\n"
@@ -88,20 +89,24 @@ def test_get_daily_note_fetches_existing_inbox_daily_note(client, app):
                 "Already here\n\n"
                 "## Tasks\n"
             ),
-            bucket=BucketType.INBOX,
+            lifecycle="active",
         )
-        non_daily = Note(raw_text="Loose note", bucket=BucketType.INBOX)
-        archived_daily = Note(raw_text="# Daily — 2026-05-08\n", bucket=BucketType.ARCHIVES)
-        db.session.add_all([existing, non_daily, archived_daily])
+        non_daily = Entity(type="note", content="Loose note", lifecycle="active")
+        archived_daily = Entity(type="note", content="# Daily — 2026-05-08\n", lifecycle="archived")
+        db.session.add(existing)
+        db.session.commit()
+        db.session.add(non_daily)
+        db.session.commit()
+        db.session.add(archived_daily)
         db.session.commit()
 
         res = client.get("/api/v1/daily?date=2026-05-08")
         assert res.status_code == 200
         data = json.loads(res.data)["data"]
 
-        assert data["id"] == existing.id
-        assert data["raw_text"] == existing.raw_text
-        assert Note.query.count() == 3
+        assert data["id"] == str(existing.id)
+        assert data["raw_text"] == existing.content
+        assert Entity.query.filter_by(type="note").count() == 3
 
 
 def test_append_daily_note_adds_content_to_notes_section(client, app):
@@ -616,6 +621,7 @@ def test_resources_crud_and_type_filter(client, app):
 
 
 def test_inline_checkbox_daily_append(client, app):
+    """Daily append no longer extracts inline tasks (handled by AI pipeline)."""
     with app.app_context():
         res = client.post(
             "/api/v1/daily/append",
@@ -628,10 +634,9 @@ def test_inline_checkbox_daily_append(client, app):
             content_type="application/json",
         )
         assert res.status_code == 200
-        note_id = json.loads(res.data)["data"]["id"]
-        t = Task.query.filter_by(note_id=note_id).one()
-        assert t.title == "from daily capture"
-        assert t.status == TaskStatus.PENDING
+        data = json.loads(res.data)["data"]
+        assert "- [ ] from daily capture" in data["raw_text"]
+        assert data["type"] == "note"
 
 
 def test_summary_crud_and_list_filters(client, app):
