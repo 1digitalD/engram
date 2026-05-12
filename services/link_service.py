@@ -74,11 +74,11 @@ def create_link(src_id, dst_id, link_type="related", source="manual",
 
     # Write events on both entities
     _write_event(src_id, "link_added", actor,
-                 new_value={"link_id": link.id, "dst_id": dst_id,
+                 new_value={"link_id": str(link.id), "dst_id": str(dst_id),
                             "link_type": link_type},
                  reason=evidence)
     _write_event(dst_id, "link_added", actor,
-                 new_value={"link_id": link.id, "src_id": src_id,
+                 new_value={"link_id": str(link.id), "src_id": str(src_id),
                             "link_type": link_type},
                  reason=evidence)
 
@@ -107,10 +107,10 @@ def delete_link(link_id, actor="user"):
     db.session.delete(link)
 
     _write_event(src_id, "link_removed", actor,
-                 old_value={"link_id": link_id, "dst_id": dst_id,
+                 old_value={"link_id": str(link_id), "dst_id": str(dst_id),
                             "link_type": link_type})
     _write_event(dst_id, "link_removed", actor,
-                 old_value={"link_id": link_id, "src_id": src_id,
+                 old_value={"link_id": str(link_id), "src_id": str(src_id),
                             "link_type": link_type})
 
     db.session.commit()

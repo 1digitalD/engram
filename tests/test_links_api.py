@@ -13,7 +13,7 @@ from services.link_service import create_link
 
 
 def _create_entity(**kwargs):
-    """Helper to create an entity via service. Returns the entity ID."""
+    """Helper to create an entity via service. Returns the entity ID as string."""
     entity = create_entity(
         entity_type=kwargs.pop("entity_type", "note"),
         title=kwargs.pop("title", "Test"),
@@ -21,7 +21,7 @@ def _create_entity(**kwargs):
         **kwargs,
     )
     db.session.commit()
-    return entity.id
+    return str(entity.id)
 
 
 # ─── Basic endpoint ──────────────────────────────────────────────────────────
