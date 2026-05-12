@@ -1,22 +1,16 @@
-"""Knowledge-base health metrics (aggregates from the DB)."""
+"""Knowledge-base health metrics (aggregates from the DB) — v2 rewrite.
+
+Rewritten to use Entity model instead of v1 Note/Project/Link models.
+"""
 
 from datetime import datetime, timedelta
 
 from flask import jsonify, request
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, or_, select, text
 
 from api import api_bp
 from extensions import db
-from models import (
-    BucketType,
-    Link,
-    LinkProposal,
-    LinkProposalStatus,
-    Note,
-    Project,
-    note_projects,
-    note_tags,
-)
+from models import Entity, EntityLink
 from services.health_snapshot import (
     SYSTEM_HEALTH_ANCHOR_NOTE_ID,
     health_history_series,
@@ -33,16 +27,7 @@ def _safe_ratio(num: int, den: int) -> float:
 @api_bp.route("/metrics/health", methods=["GET"])
 def metrics_health():
     """
-    Snapshot of knowledge graph / inbox health.
-    - orphan_rate: orphans / total_notes (orphan = not archived, not INBOX, no links,
-      no project_id, no note_projects rows, no area).
-    - avg_links_per_note: mean undirected degree (2 * |links| / |notes|).
-    - archive_ratio: notes marked archived or in ARCHIVES bucket / total_notes.
-    - tag_coverage: share of notes with at least one tag.
-    - stale_projects: active projects with modified_at older than 30 days.
-    - weekly_capture_rate: notes created in the rolling last 7 days (notes/week activity).
-    - weekly_capture_counts: four ints, notes per week in oldest→newest rolling windows
-      (same span as weekly_capture_rate for the last element).
+    Snapshot of knowledge graph / inbox health — v2 version using Entity model.
     """
     now = datetime.utcnow()
     week_ago = now - timedelta(days=7)
@@ -50,42 +35,43 @@ def metrics_health():
 
     total_notes = int(
         db.session.scalar(
-            select(func.count(Note.id)).where(Note.id != SYSTEM_HEALTH_ANCHOR_NOTE_ID)
+            select(func.count(Entity.id)).where(
+                Entity.type == "note",
+                Entity.id != SYSTEM_HEALTH_ANCHOR_NOTE_ID,
+            )
         )
         or 0
     )
 
     inbox_count = int(
         db.session.scalar(
-            select(func.count(Note.id)).where(
-                Note.bucket == BucketType.INBOX,
-                Note.id != SYSTEM_HEALTH_ANCHOR_NOTE_ID,
+            select(func.count(Entity.id)).where(
+                Entity.type == "note",
+                Entity.properties["bucket"].as_string() == "INBOX",
+                Entity.id != SYSTEM_HEALTH_ANCHOR_NOTE_ID,
             )
         )
         or 0
     )
 
-    total_links = int(db.session.scalar(select(func.count(Link.id))) or 0)
+    total_links = int(db.session.scalar(select(func.count(EntityLink.id))) or 0)
     avg_links = (2.0 * total_links) / total_notes if total_notes else 0.0
 
-    link_union = (
-        select(Link.src_id.label("endpoint_id"))
-        .union_all(select(Link.dst_id.label("endpoint_id")))
+    # Orphan: not archived, not INBOX, no links, no project association
+    linked_entity_ids = (
+        select(EntityLink.src_id.label("endpoint_id"))
+        .union_all(select(EntityLink.dst_id.label("endpoint_id")))
         .subquery()
     )
-    linked_note_ids = select(link_union.c.endpoint_id)
-    m2m_project_ids = select(note_projects.c.note_id)
 
     orphan_count = int(
         db.session.scalar(
-            select(func.count(Note.id)).where(
-                Note.is_archived.is_(False),
-                Note.bucket != BucketType.INBOX,
-                Note.project_id.is_(None),
-                Note.area_id.is_(None),
-                Note.id.not_in(m2m_project_ids),
-                Note.id.not_in(linked_note_ids),
-                Note.id != SYSTEM_HEALTH_ANCHOR_NOTE_ID,
+            select(func.count(Entity.id)).where(
+                Entity.type == "note",
+                Entity.lifecycle == "active",
+                Entity.properties["bucket"].as_string() != "INBOX",
+                Entity.id != SYSTEM_HEALTH_ANCHOR_NOTE_ID,
+                Entity.id.not_in(select(linked_entity_ids.c.endpoint_id)),
             )
         )
         or 0
@@ -94,19 +80,25 @@ def metrics_health():
 
     archived_notes = int(
         db.session.scalar(
-            select(func.count(Note.id)).where(
-                or_(Note.is_archived.is_(True), Note.bucket == BucketType.ARCHIVES),
-                Note.id != SYSTEM_HEALTH_ANCHOR_NOTE_ID,
+            select(func.count(Entity.id)).where(
+                Entity.type == "note",
+                Entity.lifecycle == "archived",
+                Entity.id != SYSTEM_HEALTH_ANCHOR_NOTE_ID,
             )
         )
         or 0
     )
     archive_ratio = _safe_ratio(archived_notes, total_notes)
 
+    # Tag coverage: notes with at least one EntityTag
+    from models import EntityTag
     notes_tagged = int(
         db.session.scalar(
-            select(func.count(func.distinct(note_tags.c.note_id))).where(
-                note_tags.c.note_id != SYSTEM_HEALTH_ANCHOR_NOTE_ID
+            select(func.count(func.distinct(EntityTag.entity_id))).where(
+                EntityTag.entity_id != SYSTEM_HEALTH_ANCHOR_NOTE_ID,
+                EntityTag.entity_id.in_(
+                    select(Entity.id).where(Entity.type == "note")
+                ),
             )
         )
         or 0
@@ -115,16 +107,20 @@ def metrics_health():
 
     active_projects = int(
         db.session.scalar(
-            select(func.count(Project.id)).where(Project.is_archived.is_(False))
+            select(func.count(Entity.id)).where(
+                Entity.type == "project",
+                Entity.lifecycle == "active",
+            )
         )
         or 0
     )
 
     stale_projects = int(
         db.session.scalar(
-            select(func.count(Project.id)).where(
-                Project.is_archived.is_(False),
-                Project.modified_at < stale_cutoff,
+            select(func.count(Entity.id)).where(
+                Entity.type == "project",
+                Entity.lifecycle == "active",
+                Entity.updated_at < stale_cutoff,
             )
         )
         or 0
@@ -132,39 +128,32 @@ def metrics_health():
 
     weekly_capture_rate = int(
         db.session.scalar(
-            select(func.count(Note.id)).where(
-                Note.created_at >= week_ago,
-                Note.id != SYSTEM_HEALTH_ANCHOR_NOTE_ID,
+            select(func.count(Entity.id)).where(
+                Entity.type == "note",
+                Entity.created_at >= week_ago,
+                Entity.id != SYSTEM_HEALTH_ANCHOR_NOTE_ID,
             )
         )
         or 0
     )
 
-    # Oldest → newest week (4 rolling 7-day windows) for sparkline / mini bar chart
+    # Oldest → newest week (4 rolling 7-day windows)
     weekly_capture_counts = []
     for start_days in (28, 21, 14, 7):
         win_start = now - timedelta(days=start_days)
         win_end = now - timedelta(days=start_days - 7)
         cnt = int(
             db.session.scalar(
-                select(func.count(Note.id)).where(
-                    Note.created_at >= win_start,
-                    Note.created_at < win_end,
-                    Note.id != SYSTEM_HEALTH_ANCHOR_NOTE_ID,
+                select(func.count(Entity.id)).where(
+                    Entity.type == "note",
+                    Entity.created_at >= win_start,
+                    Entity.created_at < win_end,
+                    Entity.id != SYSTEM_HEALTH_ANCHOR_NOTE_ID,
                 )
             )
             or 0
         )
         weekly_capture_counts.append(cnt)
-
-    link_proposals_pending = int(
-        db.session.scalar(
-            select(func.count(LinkProposal.id)).where(
-                LinkProposal.status == LinkProposalStatus.PENDING
-            )
-        )
-        or 0
-    )
 
     payload = {
         "total_notes": total_notes,
@@ -177,7 +166,6 @@ def metrics_health():
         "stale_projects": stale_projects,
         "weekly_capture_rate": weekly_capture_rate,
         "weekly_capture_counts": weekly_capture_counts,
-        "link_proposals_pending": link_proposals_pending,
     }
 
     upsert_weekly_system_health_snapshot(
@@ -191,7 +179,7 @@ def metrics_health():
 
 @api_bp.route("/metrics/health/history", methods=["GET"])
 def metrics_health_history():
-    """Last N UTC weeks of stored health snapshots (from summaries.entity_type=system)."""
+    """Last N UTC weeks of stored health snapshots."""
     raw = request.args.get("weeks", "12")
     try:
         weeks = int(raw)

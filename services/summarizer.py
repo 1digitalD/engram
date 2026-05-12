@@ -446,12 +446,11 @@ class Summarizer:
         summaries written.
         """
         from extensions import db
-        from models import Entity, EntityLink, Summary, SummaryGranularity
+        from models import Entity, EntityLink
 
-        try:
-            gran = SummaryGranularity[str(granularity.strip().upper())]
-        except (KeyError, AttributeError):
-            raise ValueError(f"invalid granularity: {granularity!r}") from None
+        gran_str = str(granularity).strip().upper()
+        if gran_str not in ("DAILY", "WEEKLY", "MONTHLY"):
+            raise ValueError(f"invalid granularity: {granularity!r}")
 
         since = datetime.utcnow() - timedelta(days=7)
         created = 0
@@ -480,22 +479,25 @@ class Summarizer:
                 continue
 
             result = self.summarize_notes(
-                notes, granularity=gran.value, entity_name=area.title
+                notes, granularity=gran_str, entity_name=area.title
             )
             times = [n.created_at or datetime.utcnow() for n in notes]
-            summary = Summary(
-                note_id=notes[0].id,
-                area_id=area.id,
-                summary_text=result.get("summary_text") or "",
-                generated_at=datetime.utcnow(),
-                summary_type="scheduled",
-                granularity=gran,
-                date_from=min(times),
-                date_to=max(times),
-                key_themes=result.get("key_themes"),
-                action_items=result.get("action_items"),
+            summary_entity = Entity(
+                type="summary",
+                title=f"Scheduled Summary ({gran_str})",
+                content=result.get("summary_text") or "",
+                properties={
+                    "note_id": notes[0].id,
+                    "area_id": area.id,
+                    "summary_type": "scheduled",
+                    "granularity": gran_str,
+                    "date_from": min(times),
+                    "date_to": max(times),
+                    "key_themes": result.get("key_themes"),
+                    "action_items": result.get("action_items"),
+                },
             )
-            db.session.add(summary)
+            db.session.add(summary_entity)
             created += 1
 
         db.session.commit()

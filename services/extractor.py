@@ -35,9 +35,11 @@ def parse_inline_checkbox_lines(raw_text: str) -> list[tuple[str, str, "TaskStat
     Parse '- [ ]' / '- [x]' lines. Returns deduped (title_hash, display_title, status) in first-seen order.
     Later duplicate hashes (same normalized title) keep the last line's title text and checkbox state.
     """
-    from models import TaskStatus
+    # TaskStatus values are now stored as strings in Entity.properties['status']
+    _STATUS_DONE = "DONE"
+    _STATUS_PENDING = "PENDING"
 
-    ordered: dict[str, tuple[str, str, TaskStatus]] = {}
+    ordered: dict[str, tuple[str, str, str]] = {}
     order: list[str] = []
     for line in (raw_text or "").splitlines():
         m = _CHECKBOX_LINE_RE.match(line)
@@ -51,7 +53,7 @@ def parse_inline_checkbox_lines(raw_text: str) -> list[tuple[str, str, "TaskStat
         if not normalized:
             continue
         h = hashlib.sha256(normalized.encode("utf-8")).hexdigest()
-        status = TaskStatus.DONE if mark.strip().lower() == "x" else TaskStatus.PENDING
+        status = _STATUS_DONE if mark.strip().lower() == "x" else _STATUS_PENDING
         if h not in ordered:
             order.append(h)
         ordered[h] = (h, title[:500], status)
