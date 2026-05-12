@@ -482,9 +482,9 @@
       "cycle": "3",
       "phase": "ai-reliability",
       "status": "pending",
-      "passes": false,
+      "passes": true,
       "blocked": false,
-      "attempts": 0,
+      "attempts": 1,
       "reads": [
         "ui/",
         "services/ai_pipeline.py"
@@ -504,7 +504,8 @@
       ],
       "validationCommands": [
         "cd ui && npm install && npm test -- --testPathPattern=AiSelection"
-      ]
+      ],
+      "commit": "15d34a7"
     },
     {
       "id": "C3-SEARCH-UNIVERSAL",

@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import useStore from '../../stores/useStore';
 import styles from './TipTapEditor.module.css';
+import AiSelectionPopover, { useTextSelection, callAiAction } from '../AiSelectionPopover/AiSelectionPopover';
 
 // ─── Slash Command Items ────────────────────────────────────────────────
 
@@ -149,6 +150,10 @@ export default function TipTapEditor({
   const [slashIndex, setSlashIndex] = useState(0);
   const [showAIPanel, setShowAIPanel] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [aiSelectionBusy, setAiSelectionBusy] = useState(false);
+  const [aiSelectionResult, setAiSelectionResult] = useState(null);
+  const editorContainerRef = useRef(null);
+  const selection = useTextSelection(editorContainerRef);
   const slashMenuRef = useRef(null);
   const slashPosRef = useRef(null);
 
@@ -270,6 +275,33 @@ export default function TipTapEditor({
     onSave?.({ html, text, noteId });
   }, [editor, onSave, noteId]);
 
+  const handleAiSelectionAction = useCallback(async (actionId) => {
+    if (!selection.text || aiSelectionBusy) return;
+    setAiSelectionBusy(true);
+    setAiSelectionResult(null);
+    try {
+      const res = await callAiAction(actionId, selection.text);
+      setAiSelectionResult(res.result);
+
+      if (actionId === 'extract_task' && editor) {
+        createTask({ title: selection.text, note_id: noteId });
+      }
+
+      if (editor && (actionId === 'improve_writing' || actionId === 'classify')) {
+        const { from, to } = editor.state.selection;
+        if (from !== to) {
+          editor.chain().focus().deleteRange({ from, to }).insertContentAt(from, res.result).run();
+        }
+      }
+
+      addToast({ type: 'success', message: `AI ${actionId} applied` });
+    } catch (e) {
+      addToast({ type: 'error', message: e.message || 'AI action failed' });
+    } finally {
+      setAiSelectionBusy(false);
+    }
+  }, [selection.text, aiSelectionBusy, editor, createTask, noteId, addToast]);
+
   const getMarkdownContent = useCallback(() => {
     if (!editor) return '';
     // Convert editor content to a simple markdown-like representation
@@ -282,7 +314,7 @@ export default function TipTapEditor({
   }
 
   return (
-    <div className={`${styles.editorContainer} ${className}`} data-testid="tiptap-editor">
+    <div ref={editorContainerRef} className={`${styles.editorContainer} ${className}`} data-testid="tiptap-editor">
       {/* Toolbar */}
       <div className={styles.toolbar} data-testid="editor-toolbar">
         <div className={styles.toolbarGroup}>
@@ -439,6 +471,17 @@ export default function TipTapEditor({
           Save
         </button>
       </div>
+
+      {/* AI Selection Popover */}
+      <AiSelectionPopover
+        visible={selection.visible}
+        position={selection.position}
+        selectedText={selection.text}
+        onAction={handleAiSelectionAction}
+        onClose={selection.hide}
+        busy={aiSelectionBusy}
+        result={aiSelectionResult}
+      />
     </div>
   );
 }
