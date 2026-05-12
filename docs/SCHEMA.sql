@@ -10,7 +10,7 @@ CREATE EXTENSION IF NOT EXISTS "vector";     -- pgvector
 -- ─── Tags ────────────────────────────────────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS tags (
-    id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id         TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
     name       TEXT NOT NULL,
     color      TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS tags (
 -- ─── Entities (single-table inheritance) ─────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS entities (
-    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id            TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
 
     -- Discriminator
     type          TEXT NOT NULL CHECK (type IN (
@@ -93,8 +93,8 @@ CREATE INDEX IF NOT EXISTS entities_follow_up_idx  ON entities (follow_up_at)
 -- ─── Entity Tags (universal — replaces note_tags + resource_tags) ─────────────
 
 CREATE TABLE IF NOT EXISTS entity_tags (
-    entity_id  UUID NOT NULL REFERENCES entities (id) ON DELETE CASCADE,
-    tag_id     UUID NOT NULL REFERENCES tags (id)     ON DELETE CASCADE,
+    entity_id  TEXT NOT NULL REFERENCES entities (id) ON DELETE CASCADE,
+    tag_id     TEXT NOT NULL REFERENCES tags (id)     ON DELETE CASCADE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     PRIMARY KEY (entity_id, tag_id)
 );
@@ -104,9 +104,9 @@ CREATE INDEX IF NOT EXISTS entity_tags_tag_idx ON entity_tags (tag_id);
 -- ─── Entity Links (universal relationship graph) ──────────────────────────────
 
 CREATE TABLE IF NOT EXISTS entity_links (
-    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    src_id      UUID NOT NULL REFERENCES entities (id) ON DELETE CASCADE,
-    dst_id      UUID NOT NULL REFERENCES entities (id) ON DELETE CASCADE,
+    id          TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    src_id      TEXT NOT NULL REFERENCES entities (id) ON DELETE CASCADE,
+    dst_id      TEXT NOT NULL REFERENCES entities (id) ON DELETE CASCADE,
 
     -- Semantic relationship type
     -- 'related' | 'parent' | 'references' | 'blocks' | 'mentions'
@@ -135,8 +135,8 @@ CREATE INDEX IF NOT EXISTS entity_links_ai_idx   ON entity_links (source, confid
 -- ─── Entity Chunks (embeddings for any entity) ────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS entity_chunks (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    entity_id       UUID NOT NULL REFERENCES entities (id) ON DELETE CASCADE,
+    id              TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    entity_id       TEXT NOT NULL REFERENCES entities (id) ON DELETE CASCADE,
     chunk_index     INT  NOT NULL DEFAULT 0,
     chunk_text      TEXT NOT NULL,
     embedding       VECTOR(1536),
@@ -158,8 +158,8 @@ CREATE INDEX IF NOT EXISTS entity_chunks_hnsw_idx
 -- ─── Entity Events (audit log + lifecycle history) ────────────────────────────
 
 CREATE TABLE IF NOT EXISTS entity_events (
-    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    entity_id   UUID NOT NULL REFERENCES entities (id) ON DELETE CASCADE,
+    id          TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    entity_id   TEXT NOT NULL REFERENCES entities (id) ON DELETE CASCADE,
 
     -- Event type
     -- 'created' | 'status_changed' | 'field_updated' | 'lifecycle_changed'
@@ -192,12 +192,12 @@ CREATE INDEX IF NOT EXISTS entity_events_actor_idx
 -- ─── Background Jobs ──────────────────────────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS jobs (
-    id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id           TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
 
     -- Job type: 'classify' | 'embed' | 'autolink' | 'extract'
     job_type     TEXT NOT NULL,
 
-    entity_id    UUID REFERENCES entities (id) ON DELETE CASCADE,
+    entity_id    TEXT REFERENCES entities (id) ON DELETE CASCADE,
     payload      JSONB NOT NULL DEFAULT '{}',
 
     status       TEXT NOT NULL DEFAULT 'pending'
@@ -224,19 +224,32 @@ CREATE INDEX IF NOT EXISTS jobs_entity_idx ON jobs (entity_id);
 -- ─── Link Proposals (AI-suggested links for human review) ─────────────────────
 
 CREATE TABLE IF NOT EXISTS link_proposals (
-    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    src_id      UUID NOT NULL,
-    dst_id      UUID NOT NULL,
-    confidence  FLOAT NOT NULL,
-    reason      TEXT,
-    status      TEXT NOT NULL DEFAULT 'pending'
-                CHECK (status IN ('pending', 'accepted', 'dismissed')),
+    id          TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    src_id      TEXT NOT NULL REFERENCES entities (id) ON DELETE CASCADE,
+    dst_id      TEXT NOT NULL REFERENCES entities (id) ON DELETE CASCADE,
+    link_type   TEXT NOT NULL DEFAULT 'related',
+    confidence  FLOAT,
+    evidence    TEXT,
+    status      TEXT NOT NULL DEFAULT 'pending',
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS link_proposals_status_idx ON link_proposals (status);
 CREATE INDEX IF NOT EXISTS link_proposals_src_idx    ON link_proposals (src_id);
 CREATE INDEX IF NOT EXISTS link_proposals_dst_idx    ON link_proposals (dst_id);
+
+-- ─── Summaries (layered entity summaries) ─────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS summaries (
+    id          TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    entity_id   TEXT NOT NULL REFERENCES entities (id) ON DELETE CASCADE,
+    granularity TEXT NOT NULL,
+    content     TEXT NOT NULL,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS summaries_entity_idx ON summaries (entity_id);
 
 -- ─── Updated_at triggers ──────────────────────────────────────────────────────
 
@@ -260,6 +273,10 @@ CREATE OR REPLACE TRIGGER jobs_updated_at
     BEFORE UPDATE ON jobs
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+CREATE OR REPLACE TRIGGER summaries_updated_at
+    BEFORE UPDATE ON summaries
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
 -- ─── Test database reset helper ───────────────────────────────────────────────
 -- Used by test suite to reset state between test runs.
 -- Call: SELECT truncate_all_tables();
@@ -268,6 +285,7 @@ CREATE OR REPLACE FUNCTION truncate_all_tables()
 RETURNS VOID AS $$
 BEGIN
     TRUNCATE TABLE
+        summaries,
         link_proposals,
         entity_events,
         entity_chunks,

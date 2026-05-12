@@ -1520,7 +1520,9 @@
       ],
       "passes": true,
       "commit": "33637e64",
-      "attempts": 1
+      "attempts": 1,
+      "status": "completed",
+      "completedAt": "2026-05-12T14:30:00-07:00"
     },
     {
       "id": "V2-CLEANUP-03",
@@ -1545,7 +1547,12 @@
       ],
       "blockedBy": [
         "V2-CLEANUP-01"
-      ]
+      ],
+      "passes": true,
+      "commit": "5811238c",
+      "attempts": 1,
+      "status": "completed",
+      "completedAt": "2026-05-12T14:30:00-07:00"
     },
     {
       "id": "V2-CLEANUP-04",
