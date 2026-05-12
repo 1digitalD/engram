@@ -1255,7 +1255,10 @@
       ],
       "blockedBy": [
         "V2-API-01"
-      ]
+      ],
+      "passes": true,
+      "commit": "bb3098a",
+      "attempts": 1
     },
     {
       "id": "V2-API-03",

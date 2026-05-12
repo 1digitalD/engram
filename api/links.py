@@ -7,6 +7,10 @@ from services.link_service import (
     delete_link as svc_delete_link,
     get_links,
 )
+from services.entity_service import (
+    delete_preview as svc_delete_preview,
+    delete_entity as svc_delete_entity,
+)
 import logging
 
 logger = logging.getLogger(__name__)
@@ -204,3 +208,24 @@ def v2_delete_entity_link(link_id):
         return jsonify({"success": True}), 200
     except ValueError as e:
         return jsonify({"error": str(e)}), 404
+
+
+# ─── V2 delete-preview endpoint ──────────────────────────────────────────────
+
+
+@api_v2_bp.route("/entities/<entity_id>/delete-preview", methods=["GET"])
+def v2_delete_preview(entity_id):
+    """Preview what would be deleted if entity_id is deleted.
+
+    Returns orphan analysis: which linked entities would be safely cascade-deleted
+    vs which are blocked (have other connections).
+    """
+    try:
+        preview = svc_delete_preview(entity_id)
+        return jsonify({
+            "entity": preview["entity"],
+            "safe_to_cascade": preview["safe_to_cascade"],
+            "blocked": preview["blocked"],
+        })
+    except ValueError:
+        return jsonify({"error": "not found"}), 404

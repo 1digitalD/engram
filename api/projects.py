@@ -4,7 +4,7 @@ from flask import request, jsonify
 from api import api_bp
 from extensions import db
 from models import Entity
-from services.entity_service import create_entity, update_entity, transition_status
+from services.entity_service import create_entity, update_entity, transition_status, delete_entity
 
 
 @api_bp.route("/projects", methods=["GET"])
@@ -127,6 +127,14 @@ def delete_project(project_id):
     project = Entity.query.filter_by(id=project_id, type="project").first()
     if not project:
         return jsonify({"error": "not found"}), 404
-    db.session.delete(project)
-    db.session.commit()
-    return jsonify({"success": True}), 200
+    cascade = request.args.get("cascade", "false").lower() == "true"
+    try:
+        result = delete_entity(project_id, cascade_orphans=cascade)
+        if not cascade:
+            return jsonify({
+                "safe_to_cascade": result["safe_to_cascade"],
+                "blocked": result["blocked"],
+            })
+        return jsonify({"deleted": result["deleted"], "blocked": result["blocked"]})
+    except ValueError:
+        return jsonify({"error": "not found"}), 404

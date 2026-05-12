@@ -10,7 +10,7 @@ from flask import request, jsonify
 from api import api_bp
 from extensions import db
 from models import Entity, EntityTag, EntityLink, Tag
-from services.entity_service import create_entity, update_entity, archive_entity
+from services.entity_service import create_entity, update_entity, archive_entity, delete_entity
 
 
 def _resolve_or_create_tags(tag_names):
@@ -231,9 +231,17 @@ def delete_note(note_id):
     note = Entity.query.filter_by(id=note_id, type="note").first()
     if not note:
         return jsonify({"error": "not found"}), 404
-    db.session.delete(note)
-    db.session.commit()
-    return jsonify({"success": True}), 200
+    cascade = request.args.get("cascade", "false").lower() == "true"
+    try:
+        result = delete_entity(note_id, cascade_orphans=cascade)
+        if not cascade:
+            return jsonify({
+                "safe_to_cascade": result["safe_to_cascade"],
+                "blocked": result["blocked"],
+            })
+        return jsonify({"deleted": result["deleted"], "blocked": result["blocked"]})
+    except ValueError:
+        return jsonify({"error": "not found"}), 404
 
 
 @api_bp.route("/notes/search", methods=["GET"])

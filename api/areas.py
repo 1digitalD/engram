@@ -4,7 +4,7 @@ from flask import request, jsonify
 from api import api_bp
 from extensions import db
 from models import Entity
-from services.entity_service import create_entity, update_entity
+from services.entity_service import create_entity, update_entity, delete_entity
 
 
 @api_bp.route("/areas", methods=["GET"])
@@ -77,6 +77,14 @@ def delete_area(area_id):
     area = Entity.query.filter_by(id=area_id, type="area").first()
     if not area:
         return jsonify({"error": "not found"}), 404
-    db.session.delete(area)
-    db.session.commit()
-    return jsonify({"success": True}), 200
+    cascade = request.args.get("cascade", "false").lower() == "true"
+    try:
+        result = delete_entity(area_id, cascade_orphans=cascade)
+        if not cascade:
+            return jsonify({
+                "safe_to_cascade": result["safe_to_cascade"],
+                "blocked": result["blocked"],
+            })
+        return jsonify({"deleted": result["deleted"], "blocked": result["blocked"]})
+    except ValueError:
+        return jsonify({"error": "not found"}), 404
