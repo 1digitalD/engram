@@ -474,9 +474,135 @@
         "frontendBuild": "success"
       },
       "commit": "76582e4"
+    },
+    {
+      "id": "C3-SELECTION",
+      "title": "Text Selection -> AI Proposal",
+      "description": "When user selects text in the editor, show an AI action popup. Propose: classify, extract task, create link, improve writing. Write frontend tests.",
+      "cycle": "3",
+      "phase": "ai-reliability",
+      "status": "pending",
+      "passes": false,
+      "blocked": false,
+      "attempts": 0,
+      "reads": [
+        "ui/",
+        "services/ai_pipeline.py"
+      ],
+      "writes": [
+        "ui/components/AiSelectionPopover/"
+      ],
+      "acceptanceCriteria": [
+        "Selecting text shows AI action popup",
+        "Popup offers: classify, extract task, create link, improve writing",
+        "Clicking an action calls the appropriate API",
+        "Result is displayed inline",
+        "Frontend tests pass: cd ui && npm test -- --testPathPattern=AiSelection"
+      ],
+      "blockedBy": [
+        "C2-VALIDATE"
+      ],
+      "validationCommands": [
+        "cd ui && npm install && npm test -- --testPathPattern=AiSelection"
+      ]
+    },
+    {
+      "id": "C3-SEARCH-UNIVERSAL",
+      "title": "Universal Search",
+      "description": "Build a universal search that searches across all entity types (notes, tasks, projects, areas, resources, people). Full-text + semantic hybrid search. Keyboard shortcut (Cmd+K). Write frontend tests.",
+      "cycle": "3",
+      "phase": "ai-reliability",
+      "status": "pending",
+      "passes": false,
+      "blocked": false,
+      "attempts": 0,
+      "reads": [
+        "ui/",
+        "services/search.py"
+      ],
+      "writes": [
+        "ui/components/UniversalSearch/"
+      ],
+      "acceptanceCriteria": [
+        "Cmd+K opens universal search",
+        "Search results include all entity types",
+        "Results grouped by type",
+        "Keyboard navigation through results",
+        "Pressing Enter navigates to selected result",
+        "Frontend tests pass: cd ui && npm test -- --testPathPattern=UniversalSearch"
+      ],
+      "blockedBy": [
+        "C2-VALIDATE"
+      ],
+      "validationCommands": [
+        "cd ui && npm install && npm test -- --testPathPattern=UniversalSearch"
+      ]
+    },
+    {
+      "id": "C3-AI-QUALITY",
+      "title": "Confidence Calibration + Correction Signals",
+      "description": "Improve AI classification quality. Add confidence calibration, correction signals (user can mark AI results as correct/incorrect), and feedback loop to improve over time. Write backend tests.",
+      "cycle": "3",
+      "phase": "ai-reliability",
+      "status": "pending",
+      "passes": false,
+      "blocked": false,
+      "attempts": 0,
+      "reads": [
+        "services/ai_pipeline.py",
+        "services/extractor.py",
+        "models.py"
+      ],
+      "writes": [
+        "services/feedback.py",
+        "tests/unit/test_feedback.py"
+      ],
+      "acceptanceCriteria": [
+        "Users can mark AI classification as correct/incorrect",
+        "Feedback is stored and queryable",
+        "Confidence calibration adjusts based on feedback",
+        "Correction signals improve future classifications",
+        "pytest tests/unit/test_feedback.py -v passes"
+      ],
+      "blockedBy": [
+        "C2-VALIDATE"
+      ],
+      "validationCommands": [
+        "pytest tests/unit/test_feedback.py -v"
+      ]
+    },
+    {
+      "id": "C3-VALIDATE",
+      "title": "Full Suite + Coverage Gates",
+      "description": "Run full test suite (backend + frontend), enforce coverage gates, verify no regressions from Cycle 3.",
+      "cycle": "3",
+      "phase": "ai-reliability",
+      "status": "pending",
+      "passes": false,
+      "blocked": false,
+      "attempts": 0,
+      "reads": [
+        "prd.json",
+        "EXECUTION-TRACKER.md"
+      ],
+      "writes": [],
+      "acceptanceCriteria": [
+        "pytest tests/ -q --cov=services --cov=api --cov-report=term-missing passes with >= 70% coverage",
+        "cd ui && npm test passes",
+        "No regressions introduced by Cycle 3"
+      ],
+      "blockedBy": [
+        "C3-SELECTION",
+        "C3-SEARCH-UNIVERSAL",
+        "C3-AI-QUALITY"
+      ],
+      "validationCommands": [
+        "pytest tests/ -q --cov=services --cov=api --cov-report=term-missing",
+        "cd ui && npm install && npm test"
+      ]
     }
   ],
   "metadata": {
-    "updatedAt": "2026-05-11T23:00:19.910429+00:00"
+    "updatedAt": "2026-05-12T00:50:36.611142+00:00"
   }
 }
