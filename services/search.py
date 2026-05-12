@@ -36,18 +36,24 @@ def _fts_only(query, limit, filters=None):
     """Full-text search using Postgres tsvector column."""
     filters = filters or {}
     try:
-        sql = """
-            SELECT id FROM entities
-            WHERE search_vector @@ plainto_tsquery('english', :query)
-              AND lifecycle = 'active'
-            ORDER BY ts_rank(search_vector, plainto_tsquery('english', :query)) DESC
-            LIMIT :limit
-        """
+        where_clauses = [
+            "search_vector @@ plainto_tsquery('english', :query)",
+            "lifecycle = 'active'",
+        ]
         params = {"query": query, "limit": limit}
 
         if filters.get("type"):
-            sql = sql.replace("LIMIT", "AND type = :etype LIMIT")
+            where_clauses.append("type = :etype")
             params["etype"] = filters["type"]
+
+        where_sql = " AND ".join(where_clauses)
+
+        sql = """
+            SELECT id FROM entities
+            WHERE {}
+            ORDER BY ts_rank(search_vector, plainto_tsquery('english', :query)) DESC
+            LIMIT :limit
+        """.format(where_sql)
 
         rows = db.session.execute(db.text(sql), params).fetchall()
         entity_ids = [row[0] for row in rows]
