@@ -547,9 +547,9 @@
       "cycle": "3",
       "phase": "ai-reliability",
       "status": "pending",
-      "passes": false,
+      "passes": true,
       "blocked": false,
-      "attempts": 0,
+      "attempts": 1,
       "reads": [
         "services/ai_pipeline.py",
         "services/extractor.py",
@@ -571,7 +571,8 @@
       ],
       "validationCommands": [
         "pytest tests/unit/test_feedback.py -v"
-      ]
+      ],
+      "commit": "2f237b8"
     },
     {
       "id": "C3-VALIDATE",
