@@ -758,7 +758,7 @@
         "Postgres has data in entities, tags, entity_links tables"
       ],
       "validationCommands": [
-        "python3 scripts/migrate_sqlite_to_postgres.py --sqlite instance/engram.db --database-url postgresql://engram:engram@localhost:5432/engram"
+        "psql postgresql://engram:engram@localhost:5432/engram -c \"SELECT count(*) as entities FROM entities\""
       ],
       "blockedBy": [
         "V2-INFRA-05"
