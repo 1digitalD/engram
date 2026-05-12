@@ -870,7 +870,10 @@
       ],
       "blockedBy": [
         "V2-INFRA-06"
-      ]
+      ],
+      "passes": true,
+      "commit": "d713740",
+      "attempts": 1
     },
     {
       "id": "V2-SERVICES-01",
