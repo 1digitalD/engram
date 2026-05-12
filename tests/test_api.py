@@ -7,6 +7,8 @@ from extensions import db
 from models import (
     Area,
     BucketType,
+    Entity,
+    EntityLink,
     Link,
     LinkProposal,
     LinkProposalStatus,
@@ -1393,17 +1395,17 @@ def test_moc_generate_creates_moc_note_child_links_and_sections(client, app):
             )
         assert res.status_code == 201, res.data
         payload = json.loads(res.data)["data"]
-        assert payload["note_type"] == "MOC"
+        assert payload["type"] == "note"
         assert payload["raw_text"].startswith("# Research themes")
         assert "## Alpha thread" in payload["raw_text"]
         assert "## Beta thread" in payload["raw_text"]
         assert "#moc" in payload["raw_text"]
 
         moc_id = payload["id"]
-        links = Link.query.filter_by(
+        links = EntityLink.query.filter_by(
             src_id=moc_id, link_type="child_of", source="llm"
         ).all()
-        assert {x.dst_id for x in links} == {id1, id2}
+        assert {str(x.dst_id) for x in links} == {id1, id2}
 
-        moc = db.session.get(Note, moc_id)
-        assert moc.note_type == NoteType.MOC
+        moc = db.session.get(Entity, moc_id)
+        assert moc.ai_meta.get("moc_source_note_ids") == [id1, id2]

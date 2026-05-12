@@ -1,4 +1,8 @@
-"""AI-generated Maps of Content (MOC) from a set of source notes."""
+"""AI-generated Maps of Content (MOC) from a set of source entities.
+
+v2 rewrite: uses Entity, EntityLink, create_entity, create_link.
+Replaces Note references with Entity queries. Replaces raw_text with content.
+"""
 
 from __future__ import annotations
 
@@ -7,7 +11,8 @@ import os
 from typing import Any
 
 from extensions import db
-from models import BucketType, Link, Note, NoteType
+from models import Entity, EntityLink
+from services.link_service import create_link
 from services.summarizer import _DEFAULT_MODEL, _estimate_tokens, _strip_json_fences
 
 MOC_SYSTEM_PROMPT = (
@@ -15,8 +20,8 @@ MOC_SYSTEM_PROMPT = (
     "Group related source notes into clear themes. Ground everything in the "
     "note excerpts; do not invent notes or IDs. "
     "Every section body must link to the relevant source notes using markdown "
-    'links exactly like `[short label](/notes/<note_uuid>)` where `<note_uuid>` '
-    "is one of the provided note ids."
+    'links exactly like `[short label](/notes/<entity_uuid>)` where `<entity_uuid>` '
+    "is one of the provided entity ids."
 )
 
 _MOC_JSON_SUFFIX = (
@@ -29,26 +34,26 @@ _MOC_JSON_SUFFIX = (
 )
 
 
-def _note_title_line(note: Note) -> str:
-    text = (note.raw_text or "").strip()
+def _entity_title_line(entity: Entity) -> str:
+    text = (entity.content or "").strip()
     line = text.split("\n", 1)[0].strip()
     return line[:200] if line else "(untitled)"
 
 
-def _note_excerpt(note: Note, max_chars: int = 600) -> str:
-    text = (note.raw_text or "").strip()
+def _entity_excerpt(entity: Entity, max_chars: int = 600) -> str:
+    text = (entity.content or "").strip()
     if len(text) > max_chars:
         return text[: max_chars - 3] + "..."
     return text
 
 
-def _build_notes_prompt(notes: list[Note]) -> str:
+def _build_entities_prompt(entities: list[Entity]) -> str:
     lines: list[str] = []
-    for n in notes:
+    for e in entities:
         lines.append(
-            f"- id: {n.id}\n"
-            f"  title_line: {_note_title_line(n)!r}\n"
-            f"  excerpt: {_note_excerpt(n)!r}"
+            f"- id: {e.id}\n"
+            f"  title_line: {_entity_title_line(e)!r}\n"
+            f"  excerpt: {_entity_excerpt(e)!r}"
         )
     return "\n".join(lines)
 
@@ -88,47 +93,36 @@ def _assemble_moc_body(title: str, overview: str, sections: list[dict[str, str]]
     return "\n".join(parts).strip() + "\n"
 
 
-def _maybe_queue_embedding(note_id: str, raw_text: str) -> None:
-    try:
-        from flask import has_request_context
-
-        if has_request_context():
-            from api.notes import _queue_embedding
-
-            _queue_embedding(note_id, raw_text)
-    except Exception:
-        pass
-
-
-def _infer_bucket_area(notes: list[Note]) -> tuple[BucketType, str | None]:
-    bucket = notes[0].bucket or BucketType.INBOX
-    area_ids = {n.area_id for n in notes}
-    area_id = notes[0].area_id if len(area_ids) == 1 else None
+def _infer_bucket_area(entities: list[Entity]) -> tuple[str, str | None]:
+    bucket = (entities[0].properties or {}).get("bucket", "INBOX")
+    area_ids = {(e.properties or {}).get("area_id") for e in entities}
+    area_ids.discard(None)
+    area_id = list(area_ids)[0] if len(area_ids) == 1 else None
     return bucket, area_id
 
 
-def generate_map_of_content(note_ids: list[str]) -> Note:
+def generate_map_of_content(entity_ids: list[str]) -> Entity:
     """
-    Call Claude to structure a MOC, persist a new ``Note`` with ``note_type=MOC``,
-    and add ``child_of`` links from the MOC to each source note (MOC → source).
+    Call Claude to structure a MOC, persist a new ``Entity`` (type='note'),
+    and add ``child_of`` links from the MOC to each source entity (MOC → source).
     """
-    if not note_ids:
-        raise ValueError("note_ids must be non-empty")
+    if not entity_ids:
+        raise ValueError("entity_ids must be non-empty")
 
     seen: set[str] = set()
     ordered: list[str] = []
-    for raw in note_ids:
+    for raw in entity_ids:
         sid = str(raw).strip()
         if sid and sid not in seen:
             seen.add(sid)
             ordered.append(sid)
 
-    notes: list[Note] = []
-    for nid in ordered:
-        n = db.session.get(Note, nid)
-        if not n:
-            raise ValueError(f"note not found: {nid}")
-        notes.append(n)
+    entities: list[Entity] = []
+    for eid in ordered:
+        e = Entity.query.get(eid)
+        if not e:
+            raise ValueError(f"entity not found: {eid}")
+        entities.append(e)
 
     key = os.environ.get("ANTHROPIC_API_KEY")
     if not key:
@@ -141,7 +135,7 @@ def generate_map_of_content(note_ids: list[str]) -> Note:
 
     user = (
         "Create a Map of Content for these source notes:\n\n"
-        f"{_build_notes_prompt(notes)}\n\n{_MOC_JSON_SUFFIX}"
+        f"{_build_entities_prompt(entities)}\n\n{_MOC_JSON_SUFFIX}"
     )
 
     msg = client.messages.create(
@@ -157,40 +151,39 @@ def generate_map_of_content(note_ids: list[str]) -> Note:
     combined = "".join(text_parts)
     parsed = _parse_moc_json(combined)
 
-    bucket, area_id = _infer_bucket_area(notes)
+    bucket, area_id = _infer_bucket_area(entities)
     body = _assemble_moc_body(parsed["title"], parsed["overview"], parsed["sections"])
 
-    moc = Note(
-        raw_text=body,
-        bucket=bucket,
-        note_type=NoteType.MOC,
-        area_id=area_id,
+    moc = Entity(
+        type="note",
+        title=parsed["title"],
+        content=body,
+        properties={"bucket": bucket, "area_id": area_id} if area_id else {"bucket": bucket},
+        source="moc",
+        lifecycle="active",
         ai_meta={
             "moc_source_note_ids": ordered,
             "model_used": model,
             "token_estimate": _estimate_tokens(MOC_SYSTEM_PROMPT + user + combined),
         },
+        ai_status="pending",
     )
     db.session.add(moc)
     db.session.flush()
 
-    for src in ordered:
-        exists = Link.query.filter_by(
+    for src_id in ordered:
+        existing = EntityLink.query.filter_by(
             src_id=moc.id,
-            dst_id=src,
+            dst_id=src_id,
             link_type="child_of",
         ).first()
-        if not exists:
-            db.session.add(
-                Link(
-                    src_id=moc.id,
-                    dst_id=src,
-                    link_type="child_of",
-                    weight=1.0,
-                    source="llm",
-                )
+        if not existing:
+            create_link(
+                src_id=moc.id,
+                dst_id=src_id,
+                link_type="child_of",
+                source="llm",
+                actor="system",
             )
 
-    db.session.commit()
-    _maybe_queue_embedding(moc.id, moc.raw_text)
     return moc

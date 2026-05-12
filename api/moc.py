@@ -25,7 +25,7 @@ def moc_generate():
         note = generate_map_of_content(note_ids)
     except ValueError as e:
         msg = str(e)
-        if msg.startswith("note not found:"):
+        if msg.startswith("entity not found:") or msg.startswith("note not found:"):
             return jsonify({"error": msg}), 404
         return jsonify({"error": msg}), 400
     except RuntimeError as e:
