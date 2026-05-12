@@ -765,7 +765,9 @@
       ],
       "passes": true,
       "commit": "1b6f350",
-      "attempts": 1
+      "attempts": 1,
+      "status": "completed",
+      "completedAt": "2026-05-12T01:51:00-07:00"
     },
     {
       "id": "V2-AUDIT-01",
@@ -839,9 +841,8 @@
       "validationCommands": [
         "TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test pytest tests/unit/test_ingestion.py tests/integration/test_ingestion.py -v"
       ],
-      "blockedBy": [
-        "V2-INFRA-06"
-      ]
+      "blockedBy": [],
+      "status": "in_progress"
     },
     {
       "id": "V2-INGEST-02",
