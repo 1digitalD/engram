@@ -146,7 +146,7 @@ def entity_payload(table: str, row: sqlite3.Row) -> tuple[str, str, str | None, 
     return (
         data["id"], entity_type, title, content, status, lifecycle,
         follow_up_at, source, reference_url, Json({k: v for k, v in properties.items() if v is not None}),
-        Json(ai_meta), iso(data.get("created_at")), iso(data.get("modified_at")),
+        Json(ai_meta), iso(data.get("created_at")), iso(data.get("modified_at")) or datetime.utcnow().isoformat(),
     )
 
 

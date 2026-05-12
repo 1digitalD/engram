@@ -118,3 +118,5 @@ If the session resets:
 - **2026-05-12 00:40** V2-INFRA-05 → <pending>: Schema applies cleanly to fresh test DB. All 7 tables present (entities, entity_chunks, entity_events, entity_links, entity_tags, jobs, tags). search_vector generated column verified. HNSW index (entity_chunks_hnsw_idx) confirmed. pgvector <-> operator returns 0 for identical vectors.
 
 - **2026-05-12 00:38** V2-INFRA-05 → 089576a: V2-INFRA-05: completed, merged from opencode worktree
+
+- **2026-05-12 00:50** V2-INFRA-06 → 1b6f350: V2-INFRA-06: completed, merged from opencode worktree
