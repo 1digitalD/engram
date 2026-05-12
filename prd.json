@@ -600,6 +600,7 @@
         "C3-AI-QUALITY"
       ],
       "validationCommands": [
+        "python3 -m pip install pytest-cov",
         "pytest tests/ -q --cov=services --cov=api --cov-report=term-missing",
         "cd ui && npm install && npm test"
       ]
