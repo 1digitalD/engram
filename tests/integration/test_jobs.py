@@ -322,22 +322,15 @@ class TestMaxAttemptsExceeded:
             assert next_job.id == good_job.id
 
 
-# ─── Concurrent Pickup Prevention (SKIP LOCKED equivalent) ───────────────────
-# Note: These tests verify concurrent pickup prevention which is implemented
-# via FOR UPDATE SKIP LOCKED on PostgreSQL. SQLite doesn't support concurrent
-# writes, so these tests are skipped when running against SQLite.
-
-def _is_sqlite(app):
-    """Check if the test database is SQLite."""
-    with app.app_context():
-        return "sqlite" in str(db.engine.url)
+# ─── Concurrent Pickup Prevention (FOR UPDATE SKIP LOCKED) ───────────────────
+# These tests verify that FOR UPDATE SKIP LOCKED prevents double-pickup
+# when multiple threads attempt to claim the same job simultaneously.
 
 
 class TestConcurrentPickup:
     def setup_method(self):
         _clear_handlers()
 
-    @pytest.mark.skipif(True, reason="SQLite doesn't support concurrent writes; FOR UPDATE SKIP LOCKED is PostgreSQL-only")
     def test_no_double_pickup(self, app):
         """Two threads trying to get the same job — only one should succeed."""
         with app.app_context():
@@ -375,7 +368,6 @@ class TestConcurrentPickup:
             assert len(results["picked"]) == 1
             assert results["picked"][0] == job.id
 
-    @pytest.mark.skipif(True, reason="SQLite doesn't support concurrent writes; FOR UPDATE SKIP LOCKED is PostgreSQL-only")
     def test_multiple_jobs_distributed(self, app):
         """Multiple jobs should be distributed across concurrent workers."""
         with app.app_context():
