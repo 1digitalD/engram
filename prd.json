@@ -785,7 +785,34 @@
       ],
       "blockedBy": [
         "V2-INFRA-06"
-      ]
+      ],
+      "passes": true,
+      "attempts": 1,
+      "status": "done",
+      "completedAt": "2026-05-12T01:00:00.000000+00:00",
+      "validation": {
+        "v1ImportCount": 18,
+        "affectedFiles": [
+          "api/batch.py",
+          "api/links.py",
+          "api/summarize.py",
+          "api/review.py",
+          "api/daily.py",
+          "api/proposals.py",
+          "api/summaries.py",
+          "services/rollup.py",
+          "services/ingestion.py",
+          "services/moc.py",
+          "services/link_proposer.py",
+          "services/links.py",
+          "services/extractor.py",
+          "services/summarizer.py",
+          "services/health_snapshot.py"
+        ],
+        "inventoryMatchesPlan": true,
+        "note": "18 v1 model imports found across 15 files. Inventory matches V2_OVERHAUL_PLAN.md. Acceptance criteria NOT met \u2014 cleanup tasks (V2-SERVICES-*, V2-API-*) must rewrite these files before V2-CLEANUP-01 can delete old models."
+      },
+      "commit": "ba6c675"
     },
     {
       "id": "V2-INGEST-01",

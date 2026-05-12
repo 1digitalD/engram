@@ -120,3 +120,7 @@ If the session resets:
 - **2026-05-12 00:38** V2-INFRA-05 → 089576a: V2-INFRA-05: completed, merged from opencode worktree
 
 - **2026-05-12 00:50** V2-INFRA-06 → 1b6f350: V2-INFRA-06: completed, merged from opencode worktree
+
+- **2026-05-12 01:00** V2-AUDIT-01 → <pending>: 18 v1 model imports found across 15 files. Inventory matches V2_OVERHAUL_PLAN.md. Acceptance criteria NOT met — cleanup tasks must rewrite these files before V2-CLEANUP-01 can delete old models. Affected: api/batch.py, api/links.py, api/summarize.py, api/review.py, api/daily.py, api/proposals.py, api/summaries.py, services/rollup.py, services/ingestion.py, services/moc.py, services/link_proposer.py, services/links.py, services/extractor.py, services/summarizer.py, services/health_snapshot.py
+
+- **2026-05-12 01:23** V2-AUDIT-01 → ba6c675: V2-AUDIT-01: completed, merged from opencode worktree
