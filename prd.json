@@ -1288,7 +1288,10 @@
       ],
       "blockedBy": [
         "V2-INFRA-06"
-      ]
+      ],
+      "passes": true,
+      "commit": "658f0e4",
+      "attempts": 1
     },
     {
       "id": "V2-API-04",

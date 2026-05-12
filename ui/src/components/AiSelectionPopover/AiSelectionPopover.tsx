@@ -10,12 +10,20 @@ export const AI_ACTIONS = [
 ];
 
 export async function callAiAction(action, selectedText, apiCall) {
-  if (!apiCall) {
-    // Fallback: simulate response for testing
-    await new Promise(r => setTimeout(r, 100));
-    return { action, text: selectedText, result: `[AI ${action}]: ${selectedText.slice(0, 50)}${selectedText.length > 50 ? '...' : ''}` };
+  if (apiCall) {
+    return apiCall(action, selectedText);
   }
-  return apiCall(action, selectedText);
+  // Call the real backend endpoint
+  const res = await fetch('/api/v1/ai/propose-from-selection', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action, text: selectedText }),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error || `AI action failed: ${res.status}`);
+  }
+  return res.json();
 }
 
 export default function AiSelectionPopover({

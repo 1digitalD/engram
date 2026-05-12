@@ -22,4 +22,5 @@ from . import (
     batch,
     daily,
     resources,
+    ai_selection,
 )
