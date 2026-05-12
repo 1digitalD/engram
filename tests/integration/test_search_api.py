@@ -1,16 +1,19 @@
-"""Integration tests for search — FTS and SQL injection safety.
+"""Integration tests for search — FTS, SQL injection safety, pgvector, and semantic search.
 
 Proves that Postgres tsvector FTS finds entities by title and content,
-that type filtering works, and that the _fts_only function uses
-parameterized queries (no string-replace SQL injection).
+that type filtering works, that the _fts_only function uses
+parameterized queries (no string-replace SQL injection), that pgvector
+<-> operator returns correct distances, and that semantic search returns
+correctly ranked results.
 """
 
 import pytest
+from unittest.mock import patch
 
 from extensions import db
-from models import Entity
+from models import Entity, EntityChunk
 from services.entity_service import create_entity
-from services.search import search, _fts_only
+from services.search import search, _fts_only, _semantic_only
 
 
 class TestFtsSearchByTitle:
@@ -215,3 +218,273 @@ class TestFtsNoSqlInjection:
                             "_fts_only uses .replace() for SQL construction. "
                             "Use parameterized queries instead."
                         )
+
+
+class TestPgvectorOperator:
+    """Prove pgvector <-> (cosine distance) operator works correctly."""
+
+    def test_identical_vectors_have_zero_distance(self, app):
+        """<-> returns 0 for identical vectors."""
+        with app.app_context():
+            result = db.session.execute(db.text(
+                "SELECT '[1,2,3]'::vector(3) <-> '[1,2,3]'::vector(3)"
+            )).scalar()
+            assert abs(result) < 1e-6
+
+    def test_orthogonal_vectors_have_distance_sqrt2(self, app):
+        """<-> (Euclidean distance) returns sqrt(2) for orthogonal unit vectors."""
+        with app.app_context():
+            result = db.session.execute(db.text(
+                "SELECT '[1,0,0]'::vector(3) <-> '[0,1,0]'::vector(3)"
+            )).scalar()
+            import math
+            assert abs(result - math.sqrt(2)) < 1e-6
+
+    def test_opposite_vectors_have_distance_two(self, app):
+        """<-> returns ~2 for opposite vectors."""
+        with app.app_context():
+            result = db.session.execute(db.text(
+                "SELECT '[1,0,0]'::vector(3) <-> '[-1,0,0]'::vector(3)"
+            )).scalar()
+            assert abs(result - 2.0) < 1e-6
+
+    def test_distance_is_symmetric(self, app):
+        """<-> distance is symmetric: a<->b == b<->a."""
+        with app.app_context():
+            d1 = db.session.execute(db.text(
+                "SELECT '[1,2,3]'::vector(3) <-> '[4,5,6]'::vector(3)"
+            )).scalar()
+            d2 = db.session.execute(db.text(
+                "SELECT '[4,5,6]'::vector(3) <-> '[1,2,3]'::vector(3)"
+            )).scalar()
+            assert abs(d1 - d2) < 1e-6
+
+    def test_hnsw_index_exists(self, app):
+        """HNSW index on entity_chunks.embedding is present."""
+        with app.app_context():
+            result = db.session.execute(db.text("""
+                SELECT indexname FROM pg_indexes
+                WHERE tablename = 'entity_chunks'
+                  AND indexname = 'entity_chunks_hnsw_idx'
+            """)).fetchone()
+            assert result is not None
+
+    def test_cosine_ops_used_in_index(self, app):
+        """HNSW index uses vector_cosine_ops."""
+        with app.app_context():
+            result = db.session.execute(db.text("""
+                SELECT indexdef FROM pg_indexes
+                WHERE indexname = 'entity_chunks_hnsw_idx'
+            """)).scalar()
+            assert "vector_cosine_ops" in result
+
+
+class TestSemanticSearchRanking:
+    """Prove semantic search returns correctly ranked results."""
+
+    def _make_embedding(self, values):
+        """Pad a short vector to 1536 dims."""
+        vec = [float(v) for v in values]
+        return vec + [0.0] * (1536 - len(vec))
+
+    def test_semantic_search_returns_similar_entities_first(self, app, mock_embed):
+        """Entities with more similar embeddings rank higher."""
+        # Mock embed_query to return a known query vector
+        query_vec = self._make_embedding([1.0, 0.0, 0.0, 0.0])
+
+        with app.app_context():
+            # Create three entities with different content
+            e1 = create_entity(
+                entity_type="note",
+                title="Python Programming",
+                content="Python is a programming language",
+                actor="user",
+            )
+            db.session.commit()
+
+            e2 = create_entity(
+                entity_type="note",
+                title="Gardening Tips",
+                content="How to grow tomatoes in your garden",
+                actor="user",
+            )
+            db.session.commit()
+
+            e3 = create_entity(
+                entity_type="note",
+                title="Python Snake Care",
+                content="Ball pythons make great pets",
+                actor="user",
+            )
+            db.session.commit()
+
+            # Insert chunks with controlled embeddings:
+            # e1's chunk is very similar to query_vec (only differs in 4th dim)
+            # e3's chunk is somewhat similar (differs in 2nd and 4th dim)
+            # e2's chunk is very different (orthogonal direction)
+            db.session.add(EntityChunk(
+                entity_id=e1.id,
+                chunk_index=0,
+                chunk_text="Python programming language",
+                embedding=self._make_embedding([1.0, 0.0, 0.0, 0.1]),
+            ))
+            db.session.add(EntityChunk(
+                entity_id=e2.id,
+                chunk_index=0,
+                chunk_text="Gardening and tomatoes",
+                embedding=self._make_embedding([0.0, 1.0, 0.0, 0.0]),
+            ))
+            db.session.add(EntityChunk(
+                entity_id=e3.id,
+                chunk_index=0,
+                chunk_text="Python snake care guide",
+                embedding=self._make_embedding([1.0, 0.1, 0.0, 0.1]),
+            ))
+            db.session.commit()
+
+            # Mock embed_query to return our known query vector
+            with patch("services.embeddings.embed_query", return_value=query_vec):
+                results = search("python programming", mode="semantic")
+
+            # Should return at least some results
+            assert len(results) >= 2
+
+            # e1 (Python Programming) should rank higher than e2 (Gardening)
+            result_ids = [r["id"] for r in results]
+            e1_pos = result_ids.index(e1.id) if e1.id in result_ids else 999
+            e2_pos = result_ids.index(e2.id) if e2.id in result_ids else 999
+            assert e1_pos < e2_pos, (
+                f"Python Programming (e1) should rank above Gardening (e2). "
+                f"Got order: {[r['title'] for r in results]}"
+            )
+
+    def test_semantic_search_respects_type_filter(self, app, mock_embed):
+        """Semantic search with type filter only returns matching types."""
+        query_vec = self._make_embedding([1.0, 0.0, 0.0, 0.0])
+
+        with app.app_context():
+            note = create_entity(
+                entity_type="note",
+                title="Note about ML",
+                content="Machine learning is fascinating",
+                actor="user",
+            )
+            db.session.commit()
+
+            task = create_entity(
+                entity_type="task",
+                title="Task about ML",
+                content="Learn machine learning basics",
+                actor="user",
+            )
+            db.session.commit()
+
+            db.session.add(EntityChunk(
+                entity_id=note.id,
+                chunk_index=0,
+                chunk_text="ML note content",
+                embedding=self._make_embedding([1.0, 0.0, 0.0, 0.0]),
+            ))
+            db.session.add(EntityChunk(
+                entity_id=task.id,
+                chunk_index=0,
+                chunk_text="ML task content",
+                embedding=self._make_embedding([1.0, 0.0, 0.0, 0.0]),
+            ))
+            db.session.commit()
+
+            with patch("services.embeddings.embed_query", return_value=query_vec):
+                results = search("machine learning", mode="semantic", filters={"type": "note"})
+
+            assert len(results) >= 1
+            assert all(r["type"] == "note" for r in results)
+
+    def test_semantic_search_returns_scores(self, app, mock_embed):
+        """Semantic search results include _score field."""
+        query_vec = self._make_embedding([1.0, 0.0, 0.0, 0.0])
+
+        with app.app_context():
+            entity = create_entity(
+                entity_type="note",
+                title="Scored Entity",
+                content="This entity should have a score",
+                actor="user",
+            )
+            db.session.commit()
+
+            db.session.add(EntityChunk(
+                entity_id=entity.id,
+                chunk_index=0,
+                chunk_text="Scored content",
+                embedding=self._make_embedding([1.0, 0.0, 0.0, 0.0]),
+            ))
+            db.session.commit()
+
+            with patch("services.embeddings.embed_query", return_value=query_vec):
+                results = search("test", mode="semantic")
+
+            assert len(results) >= 1
+            assert "_score" in results[0]
+            # Identical vectors should have similarity close to 1.0
+            assert results[0]["_score"] > 0.9
+
+    def test_semantic_search_empty_when_no_chunks(self, app, mock_embed):
+        """Semantic search returns empty when no embeddings exist."""
+        query_vec = self._make_embedding([1.0, 0.0, 0.0, 0.0])
+
+        with app.app_context():
+            create_entity(
+                entity_type="note",
+                title="No Embeddings",
+                content="This entity has no chunks",
+                actor="user",
+            )
+            db.session.commit()
+
+            with patch("services.embeddings.embed_query", return_value=query_vec):
+                results = search("anything", mode="semantic")
+
+            assert len(results) == 0
+
+    def test_semantic_search_empty_when_embed_fails(self, app):
+        """Semantic search returns empty when embed_query returns None."""
+        with app.app_context():
+            with patch("services.embeddings.embed_query", return_value=None):
+                results = search("anything", mode="semantic")
+
+            assert results == []
+
+    def test_semantic_search_multiple_chunks_per_entity(self, app, mock_embed):
+        """Entity with multiple chunks uses MAX similarity across chunks."""
+        query_vec = self._make_embedding([1.0, 0.0, 0.0, 0.0])
+
+        with app.app_context():
+            entity = create_entity(
+                entity_type="note",
+                title="Multi-chunk Entity",
+                content="Has multiple chunks",
+                actor="user",
+            )
+            db.session.commit()
+
+            # Two chunks: one very similar, one very different
+            db.session.add(EntityChunk(
+                entity_id=entity.id,
+                chunk_index=0,
+                chunk_text="Similar chunk",
+                embedding=self._make_embedding([1.0, 0.0, 0.0, 0.0]),
+            ))
+            db.session.add(EntityChunk(
+                entity_id=entity.id,
+                chunk_index=1,
+                chunk_text="Different chunk",
+                embedding=self._make_embedding([0.0, 1.0, 0.0, 0.0]),
+            ))
+            db.session.commit()
+
+            with patch("services.embeddings.embed_query", return_value=query_vec):
+                results = search("test", mode="semantic")
+
+            assert len(results) == 1
+            # Score should reflect the best (most similar) chunk
+            assert results[0]["_score"] > 0.9
