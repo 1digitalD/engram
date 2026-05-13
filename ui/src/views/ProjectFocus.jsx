@@ -25,7 +25,7 @@ const TASK_COLUMNS = [
 ];
 
 const surfaceCardStyle = {
-  background: 'var(--bg-surface)',
+  background: 'var(--surface)',
   border: '1px solid var(--border)',
   borderRadius: '14px',
 };
@@ -72,11 +72,11 @@ function getInitials(name) {
 function ProgressMetric({ label, value }) {
   return (
     <div style={{ display: 'grid', gap: '6px' }}>
-      <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-        {label}
-      </span>
       <span style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '20px', fontWeight: 700, lineHeight: 1 }}>
         {value}
+      </span>
+      <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+        {label}
       </span>
     </div>
   );
@@ -195,9 +195,9 @@ export default function ProjectFocus() {
                 alignItems: 'center',
                 padding: '5px 10px',
                 borderRadius: '999px',
-                background: 'var(--bg-elevated)',
+                background: 'var(--surface2)',
                 border: '1px solid var(--border)',
-                color: 'var(--text-primary)',
+                color: 'var(--text)',
                 fontSize: '11px',
                 fontWeight: 600,
                 letterSpacing: '0.06em',
@@ -222,7 +222,7 @@ export default function ProjectFocus() {
                 padding: '0 14px',
                 borderRadius: '999px',
                 border: '1px solid transparent',
-                background: completionState === 'completed' ? 'var(--success)' : 'var(--accent)',
+                background: completionState === 'completed' ? 'var(--green)' : 'var(--accent)',
                 color: completionState === 'completed' ? 'var(--text)' : 'var(--text)',
                 fontSize: '12px',
                 fontWeight: 700,
@@ -258,13 +258,13 @@ export default function ProjectFocus() {
                 </div>
               </div>
             </div>
-            <div style={{ height: '3px', borderRadius: '999px', background: 'var(--bg-elevated)', overflow: 'hidden' }}>
+            <div style={{ height: '3px', borderRadius: '999px', background: 'var(--surface2)', overflow: 'hidden' }}>
               <div
                 style={{
                   width: `${completionPercent}%`,
                   height: '100%',
                   background: 'var(--accent)',
-                  transition: 'width 220ms ease',
+                  transition: 'width 0.6s ease',
                 }}
               />
             </div>
@@ -283,7 +283,7 @@ export default function ProjectFocus() {
                 border: 'none',
                 borderBottom: tab === entry.key ? '2px solid var(--accent)' : '2px solid transparent',
                 background: 'transparent',
-                color: tab === entry.key ? 'var(--text-primary)' : 'var(--text-secondary)',
+                color: tab === entry.key ? 'var(--text)' : 'var(--text-secondary)',
                 fontSize: '12px',
                 fontWeight: 600,
                 cursor: 'pointer',
@@ -330,7 +330,7 @@ export default function ProjectFocus() {
                       width: '30px',
                       height: '30px',
                       borderRadius: '10px',
-                      background: 'var(--bg-elevated)',
+                      background: 'var(--surface2)',
                       border: '1px solid var(--border)',
                       display: 'flex',
                       alignItems: 'center',
@@ -341,7 +341,7 @@ export default function ProjectFocus() {
                       <FileText size={14} />
                     </div>
                     <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                      <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)' }}>
                         {firstLine(note.raw_text || note.title)}
                       </div>
                       <div style={{ marginTop: '4px', color: 'var(--text-muted)', fontSize: '11px' }}>
@@ -356,7 +356,7 @@ export default function ProjectFocus() {
                         style={{
                           padding: '4px 8px',
                           borderRadius: '999px',
-                          background: 'var(--bg-elevated)',
+                          background: 'var(--surface2)',
                           border: '1px solid var(--border)',
                           color: 'var(--text-secondary)',
                           fontSize: '11px',
@@ -386,8 +386,8 @@ export default function ProjectFocus() {
                   <div style={{ color: 'var(--text-muted)', fontSize: '11px' }}>No tasks</div>
                 ) : (
                   tasksByColumn[column.key].map((task) => (
-                    <div key={task.id} style={{ padding: '12px', borderRadius: '12px', background: 'var(--bg-elevated)', border: '1px solid var(--border)', display: 'grid', gap: '8px' }}>
-                      <div style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                    <div key={task.id} style={{ padding: '12px', borderRadius: '12px', background: 'var(--surface2)', border: '1px solid var(--border)', display: 'grid', gap: '8px' }}>
+                      <div style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text)' }}>
                         {task.title}
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
@@ -437,8 +437,8 @@ export default function ProjectFocus() {
                     }}
                   >
                     <div style={{
-                      width: '34px',
-                      height: '34px',
+                      width: '32px',
+                      height: '32px',
                       borderRadius: '999px',
                       background: 'var(--accent-dim)',
                       color: 'var(--accent)',
@@ -452,7 +452,7 @@ export default function ProjectFocus() {
                       {getInitials(person.name)}
                     </div>
                     <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text-primary)' }}>{person.name}</div>
+                      <div style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text)' }}>{person.name}</div>
                       <div style={{ marginTop: '3px', color: 'var(--text-secondary)', fontSize: '11px' }}>
                         {person.role || 'No role set'}
                       </div>

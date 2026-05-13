@@ -221,3 +221,5 @@ If the session resets:
 - **2026-05-12 21:04** V3-3.2 → 6fcbe4a3: V3-3.2: completed, merged from opencode worktree
 
 - **2026-05-12 21:06** V3-3.3 → ed450fe7: V3-3.3: completed, merged from opencode worktree
+
+- **2026-05-12 21:14** V3-3.4 → 76b63de6: V3-3.4: completed, merged from opencode worktree
