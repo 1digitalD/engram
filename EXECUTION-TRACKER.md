@@ -280,3 +280,5 @@ If the session resets:
 - **2026-05-13 13:33** V3.5-4d → 0fb16075: V3.5-4d: completed, merged from opencode worktree
 
 - **2026-05-13 14:04** V3.5-5 → 7ab84baf: V3.5-5: completed, merged from opencode worktree
+
+- **2026-05-13 16:07** BUG-1 → f9006b35: BUG-1: completed, merged from opencode worktree

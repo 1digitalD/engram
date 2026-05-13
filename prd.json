@@ -729,7 +729,10 @@
       "title": "Fix Inbox showing nothing",
       "description": "Investigate and fix Inbox view showing no notes.\n\nRoot cause: Inbox.jsx filters notes by bucket === 'INBOX' (line 64).\n\n1. Check what bucket values notes actually have in the database\n2. Check if bucket values are being set correctly when notes are created\n3. Check if the filter logic is correct - if notes have bucket=null they won't show\n\nSOLUTION: If notes have bucket=null, also show those in Inbox as they're \"unrouted\".\n\nAcceptance criteria:\n- Inbox shows notes that have bucket=INBOX OR bucket=null\n- At least one note should be visible in Inbox (if notes exist in DB)",
       "phase": "bugfix",
-      "validationCommands": []
+      "validationCommands": [],
+      "passes": true,
+      "commit": "f9006b35",
+      "attempts": 1
     },
     {
       "id": "BUG-2",

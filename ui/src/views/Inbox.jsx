@@ -50,9 +50,8 @@ export default function Inbox() {
   const [editingNote, setEditingNote] = useState(null);
   const [showEditor, setShowEditor] = useState(false);
 
-  // Filter to truly inbox-y notes: bucket=INBOX OR no entity links
-  // (notes with project/area/person links but still bucket=INBOX are still "unrouted")
-  const inbox = notes.filter(n => n.bucket === 'INBOX');
+  // Filter to truly inbox-y notes: bucket=INBOX OR bucket=null (unrouted)
+  const inbox = notes.filter(n => n.bucket === 'INBOX' || n.bucket === null);
 
   const sorted = [...inbox].sort(
     (a, b) => new Date(b.created_at) - new Date(a.created_at)
