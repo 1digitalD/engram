@@ -43,6 +43,10 @@ function renderNoteDetail(initialPath, notes) {
 describe('NoteDetailView MOC note type', () => {
   beforeEach(() => {
     vi.mocked(proposalsAPI.list).mockResolvedValue({ data: [] });
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ data: [] }),
+    });
   });
 
   it('shows MOC badge in meta bar when note_type is MOC', async () => {
@@ -222,5 +226,124 @@ describe('NoteDetailView MOC note type', () => {
     expect(screen.getByRole('link', { name: /apollo/i })).toHaveAttribute('href', '/projects/project-1');
     expect(screen.getByRole('link', { name: /ada lovelace/i })).toHaveAttribute('href', '/people/person-1');
     expect(screen.queryByText(/Note task-1/i)).not.toBeInTheDocument();
+  });
+
+  it('renders suggested link proposals and supports accept and dismiss', async () => {
+    vi.mocked(linksAPI.forNote).mockResolvedValue({ outgoing: [], incoming: [] });
+    const user = userEvent.setup();
+
+    global.fetch = vi.fn((input, init) => {
+      const url = String(input);
+      const method = init?.method || 'GET';
+
+      if (url.includes('/api/v2/proposals') && method === 'GET') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: [
+              {
+                id: 'proposal-1',
+                src_id: 'note-1',
+                dst_id: 'project-1',
+                link_type: 'related',
+                confidence: 0.88,
+                other_entity: {
+                  id: 'project-1',
+                  type: 'project',
+                  title: 'Apollo',
+                },
+              },
+            ],
+          }),
+        });
+      }
+
+      if (url.includes('/api/v2/links') && method === 'POST') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { id: 'link-1' } }),
+        });
+      }
+
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ data: [] }),
+      });
+    });
+
+    vi.mocked(useStore).mockReturnValue({
+      ...baseStore,
+      notes: [{
+        id: 'note-1',
+        raw_text: '# Source note',
+        note_type: 'NOTE',
+        bucket: 'INBOX',
+        created_at: '2026-05-01T12:00:00Z',
+        modified_at: '2026-05-01T12:00:00Z',
+        tag_names: [],
+      }],
+      projects: [{ id: 'project-1', name: 'Apollo' }],
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/notes/note-1']}>
+        <Routes>
+          <Route path="/notes/:id" element={<NoteDetailView />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText('Suggested Links')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /apollo/i })).toHaveAttribute('href', '/projects/project-1');
+    expect(screen.getByText('88% confidence')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /accept/i }));
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v2/links'),
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ src_id: 'note-1', dst_id: 'project-1', link_type: 'related' }),
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByRole('link', { name: /apollo/i })).not.toBeInTheDocument();
+    });
+
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        data: [
+          {
+            id: 'proposal-2',
+            src_id: 'note-1',
+            dst_id: 'project-1',
+            link_type: 'related',
+            confidence: 0.81,
+            other_entity: {
+              id: 'project-1',
+              type: 'project',
+              title: 'Apollo',
+            },
+          },
+        ],
+      }),
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/notes/note-1']}>
+        <Routes>
+          <Route path="/notes/:id" element={<NoteDetailView />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await user.click(await screen.findByRole('button', { name: /dismiss/i }));
+    await waitFor(() => {
+      expect(screen.queryByRole('link', { name: /apollo/i })).not.toBeInTheDocument();
+    });
   });
 });

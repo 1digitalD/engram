@@ -5,7 +5,7 @@ import {
   Link2, CheckCircle, Circle, X, Sparkles,
 } from 'lucide-react';
 import useStore from '../stores/useStore';
-import { linksAPI, proposalsAPI } from '../api/engram';
+import { linksAPI } from '../api/engram';
 import { BucketBadge, TagBadge } from '../components/ui/Badge';
 import TipTapEditor, { renderStoredContent } from '../components/Editor/TipTapEditor';
 import ConnectionsPanel, {
@@ -24,6 +24,20 @@ function notePreviewLine(n) {
 
 function noteIsMoc(n) {
   return String(n?.note_type || 'NOTE').toUpperCase() === 'MOC';
+}
+
+async function fetchJson(url, options = {}) {
+  const res = await fetch(url, {
+    headers: { 'Content-Type': 'application/json' },
+    ...options,
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || body.message || `HTTP ${res.status}`);
+  }
+
+  return res.json();
 }
 
 export default function NoteDetailView() {
@@ -82,7 +96,7 @@ export default function NoteDetailView() {
     if (!note?.id) return;
     setProposalsLoading(true);
     try {
-      const res = await proposalsAPI.list({ status: 'pending', note_id: note.id, limit: 100 });
+      const res = await fetchJson(`/api/v2/proposals?entity_id=${encodeURIComponent(note.id)}&limit=100`);
       setProposals(res.data || []);
     } catch (e) {
       addToast({ type: 'error', message: e.message || 'Failed to load link proposals' });
@@ -106,8 +120,8 @@ export default function NoteDetailView() {
 
   const entityStore = { notes, tasks, projects, areas, people, resources };
   const getResolvedEntity = (entityId) => resolveEntity(entityId, entityStore);
-  const renderEntityLink = (entityId, fallbackLabel) => {
-    const entity = getResolvedEntity(entityId);
+  const renderEntityLink = (entityId, fallbackLabel, fallbackEntity = null) => {
+    const entity = getResolvedEntity(entityId) || fallbackEntity;
     const route = getEntityRoute(entity);
     const label = entity ? getEntityTitle(entity) : fallbackLabel;
 
@@ -246,13 +260,21 @@ export default function NoteDetailView() {
     }
   };
 
-  const handleAcceptProposal = async (proposalId) => {
+  const handleAcceptProposal = async (proposal) => {
     if (proposalActionId) return;
-    setProposalActionId(proposalId);
+    setProposalActionId(proposal.id);
     try {
-      await proposalsAPI.accept(proposalId);
+      await fetchJson('/api/v2/links', {
+        method: 'POST',
+        body: JSON.stringify({
+          src_id: proposal.src_id,
+          dst_id: proposal.dst_id,
+          link_type: proposal.link_type || 'related',
+        }),
+      });
+      setProposals((current) => current.filter((entry) => entry.id !== proposal.id));
       addToast({ type: 'success', message: 'Link accepted' });
-      await Promise.all([loadLinks(), loadProposals()]);
+      await loadLinks();
     } catch (e) {
       addToast({ type: 'error', message: e.message || 'Could not accept proposal' });
     } finally {
@@ -264,9 +286,8 @@ export default function NoteDetailView() {
     if (proposalActionId) return;
     setProposalActionId(proposalId);
     try {
-      await proposalsAPI.dismiss(proposalId);
+      setProposals((current) => current.filter((entry) => entry.id !== proposalId));
       addToast({ type: 'success', message: 'Suggestion dismissed' });
-      await loadProposals();
     } catch (e) {
       addToast({ type: 'error', message: e.message || 'Could not dismiss proposal' });
     } finally {
@@ -504,7 +525,7 @@ export default function NoteDetailView() {
             <div className={styles.proposedSection}>
               <span className={styles.linkHeading}>
                 <Sparkles size={12} aria-hidden />
-                Suggested links
+                Suggested Links
               </span>
               {proposalsLoading ? (
                 <p className={styles.panelMuted}>
@@ -515,15 +536,19 @@ export default function NoteDetailView() {
               ) : (
                 <ul className={styles.proposalList}>
                   {proposals.map((p) => {
-                    const otherId = p.src_id === note.id ? p.dst_id : p.src_id;
-                    const other = getResolvedEntity(otherId);
+                    const otherId = p.other_entity?.id || (p.src_id === note.id ? p.dst_id : p.src_id);
+                    const other = p.other_entity || getResolvedEntity(otherId);
                     const busy = proposalActionId === p.id;
                     return (
                       <li key={p.id} className={styles.proposalRow}>
                         <div className={styles.proposalMain}>
-                          {renderEntityLink(otherId, other ? getEntityTitle(other) : `Entity ${String(otherId).slice(0, 8)}…`)}
+                          {renderEntityLink(
+                            otherId,
+                            other ? getEntityTitle(other) : `Entity ${String(otherId).slice(0, 8)}…`,
+                            other,
+                          )}
                           <span className={styles.proposalConf}>
-                            {Math.round((p.confidence ?? 0) * 100)}% match
+                            {Math.round((p.confidence ?? 0) * 100)}% confidence
                           </span>
                           {p.reason ? (
                             <p className={styles.proposalReason}>{p.reason}</p>
@@ -533,7 +558,7 @@ export default function NoteDetailView() {
                           <button
                             type="button"
                             className="btn btn-primary btn-sm"
-                            onClick={() => handleAcceptProposal(p.id)}
+                            onClick={() => handleAcceptProposal(p)}
                             disabled={busy}
                             title="Accept and create link"
                           >
