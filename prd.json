@@ -721,6 +721,31 @@
       "validationCommands": [
         "cd ui && npm test"
       ]
+    },
+    {
+      "id": "BUG-1",
+      "title": "Fix Inbox showing nothing",
+      "description": "Investigate and fix Inbox view showing no notes.\n\nRoot cause: Inbox.jsx filters notes by bucket === 'INBOX' (line 64).\n\n1. Check what bucket values notes actually have in the database\n2. Check if bucket values are being set correctly when notes are created\n3. Check if the filter logic is correct - if notes have bucket=null they won't show\n\nSOLUTION: If notes have bucket=null, also show those in Inbox as they're \"unrouted\".\n\nAcceptance criteria:\n- Inbox shows notes that have bucket=INBOX OR bucket=null\n- At least one note should be visible in Inbox (if notes exist in DB)",
+      "phase": "bugfix",
+      "validationCommands": []
+    },
+    {
+      "id": "BUG-2",
+      "title": "Fix NoteDetailView redundant metadata display",
+      "description": "Fix NoteDetailView.jsx to consolidate redundant display elements.\n\nISSUE: Dates shown in 3 places (header lines 489-493, metadata section lines 643-647, AI sidebar lines 964-970). Created date shown in 2 places.\n\nSOLUTION:\n1. Remove created/modified dates from header area (lines 489-493)\n2. Keep dates ONLY in the Metadata section (lines 643-647)\n3. Remove the duplicate dates from AI sidebar (lines 964-970)\n\nISSUE: ConnectionsPanel and Links & backlinks section may be duplicates.\nSOLUTION: Remove ConnectionsPanel from NoteDetailView since Links & backlinks section already shows the same data.\n\nAcceptance criteria:\n- Dates shown in exactly ONE place on the note detail view\n- No duplicate/overlapping panels for links/connections\n- npm run build passes",
+      "phase": "bugfix",
+      "validationCommands": [
+        "cd ui && npm run build"
+      ]
+    },
+    {
+      "id": "BUG-3",
+      "title": "Fix new task not appearing in NoteDetailView",
+      "description": "Fix NoteDetailView.jsx - adding a task via handleAddNoteTask doesn't update the UI.\n\nRoot cause: handleAddNoteTask calls createTask() then clears input. But linkedTasks list doesn't update after task creation.\n\nSOLUTION: After createTask completes, add a state refresh trigger to force re-render.\n\n```\nconst handleAddNoteTask = async (e) => {\n  e.preventDefault();\n  const title = newTaskTitle.trim();\n  if (!title) return;\n  await createTask({ title, note_id: note.id });\n  setNewTaskTitle('');\n};\n```\n\nAdd a refreshKey state that increments after successful task creation:\n```\nconst [linkedTasksRefresh, setLinkedTasksRefresh] = useState(0);\n// Then use linkedTasksRefresh in the dependency array of useCallback for loadLinks\n```\n\nAcceptance criteria:\n- Creating a new task from NoteDetailView shows it immediately in the tasks list\n- npm run build passes",
+      "phase": "bugfix",
+      "validationCommands": [
+        "cd ui && npm run build"
+      ]
     }
   ]
 }
