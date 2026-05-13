@@ -4,7 +4,7 @@
  */
 
 import { create } from 'zustand';
-import { notesAPI, projectsAPI, areasAPI, peopleAPI, tasksAPI, ingestAPI, tagsAPI, resourcesAPI } from '../api/engram';
+import { notesAPI, projectsAPI, areasAPI, peopleAPI, tasksAPI, ingestAPI, tagsAPI, resourcesAPI, deletePreviewAPI } from '../api/engram';
 
 const AI_STATUS_POLL_INTERVAL = 2000;
 const AI_STATUS_POLL_MAX = 30;
@@ -210,14 +210,26 @@ const useStore = create((set, get) => ({
     }
   },
 
-  deleteNote: async (id) => {
+  deleteNote: async (id, cascadeIds) => {
     try {
-      await notesAPI.delete(id);
+      const cascade = cascadeIds && cascadeIds.length > 0;
+      await notesAPI.delete(id, cascade);
+      const idsToDelete = new Set([id, ...(cascadeIds || [])]);
       set(s => ({
-        notes: s.notes.filter(n => n.id !== id),
+        notes: s.notes.filter(n => !idsToDelete.has(n.id)),
         activeNote: s.activeNote?.id === id ? null : s.activeNote,
       }));
       get().addToast({ type: 'success', message: 'Note deleted' });
+    } catch (e) {
+      get().addToast({ type: 'error', message: e.message });
+      throw e;
+    }
+  },
+
+  getDeletePreview: async (id) => {
+    try {
+      const res = await deletePreviewAPI.get(id);
+      return res;
     } catch (e) {
       get().addToast({ type: 'error', message: e.message });
       throw e;
@@ -382,10 +394,14 @@ const useStore = create((set, get) => ({
     }
   },
 
-  deleteProject: async (id) => {
+  deleteProject: async (id, cascadeIds) => {
     try {
-      await projectsAPI.delete(id);
-      set(s => ({ projects: s.projects.filter(p => p.id !== id) }));
+      const cascade = cascadeIds && cascadeIds.length > 0;
+      await projectsAPI.delete(id, cascade);
+      const idsToDelete = new Set([id, ...(cascadeIds || [])]);
+      set(s => ({
+        projects: s.projects.filter(p => !idsToDelete.has(p.id)),
+      }));
       get().addToast({ type: 'success', message: 'Project deleted' });
     } catch (e) {
       get().addToast({ type: 'error', message: e.message });
@@ -425,11 +441,13 @@ const useStore = create((set, get) => ({
     }
   },
 
-  deleteArea: async (id) => {
+  deleteArea: async (id, cascadeIds) => {
     try {
-      await areasAPI.delete(id);
+      const cascade = cascadeIds && cascadeIds.length > 0;
+      await areasAPI.delete(id, cascade);
+      const idsToDelete = new Set([id, ...(cascadeIds || [])]);
       set(s => ({
-        areas: s.areas.filter(a => a.id !== id),
+        areas: s.areas.filter(a => !idsToDelete.has(a.id)),
         activeArea: s.activeArea?.id === id ? null : s.activeArea,
       }));
       get().addToast({ type: 'success', message: 'Area deleted' });
@@ -458,10 +476,12 @@ const useStore = create((set, get) => ({
     }
   },
 
-  deleteResource: async (id) => {
+  deleteResource: async (id, cascadeIds) => {
     try {
-      await resourcesAPI.delete(id);
-      set(s => ({ resources: s.resources.filter(r => r.id !== id) }));
+      const cascade = cascadeIds && cascadeIds.length > 0;
+      await resourcesAPI.delete(id, cascade);
+      const idsToDelete = new Set([id, ...(cascadeIds || [])]);
+      set(s => ({ resources: s.resources.filter(r => !idsToDelete.has(r.id)) }));
       get().addToast({ type: 'success', message: 'Resource deleted' });
     } catch (e) {
       get().addToast({ type: 'error', message: e.message });
@@ -512,11 +532,13 @@ const useStore = create((set, get) => ({
     }
   },
 
-  deletePerson: async (id) => {
+  deletePerson: async (id, cascadeIds) => {
     try {
-      await peopleAPI.delete(id);
+      const cascade = cascadeIds && cascadeIds.length > 0;
+      await peopleAPI.delete(id, cascade);
+      const idsToDelete = new Set([id, ...(cascadeIds || [])]);
       set(s => ({
-        people: s.people.filter(p => p.id !== id),
+        people: s.people.filter(p => !idsToDelete.has(p.id)),
         activePerson: s.activePerson?.id === id ? null : s.activePerson,
       }));
       get().addToast({ type: 'success', message: 'Person deleted' });
@@ -567,10 +589,12 @@ const useStore = create((set, get) => ({
     }
   },
 
-  deleteTask: async (id) => {
+  deleteTask: async (id, cascadeIds) => {
     try {
-      await tasksAPI.delete(id);
-      set(s => ({ tasks: s.tasks.filter(t => t.id !== id) }));
+      const cascade = cascadeIds && cascadeIds.length > 0;
+      await tasksAPI.delete(id, cascade);
+      const idsToDelete = new Set([id, ...(cascadeIds || [])]);
+      set(s => ({ tasks: s.tasks.filter(t => !idsToDelete.has(t.id)) }));
     } catch (e) {
       get().addToast({ type: 'error', message: e.message });
       throw e;

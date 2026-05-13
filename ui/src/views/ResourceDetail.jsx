@@ -11,7 +11,7 @@ import {
   Trash2,
   User,
 } from 'lucide-react';
-import { connectionsAPI, resourcesAPI } from '../api/engram';
+import { connectionsAPI, resourcesAPI, deletePreviewAPI } from '../api/engram';
 import useStore from '../stores/useStore';
 import {
   EntityTypeIcon,
@@ -20,6 +20,7 @@ import {
   resolveEntity,
 } from '../components/ConnectionsPanel/ConnectionsPanel';
 import { RESOURCE_TYPES, ResourceTypeIcon } from './Resources';
+import DeleteConfirmModal from '../components/DeleteConfirmModal';
 import styles from './ResourceDetail.module.css';
 import projectStyles from './ProjectFocus.module.css';
 
@@ -196,6 +197,7 @@ export default function ResourceDetail() {
     areas,
     updateResource,
     deleteResource,
+    getDeletePreview,
     upsertResource,
   } = store;
 
@@ -222,6 +224,8 @@ export default function ResourceDetail() {
   const [rating, setRating] = useState(storeResource?.rating ?? null);
   const [areaId, setAreaId] = useState(storeResource?.area_id || '');
   const [tagNames, setTagNames] = useState(storeResource?.tag_names || []);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletePreview, setDeletePreview] = useState(null);
 
   const applyResource = useCallback((nextResource) => {
     const normalized = normalizeResource(nextResource);
@@ -319,14 +323,21 @@ export default function ResourceDetail() {
     }
   };
 
-  const handleDelete = async () => {
-    if (!window.confirm('Delete this resource? This cannot be undone.')) return;
+  const handleDeleteClick = async () => {
     try {
-      await deleteResource(id);
-      navigate('/resources');
-    } catch {
-      // store toast handles the error
+      const preview = await getDeletePreview(id);
+      setDeletePreview(preview);
+      setShowDeleteModal(true);
+    } catch (e) {
+      store.addToast({ type: 'error', message: e.message || 'Failed to load delete preview' });
     }
+  };
+
+  const handleDeleteConfirm = async (cascadeIds) => {
+    await deleteResource(id, cascadeIds);
+    setShowDeleteModal(false);
+    setDeletePreview(null);
+    navigate('/resources');
   };
 
   const activeEntities = linked[TABS.find((entry) => entry.key === tab)?.type || 'note'];
@@ -561,7 +572,7 @@ export default function ResourceDetail() {
               <button type="submit" className="btn btn-primary" disabled={saving || !title.trim()}>
                 {saving ? 'Saving…' : 'Save changes'}
               </button>
-              <button type="button" className="btn btn-ghost" onClick={handleDelete}>
+              <button type="button" className="btn btn-ghost" onClick={handleDeleteClick}>
                 <Trash2 size={14} /> Delete
               </button>
             </div>
@@ -635,6 +646,15 @@ export default function ResourceDetail() {
           </section>
         </aside>
       </div>
+
+      <DeleteConfirmModal
+        isOpen={showDeleteModal}
+        onClose={() => { setShowDeleteModal(false); setDeletePreview(null); }}
+        onConfirm={handleDeleteConfirm}
+        entityTitle={resource?.title || 'Resource'}
+        entityType="resource"
+        preview={deletePreview}
+      />
     </div>
   );
 }

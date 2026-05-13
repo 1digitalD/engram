@@ -37,7 +37,7 @@ export const notesAPI = {
   get:     (id)           => apiRequest('GET',    `/notes/${id}`),
   create:  (data)         => apiRequest('POST',   '/notes', data),
   update:  (id, data)     => apiRequest('PATCH',  `/notes/${id}`, data),
-  delete:  (id)           => apiRequest('DELETE', `/notes/${id}`),
+  delete:  (id, cascade)  => apiRequest('DELETE', `/notes/${id}`, null, { cascade: cascade ? 'true' : 'false' }),
   search:  (q, mode)      => apiRequest('GET',    '/notes/search', null, { q, mode }),
 };
 
@@ -52,7 +52,7 @@ export const projectsAPI = {
   get:    (id)          => apiRequest('GET',    `/projects/${id}`),
   create: (d)           => apiRequest('POST',   '/projects', d),
   update: (id, d)       => apiRequest('PATCH',  `/projects/${id}`, d),
-  delete: (id)          => apiRequest('DELETE', `/projects/${id}`),
+  delete: (id, cascade) => apiRequest('DELETE', `/projects/${id}`, null, { cascade: cascade ? 'true' : 'false' }),
 };
 
 // ── Resources ────────────────────────────────
@@ -61,7 +61,7 @@ export const resourcesAPI = {
   get:    (id)          => apiRequest('GET',    `/resources/${id}`),
   create: (d)           => apiRequest('POST',   '/resources', d),
   update: (id, d)       => apiRequest('PATCH',  `/resources/${id}`, d),
-  delete: (id)          => apiRequest('DELETE', `/resources/${id}`),
+  delete: (id, cascade) => apiRequest('DELETE', `/resources/${id}`, null, { cascade: cascade ? 'true' : 'false' }),
 };
 
 // ── Areas ────────────────────────────────────
@@ -70,16 +70,16 @@ export const areasAPI = {
   get:    (id)          => apiRequest('GET',    `/areas/${id}`),
   create: (d)           => apiRequest('POST',   '/areas', d),
   update: (id, d)       => apiRequest('PATCH',  `/areas/${id}`, d),
-  delete: (id)          => apiRequest('DELETE', `/areas/${id}`),
+  delete: (id, cascade) => apiRequest('DELETE', `/areas/${id}`, null, { cascade: cascade ? 'true' : 'false' }),
 };
 
 // ── People ───────────────────────────────────
 export const peopleAPI = {
-  list:   ()     => apiRequest('GET',    '/people'),
-  get:    (id)   => apiRequest('GET',    `/people/${id}`),
-  create: (d)    => apiRequest('POST',   '/people', d),
-  update: (id, d)=> apiRequest('PATCH',  `/people/${id}`, d),
-  delete: (id)   => apiRequest('DELETE', `/people/${id}`),
+  list:   ()          => apiRequest('GET',    '/people'),
+  get:    (id)        => apiRequest('GET',    `/people/${id}`),
+  create: (d)         => apiRequest('POST',   '/people', d),
+  update: (id, d)     => apiRequest('PATCH',  `/people/${id}`, d),
+  delete: (id, cascade) => apiRequest('DELETE', `/people/${id}`, null, { cascade: cascade ? 'true' : 'false' }),
 };
 
 // ── Tasks ────────────────────────────────────
@@ -88,7 +88,7 @@ export const tasksAPI = {
   get:    (id)          => apiRequest('GET',    `/tasks/${id}`),
   create: (d)           => apiRequest('POST',   '/tasks', d),
   update: (id, d)       => apiRequest('PATCH',  `/tasks/${id}`, d),
-  delete: (id)          => apiRequest('DELETE', `/tasks/${id}`),
+  delete: (id, cascade) => apiRequest('DELETE', `/tasks/${id}`, null, { cascade: cascade ? 'true' : 'false' }),
 };
 
 // ── Tags ─────────────────────────────────────
@@ -154,4 +154,9 @@ export const connectionsAPI = {
 // ── Health ───────────────────────────────────
 export const healthAPI = {
   check: () => apiRequest('GET', '/health'.replace('/api/v1', '')),
+};
+
+// ── Delete Preview ───────────────────────────
+export const deletePreviewAPI = {
+  get: (id) => apiRequest('GET', `/entities/${id}/delete-preview`.replace('/api/v1', '/api/v2')),
 };

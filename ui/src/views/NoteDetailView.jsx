@@ -15,6 +15,7 @@ import ConnectionsPanel, {
   getEntityTitle,
   resolveEntity,
 } from '../components/ConnectionsPanel/ConnectionsPanel';
+import DeleteConfirmModal from '../components/DeleteConfirmModal';
 import styles from './NoteDetailView.module.css';
 
 function notePreviewLine(n) {
@@ -159,6 +160,7 @@ export default function NoteDetailView() {
     resources,
     updateNote,
     deleteNote,
+    getDeletePreview,
     createTask,
     updateTask,
     addToast,
@@ -167,6 +169,8 @@ export default function NoteDetailView() {
   const [isEditing, setIsEditing] = useState(false);
   const [draftText, setDraftText] = useState('');
   const [saving, setSaving] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletePreview, setDeletePreview] = useState(null);
 
   const [linksOut, setLinksOut] = useState([]);
   const [linksIn, setLinksIn] = useState([]);
@@ -311,9 +315,20 @@ export default function NoteDetailView() {
     setIsEditing(false);
   };
 
-  const handleDelete = async () => {
-    if (!confirm('Delete this note?')) return;
-    await deleteNote(note.id);
+  const handleDeleteClick = async () => {
+    try {
+      const preview = await getDeletePreview(note.id);
+      setDeletePreview(preview);
+      setShowDeleteModal(true);
+    } catch (e) {
+      addToast({ type: 'error', message: e.message || 'Failed to load delete preview' });
+    }
+  };
+
+  const handleDeleteConfirm = async (cascadeIds) => {
+    await deleteNote(note.id, cascadeIds);
+    setShowDeleteModal(false);
+    setDeletePreview(null);
     navigate('/notes');
   };
 
@@ -462,7 +477,7 @@ export default function NoteDetailView() {
                   {classifying ? <Loader2 size={13} className="spin" /> : <Sparkles size={13} />}
                   Classify
                 </button>
-                <button className="btn btn-ghost btn-sm" onClick={handleDelete}>
+                <button className="btn btn-ghost btn-sm" onClick={handleDeleteClick}>
                   <Trash2 size={13} />
                 </button>
               </div>
@@ -960,6 +975,15 @@ export default function NoteDetailView() {
           </section>
         </aside>
       </div>
+
+      <DeleteConfirmModal
+        isOpen={showDeleteModal}
+        onClose={() => { setShowDeleteModal(false); setDeletePreview(null); }}
+        onConfirm={handleDeleteConfirm}
+        entityTitle={notePreviewLine(note)}
+        entityType="note"
+        preview={deletePreview}
+      />
     </div>
   );
 }

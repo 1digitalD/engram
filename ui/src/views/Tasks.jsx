@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Plus, X, Loader2, Sparkles } from 'lucide-react';
 import useStore from '../stores/useStore';
 import EmptyState from '../components/ui/EmptyState';
+import DeleteConfirmModal from '../components/DeleteConfirmModal';
 import styles from './Tasks.module.css';
 
 const COLUMNS = [
@@ -82,7 +83,7 @@ function TaskCard({
           aria-hidden="true"
           style={{ background: priorityColor }}
         />
-        <button type="button" className={styles.deleteBtn} onClick={() => onDelete(task.id)} aria-label={`Delete ${task.title}`}>
+        <button type="button" className={styles.deleteBtn} onClick={() => onDelete(task)} aria-label={`Delete ${task.title}`}>
           <X size={12} />
         </button>
       </div>
@@ -198,13 +199,16 @@ function TaskColumn({
 }
 
 export default function Tasks() {
-  const { tasks, projects, createTask, updateTask, deleteTask } = useStore();
+  const { tasks, projects, createTask, updateTask, deleteTask, getDeletePreview } = useStore();
   const [activeFilter, setActiveFilter] = useState(FILTERS.ALL);
   const [selectedProjectId, setSelectedProjectId] = useState(projects[0]?.id || '');
   const [quickAddStatus, setQuickAddStatus] = useState(null);
   const [quickAddValue, setQuickAddValue] = useState('');
   const [draggedTaskId, setDraggedTaskId] = useState(null);
   const [dragTarget, setDragTarget] = useState(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletePreview, setDeletePreview] = useState(null);
+  const [pendingDeleteTask, setPendingDeleteTask] = useState(null);
 
   const projectsById = useMemo(
     () => Object.fromEntries(projects.map((project) => [project.id, project])),
@@ -267,6 +271,25 @@ export default function Tasks() {
   function handleDragEnd() {
     setDraggedTaskId(null);
     setDragTarget(null);
+  }
+
+  async function handleDeleteClick(task) {
+    try {
+      const preview = await getDeletePreview(task.id);
+      setDeletePreview(preview);
+      setPendingDeleteTask(task);
+      setShowDeleteModal(true);
+    } catch (e) {
+      useStore.getState().addToast({ type: 'error', message: e.message || 'Failed to load delete preview' });
+    }
+  }
+
+  async function handleDeleteConfirm(cascadeIds) {
+    if (!pendingDeleteTask) return;
+    await deleteTask(pendingDeleteTask.id, cascadeIds);
+    setShowDeleteModal(false);
+    setDeletePreview(null);
+    setPendingDeleteTask(null);
   }
 
   function handleDragOver(event, status) {
@@ -378,11 +401,20 @@ export default function Tasks() {
               onDragLeave={handleDragLeave}
               onDragStart={handleDragStart}
               onDragEnd={handleDragEnd}
-              onDelete={deleteTask}
+              onDelete={handleDeleteClick}
             />
           ))}
         </div>
       )}
+
+      <DeleteConfirmModal
+        isOpen={showDeleteModal}
+        onClose={() => { setShowDeleteModal(false); setDeletePreview(null); setPendingDeleteTask(null); }}
+        onConfirm={handleDeleteConfirm}
+        entityTitle={pendingDeleteTask?.title || 'Task'}
+        entityType="task"
+        preview={deletePreview}
+      />
     </div>
   );
 }

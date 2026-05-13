@@ -4,6 +4,7 @@ import { Plus, Search, Pencil, Trash2, Loader2, Sparkles } from 'lucide-react';
 import Modal from '../components/ui/Modal';
 import useStore from '../stores/useStore';
 import EmptyState from '../components/ui/EmptyState';
+import DeleteConfirmModal from '../components/DeleteConfirmModal';
 import styles from './People.module.css';
 
 function getInitials(name) {
@@ -18,7 +19,7 @@ function getProp(person, key) {
 
 export default function People() {
   const navigate = useNavigate();
-  const { people, notes, createPerson, updatePerson, deletePerson, setActivePerson } = useStore();
+  const { people, notes, createPerson, updatePerson, deletePerson, getDeletePreview, setActivePerson } = useStore();
   const [showModal, setShowModal] = useState(false);
   const [editingPerson, setEditingPerson] = useState(null);
   const [name, setName] = useState('');
@@ -27,6 +28,9 @@ export default function People() {
   const [noteText, setNoteText] = useState('');
   const [lastContactedAt, setLastContactedAt] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletePreview, setDeletePreview] = useState(null);
+  const [pendingDeletePerson, setPendingDeletePerson] = useState(null);
 
   const filteredPeople = useMemo(() => {
     if (!searchQuery.trim()) return people;
@@ -88,9 +92,23 @@ export default function People() {
     closeEdit();
   };
 
-  const handleDelete = async (person) => {
-    if (!window.confirm(`Delete person "${person.title}"? This cannot be undone.`)) return;
-    await deletePerson(person.id);
+  const handleDeleteClick = async (person) => {
+    try {
+      const preview = await getDeletePreview(person.id);
+      setDeletePreview(preview);
+      setPendingDeletePerson(person);
+      setShowDeleteModal(true);
+    } catch (e) {
+      useStore.getState().addToast({ type: 'error', message: e.message || 'Failed to load delete preview' });
+    }
+  };
+
+  const handleDeleteConfirm = async (cascadeIds) => {
+    if (!pendingDeletePerson) return;
+    await deletePerson(pendingDeletePerson.id, cascadeIds);
+    setShowDeleteModal(false);
+    setDeletePreview(null);
+    setPendingDeletePerson(null);
   };
 
   const handleOpenPerson = (person) => {
@@ -180,7 +198,7 @@ export default function People() {
                     </button>
                     <button
                       className={`${styles.iconBtn} ${styles.dangerBtn}`}
-                      onClick={(e) => { e.stopPropagation(); handleDelete(p); }}
+                      onClick={(e) => { e.stopPropagation(); handleDeleteClick(p); }}
                       title="Delete person"
                     >
                       <Trash2 size={12} />
@@ -225,6 +243,15 @@ export default function People() {
           </div>
         </Modal>
       )}
+
+      <DeleteConfirmModal
+        isOpen={showDeleteModal}
+        onClose={() => { setShowDeleteModal(false); setDeletePreview(null); setPendingDeletePerson(null); }}
+        onConfirm={handleDeleteConfirm}
+        entityTitle={pendingDeletePerson?.title || 'Person'}
+        entityType="person"
+        preview={deletePreview}
+      />
     </div>
   );
 }

@@ -4,15 +4,19 @@ import { Plus, ChevronRight, Pencil, Trash2, Loader2, Sparkles } from 'lucide-re
 import Modal from '../components/ui/Modal';
 import useStore from '../stores/useStore';
 import EmptyState from '../components/ui/EmptyState';
+import DeleteConfirmModal from '../components/DeleteConfirmModal';
 import styles from './Areas.module.css';
 
 export default function Areas() {
-  const { areas, notes, createArea, updateArea, deleteArea } = useStore();
+  const { areas, notes, createArea, updateArea, deleteArea, getDeletePreview } = useStore();
   const [showModal, setShowModal] = useState(false);
   const [editingArea, setEditingArea] = useState(null);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [color, setColor] = useState('');
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletePreview, setDeletePreview] = useState(null);
+  const [pendingDeleteArea, setPendingDeleteArea] = useState(null);
 
   const handleCreate = async (e) => {
     e.preventDefault();
@@ -46,9 +50,23 @@ export default function Areas() {
     closeEdit();
   };
 
-  const handleDelete = async (area) => {
-    if (!window.confirm(`Delete area "${area.title}"? This cannot be undone.`)) return;
-    await deleteArea(area.id);
+  const handleDeleteClick = async (area) => {
+    try {
+      const preview = await getDeletePreview(area.id);
+      setDeletePreview(preview);
+      setPendingDeleteArea(area);
+      setShowDeleteModal(true);
+    } catch (e) {
+      useStore.getState().addToast({ type: 'error', message: e.message || 'Failed to load delete preview' });
+    }
+  };
+
+  const handleDeleteConfirm = async (cascadeIds) => {
+    if (!pendingDeleteArea) return;
+    await deleteArea(pendingDeleteArea.id, cascadeIds);
+    setShowDeleteModal(false);
+    setDeletePreview(null);
+    setPendingDeleteArea(null);
   };
 
   return (
@@ -99,7 +117,7 @@ export default function Areas() {
                   <button className={styles.iconBtn} onClick={() => openEdit(a)} title="Edit area">
                     <Pencil size={13} /> Edit
                   </button>
-                  <button className={`${styles.iconBtn} ${styles.dangerBtn}`} onClick={() => handleDelete(a)} title="Delete area">
+                  <button className={`${styles.iconBtn} ${styles.dangerBtn}`} onClick={() => handleDeleteClick(a)} title="Delete area">
                     <Trash2 size={13} /> Delete
                   </button>
                 </div>
@@ -152,6 +170,15 @@ export default function Areas() {
           </div>
         </Modal>
       )}
+
+      <DeleteConfirmModal
+        isOpen={showDeleteModal}
+        onClose={() => { setShowDeleteModal(false); setDeletePreview(null); setPendingDeleteArea(null); }}
+        onConfirm={handleDeleteConfirm}
+        entityTitle={pendingDeleteArea?.title || 'Area'}
+        entityType="area"
+        preview={deletePreview}
+      />
     </div>
   );
 }

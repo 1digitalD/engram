@@ -474,9 +474,11 @@
         "pytest -q -k 'delete' 2>&1 || true",
         "cd ui && npm run build"
       ],
-      "passes": false,
+      "passes": true,
       "blocked": false,
-      "phase": "5"
+      "phase": "5",
+      "commit": "f927254d",
+      "attempts": 1
     },
     {
       "id": "V3-5.2",

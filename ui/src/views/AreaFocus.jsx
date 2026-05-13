@@ -7,15 +7,18 @@ import NoteCard from '../components/notes/NoteCard';
 import NoteEditor from '../components/notes/NoteEditor';
 import TaskCheckboxRow from '../components/tasks/TaskCheckboxRow';
 import ConnectionsPanel from '../components/ConnectionsPanel/ConnectionsPanel';
+import DeleteConfirmModal from '../components/DeleteConfirmModal';
 import styles from './ProjectFocus.module.css';
 
 export default function AreaFocus() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { areas, notes, projects, tasks, updateArea, deleteArea } = useStore();
+  const { areas, notes, projects, tasks, updateArea, deleteArea, getDeletePreview } = useStore();
   const [tab, setTab] = useState('notes');
   const [showNoteEditor, setShowNoteEditor] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletePreview, setDeletePreview] = useState(null);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [color, setColor] = useState('');
@@ -54,9 +57,20 @@ export default function AreaFocus() {
     closeEdit();
   };
 
-  const handleDelete = async () => {
-    if (!window.confirm(`Delete area "${area.title}"? This cannot be undone.`)) return;
-    await deleteArea(area.id);
+  const handleDeleteClick = async () => {
+    try {
+      const preview = await getDeletePreview(area.id);
+      setDeletePreview(preview);
+      setShowDeleteModal(true);
+    } catch (e) {
+      useStore.getState().addToast({ type: 'error', message: e.message || 'Failed to load delete preview' });
+    }
+  };
+
+  const handleDeleteConfirm = async (cascadeIds) => {
+    await deleteArea(area.id, cascadeIds);
+    setShowDeleteModal(false);
+    setDeletePreview(null);
     navigate('/areas');
   };
 
@@ -80,7 +94,7 @@ export default function AreaFocus() {
           <button type="button" className="btn btn-ghost btn-sm" onClick={openEdit}>
             <Pencil size={13} /> Edit
           </button>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={handleDelete}>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={handleDeleteClick}>
             <Trash2 size={13} /> Delete
           </button>
         </div>
@@ -194,6 +208,15 @@ export default function AreaFocus() {
           </div>
         </Modal>
       )}
+
+      <DeleteConfirmModal
+        isOpen={showDeleteModal}
+        onClose={() => { setShowDeleteModal(false); setDeletePreview(null); }}
+        onConfirm={handleDeleteConfirm}
+        entityTitle={area.title}
+        entityType="area"
+        preview={deletePreview}
+      />
     </div>
   );
 }
