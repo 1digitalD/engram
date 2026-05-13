@@ -1,4 +1,4 @@
-# AGENTS.md — Engram v2
+# AGENTS.md — Engram v3
 
 > This file is the entry point for all agents. Read it fully before touching any code.
 
@@ -8,7 +8,7 @@
 
 Engram is a self-hosted personal workspace: capture anything, recall it later, run projects and tasks with AI assistance. Single user. Self-hosted on Mac Mini.
 
-**The system is being rebuilt on a new architecture.** The old PLAN.md, SPEC.md, and prd.json reflect the previous direction and are archived for reference only. All active work uses the docs below.
+**V3 builds on the v2 Postgres architecture.** The current build plan is in V3_PLAN.md and prd.json. All active work uses these sources.
 
 ---
 
@@ -16,12 +16,14 @@ Engram is a self-hosted personal workspace: capture anything, recall it later, r
 
 | Document | Purpose |
 |---|---|
-| `docs/PRD.md` | Product vision, entity model, lifecycle model, cycle goals |
-| `docs/TECH_SPEC.md` | Stack, architecture, service contracts, migration mapping |
-| `docs/SCHEMA.sql` | Canonical Postgres schema — source of truth for all DB structure |
-| `docs/API_SPEC.md` | All API routes, request/response shapes, backward-compat rules |
-| `docs/TEST_STRATEGY.md` | TDD approach, conftest fixtures, test patterns, CI config |
-| `docs/AGENT_PLAN.md` | Task breakdown by cycle, file ownership map, done criteria |
+| `V3_PLAN.md` | V3 build plan: 5-phase roadmap with design system, task breakdown |
+| `prd.json` | Executable task queue (28 tasks across Phase 0-5) |
+| `docs/PRD.md` | Product vision, entity model, lifecycle model |
+| `docs/TECH_SPEC.md` | Stack, architecture, service contracts |
+| `docs/SCHEMA.sql` | Canonical Postgres schema -- source of truth for all DB structure |
+| `docs/API_SPEC.md` | All API routes, request/response shapes |
+| `docs/TEST_STRATEGY.md` | TDD approach, conftest fixtures, test patterns |
+| `EXECUTION-TRACKER.md` | Append-only evidence log of all task executions |
 
 ---
 

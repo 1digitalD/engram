@@ -25,3 +25,4 @@ logs/
 # Build artifacts that don't belong in source
 .gstack/
 static/assets/
+.claude/

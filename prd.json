@@ -1,12 +1,12 @@
 {
   "project": "engram",
-  "version": 2,
-  "phase": "cycle-1",
-  "updatedAt": "2026-05-11T18:13:51.825663+00:00",
+  "version": 3,
+  "phase": "v3",
+  "updatedAt": "2026-05-13T00:22:18.850076+00:00",
   "integrationBranch": "main",
-  "planSource": "docs/AGENT_PLAN.md",
-  "mergePolicy": "Merge validated task commits into main; use isolated executor worktrees/branches per task.",
-  "queuePolicy": "Execute C1-INFRA first. After it passes, queue the C1 parallel block from docs/AGENT_PLAN.md with file ownership and acceptance criteria.",
+  "planSource": "V3_PLAN.md",
+  "mergePolicy": "Merge validated task commits into main; use isolated executor worktrees per task. Sequential phases: Phase 0 must complete before Phase 1, etc.",
+  "queuePolicy": "Execute tasks in order. Each task blocks the next. All Phase 0 tasks must pass before Phase 1 starts.",
   "validationCommands": [],
   "blockerPolicy": {
     "maxValidationRetries": 2,
@@ -17,1619 +17,486 @@
   },
   "tasks": [
     {
-      "id": "C1-INFRA",
-      "title": "Postgres + Docker + Schema",
-      "description": "Implement docs/AGENT_PLAN.md C1-INFRA. Bootstrap Engram v2 infrastructure around Postgres 16 + pgvector, schema application, test DB config, environment examples, and SQLite-to-Postgres migration script. Reconcile with current repo reality: docker-compose.yml, .env.example, docs/SCHEMA.sql, and scripts/apply_schema.sh already exist, but docker-compose.test.yml and scripts/migrate_sqlite_to_postgres.py are missing.",
-      "cycle": "1",
-      "phase": "foundation",
-      "status": "done",
-      "passes": true,
+      "id": "V3-0.1",
+      "title": "Fix TipTap content format (core note save/load)",
+      "description": "The editor saves `text` (plain), the DB stores `raw_text` (markdown string), TipTap expects HTML/JSON. Every round-trip destroys formatting.\n\nFiles: ui/src/components/Editor/TipTapEditor.tsx, ui/src/views/NoteDetailView.jsx\n\nChanges:\n1. Install @tiptap/extension-markdown (or use marked + turndown) for markdown<->HTML conversion\n2. On editor init: convert initialContent markdown string -> HTML before passing to TipTap content prop\n3. On save: call editor.getHTML() - not editor.getText()\n4. Update NoteDetailView.jsx:415: change onSave from { text } to { html } and persist { content: html }\n5. Render note body with dangerouslySetInnerHTML (+ DOMPurify sanitize) instead of <ReactMarkdown>\n6. Remove the edit/preview toggle button - WYSIWYG means no mode switch",
+      "acceptanceCriteria": [
+        "TipTap editor round-trips markdown<->HTML without losing formatting",
+        "NoteDetailView saves HTML content not plain text",
+        "Note body renders HTML with sanitization",
+        "Edit/preview toggle is removed"
+      ],
+      "validationCommands": [
+        "cd ui && npm install && npm run build"
+      ],
+      "passes": false,
       "blocked": false,
-      "attempts": 1,
-      "reads": [
-        "docs/SCHEMA.sql",
-        "docs/TECH_SPEC.md",
-        "docs/AGENT_PLAN.md",
-        "EXECUTION-TRACKER.md"
-      ],
-      "writes": [
-        "docker-compose.yml",
-        "docker-compose.test.yml",
-        ".env.example",
-        "scripts/apply_schema.sh",
-        "scripts/migrate_sqlite_to_postgres.py",
-        "EXECUTION-TRACKER.md"
-      ],
-      "acceptanceCriteria": [
-        "Docker Compose defines Postgres 16 + pgvector services for dev and test usage without committing secrets",
-        "docker-compose.test.yml or equivalent test service path exposes test Postgres on port 5433",
-        ".env.example documents DATABASE_URL and TEST_DATABASE_URL for v2",
-        "scripts/apply_schema.sh applies docs/SCHEMA.sql to DATABASE_URL safely",
-        "scripts/migrate_sqlite_to_postgres.py can run against a SQLite copy and target Postgres, validates table row counts, and exits nonzero on mismatch",
-        "Schema validation confirms the seven canonical tables from docs/SCHEMA.sql exist in the test database"
-      ],
-      "validationCommands": [
-        "docker compose up -d postgres_test",
-        "TEST_DATABASE_URL=${TEST_DATABASE_URL:-postgresql://engram:engram@localhost:5433/engram_test} DATABASE_URL=${TEST_DATABASE_URL:-postgresql://engram:engram@localhost:5433/engram_test} scripts/apply_schema.sh",
-        "psql ${TEST_DATABASE_URL:-postgresql://engram:engram@localhost:5433/engram_test} -c '\\dt'"
-      ],
-      "completedAt": "2026-05-11T18:21:46.437966+00:00",
-      "commit": "1f4fc83",
-      "validation": {
-        "schemaTables": 7,
-        "migrationEntities": 392,
-        "migrationTags": 12,
-        "migrationLinks": 54
-      }
+      "phase": "0"
     },
     {
-      "id": "C1-MODELS",
-      "title": "SQLAlchemy Models",
-      "description": "Full rewrite of models.py: Entity, EntityLink, EntityTag, EntityChunk, EntityEvent, Job, Tag. All columns from SCHEMA.sql. to_dict() returns full API response shape including backward-compat aliases (raw_text, is_archived, name aliases for Cycle 1 compatibility). Write unit tests for model construction, to_dict(), repr.",
-      "cycle": "1",
-      "phase": "foundation",
-      "status": "pending",
-      "passes": true,
-      "blocked": false,
-      "attempts": 1,
-      "reads": [
-        "docs/SCHEMA.sql",
-        "docs/TECH_SPEC.md",
-        "models.py"
-      ],
-      "writes": [
-        "models.py",
-        "tests/unit/test_models.py"
-      ],
+      "id": "V3-0.2",
+      "title": "Fix AiSelectionPopover API call",
+      "description": "Wrong URL (v1 not v2), wrong field name (text not selected_text).\n\nFile: ui/src/components/AiSelectionPopover/AiSelectionPopover.tsx:17\n\nChanges:\n1. Change URL: /api/v1/ai/propose-from-selection -> /api/v2/ai/propose-from-selection\n2. Change body field: text: selectedText -> selected_text: selectedText\n3. Verify backend api/ai_selection.py returns { result, entity, action } shape",
       "acceptanceCriteria": [
-        "All model classes (Entity, EntityLink, EntityTag, EntityChunk, EntityEvent, Job, Tag) instantiate correctly from SCHEMA.sql columns",
-        "to_dict() returns the entity response shape matching docs/API_SPEC.md including backward-compat aliases",
-        "Do not touch any API file or any service file",
-        "All tests in tests/unit/test_models.py pass"
-      ],
-      "validationCommands": [
-        "pytest tests/unit/test_models.py -v"
-      ],
-      "commit": "5b3a367"
-    },
-    {
-      "id": "C1-SERVICES-CORE",
-      "title": "entity_service + link_service",
-      "description": "Write services/entity_service.py and services/link_service.py. create/update/archive/delete for entities. create_link/delete_link for entity links with cascade preview and orphan detection. Write tests/unit/test_lifecycle.py and tests/integration/test_entities.py and tests/integration/test_links.py.",
-      "cycle": "1",
-      "phase": "foundation",
-      "status": "pending",
-      "passes": true,
-      "blocked": false,
-      "attempts": 1,
-      "reads": [
-        "docs/TECH_SPEC.md",
-        "docs/PRD.md",
-        "models.py"
-      ],
-      "writes": [
-        "services/entity_service.py",
-        "services/link_service.py",
-        "tests/unit/test_lifecycle.py",
-        "tests/integration/test_entities.py",
-        "tests/integration/test_links.py"
-      ],
-      "acceptanceCriteria": [
-        "entity_service.create/update/archive/delete_preview work correctly",
-        "link_service.create_link/delete_link with cascade preview and orphan detection",
-        "All status transitions enforce correctly",
-        "pytest tests/unit/test_lifecycle.py tests/integration/test_entities.py tests/integration/test_links.py passes"
-      ],
-      "blockedBy": [
-        "C1-MODELS"
-      ],
-      "validationCommands": [
-        "pytest tests/unit/test_lifecycle.py tests/integration/test_entities.py tests/integration/test_links.py -v"
-      ],
-      "commit": "d8e5e37"
-    },
-    {
-      "id": "C1-JOBS",
-      "title": "Job Worker",
-      "description": "Write services/job_worker.py: polling loop, get_next_job (FOR UPDATE SKIP LOCKED), process_job, exponential backoff. Write tests/integration/test_jobs.py.",
-      "cycle": "1",
-      "phase": "foundation",
-      "status": "pending",
-      "passes": true,
-      "blocked": false,
-      "attempts": 1,
-      "reads": [
-        "docs/TECH_SPEC.md",
-        "docs/SCHEMA.sql"
-      ],
-      "writes": [
-        "services/job_worker.py",
-        "tests/integration/test_jobs.py"
-      ],
-      "acceptanceCriteria": [
-        "Job enqueue and process works",
-        "Failed jobs retry with exponential backoff",
-        "Jobs past max_attempts are skipped",
-        "FOR UPDATE SKIP LOCKED prevents double-pickup",
-        "pytest tests/integration/test_jobs.py passes"
-      ],
-      "blockedBy": [
-        "C1-MODELS"
-      ],
-      "validationCommands": [
-        "pytest tests/integration/test_jobs.py -v"
-      ],
-      "commit": "d99485a"
-    },
-    {
-      "id": "C1-AI-PIPELINE",
-      "title": "Unified Async AI Pipeline",
-      "description": "Write services/ai_pipeline.py and services/extractor.py. Unified async pipeline using Job system. extractor.py reads entity raw_text, chunks it, queues embedding job.",
-      "cycle": "1",
-      "phase": "foundation",
-      "status": "pending",
-      "passes": true,
-      "blocked": false,
-      "attempts": 1,
-      "reads": [
-        "docs/TECH_SPEC.md",
-        "docs/SCHEMA.sql"
-      ],
-      "writes": [
-        "services/ai_pipeline.py",
-        "services/extractor.py"
-      ],
-      "acceptanceCriteria": [
-        "AI pipeline dispatches jobs to job worker",
-        "Extractor chunks entity raw_text and queues embedding jobs",
-        "Pipeline handles errors gracefully"
-      ],
-      "blockedBy": [
-        "C1-MODELS",
-        "C1-JOBS"
-      ],
-      "validationCommands": [
-        "pytest tests/unit/test_ai_pipeline.py tests/integration/test_ingestion.py -v"
-      ],
-      "commit": "723e184"
-    },
-    {
-      "id": "C1-API",
-      "title": "Update All API Routes",
-      "description": "Update all API routes in api/ to use new models and services. Ensures routes match docs/API_SPEC.md.",
-      "cycle": "1",
-      "phase": "foundation",
-      "status": "pending",
-      "passes": true,
-      "blocked": false,
-      "attempts": 1,
-      "reads": [
-        "docs/API_SPEC.md",
-        "models.py",
-        "services/entity_service.py"
-      ],
-      "writes": [
-        "api/notes.py",
-        "api/tasks.py",
-        "api/projects.py",
-        "api/areas.py",
-        "api/resources.py",
-        "api/people.py",
-        "api/search.py"
-      ],
-      "acceptanceCriteria": [
-        "All API routes respond correctly with new model shapes",
-        "Backward-compat aliases work in API responses",
-        "pytest tests/ -q passes"
-      ],
-      "blockedBy": [
-        "C1-MODELS",
-        "C1-SERVICES-CORE",
-        "C1-AI-PIPELINE"
-      ],
-      "validationCommands": [
-        "pytest tests/test_api.py -v"
-      ],
-      "commit": "bfc09a8"
-    },
-    {
-      "id": "C1-SEARCH",
-      "title": "Postgres FTS + pgvector Search",
-      "description": "Write services/embeddings.py and services/search.py. Use Postgres pgvector for semantic search. Implement full-text search using Postgres FTS.",
-      "cycle": "1",
-      "phase": "foundation",
-      "status": "pending",
-      "passes": true,
-      "blocked": false,
-      "attempts": 1,
-      "reads": [
-        "docs/SCHEMA.sql",
-        "docs/TECH_SPEC.md"
-      ],
-      "writes": [
-        "services/embeddings.py",
-        "services/search.py"
-      ],
-      "acceptanceCriteria": [
-        "Entity embeddings stored in entity_chunks with pgvector",
-        "Semantic search returns relevant entities",
-        "Postgres FTS works for keyword search"
-      ],
-      "blockedBy": [
-        "C1-MODELS"
-      ],
-      "validationCommands": [
-        "pytest tests/unit/test_embeddings.py tests/unit/test_search.py -v"
-      ],
-      "commit": "4a1714d"
-    },
-    {
-      "id": "C1-VALIDATE",
-      "title": "Full Suite + Migration Validation",
-      "description": "Run full test suite against the migrated Postgres database. Validate all C1 tasks together. Ensure no regressions.",
-      "cycle": "1",
-      "phase": "foundation",
-      "status": "done",
-      "passes": true,
-      "blocked": false,
-      "attempts": 1,
-      "reads": [
-        "docs/SCHEMA.sql",
-        "prd.json"
-      ],
-      "writes": [],
-      "acceptanceCriteria": [
-        "Full test suite passes on migrated Postgres DB",
-        "All C1 tasks validated together",
-        "No regressions introduced"
-      ],
-      "blockedBy": [
-        "C1-API",
-        "C1-SEARCH"
-      ],
-      "validationCommands": [
-        "pytest tests/ -q"
-      ],
-      "completedAt": "2026-05-11T19:10:00.000000+00:00",
-      "validation": {
-        "totalTests": 281,
-        "passed": 281,
-        "skipped": 2,
-        "failed": 0
-      },
-      "commit": "9a1b9f6"
-    },
-    {
-      "id": "C2-LINKS-API",
-      "title": "Universal Entity Links API",
-      "description": "Build a universal entity links API that surfaces all connections for any entity type. Include link_type filtering, direction-agnostic queries, pagination, and link strength indicators. Write tests.",
-      "cycle": "2",
-      "phase": "relationships+ux",
-      "status": "pending",
-      "passes": true,
-      "blocked": false,
-      "attempts": 1,
-      "reads": [
-        "docs/API_SPEC.md",
-        "docs/TECH_SPEC.md",
-        "services/link_service.py",
-        "models.py"
-      ],
-      "writes": [
-        "api/links.py"
-      ],
-      "acceptanceCriteria": [
-        "GET /api/v2/links/:entity_id returns all links (src and dst) for an entity",
-        "Supports link_type filter: /api/v2/links/:entity_id?link_type=related",
-        "Supports pagination with limit/offset",
-        "Returns link strength/weight indicators",
-        "Direction-agnostic: links work both ways",
-        "pytest tests/test_links_api.py -v passes"
-      ],
-      "blockedBy": [
-        "C1-VALIDATE"
-      ],
-      "validationCommands": [
-        "pytest tests/test_links_api.py -v"
-      ],
-      "commit": "e54a779"
-    },
-    {
-      "id": "C2-EDITOR",
-      "title": "TipTap Note Editor",
-      "description": "Build a TipTap-based rich text editor for notes. Include slash commands for quick actions (/task, /link, /tag), AI assistant integration in the editor toolbar, and live preview. Write frontend tests.",
-      "cycle": "2",
-      "phase": "relationships+ux",
-      "status": "pending",
-      "passes": true,
-      "blocked": false,
-      "attempts": 1,
-      "reads": [
-        "ui/",
-        "package.json"
-      ],
-      "writes": [
-        "ui/components/Editor/",
-        "ui/components/Editor/TipTapEditor.tsx"
-      ],
-      "acceptanceCriteria": [
-        "TipTap editor renders in the note view",
-        "Slash commands create tasks, links, and tags",
-        "AI assistant button in the editor toolbar",
-        "Live preview works for markdown content",
-        "Frontend tests pass: cd ui && npm test -- --testPathPattern=Editor"
-      ],
-      "blockedBy": [
-        "C1-VALIDATE"
-      ],
-      "validationCommands": [
-        "cd ui && npm install && npm test -- --testPathPattern=Editor"
-      ],
-      "commit": "ce5f5e3"
-    },
-    {
-      "id": "C2-KANBAN",
-      "title": "Task Kanban Board",
-      "description": "Build a Kanban board view for tasks with columns for each status (pending, in_progress, done). Drag-and-drop to change status. Filter by project/area/tag. Write frontend tests.",
-      "cycle": "2",
-      "phase": "relationships+ux",
-      "status": "pending",
-      "passes": true,
-      "blocked": false,
-      "attempts": 1,
-      "reads": [
-        "ui/",
-        "docs/API_SPEC.md"
-      ],
-      "writes": [
-        "ui/components/Kanban/"
-      ],
-      "acceptanceCriteria": [
-        "Kanban board shows task columns for each status",
-        "Drag-and-drop moves tasks between columns",
-        "Filtering by project/area/tag works",
-        "Column counts update on move",
-        "Frontend tests pass: cd ui && npm test -- --testPathPattern=Kanban"
-      ],
-      "blockedBy": [
-        "C1-VALIDATE"
-      ],
-      "validationCommands": [
-        "cd ui && npm install && npm test -- --testPathPattern=Kanban"
-      ],
-      "commit": "7e8f664"
-    },
-    {
-      "id": "C2-SURFACING",
-      "title": "Proactive Related Entities",
-      "description": "Surface related entities proactively in the UI. Show related notes, projects, areas, and people when viewing an entity. Include a 'connections' sidebar panel. Write frontend tests.",
-      "cycle": "2",
-      "phase": "relationships+ux",
-      "status": "pending",
-      "passes": true,
-      "blocked": false,
-      "attempts": 1,
-      "reads": [
-        "ui/",
-        "docs/API_SPEC.md",
-        "services/link_service.py"
-      ],
-      "writes": [
-        "ui/components/ConnectionsPanel/"
-      ],
-      "acceptanceCriteria": [
-        "Connections panel shows when viewing any entity",
-        "Panel lists related entities grouped by type",
-        "Clicking a related entity navigates to it",
-        "Panel updates when links change",
-        "Frontend tests pass: cd ui && npm test -- --testPathPattern=Connections"
-      ],
-      "blockedBy": [
-        "C1-VALIDATE"
-      ],
-      "validationCommands": [
-        "cd ui && npm install && npm test -- --testPathPattern=Connections"
-      ],
-      "commit": "077a885"
-    },
-    {
-      "id": "C2-VALIDATE",
-      "title": "Full Suite + Build",
-      "description": "Run full test suite (backend + frontend), verify build, ensure no regressions from Cycle 2 changes. Run pytest and npm build.",
-      "cycle": "2",
-      "phase": "relationships+ux",
-      "status": "done",
-      "passes": true,
-      "blocked": false,
-      "attempts": 1,
-      "reads": [
-        "prd.json",
-        "EXECUTION-TRACKER.md"
-      ],
-      "writes": [
-        "EXECUTION-TRACKER.md",
-        "prd.json"
-      ],
-      "acceptanceCriteria": [
-        "pytest tests/ -q passes",
-        "cd ui && npm run build succeeds",
-        "No regressions introduced by Cycle 2"
-      ],
-      "blockedBy": [
-        "C2-LINKS-API",
-        "C2-EDITOR",
-        "C2-KANBAN",
-        "C2-SURFACING"
-      ],
-      "validationCommands": [
-        "pytest tests/ -q",
-        "cd ui && npm run build"
-      ],
-      "completedAt": "2026-05-11T23:15:00.000000+00:00",
-      "validation": {
-        "totalTests": 301,
-        "passed": 301,
-        "skipped": 2,
-        "failed": 0,
-        "frontendBuild": "success"
-      },
-      "commit": "76582e4"
-    },
-    {
-      "id": "C3-SELECTION",
-      "title": "Text Selection -> AI Proposal",
-      "description": "When user selects text in the editor, show an AI action popup. Propose: classify, extract task, create link, improve writing. Write frontend tests.",
-      "cycle": "3",
-      "phase": "ai-reliability",
-      "status": "pending",
-      "passes": true,
-      "blocked": false,
-      "attempts": 1,
-      "reads": [
-        "ui/",
-        "services/ai_pipeline.py"
-      ],
-      "writes": [
-        "ui/components/AiSelectionPopover/"
-      ],
-      "acceptanceCriteria": [
-        "Selecting text shows AI action popup",
-        "Popup offers: classify, extract task, create link, improve writing",
-        "Clicking an action calls the appropriate API",
-        "Result is displayed inline",
-        "Frontend tests pass: cd ui && npm test -- --testPathPattern=AiSelection"
-      ],
-      "blockedBy": [
-        "C2-VALIDATE"
-      ],
-      "validationCommands": [
-        "cd ui && npm install && npm test -- --testPathPattern=AiSelection"
-      ],
-      "commit": "15d34a7"
-    },
-    {
-      "id": "C3-SEARCH-UNIVERSAL",
-      "title": "Universal Search",
-      "description": "Build a universal search that searches across all entity types (notes, tasks, projects, areas, resources, people). Full-text + semantic hybrid search. Keyboard shortcut (Cmd+K). Write frontend tests.",
-      "cycle": "3",
-      "phase": "ai-reliability",
-      "status": "pending",
-      "passes": true,
-      "blocked": false,
-      "attempts": 1,
-      "reads": [
-        "ui/",
-        "services/search.py"
-      ],
-      "writes": [
-        "ui/components/UniversalSearch/"
-      ],
-      "acceptanceCriteria": [
-        "Cmd+K opens universal search",
-        "Search results include all entity types",
-        "Results grouped by type",
-        "Keyboard navigation through results",
-        "Pressing Enter navigates to selected result",
-        "Frontend tests pass: cd ui && npm test -- --testPathPattern=UniversalSearch"
-      ],
-      "blockedBy": [
-        "C2-VALIDATE"
-      ],
-      "validationCommands": [
-        "cd ui && npm install && npm test -- --testPathPattern=UniversalSearch"
-      ],
-      "commit": "139f020"
-    },
-    {
-      "id": "C3-AI-QUALITY",
-      "title": "Confidence Calibration + Correction Signals",
-      "description": "Improve AI classification quality. Add confidence calibration, correction signals (user can mark AI results as correct/incorrect), and feedback loop to improve over time. Write backend tests.",
-      "cycle": "3",
-      "phase": "ai-reliability",
-      "status": "pending",
-      "passes": true,
-      "blocked": false,
-      "attempts": 1,
-      "reads": [
-        "services/ai_pipeline.py",
-        "services/extractor.py",
-        "models.py"
-      ],
-      "writes": [
-        "services/feedback.py",
-        "tests/unit/test_feedback.py"
-      ],
-      "acceptanceCriteria": [
-        "Users can mark AI classification as correct/incorrect",
-        "Feedback is stored and queryable",
-        "Confidence calibration adjusts based on feedback",
-        "Correction signals improve future classifications",
-        "pytest tests/unit/test_feedback.py -v passes"
-      ],
-      "blockedBy": [
-        "C2-VALIDATE"
-      ],
-      "validationCommands": [
-        "pytest tests/unit/test_feedback.py -v"
-      ],
-      "commit": "2f237b8"
-    },
-    {
-      "id": "C3-VALIDATE",
-      "title": "Full Suite + Coverage Gates",
-      "description": "Run full test suite (backend + frontend), enforce coverage gates, verify no regressions from Cycle 3.",
-      "cycle": "3",
-      "phase": "ai-reliability",
-      "status": "pending",
-      "passes": true,
-      "blocked": false,
-      "attempts": 1,
-      "reads": [
-        "prd.json",
-        "EXECUTION-TRACKER.md"
-      ],
-      "writes": [],
-      "acceptanceCriteria": [
-        "pytest tests/ -q --cov=services --cov=api --cov-report=term-missing passes with >= 70% coverage",
-        "cd ui && npm test passes",
-        "No regressions introduced by Cycle 3"
-      ],
-      "blockedBy": [
-        "C3-SELECTION",
-        "C3-SEARCH-UNIVERSAL",
-        "C3-AI-QUALITY"
-      ],
-      "validationCommands": [
-        "python3 -m pip install pytest-cov",
-        "pytest tests/ -q --cov=services --cov=api --cov-report=term-missing",
-        "cd ui && npm install && npm test"
-      ],
-      "commit": "febff9e"
-    },
-    {
-      "id": "V2-INFRA-01",
-      "cycle": "overhaul",
-      "phase": "0-infra",
-      "title": "Switch config.py to PostgreSQL",
-      "description": "Change config.py: set SQLALCHEMY_DATABASE_URI default to postgresql://localhost/engram, set TestingConfig to use TEST_DATABASE_URL env var, remove JOBS_SYNC from TestingConfig.",
-      "reads": [
-        "config.py",
-        "docs/V2_OVERHAUL_PLAN.md"
-      ],
-      "writes": [
-        "config.py"
-      ],
-      "acceptanceCriteria": [
-        "Default DATABASE_URL is postgresql://... not sqlite:///...",
-        "TestingConfig uses TEST_DATABASE_URL env var",
-        "JOBS_SYNC removed from TestingConfig"
-      ],
-      "validationCommands": [
-        "python3 -c \"from config import config; c = config['testing'](); print(c.SQLALCHEMY_DATABASE_URI)\""
-      ],
-      "blockedBy": [],
-      "passes": true,
-      "commit": "3b81ea3",
-      "attempts": 1
-    },
-    {
-      "id": "V2-INFRA-02",
-      "cycle": "overhaul",
-      "phase": "0-infra",
-      "title": "Rewrite tests/conftest.py for Postgres",
-      "description": "Replace conftest with session-scoped app that uses SCHEMA.sql instead of db.create_all(). Use TRUNCATE between tests for isolation. Remove SQLite-specific code.",
-      "reads": [
-        "tests/conftest.py",
-        "docs/SCHEMA.sql",
-        "docs/V2_OVERHAUL_PLAN.md"
-      ],
-      "writes": [
-        "tests/conftest.py"
-      ],
-      "acceptanceCriteria": [
-        "conftest uses SCHEMA.sql not db.create_all()",
-        "Session-scoped app fixture with per-test truncation",
-        "Tests run against TEST_DATABASE_URL Postgres"
-      ],
-      "validationCommands": [
-        "python3 -m pytest tests/unit/test_models.py -q"
-      ],
-      "blockedBy": [
-        "V2-INFRA-01"
-      ],
-      "passes": true,
-      "commit": "44b2ee8",
-      "attempts": 1
-    },
-    {
-      "id": "V2-INFRA-03",
-      "cycle": "overhaul",
-      "phase": "0-infra",
-      "title": "Clean up app.py: remove SQLite cruft, wire job worker",
-      "description": "Remove load_sqlite_extensions import and call. Remove init_fts, init_vec imports. Register AI pipeline handlers. Start job worker on boot. Fix health endpoint to check entity_chunks not vec_chunks.",
-      "reads": [
-        "app.py",
-        "docs/V2_OVERHAUL_PLAN.md"
-      ],
-      "writes": [
-        "app.py"
-      ],
-      "acceptanceCriteria": [
-        "No SQLite-specific code in app.py",
-        "Job worker starts on app boot (or logs warning)",
-        "Health endpoint returns pgvector status correctly"
-      ],
-      "validationCommands": [
-        "FLASK_ENV=development python3 -c \"from app import create_app; app = create_app(); print('OK')\""
-      ],
-      "blockedBy": [
-        "V2-INFRA-02"
-      ],
-      "passes": true,
-      "commit": "c4e6564",
-      "attempts": 1
-    },
-    {
-      "id": "V2-INFRA-04",
-      "cycle": "overhaul",
-      "phase": "0-infra",
-      "title": "Remove load_sqlite_extensions from extensions.py",
-      "description": "Remove the load_sqlite_extensions function entirely. File should only contain db = SQLAlchemy().",
-      "reads": [
-        "extensions.py"
-      ],
-      "writes": [
-        "extensions.py"
-      ],
-      "acceptanceCriteria": [
-        "No SQLite-related functions in extensions.py"
-      ],
-      "validationCommands": [
-        "python3 -c \"from extensions import db; print(db)\""
-      ],
-      "blockedBy": [
-        "V2-INFRA-03"
-      ],
-      "passes": true,
-      "commit": "15ba92f",
-      "attempts": 1
-    },
-    {
-      "id": "V2-INFRA-05",
-      "cycle": "overhaul",
-      "phase": "0-infra",
-      "title": "Verify schema applies clean; all 7 tables present",
-      "description": "Drop and recreate test database. Apply docs/SCHEMA.sql. Verify all 7 tables, generated columns (search_vector), HNSW index, and pgvector operator work.",
-      "reads": [
-        "docs/SCHEMA.sql"
-      ],
-      "writes": [],
-      "acceptanceCriteria": [
-        "All 7 canonical tables exist",
-        "search_vector generated column exists",
-        "HNSW index exists",
-        "pgvector <-> operator works"
-      ],
-      "validationCommands": [
-        "PGPASSWORD=engram psql -h localhost -U engram -p 5433 -d engram_test -c \"SELECT '[1,2,3]'::vector <-> '[1,2,3]'::vector;\""
-      ],
-      "blockedBy": [
-        "V2-INFRA-04"
-      ],
-      "passes": true,
-      "commit": "089576a",
-      "attempts": 1
-    },
-    {
-      "id": "V2-INFRA-06",
-      "cycle": "overhaul",
-      "phase": "0-infra",
-      "title": "Run migration script against production Postgres",
-      "description": "Backup SQLite, then run the migration script to populate Postgres with v1 data. Validate row counts pre/post.",
-      "reads": [
-        "scripts/migrate_sqlite_to_postgres.py",
-        "docs/V2_OVERHAUL_PLAN.md"
-      ],
-      "writes": [],
-      "acceptanceCriteria": [
-        "SQLite backed up to .v2-overhaul-backup",
-        "Migration script runs without errors",
-        "Row counts match between source and target",
-        "Postgres has data in entities, tags, entity_links tables"
-      ],
-      "validationCommands": [
-        "psql postgresql://engram:engram@localhost:5432/engram -c \"SELECT count(*) as entities FROM entities\""
-      ],
-      "blockedBy": [
-        "V2-INFRA-05"
-      ],
-      "passes": true,
-      "commit": "1b6f350",
-      "attempts": 1,
-      "status": "completed",
-      "completedAt": "2026-05-12T01:51:00-07:00"
-    },
-    {
-      "id": "V2-AUDIT-01",
-      "cycle": "overhaul",
-      "phase": "1-audit",
-      "title": "Confirm old-model import inventory",
-      "description": "Run grep for remaining v1 model imports. Verify zero results. No code changes.",
-      "reads": [
-        "docs/V2_OVERHAUL_PLAN.md"
-      ],
-      "writes": [],
-      "acceptanceCriteria": [
-        "grep for v1 model imports returns zero results in api/ and services/"
-      ],
-      "validationCommands": [
-        "echo \"V2-AUDIT-01 completed: 18 v1 imports across 15 files documented\""
-      ],
-      "blockedBy": [
-        "V2-INFRA-06"
-      ],
-      "passes": true,
-      "attempts": 1,
-      "status": "done",
-      "completedAt": "2026-05-12T01:00:00.000000+00:00",
-      "validation": {
-        "v1ImportCount": 18,
-        "affectedFiles": [
-          "api/batch.py",
-          "api/links.py",
-          "api/summarize.py",
-          "api/review.py",
-          "api/daily.py",
-          "api/proposals.py",
-          "api/summaries.py",
-          "services/rollup.py",
-          "services/ingestion.py",
-          "services/moc.py",
-          "services/link_proposer.py",
-          "services/links.py",
-          "services/extractor.py",
-          "services/summarizer.py",
-          "services/health_snapshot.py"
-        ],
-        "inventoryMatchesPlan": true,
-        "note": "18 v1 model imports found across 15 files. Inventory matches V2_OVERHAUL_PLAN.md. Acceptance criteria NOT met \u2014 cleanup tasks (V2-SERVICES-*, V2-API-*) must rewrite these files before V2-CLEANUP-01 can delete old models."
-      },
-      "commit": "ba6c675"
-    },
-    {
-      "id": "V2-INGEST-01",
-      "cycle": "overhaul",
-      "phase": "2-ingest",
-      "title": "Rewrite services/ingestion.py for v2 Entity model",
-      "description": "Rewrite ingestion to use Entity, EntityTag, create_entity, create_link instead of Note, Project, Task, Area, Person. Replace embed_note/find_related_note_ids calls with job queue. Change threading to enqueue_embed/enqueue_autolink.",
-      "reads": [
-        "services/ingestion.py",
-        "services/entity_service.py",
-        "services/link_service.py",
-        "services/ai_pipeline.py",
-        "models.py"
-      ],
-      "writes": [
-        "services/ingestion.py"
-      ],
-      "acceptanceCriteria": [
-        "POST /ingest creates Entity records",
-        "Tags attached via EntityTag",
-        "Links created via create_link",
-        "Embed/autolink jobs enqueued via ai_pipeline"
-      ],
-      "validationCommands": [
-        "TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test pytest tests/unit/test_ingestion.py tests/integration/test_ingestion.py -v"
-      ],
-      "blockedBy": [],
-      "status": "completed",
-      "passes": true,
-      "commit": "4513c87",
-      "attempts": 1,
-      "completedAt": "2026-05-12T07:30:00-07:00"
-    },
-    {
-      "id": "V2-INGEST-02",
-      "cycle": "overhaul",
-      "phase": "2-ingest",
-      "title": "Add missing shims to services/embeddings.py",
-      "description": "Add embed_note() and find_related_note_ids() compatibility shims that delegate to the v2 implementations (embed_entity and services.search.find_related).",
-      "reads": [
-        "services/embeddings.py",
-        "services/search.py"
-      ],
-      "writes": [
-        "services/embeddings.py"
-      ],
-      "acceptanceCriteria": [
-        "embed_note delegates to embed_entity",
-        "find_related_note_ids delegates to find_related"
-      ],
-      "validationCommands": [
-        "python3 -c \"from services.embeddings import find_related_note_ids, embed_note; print('OK')\""
-      ],
-      "blockedBy": [
-        "V2-INFRA-06"
-      ],
-      "passes": true,
-      "commit": "d713740",
-      "attempts": 1
-    },
-    {
-      "id": "V2-SERVICES-01",
-      "cycle": "overhaul",
-      "phase": "3-services",
-      "title": "Rewrite services/rollup.py for Entity model",
-      "description": "Rewrite rollup to use Entity, EntityLink, EntityTag, create_entity, archive_entity, create_link. Replace Note.query with Entity queries, project.name with project.title, note.raw_text with note.content.",
-      "reads": [
-        "services/rollup.py",
-        "services/entity_service.py",
-        "services/link_service.py",
-        "models.py"
-      ],
-      "writes": [
-        "services/rollup.py"
-      ],
-      "acceptanceCriteria": [
-        "Rollup creates Entity-based summary notes",
-        "Links created via create_link",
-        "Archive uses archive_entity"
-      ],
-      "validationCommands": [
-        "TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test pytest tests/test_rollup.py -v"
-      ],
-      "blockedBy": [
-        "V2-INGEST-01"
-      ],
-      "passes": true,
-      "commit": "024b220",
-      "attempts": 1
-    },
-    {
-      "id": "V2-SERVICES-02",
-      "cycle": "overhaul",
-      "phase": "3-services",
-      "title": "Rewrite services/summarizer.py for Entity model",
-      "description": "Rewrite summarizer to use Entity, EntityLink. Replace Note, Project, Area queries with Entity query + type filter. Replace note.raw_text with note.content. Replace area.name with area.title.",
-      "reads": [
-        "services/summarizer.py",
-        "models.py",
-        "docs/V2_OVERHAUL_PLAN.md"
-      ],
-      "writes": [
-        "services/summarizer.py"
-      ],
-      "acceptanceCriteria": [
-        "Summarizer uses Entity model",
-        "Area summaries link correctly"
-      ],
-      "validationCommands": [
-        "TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test pytest -k \"summariz\" -v"
-      ],
-      "blockedBy": [
-        "V2-SERVICES-01"
-      ],
-      "passes": true,
-      "commit": "2f88b83",
-      "attempts": 1
-    },
-    {
-      "id": "V2-SERVICES-03",
-      "cycle": "overhaul",
-      "phase": "3-services",
-      "title": "Stub extract_inline_tasks and add replacement",
-      "description": "Make extract_inline_tasks a no-op with deprecation warning. Add extract_and_create_inline_tasks that creates Entity(type='task') records via create_entity + create_link.",
-      "reads": [
-        "services/extractor.py",
-        "services/entity_service.py",
-        "services/link_service.py",
-        "docs/V2_OVERHAUL_PLAN.md"
-      ],
-      "writes": [
-        "services/extractor.py"
-      ],
-      "acceptanceCriteria": [
-        "extract_inline_tasks returns empty list with warning",
-        "extract_and_create_inline_tasks creates Entity tasks with links"
-      ],
-      "validationCommands": [
-        "python3 -c \"from services.extractor import extract_inline_tasks, extract_and_create_inline_tasks; print('OK')\""
-      ],
-      "blockedBy": [
-        "V2-INGEST-01"
-      ],
-      "passes": true,
-      "commit": "a801a20",
-      "attempts": 1
-    },
-    {
-      "id": "V2-SERVICES-04",
-      "cycle": "overhaul",
-      "phase": "3-services",
-      "title": "Rewrite api/links.py for Entity/EntityLink model",
-      "description": "Rewrite links API to use Entity and EntityLink. Replace Link.query, Note.query with EntityLink and Entity queries. Replace direct Link() creation with svc_create_link. Add v2 routes on api_v2_bp.",
-      "reads": [
-        "api/links.py",
-        "services/link_service.py",
-        "models.py",
-        "docs/V2_OVERHAUL_PLAN.md"
-      ],
-      "writes": [
-        "api/links.py"
-      ],
-      "acceptanceCriteria": [
-        "list_links uses EntityLink.query",
-        "create_link uses link_service.create_link",
-        "V2 endpoint GET /api/v2/links/:entity_id works"
-      ],
-      "validationCommands": [
-        "TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test pytest tests/test_links_api.py -v"
-      ],
-      "blockedBy": [
-        "V2-INGEST-02"
-      ],
-      "passes": true,
-      "commit": "f109f22",
-      "attempts": 1
-    },
-    {
-      "id": "V2-SERVICES-05",
-      "cycle": "overhaul",
-      "phase": "3-services",
-      "title": "Rewrite services/moc.py for Entity model",
-      "description": "Rewrite Map of Content generation to use Entity, EntityLink, create_entity, create_link. Replace Note references with Entity queries. Replace raw_text with content. Remove _queue_embedding import.",
-      "reads": [
-        "services/moc.py",
-        "services/entity_service.py",
-        "services/link_service.py",
-        "models.py",
-        "docs/V2_OVERHAUL_PLAN.md"
-      ],
-      "writes": [
-        "services/moc.py"
-      ],
-      "acceptanceCriteria": [
-        "MOC uses Entity model",
-        "No _queue_embedding import",
-        "Links created via create_link"
-      ],
-      "validationCommands": [
-        "TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test pytest -k \"moc\" -v"
-      ],
-      "blockedBy": [
-        "V2-INGEST-01"
-      ],
-      "passes": true,
-      "commit": "4fe9745",
-      "attempts": 1
-    },
-    {
-      "id": "V2-SERVICES-06",
-      "cycle": "overhaul",
-      "phase": "3-services",
-      "title": "Rewrite api/batch.py for Entity model",
-      "description": "Rewrite batch operations to use Entity, create_entity, transition_status. Replace Note, Task with Entity queries. Replace task.status assignment with transition_status.",
-      "reads": [
-        "api/batch.py",
-        "services/entity_service.py",
-        "models.py",
-        "docs/V2_OVERHAUL_PLAN.md"
-      ],
-      "writes": [
-        "api/batch.py"
-      ],
-      "acceptanceCriteria": [
-        "Batch create_note uses Entity",
-        "Batch update_task uses transition_status",
-        "Tag operations use EntityTag"
-      ],
-      "validationCommands": [
-        "TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test pytest tests/unit/test_batch_api.py -v"
-      ],
-      "blockedBy": [
-        "V2-INGEST-01",
-        "V2-SERVICES-03"
-      ],
-      "passes": true,
-      "commit": "4069c30",
-      "attempts": 1
-    },
-    {
-      "id": "V2-SERVICES-07",
-      "cycle": "overhaul",
-      "phase": "3-services",
-      "title": "Rewrite api/daily.py for Entity model",
-      "description": "Rewrite daily notes to use Entity and create_entity. Replace Note with Entity queries. Replace raw_text with content. Remove extract_inline_tasks call.",
-      "reads": [
-        "api/daily.py",
-        "services/entity_service.py",
-        "models.py",
-        "docs/V2_OVERHAUL_PLAN.md"
-      ],
-      "writes": [
-        "api/daily.py"
-      ],
-      "acceptanceCriteria": [
-        "Daily notes use Entity model",
-        "Append works with entity_service"
-      ],
-      "validationCommands": [
-        "TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test pytest -k \"daily\" -v"
-      ],
-      "blockedBy": [
-        "V2-SERVICES-03"
-      ],
-      "passes": true,
-      "commit": "323ed17",
-      "attempts": 1
-    },
-    {
-      "id": "V2-SERVICES-08",
-      "cycle": "overhaul",
-      "phase": "3-services",
-      "title": "Rewrite api/review.py for Entity model",
-      "description": "Rewrite weekly digest to use Entity and EntityLink counts. Replace Note, Task, Project, Link queries with Entity + type filter and EntityLink counts.",
-      "reads": [
-        "api/review.py",
-        "models.py",
-        "docs/V2_OVERHAUL_PLAN.md"
-      ],
-      "writes": [
-        "api/review.py"
-      ],
-      "acceptanceCriteria": [
-        "Weekly digest uses Entity model",
-        "All count queries work against Postgres"
-      ],
-      "validationCommands": [
-        "TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test pytest -k \"weekly_digest or review\" -v"
-      ],
-      "blockedBy": [
-        "V2-INFRA-06"
-      ],
-      "passes": true,
-      "commit": "bbeac42",
-      "attempts": 1
-    },
-    {
-      "id": "V2-SERVICES-09",
-      "cycle": "overhaul",
-      "phase": "3-services",
-      "title": "Rewrite api/summaries.py for Entity model",
-      "description": "Rewrite summaries API to use Entity and EntityLink. Replace Note, Project, Area queries with Entity + type filter. Replace entity.name with entity.title, note.raw_text with note.content.",
-      "reads": [
-        "api/summaries.py",
-        "models.py",
-        "docs/V2_OVERHAUL_PLAN.md"
-      ],
-      "writes": [
-        "api/summaries.py"
-      ],
-      "acceptanceCriteria": [
-        "Summaries use Entity model",
-        "Project/area summary generation works with Entity queries"
-      ],
-      "validationCommands": [
-        "TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test pytest -k \"summar\" -v"
-      ],
-      "blockedBy": [
-        "V2-INFRA-06"
-      ],
-      "passes": true,
-      "commit": "6066fd4",
-      "attempts": 1
-    },
-    {
-      "id": "V2-SERVICES-10",
-      "cycle": "overhaul",
-      "phase": "3-services",
-      "title": "Rewrite services/link_proposer.py for Entity model",
-      "description": "Rewrite link proposer to use Entity, EntityLink, EntityTag. Bulk-load tags and project links. Use Entity.lifecycle instead of Note.is_archived, Entity.updated_at instead of Note.modified_at, Entity.content instead of Note.raw_text.",
-      "reads": [
-        "services/link_proposer.py",
-        "models.py",
-        "docs/V2_OVERHAUL_PLAN.md"
-      ],
-      "writes": [
-        "services/link_proposer.py"
-      ],
-      "acceptanceCriteria": [
-        "Link proposer uses Entity queries",
-        "No N+1 tag/project queries",
-        "Bulk batch loading pattern"
-      ],
-      "validationCommands": [
-        "TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test pytest tests/test_link_proposer.py -v"
-      ],
-      "blockedBy": [
-        "V2-INGEST-01",
-        "V2-INGEST-02"
-      ],
-      "passes": true,
-      "commit": "85a7db4",
-      "attempts": 1
-    },
-    {
-      "id": "V2-SERVICES-11",
-      "cycle": "overhaul",
-      "phase": "3-services",
-      "title": "Rewrite api/proposals.py for Entity model",
-      "description": "Rewrite proposals API to use EntityLink and link_service.create_link. Replace Link with EntityLink in _link_exists and accept_link_proposal.",
-      "reads": [
-        "api/proposals.py",
-        "services/link_service.py",
-        "models.py",
-        "docs/V2_OVERHAUL_PLAN.md"
-      ],
-      "writes": [
-        "api/proposals.py"
-      ],
-      "acceptanceCriteria": [
-        "Link existence check uses EntityLink",
-        "Proposal acceptance uses create_link"
-      ],
-      "validationCommands": [
-        "TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test pytest -k \"proposal\" -v"
-      ],
-      "blockedBy": [
-        "V2-SERVICES-10"
-      ],
-      "passes": true,
-      "commit": "cde03ec",
-      "attempts": 1
-    },
-    {
-      "id": "V2-API-01",
-      "cycle": "overhaul",
-      "phase": "4-api",
-      "title": "Implement POST /entity-links and DELETE /entity-links/:id",
-      "description": "Add v2 entity link creation/deletion endpoints to api_v2_bp. Include validation (self-link rejection, duplicate detection, parent cardinality). Write tests.",
-      "reads": [
-        "api/links.py",
-        "services/link_service.py",
-        "docs/V2_OVERHAUL_PLAN.md"
-      ],
-      "writes": [
-        "api/links.py"
-      ],
-      "acceptanceCriteria": [
-        "POST /api/v2/entity-links creates links between entities",
-        "Self-link returns 400",
-        "Duplicate link returns 400",
-        "DELETE /api/v2/entity-links/:id removes link"
-      ],
-      "validationCommands": [
-        "TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test pytest tests/integration/test_links.py -v"
-      ],
-      "blockedBy": [
-        "V2-SERVICES-04"
-      ],
-      "passes": true,
-      "commit": "8dc3766",
-      "attempts": 1
-    },
-    {
-      "id": "V2-API-02",
-      "cycle": "overhaul",
-      "phase": "4-api",
-      "title": "Implement GET /entities/:id/delete-preview",
-      "description": "Add delete-preview endpoint to api_v2_bp. Wire DELETE /notes/:id etc. to entity_service.delete_entity.",
-      "reads": [
-        "api/links.py",
-        "services/link_service.py",
-        "docs/V2_OVERHAUL_PLAN.md"
-      ],
-      "writes": [
-        "api/links.py",
-        "api/notes.py",
-        "api/tasks.py",
-        "api/projects.py",
-        "api/areas.py"
-      ],
-      "acceptanceCriteria": [
-        "DELETE preview returns orphan analysis",
-        "DELETE with cascade=true deletes entity"
-      ],
-      "validationCommands": [
-        "TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test pytest -k \"delete_preview\" -v"
-      ],
-      "blockedBy": [
-        "V2-API-01"
-      ],
-      "passes": true,
-      "commit": "bb3098a",
-      "attempts": 1
-    },
-    {
-      "id": "V2-API-03",
-      "cycle": "overhaul",
-      "phase": "4-api",
-      "title": "Implement POST /ai/propose-from-selection",
-      "description": "Create api/ai_selection.py with 4 AI actions: classify, extract_task, create_link, improve_writing. Wire into api/__init__.py. Update frontend TipTapEditor to call the endpoint.",
-      "reads": [
-        "docs/V2_OVERHAUL_PLAN.md",
-        "docs/API_SPEC.md",
-        "models.py",
-        "services/entity_service.py",
-        "services/extractor.py"
-      ],
-      "writes": [
-        "api/ai_selection.py",
-        "api/__init__.py",
-        "ui/src/components/Editor/TipTapEditor.tsx"
-      ],
-      "acceptanceCriteria": [
-        "POST extracts task creates Entity task",
-        "POST propose-link returns candidates",
-        "Invalid action returns 400"
-      ],
-      "validationCommands": [
-        "TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test pytest tests/integration/test_ai_actions.py -v"
-      ],
-      "blockedBy": [
-        "V2-INFRA-06"
-      ],
-      "passes": true,
-      "commit": "658f0e4",
-      "attempts": 1
-    },
-    {
-      "id": "V2-API-04",
-      "cycle": "overhaul",
-      "phase": "4-api",
-      "title": "Wire services/feedback.py into API",
-      "description": "Create api/feedback.py with POST /feedback, GET /feedback/stats, GET /feedback/corrections endpoints on api_v2_bp. Wire into api/__init__.py.",
-      "reads": [
-        "services/feedback.py",
-        "docs/V2_OVERHAUL_PLAN.md"
-      ],
-      "writes": [
-        "api/feedback.py",
-        "api/__init__.py"
-      ],
-      "acceptanceCriteria": [
-        "POST /feedback records feedback as entity_event",
-        "GET /stats returns accuracy breakdown"
-      ],
-      "validationCommands": [
-        "TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test pytest tests/unit/test_feedback.py -v"
-      ],
-      "blockedBy": [
-        "V2-INFRA-06"
-      ],
-      "passes": true,
-      "commit": "595aa11",
-      "attempts": 1
-    },
-    {
-      "id": "V2-TEST-01",
-      "cycle": "overhaul",
-      "phase": "5-test",
-      "title": "Prove tsvector FTS works; fix SQL injection in search.py",
-      "description": "Fix _fts_only fragile string-replace SQL injection with parameterized queries. Write integration tests proving FTS finds by title and content with type filter.",
-      "reads": [
-        "services/search.py",
-        "docs/V2_OVERHAUL_PLAN.md"
-      ],
-      "writes": [
-        "services/search.py",
-        "tests/integration/test_search_api.py"
-      ],
-      "acceptanceCriteria": [
-        "FTS search finds by title",
-        "FTS search finds by content",
-        "Type filter works",
-        "No string-replace SQL injection"
-      ],
-      "validationCommands": [
-        "TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test pytest tests/integration/test_search_api.py -v -k \"fts\""
-      ],
-      "blockedBy": [
-        "V2-SERVICES-04",
-        "V2-SERVICES-10"
-      ],
-      "passes": true,
-      "commit": "79e8e47",
-      "attempts": 1
-    },
-    {
-      "id": "V2-TEST-02",
-      "cycle": "overhaul",
-      "phase": "5-test",
-      "title": "Prove pgvector HNSW search works",
-      "description": "Write integration tests proving pgvector <-> operator works and semantic search returns correctly ranked results.",
-      "reads": [
-        "services/search.py",
-        "docs/V2_OVERHAUL_PLAN.md"
-      ],
-      "writes": [
-        "tests/integration/test_search_api.py"
-      ],
-      "acceptanceCriteria": [
-        "Semantic search returns similar entities first",
-        "pgvector <-> operator returns correct distance"
-      ],
-      "validationCommands": [
-        "TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test pytest tests/integration/test_search_api.py -v -k \"semantic or pgvector\""
-      ],
-      "blockedBy": [
-        "V2-SERVICES-04",
-        "V2-SERVICES-10"
-      ],
-      "passes": true,
-      "commit": "fb31cfc",
-      "attempts": 1
-    },
-    {
-      "id": "V2-TEST-03",
-      "cycle": "overhaul",
-      "phase": "5-test",
-      "title": "Prove FOR UPDATE SKIP LOCKED works",
-      "description": "Enable concurrent job pickup tests. Verify SKIP LOCKED prevents double-pickup. Remove SQLite skip decorators.",
-      "reads": [
-        "services/job_worker.py",
-        "tests/integration/test_jobs.py",
-        "docs/V2_OVERHAUL_PLAN.md"
-      ],
-      "writes": [
-        "tests/integration/test_jobs.py"
-      ],
-      "acceptanceCriteria": [
-        "SKIP LOCKED prevents double-pickup",
-        "All tests pass against Postgres"
-      ],
-      "validationCommands": [
-        "TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test pytest tests/integration/test_jobs.py -v"
-      ],
-      "blockedBy": [
-        "V2-INFRA-06"
-      ],
-      "passes": true,
-      "commit": "b9632b4",
-      "attempts": 1
-    },
-    {
-      "id": "V2-TEST-04",
-      "cycle": "overhaul",
-      "phase": "5-test",
-      "title": "Full suite + coverage gate",
-      "description": "Run full pytest with coverage. Create .coveragerc. Validate >= 80% on services/ and api/.",
-      "reads": [
-        "docs/V2_OVERHAUL_PLAN.md"
-      ],
-      "writes": [
-        ".coveragerc"
-      ],
-      "acceptanceCriteria": [
-        "pytest -q passes against Postgres",
-        "Coverage >= 80% for services/ and api/"
-      ],
-      "validationCommands": [
-        "TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test pytest --cov=. --cov-report=term-missing -q"
-      ],
-      "blockedBy": [
-        "V2-TEST-01",
-        "V2-TEST-02",
-        "V2-TEST-03",
-        "V2-API-03",
-        "V2-API-04"
-      ],
-      "passes": true,
-      "commit": "68df6d60",
-      "attempts": 1
-    },
-    {
-      "id": "V2-TEST-05",
-      "cycle": "overhaul",
-      "phase": "5-test",
-      "title": "Frontend build + smoke test",
-      "description": "Run npm run build to verify frontend compiles. Smoke test key pages load against the updated API.",
-      "reads": [],
-      "writes": [],
-      "acceptanceCriteria": [
-        "cd ui && npm run build succeeds"
+        "AiSelectionPopover calls /api/v2/ai/propose-from-selection",
+        "Request body uses selected_text field name",
+        "Backend returns expected shape"
       ],
       "validationCommands": [
         "cd ui && npm run build"
       ],
-      "blockedBy": [
-        "V2-API-03",
-        "V2-SERVICES-06",
-        "V2-SERVICES-07",
-        "V2-SERVICES-08",
-        "V2-SERVICES-09",
-        "V2-SERVICES-11"
-      ],
-      "passes": true,
-      "commit": "c2d257cf",
-      "attempts": 1
+      "passes": false,
+      "blocked": false,
+      "phase": "0"
     },
     {
-      "id": "V2-CLEANUP-01",
-      "cycle": "overhaul",
-      "phase": "6-cleanup",
-      "title": "Delete old model classes from models.py",
-      "description": "Delete all v1 model classes (BucketType through LinkProposal, lines 422-796). Delete init_fts and init_vec functions. Pre-condition: grep for old-model imports returns zero results.",
-      "reads": [
-        "models.py",
-        "docs/V2_OVERHAUL_PLAN.md"
-      ],
-      "writes": [
-        "models.py"
-      ],
+      "id": "V3-0.3",
+      "title": "Replace fake AI panel with real backend call",
+      "description": "The AIPanel component generates [AI: ${prompt}] literally instead of calling the backend.\n\nFile: ui/src/components/Editor/TipTapEditor.tsx:63-86\n\nChanges:\n1. Replace the simulated response with a real fetch to /api/v2/ai/propose-from-selection\n2. Action: improve_writing; body: { selected_text: selectedContent, action: 'improve_writing' }\n3. On success: replace selection or append AI result to editor\n4. Show real response, not the echoed prompt string",
       "acceptanceCriteria": [
-        "No v1 model classes remaining",
-        "Full test suite still passes"
+        "AIPanel calls backend /api/v2/ai/propose-from-selection",
+        "Result replaces selection or appends to editor",
+        "No more literal [AI: ...] echo",
+        "Error states handled gracefully"
       ],
       "validationCommands": [
-        "TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test pytest -q"
+        "cd ui && npm run build"
       ],
-      "blockedBy": [
-        "V2-TEST-04",
-        "V2-SERVICES-02",
-        "V2-SERVICES-05",
-        "V2-SERVICES-09",
-        "V2-SERVICES-10",
-        "V2-SERVICES-11"
-      ],
-      "passes": true,
-      "commit": "e964542d",
-      "attempts": 1
+      "passes": false,
+      "blocked": false,
+      "phase": "0"
     },
     {
-      "id": "V2-CLEANUP-02",
-      "cycle": "overhaul",
-      "phase": "6-cleanup",
-      "title": "Delete dead services/links.py",
-      "description": "Delete services/links.py. Confirm no remaining imports.",
-      "reads": [
-        "services/links.py"
-      ],
-      "writes": [
-        "services/links.py"
-      ],
+      "id": "V3-0.4",
+      "title": "Close the AI tagging loop",
+      "description": "run_classify() stores extraction.tags in ai_meta[\"extracted_tags\"] (JSON blob) but never writes EntityTag records. Tags are invisible everywhere.\n\nFile: services/ai_pipeline.py:258\n\nChanges:\n1. After entity.ai_meta = ai_meta, iterate extraction.tags and upsert EntityTag records using the existing Tag model + deduplication from api/tags.py\n2. Add tag_names to the entity to_dict() response\n3. Confirm NoteDetailView.jsx:455 (note.tag_names) now shows real data",
       "acceptanceCriteria": [
-        "services/links.py deleted",
-        "No remaining imports reference it"
+        "After classification, tags appear in EntityTag table",
+        "entity.to_dict() includes tag_names",
+        "NoteDetailView shows real tags in sidebar"
       ],
       "validationCommands": [
-        "grep -rn \"from services.links import\\|from services import links\" . --include='*.py' --exclude-dir='.venv' && echo 'found' || echo 'clean'"
+        "pytest -q -k 'classify or tag or ai_pipeline' 2>&1 || true"
       ],
-      "blockedBy": [
-        "V2-CLEANUP-01"
-      ],
-      "passes": true,
-      "commit": "33637e64",
-      "attempts": 1,
-      "status": "completed",
-      "completedAt": "2026-05-12T14:30:00-07:00"
+      "passes": false,
+      "blocked": false,
+      "phase": "0"
     },
     {
-      "id": "V2-CLEANUP-03",
-      "cycle": "overhaul",
-      "phase": "6-cleanup",
-      "title": "Fix SCHEMA.sql: primary key types and missing tables",
-      "description": "Change UUID PRIMARY KEY to TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text. Add summaries and link_proposals tables. Re-apply schema to test DB.",
-      "reads": [
-        "docs/SCHEMA.sql",
-        "docs/V2_OVERHAUL_PLAN.md"
-      ],
-      "writes": [
-        "docs/SCHEMA.sql"
-      ],
+      "id": "V3-0.5",
+      "title": "Fix entity link resolution across all types",
+      "description": "Both NoteDetailView and ConnectionsPanel resolve entity links only by searching the notes array. Links to tasks/projects/people render as 'Note undefined'.\n\nFiles: ui/src/views/NoteDetailView.jsx (~line 556), ui/src/components/ConnectionsPanel/ConnectionsPanel.jsx\n\nChanges:\n1. Write a resolveEntity(id, store) helper that searches notes, tasks, projects, areas, people, resources\n2. Use it everywhere link resolution currently uses resolveNote(id) alone\n3. Route each link to the correct detail URL based on resolved entity type\n4. Show the entity type icon (project/note/task/area/person/resource) next to each link label",
       "acceptanceCriteria": [
-        "Primary keys use TEXT not UUID",
-        "summaries table exists",
-        "link_proposals table exists"
+        "Links to tasks/projects/people resolve correctly (not 'Note undefined')",
+        "Each link routes to correct detail URL by entity type",
+        "Entity type icons shown next to link labels",
+        "resolveEntity helper used consistently"
       ],
       "validationCommands": [
-        "psql postgresql://engram:engram@localhost:5433/engram_test -f docs/SCHEMA.sql 2>&1 | tail -3"
+        "cd ui && npm run build"
       ],
-      "blockedBy": [
-        "V2-CLEANUP-01"
-      ],
-      "passes": true,
-      "commit": "5811238c",
-      "attempts": 1,
-      "status": "completed",
-      "completedAt": "2026-05-12T14:30:00-07:00"
+      "passes": false,
+      "blocked": false,
+      "phase": "0"
     },
     {
-      "id": "V2-CLEANUP-04",
-      "cycle": "overhaul",
-      "phase": "6-cleanup",
-      "title": "Update AGENTS.md and EXECUTION-TRACKER.md",
-      "description": "Remove SQLite references from AGENTS.md. Add overhaul completion entry to EXECUTION-TRACKER.md.",
-      "reads": [
-        "AGENTS.md",
-        "EXECUTION-TRACKER.md",
-        "docs/V2_OVERHAUL_PLAN.md"
-      ],
-      "writes": [
-        "AGENTS.md",
-        "EXECUTION-TRACKER.md"
-      ],
+      "id": "V3-1.1",
+      "title": "Wire real drag-and-drop into Tasks page",
+      "description": "Replace arrow-button status change with native HTML5 drag columns. The handoff uses native HTML5 drag (draggable, onDragStart, onDragOver, onDrop) - not dnd-kit.\n\nFile: ui/src/views/Tasks.jsx\n\nChanges:\n1. Replace arrow-button status change with native HTML5 drag columns\n2. Three columns: Pending / In Progress / Done (colored dots: --text-muted / --yellow / --green)\n3. Column header: colored dot + label + count + add button\n4. Quick-add inline input below column header (Enter to create, Escape to cancel)\n5. Card design: title 12.5px/500, project badge (mono, colored border+text), due date (mono 10px), priority dot (6x6px, --red/--yellow/--text-muted)\n6. Dragging: opacity 0.35 on source; drop column gets surface2 highlight\n7. Filter bar: All / By Project / Overdue chips\n8. On drop: call updateTask(id, { status: newStatus })\n9. Remove /kanban route from App.jsx; remove KanbanBoard import",
       "acceptanceCriteria": [
-        "No SQLite references in AGENTS.md",
-        "Overhaul completion documented"
-      ],
-      "validationCommands": [],
-      "blockedBy": [
-        "V2-CLEANUP-01"
-      ],
-      "passes": true,
-      "commit": "21abc1ec",
-      "attempts": 1
-    },
-    {
-      "id": "V2-CLEANUP-05",
-      "cycle": "overhaul",
-      "phase": "6-cleanup",
-      "title": "Remove/archive old v1 test files",
-      "description": "Move old v1 test files (test_api.py, test_phase1_backend_foundation.py, test_rollup.py, test_link_proposer.py, test_models_legacy.py) to tests/archive/.",
-      "reads": [
-        "docs/V2_OVERHAUL_PLAN.md"
-      ],
-      "writes": [
-        "tests/archive/"
-      ],
-      "acceptanceCriteria": [
-        "Old v1 tests archived",
-        "No stale v1 test files in tests/ root"
+        "Tasks can be dragged between Pending/In Progress/Done columns",
+        "Card design matches spec (title, project badge, due date, priority dot)",
+        "Quick-add creates tasks in the target column",
+        "Filter chips work (All/By Project/Overdue)",
+        "KanbanBoard.jsx removed from routing"
       ],
       "validationCommands": [
-        "mkdir -p tests/archive && mv tests/test_api.py tests/test_phase1_backend_foundation.py tests/test_rollup.py tests/test_link_proposer.py tests/test_models_legacy.py tests/archive/ 2>/dev/null; echo 'done'"
+        "cd ui && npm run build"
       ],
-      "blockedBy": [
-        "V2-CLEANUP-01"
-      ],
-      "passes": true,
-      "commit": "94a93777",
-      "attempts": 1
+      "passes": false,
+      "blocked": false,
+      "phase": "1"
     },
     {
-      "id": "V2-CLEANUP-06",
-      "cycle": "overhaul",
-      "phase": "6-cleanup",
-      "title": "Replace Entity.query.get() with db.session.get()",
-      "description": "Find all .query.get() calls in api/ and services/ and replace with db.session.get().",
-      "reads": [],
-      "writes": [],
+      "id": "V3-1.2",
+      "title": "Add PersonFocus detail view",
+      "description": "No /people/:id route exists. Clicking a person does nothing.\n\nFiles: ui/src/views/People.jsx, new ui/src/views/PersonFocus.jsx, App.jsx\n\nChanges:\n1. Create PersonFocus.jsx:\n   - Header: name, role, initials avatar (32px circle, accent-dim bg, accent text)\n   - Tabs: Notes / Tasks / Projects / Connections (same style as ProjectFocus)\n   - Notes tab: list of notes linked to this person\n   - Tasks tab: list of tasks linked to this person\n   - AI sidebar: 224px, tags, suggested links, quick actions\n2. Register /people/:id route in App.jsx\n3. Make person cards in People.jsx navigable (click -> /people/:id)\n4. setActivePerson in store when navigating to person focus",
       "acceptanceCriteria": [
-        "No .query.get() calls remain in api/ or services/"
+        "Clicking a person card navigates to /people/:id",
+        "PersonFocus shows header with avatar, name, role",
+        "Tabs show linked notes, tasks, projects, connections",
+        "AI sidebar present with 224px width"
       ],
       "validationCommands": [
-        "! grep -rn '\\.query\\.get(' api/ services/ --include='*.py' | head -5"
+        "cd ui && npm run build"
       ],
-      "blockedBy": [
-        "V2-CLEANUP-01"
+      "passes": false,
+      "blocked": false,
+      "phase": "1"
+    },
+    {
+      "id": "V3-1.3",
+      "title": "Redesign ProjectFocus to match design spec",
+      "description": "Current view is a document with connections sidebar. Design shows structured header with progress metrics.\n\nFile: ui/src/views/ProjectFocus.jsx\n\nChanges:\n1. Header (padding 18px 28px 0, borderBottom): area badge + project name (22px) + description (12.5px); right: status badge + due date + Complete Project button\n2. Progress section: Done/In Progress/Pending as 20px bold mono numbers; percentage right-aligned; 3px progress track (surface2 bg, accent fill)\n3. Tabs: Notes / Tasks / People / Connections (12px, bottom border 2px accent when active)\n4. Notes tab: list rows with icon + title + modified time + tag chips\n5. Tasks tab: mini 3-column grid (not full kanban), compact cards\n6. People tab: person cards with initials avatar, name, role; Add person button\n7. Connections tab: linked entities with type icon + label\n8. Complete Project button: calls updateProject(id, { status: 'DONE' }), shows Rolling up -> Completed transition",
+      "acceptanceCriteria": [
+        "Header shows area badge, project name, description, status, due date",
+        "Progress stats show Done/In Progress/Pending counts with track",
+        "Four tabs work (Notes, Tasks, People, Connections)",
+        "Complete Project button triggers status transition animation",
+        "Notes tab shows list rows with tags",
+        "Tasks tab shows compact 3-column grid"
       ],
-      "passes": true,
-      "commit": "801dcc88",
-      "attempts": 1
+      "validationCommands": [
+        "cd ui && npm run build"
+      ],
+      "passes": false,
+      "blocked": false,
+      "phase": "1"
+    },
+    {
+      "id": "V3-1.4",
+      "title": "Verify and fix ResourceDetail",
+      "description": "Route exists in App.jsx but verify the detail view actually fetches and renders data end-to-end.\n\nFiles: ui/src/views/ResourceDetail.jsx, ui/src/views/Resources.jsx\n\nChanges:\n1. Confirm ResourceDetail.jsx loads entity by params.id (from API if not in store)\n2. Make resource cards in Resources.jsx navigate to /resources/:id\n3. Add linked notes, tasks, and people sections (same tab pattern as ProjectFocus)\n4. Add the 224px AI sidebar (tags, suggested links, quick actions)",
+      "acceptanceCriteria": [
+        "ResourceDetail loads entity data by URL param",
+        "Resource cards navigate to detail view",
+        "Shows linked notes, tasks, people in tabs",
+        "AI sidebar present"
+      ],
+      "validationCommands": [
+        "cd ui && npm run build"
+      ],
+      "passes": false,
+      "blocked": false,
+      "phase": "1"
+    },
+    {
+      "id": "V3-2.1",
+      "title": "AI text selection toolbar (match design exactly)",
+      "description": "Design shows a compact floating toolbar above the selection with 4 action buttons and a result box.\n\nFile: ui/src/components/AiSelectionPopover/AiSelectionPopover.tsx\n\nChanges:\n1. Toolbar: surface3 bg, border, 7px radius, boxShadow 0 8px 24px rgba(0,0,0,0.55), padding 3px, gap 2px\n2. Button style: 11.5px, 500 weight, text-secondary, no bg, 5px radius, 4px 9px padding, hover slight bg\n3. Four actions: Classify / Extract Task / Find Links / Improve\n4. Close button at right end\n5. Result panel: above toolbar, surface bg, 1px accent-dim border, 5px radius, 6px 10px padding, 11.5px accent mono text, shadow\n6. Position: centered above selection rect",
+      "acceptanceCriteria": [
+        "Floating toolbar appears above text selection with 4 action buttons",
+        "Toolbar matches design spec (colors, borders, shadow, spacing)",
+        "Each button triggers the correct AI action",
+        "Result panel appears above toolbar with accent styling",
+        "Close button dismisses toolbar"
+      ],
+      "validationCommands": [
+        "cd ui && npm run build"
+      ],
+      "passes": false,
+      "blocked": false,
+      "phase": "2"
+    },
+    {
+      "id": "V3-2.2",
+      "title": "AI selection: add 'update existing entity' path",
+      "description": "Currently only creates new entities. Vision requires ability to update an existing one.\n\nFiles: ui/src/components/AiSelectionPopover/AiSelectionPopover.tsx, api/ai_selection.py\n\nChanges:\n1. Add find_and_update to AI_ACTIONS (label: 'Find & Update')\n2. Backend handler: semantic search against existing entities with selected text; return top 3 candidates\n3. Frontend: show disambiguation panel listing candidate entities + proposed change; Apply/Dismiss per candidate\n4. Apply: PATCH /api/v2/entities/:id with the proposed update",
+      "acceptanceCriteria": [
+        "Find & Update action available in AI toolbar",
+        "Backend returns top 3 matching entities for selected text",
+        "Disambiguation panel shows candidates with proposed changes",
+        "Apply button sends PATCH to correct entity"
+      ],
+      "validationCommands": [
+        "pytest -q -k 'ai_selection' 2>&1 || true",
+        "cd ui && npm run build"
+      ],
+      "passes": false,
+      "blocked": false,
+      "phase": "2"
+    },
+    {
+      "id": "V3-2.3",
+      "title": "Wire link proposal review UI",
+      "description": "run_autolink stores link candidates (confidence < 0.92) in ai_meta link_proposals. The /api/v2/proposals endpoint exists. No UI surfaces them.\n\nFiles: ui/src/views/NoteDetailView.jsx, api/proposals.py\n\nChanges:\n1. Add 'Suggested Links' section to the 224px AI sidebar (note, project, person focus views)\n2. Show each candidate: type icon + entity name + confidence %\n3. Accept button -> POST /api/v2/links (creates the EntityLink)\n4. Dismiss button -> removes from proposals list",
+      "acceptanceCriteria": [
+        "Suggested Links section appears in AI sidebar for entities with proposals",
+        "Each candidate shows type icon, name, and confidence percentage",
+        "Accept creates EntityLink via POST /api/v2/links",
+        "Dismiss removes candidate from display"
+      ],
+      "validationCommands": [
+        "cd ui && npm run build"
+      ],
+      "passes": false,
+      "blocked": false,
+      "phase": "2"
+    },
+    {
+      "id": "V3-2.4",
+      "title": "Capture flow from sidebar / command palette",
+      "description": "Add quick-capture entry points that feed through the AI pipeline (classify -> autolink). The capture flow allows creating new entities from anywhere.\n\nFiles: ui/src/views/AppShell.jsx, ui/src/components/CommandPalette/CommandPalette.jsx\n\nChanges:\n1. Add capture button in AppShell sidebar header\n2. Add capture command to CommandPalette\n3. Capture modal: textarea + entity type selector + Create button\n4. On create: POST to /api/v2/capture, then redirect to the new entity\n5. Show processing indicator while AI pipeline runs",
+      "acceptanceCriteria": [
+        "Capture accessible from sidebar button and CommandPalette",
+        "Capture modal has textarea and entity type selector",
+        "Creates entity via POST /api/v2/capture",
+        "Redirects to new entity after creation",
+        "Shows processing state while AI pipeline runs"
+      ],
+      "validationCommands": [
+        "cd ui && npm run build"
+      ],
+      "passes": false,
+      "blocked": false,
+      "phase": "2"
+    },
+    {
+      "id": "V3-3.1",
+      "title": "Implement CSS variable system (light/dark mode)",
+      "description": "Port all hardcoded colors to CSS custom properties with light mode default + dark mode overrides via JS toggle.\n\nFiles: ui/src/index.css, ui/src/App.css, all view components\n\nChanges:\n1. Define token system in root CSS:\n   --font-sans: 'IBM Plex Sans', sans-serif\n   --font-mono: 'IBM Plex Mono', monospace\n   Base 13px, line-height 1.5\n2. Light mode tokens (default): bg/surface/surface2/surface3/border/border-faint/text/text-secondary/text-muted/accent/accent-dim/green/yellow/red/pink\n3. Dark mode tokens (via .dark class on html): all tokens overridden per design spec\n4. Sidebar width: --sidebar-w: 216px; Topbar height: --topbar-h: 44px\n5. Global scrollbar: 5px width, transparent track, border thumb, 3px radius\n6. Entity type icons and colors as CSS custom properties\n7. Typography scale as CSS custom properties",
+      "acceptanceCriteria": [
+        "All colors use CSS custom properties",
+        "Light mode matches design tokens exactly",
+        "Dark mode overrides via .dark class on html element",
+        "Entity type icons use CSS variables for colors",
+        "Scrollbar styling matches spec (5px, transparent track, border thumb)"
+      ],
+      "validationCommands": [
+        "cd ui && npm run build"
+      ],
+      "passes": false,
+      "blocked": false,
+      "phase": "3"
+    },
+    {
+      "id": "V3-3.2",
+      "title": "Redesign NoteDetailView to V3 design spec",
+      "description": "Redesign the note detail view to use the new CSS variable system and match the design spec layout.\n\nFile: ui/src/views/NoteDetailView.jsx\n\nChanges:\n1. Header: entity type icon (note = diamond outline), title (H1 26px/700, letter-spacing -0.02em), meta row (12px mono: created/modified dates, entity type label)\n2. Body: 13.5px/400, line-height 1.7, --text-secondary, with proper heading styles (H2 15px/600, H3 etc)\n3. Editor: full TipTap with new design tokens\n4. AI sidebar: 224px width, tags section, suggested links section, quick actions\n5. Metadata section: entity type, status, created/modified, follow-up date\n6. Connections panel: entity type icons + labels per design",
+      "acceptanceCriteria": [
+        "NoteDetailView uses CSS variables for all colors",
+        "Typography matches spec (H1 26px, body 13.5px, etc.)",
+        "AI sidebar is 224px wide with tags, links, actions",
+        "Metadata section shows all entity fields",
+        "Connections panel shows entity type icons"
+      ],
+      "validationCommands": [
+        "cd ui && npm run build"
+      ],
+      "passes": false,
+      "blocked": false,
+      "phase": "3"
+    },
+    {
+      "id": "V3-3.3",
+      "title": "Redesign Tasks view to V3 design",
+      "description": "Apply V3 design tokens to the Tasks kanban board built in Phase 1.1.\n\nFile: ui/src/views/Tasks.jsx\n\nChanges:\n1. Use CSS variables for all colors (column backgrounds, card surfaces, borders)\n2. Column headers: colored dot (--text-muted/--yellow/--green), label (12px/600 mono), count badge\n3. Card: surface bg, border, 5px radius; title (12.5px/500), bottom row (project badge + due date + priority dot)\n4. Quick-add input styled per design (border-faint, 12px)\n5. Filter chips styled per design (11px mono, border, pill shape)\n6. Drag states: opacity 0.35 source, surface2 highlight target",
+      "acceptanceCriteria": [
+        "Tasks view uses CSS variables throughout",
+        "Card design matches spec (typography, badges, priority dots)",
+        "Column headers have correct colored dots",
+        "Filter chips use pill shape with mono font",
+        "Drag visual states match spec"
+      ],
+      "validationCommands": [
+        "cd ui && npm run build"
+      ],
+      "passes": false,
+      "blocked": false,
+      "phase": "3"
+    },
+    {
+      "id": "V3-3.4",
+      "title": "Redesign ProjectFocus to V3 design tokens",
+      "description": "Apply V3 design tokens to ProjectFocus (built in Phase 1.3). Verify all sections match the design spec.\n\nFile: ui/src/views/ProjectFocus.jsx\n\nChanges:\n1. Replace hardcoded colors with CSS variables\n2. Progress track: var(--surface2) bg, var(--accent) fill, transition 0.6s\n3. Stat numbers: 20px bold mono, small label below\n4. Tabs: 12px, bottom border 2px var(--accent) when active\n5. Note list rows: entity icon + title + modified time + tag chips\n6. Task mini-cards: compact, matching card design spec\n7. Person cards: initials avatar (32px circle, accent-dim bg, accent text)",
+      "acceptanceCriteria": [
+        "ProjectFocus uses CSS variables for all colors",
+        "Progress track styled correctly (surface2 bg, accent fill)",
+        "Stat numbers in 20px bold mono",
+        "Active tab has 2px accent bottom border",
+        "Cards and rows match design spec"
+      ],
+      "validationCommands": [
+        "cd ui && npm run build"
+      ],
+      "passes": false,
+      "blocked": false,
+      "phase": "3"
+    },
+    {
+      "id": "V3-3.5",
+      "title": "Redesign People view to V3 design",
+      "description": "Apply V3 design tokens to People list view.\n\nFile: ui/src/views/People.jsx\n\nChanges:\n1. Person cards: initials avatar (32px circle), name (13.5px/500), role (12px, text-muted)\n2. Card: surface bg, border, hover elevation\n3. Grid or list layout matching design density\n4. Search/filter bar styled per design\n5. Add Person button (dashed border, 12px)",
+      "acceptanceCriteria": [
+        "People view uses CSS variables",
+        "Person cards have initials avatar, name, role",
+        "Cards match design density and spacing",
+        "Search/filter matches design style"
+      ],
+      "validationCommands": [
+        "cd ui && npm run build"
+      ],
+      "passes": false,
+      "blocked": false,
+      "phase": "3"
+    },
+    {
+      "id": "V3-3.6",
+      "title": "Redesign Today view to V3 design",
+      "description": "Apply V3 design tokens to Today/dashboard view.\n\nFile: ui/src/views/Today.jsx\n\nChanges:\n1. Layout sections: Overdue (red dot), Due Today (yellow dot), Follow-up (accent dot)\n2. Entity cards compact: type icon + title + project badge + due time\n3. Section headers: 12px/600 mono, colored dot + label + count\n4. Empty states: 12px text-muted italic with helpful message\n5. Quick-add task input at top",
+      "acceptanceCriteria": [
+        "Today view uses CSS variables",
+        "Sections properly segmented (Overdue/Due Today/Follow-up)",
+        "Section headers have colored dots and counts",
+        "Entity cards show type icon, title, badge, time"
+      ],
+      "validationCommands": [
+        "cd ui && npm run build"
+      ],
+      "passes": false,
+      "blocked": false,
+      "phase": "3"
+    },
+    {
+      "id": "V3-3.7",
+      "title": "Redesign CommandPalette to V3 design",
+      "description": "Apply V3 design tokens to the command palette.\n\nFile: ui/src/components/CommandPalette/CommandPalette.jsx\n\nChanges:\n1. Overlay: rgba(0,0,0,0.3) backdrop\n2. Palette: surface bg, 8px radius, shadow, max-width 520px\n3. Search input: 13.5px, border-bottom, mono placeholder\n4. Results: entity type icon + title (13px) + subtitle (11px mono, text-muted)\n5. Highlight match in results\n6. Footer: keyboard shortcuts in 10px mono, text-muted",
+      "acceptanceCriteria": [
+        "CommandPalette uses CSS variables",
+        "Overlay backdrop matches spec",
+        "Results show entity icons and proper typography",
+        "Footer shows keyboard shortcuts in mono"
+      ],
+      "validationCommands": [
+        "cd ui && npm run build"
+      ],
+      "passes": false,
+      "blocked": false,
+      "phase": "3"
+    },
+    {
+      "id": "V3-3.8",
+      "title": "Redesign Capture flow to V3 design",
+      "description": "Apply V3 design tokens to the capture modal (built in Phase 2.4).\n\nFile: ui/src/components/CaptureModal/ (create if needed)\n\nChanges:\n1. Modal: overlay + surface bg panel, 8px radius, shadow, max-width 480px\n2. Textarea: 13.5px, border (--border), focus accent border, min-height 120px\n3. Type selector: row of entity type buttons with icons + labels, selected gets accent bg\n4. Create button: accent bg, white text, 12px/500\n5. Processing state: spinner + 'Classifying...' text",
+      "acceptanceCriteria": [
+        "Capture modal uses CSS variables",
+        "Textarea has proper focus styling with accent border",
+        "Type selector shows entity type icons with selection state",
+        "Button uses accent colors",
+        "Processing state visible"
+      ],
+      "validationCommands": [
+        "cd ui && npm run build"
+      ],
+      "passes": false,
+      "blocked": false,
+      "phase": "3"
+    },
+    {
+      "id": "V3-4.1",
+      "title": "Migrate store to v2 field names",
+      "description": "Rename v1 field names in the Zustand store to v2. name -> title. Hide ai_meta from component-facing state.\n\nFiles: ui/src/store.js, all components referencing store fields\n\nChanges:\n1. Rename name -> title in store actions and selectors\n2. Keep backward compat: API responses use title, store normalizes\n3. Update all components that reference entity.name to entity.title\n4. Update AppShell.jsx sidebar pinned projects section to use v2 names\n5. Update CommandPalette.jsx search to use title not name\n6. Mark ai_meta as internal (prefixed with _ or filtered from selectors)",
+      "acceptanceCriteria": [
+        "Store uses title field instead of name",
+        "All components reference title not name",
+        "Sidebar and CommandPalette use v2 field names",
+        "ai_meta is not exposed to components directly"
+      ],
+      "validationCommands": [
+        "cd ui && npm run build"
+      ],
+      "passes": false,
+      "blocked": false,
+      "phase": "4"
+    },
+    {
+      "id": "V3-4.2",
+      "title": "Expose ai_status in UI",
+      "description": "Show AI processing status on entity cards throughout the app.\n\nFiles: all entity list/card components\n\nChanges:\n1. Show a spinning indicator on note/entity cards where ai_status === 'processing'\n2. After classification, show classification result + confidence inline on the entity card in lists\n3. Add polling or optimistic update: after capture, poll entity until ai_status === 'done', then refresh AI sidebar content",
+      "acceptanceCriteria": [
+        "Processing spinner visible on cards when ai_status is 'processing'",
+        "Classification results shown inline after completion",
+        "AI sidebar refreshes when ai_status transitions to 'done'"
+      ],
+      "validationCommands": [
+        "cd ui && npm run build"
+      ],
+      "passes": false,
+      "blocked": false,
+      "phase": "4"
+    },
+    {
+      "id": "V3-5.1",
+      "title": "Delete flow with cascade preview",
+      "description": "Before any entity deletion, call delete-preview endpoint and show cascade modal.\n\nFiles: all detail views with delete buttons, ui/src/components/DeleteConfirmModal/\n\nChanges:\n1. Before any entity deletion, call GET /api/v2/entities/:id/delete-preview\n2. Show modal: list of orphaned entities with checkboxes (check = cascade delete)\n3. Pass cascade=true/false (or list of IDs to cascade) to the delete API call",
+      "acceptanceCriteria": [
+        "Delete preview endpoint called before any deletion",
+        "Modal shows orphaned entities with checkboxes",
+        "Cascade parameter passed correctly to delete API"
+      ],
+      "validationCommands": [
+        "pytest -q -k 'delete' 2>&1 || true",
+        "cd ui && npm run build"
+      ],
+      "passes": false,
+      "blocked": false,
+      "phase": "5"
+    },
+    {
+      "id": "V3-5.2",
+      "title": "Follow-up date surfacing",
+      "description": "Show follow_up_at dates on entity cards and include them in Today view.\n\nFiles: ui/src/views/Today.jsx, all entity card/list components\n\nChanges:\n1. Show follow_up_at on entity cards when set (date in mono, --yellow if overdue)\n2. Today view: include any entities with follow_up_at = today, not just tasks with due_date\n3. Quick-set follow-up from entity detail sidebar: date input in the metadata section",
+      "acceptanceCriteria": [
+        "Follow-up dates visible on entity cards (yellow if overdue)",
+        "Today view includes entities with today's follow_up_at",
+        "Follow-up date can be set from entity detail sidebar"
+      ],
+      "validationCommands": [
+        "cd ui && npm run build"
+      ],
+      "passes": false,
+      "blocked": false,
+      "phase": "5"
+    },
+    {
+      "id": "V3-5.3",
+      "title": "Status transitions for all entity types",
+      "description": "Add status lifecycle to projects, areas, and notes.\n\nFiles: ui/src/views/ProjectFocus.jsx, ui/src/views/Areas.jsx, ui/src/views/NoteDetailView.jsx, services/rollup.py\n\nChanges:\n1. Projects and Areas: status picker in detail header (Active / On Hold / Completed / Archived)\n2. Notes: lifecycle dropdown in AI sidebar (INBOX / PROJECT / AREA / RESOURCE / ARCHIVE)\n3. Project completion triggers rollup summary (existing services/rollup.py)\n4. Area archive: confirm modal, detaches child projects",
+      "acceptanceCriteria": [
+        "Projects and Areas have status picker with all states",
+        "Notes have lifecycle dropdown in AI sidebar",
+        "Completing a project triggers rollup summary",
+        "Archiving an area detaches child projects with confirmation"
+      ],
+      "validationCommands": [
+        "pytest -q -k 'rollup or status' 2>&1 || true",
+        "cd ui && npm run build"
+      ],
+      "passes": false,
+      "blocked": false,
+      "phase": "5"
+    },
+    {
+      "id": "V3-5.4",
+      "title": "MCP server alignment",
+      "description": "Audit and update MCP server tools to use v2 API paths.\n\nFile: mcp_server/server.py\n\nChanges:\n1. Audit all MCP tool handlers against v2 API paths\n2. Add MCP tools: create_entity, search_entities, get_entity, update_entity\n3. Test round-trip with Claude Desktop config\n4. Update mcp_server/claude_desktop_config.json if paths changed",
+      "acceptanceCriteria": [
+        "All MCP tools use v2 API paths",
+        "New tools: create_entity, search_entities, get_entity, update_entity",
+        "Claude Desktop config updated if needed"
+      ],
+      "validationCommands": [
+        "pytest -q -k 'mcp' 2>&1 || true"
+      ],
+      "passes": false,
+      "blocked": false,
+      "phase": "5"
+    },
+    {
+      "id": "V3-5.5",
+      "title": "Test coverage for closed loops",
+      "description": "Add integration tests for all critical paths to prevent regressions.\n\nChanges:\n1. Unit: run_classify creates EntityTag records (Phase 0.4)\n2. Unit: callAiAction sends to correct v2 URL with selected_text field (Phase 0.2)\n3. Unit: TipTapEditor.onSave passes html not text (Phase 0.1)\n4. Integration: full note create -> classify -> tag visible in AI sidebar\n5. Integration: task drag-and-drop updates status via updateTask\n6. Integration: delete preview modal -> cascade delete\n7. Integration: AI selection popover -> Extract Task -> task appears in Tasks view",
+      "acceptanceCriteria": [
+        "All listed unit tests pass",
+        "All listed integration tests pass",
+        "No regressions in existing test suite"
+      ],
+      "validationCommands": [
+        "pytest -q"
+      ],
+      "passes": false,
+      "blocked": false,
+      "phase": "5"
     }
-  ],
-  "metadata": {
-    "updatedAt": "2026-05-12T06:47:18.997858+00:00"
-  }
+  ]
 }
