@@ -553,6 +553,157 @@
       "phase": "5",
       "commit": "2f1fa8c6",
       "attempts": 1
+    },
+    {
+      "id": "V3.5-1",
+      "title": "QuickCapture type picker \u2014 route to entity type",
+      "description": "The capture modal only creates notes via the ingestion pipeline. It should support routing to task, resource, or person based on a type picker chip selection.\n\nFile: ui/src/components/capture/QuickCapture.jsx\n\nChanges:\n1. Add type picker chips to capture header: note / task / resource / person\n2. note (default): existing ingestion pipeline, unchanged\n3. task: call createTask({ title: text }) directly \u2014 skip ingestion pipeline\n4. resource: create entity with entity_type=resource via resourcesAPI.create, show toast 'Saved as reference'\n5. person: call createPerson({ title: text }) directly \u2014 show toast 'Person added'\n6. Type picker chips: 10.5px mono, border, 4px radius; active: --accent color + --accent-dim bg\n7. Default type is 'note' if nothing selected",
+      "acceptanceCriteria": [
+        "QuickCapture shows type picker chips in header",
+        "Selecting 'task' and submitting creates a task via createTask (no ingestion pipeline)",
+        "Selecting 'person' and submitting creates a person via createPerson",
+        "Selecting 'resource' and submitting creates a resource via resourcesAPI.create",
+        "Selecting 'note' or default: existing ingestion pipeline behavior",
+        "npm run build passes"
+      ],
+      "validationCommands": [
+        "cd ui && npm run build"
+      ],
+      "passes": false,
+      "blocked": false,
+      "phase": "3.5",
+      "attempts": 0
+    },
+    {
+      "id": "V3.5-2",
+      "title": "Phase 1.2 field name cleanup \u2014 raw_text \u2192 content",
+      "description": "useStore.js still destructures raw_text from note data. The backend uses content as the field name.\n\nFiles: ui/src/stores/useStore.js, ui/src/api/engram.js\n\nChanges:\n1. useStore.js: replace 'raw_text' references with 'content' in createNote, normalizeEntity, and all note-handling functions\n2. api/engram.js: verify all note create/update calls use 'content' not 'raw_text'\n3. Verify all view files that reference raw_text are updated\n4. Run the full test suite and npm build after changes",
+      "acceptanceCriteria": [
+        "useStore.js no longer destructures raw_text for notes",
+        "All note creation uses 'content' field name",
+        "pytest -q passes",
+        "cd ui && npm run build passes"
+      ],
+      "validationCommands": [
+        "pytest -q",
+        "cd ui && npm run build"
+      ],
+      "passes": false,
+      "blocked": false,
+      "phase": "1.2",
+      "attempts": 0
+    },
+    {
+      "id": "V3.5-3",
+      "title": "Phase 4 design system \u2014 IBM Plex Sans + oklch tokens",
+      "description": "The design system in V3_PLAN.md is not applied.\n\nFiles: ui/index.html, ui/src/index.css, all view CSS modules\n\nChanges:\n1. ui/index.html: replace Inter font with IBM Plex Sans (keep JetBrains Mono for mono)\n2. ui/src/index.css: add oklch color tokens from the V3_PLAN design reference; remove hardcoded hex values for bg/surface/text/accent\n3. Apply --font-sans: 'IBM Plex Sans', system-ui\n4. Apply --font-mono: 'IBM Plex Mono'\n5. Apply 13px base, 1.5 line-height\n6. Verify scrollbar style (5px, transparent track, --border thumb)\n7. Apply [data-theme=\"dark\"] overrides for dark mode\n8. Do NOT change layout or component structure \u2014 only CSS tokens, fonts, colors",
+      "acceptanceCriteria": [
+        "index.html uses IBM Plex Sans (not Inter) for primary font",
+        "index.css has oklch color tokens matching V3_PLAN design reference",
+        "Light mode tokens applied correctly (--bg, --surface, --text, etc.)",
+        "Dark mode overrides in [data-theme=\"dark\"] block",
+        "npm run build passes"
+      ],
+      "validationCommands": [
+        "cd ui && npm run build"
+      ],
+      "passes": false,
+      "blocked": false,
+      "phase": "4",
+      "attempts": 0
+    },
+    {
+      "id": "V3.5-4a",
+      "title": "ProjectFocus \u2014 add/remove linked entities",
+      "description": "ProjectFocus currently shows linked notes, tasks, and people but has no UI to add or remove them. Add relationship management UI.\n\nFile: ui/src/views/ProjectFocus.jsx\n\nChanges:\n1. Add 'Add Note' button \u2014 opens a search modal showing all notes not already linked to this project; on select calls updateNote(noteId, { project_ids: [...existing, newId] })\n2. Add 'Add Task' button \u2014 creates a new task with project_id set to this project, using quick-add inline form\n3. Add 'Add Person' button \u2014 search modal to add person_id to notes linked to this project, or directly associate person with project\n4. Show remove/detach buttons on existing linked items (notes, tasks, people)\n5. Pattern: use the same add-link modal pattern as NoteDetailView \u2014 search input + select dropdown + Add button\n6. Keep all existing functionality: tabs, progress, status picker, complete project button",
+      "acceptanceCriteria": [
+        "Can add an existing note to a project via search modal",
+        "Can remove a linked note from a project (updates project_ids on note)",
+        "Can create a new task directly from ProjectFocus (pre-assigned to this project)",
+        "Can add/remove people from project notes",
+        "npm run build passes"
+      ],
+      "validationCommands": [
+        "cd ui && npm run build"
+      ],
+      "passes": false,
+      "blocked": false,
+      "phase": "3.5",
+      "attempts": 0
+    },
+    {
+      "id": "V3.5-4b",
+      "title": "AreaFocus \u2014 add/remove linked entities",
+      "description": "AreaFocus currently shows projects and notes in an area but has no UI to add/remove them.\n\nFile: ui/src/views/AreaFocus.jsx\n\nChanges:\n1. Add 'Add Project' button \u2014 creates a new project with area_id set to this area, or assigns an existing project to this area via updateProject(projectId, { area_id })\n2. Add 'Add Note' button \u2014 search modal to add existing notes to this area via updateNote(noteId, { area_id })\n3. Show remove buttons on existing linked items\n4. Use same modal pattern as NoteDetailView and ProjectFocus V3.5-4a\n5. Keep archive toggle and delete cascade",
+      "acceptanceCriteria": [
+        "Can create a new project pre-assigned to this area",
+        "Can add an existing project to this area",
+        "Can add/remove notes from this area",
+        "npm run build passes"
+      ],
+      "validationCommands": [
+        "cd ui && npm run build"
+      ],
+      "passes": false,
+      "blocked": false,
+      "phase": "3.5",
+      "attempts": 0
+    },
+    {
+      "id": "V3.5-4c",
+      "title": "PersonFocus \u2014 add/remove linked entities",
+      "description": "PersonFocus currently shows linked notes, tasks, and projects but has no UI to add/remove people from entities.\n\nFile: ui/src/views/PersonFocus.jsx\n\nChanges:\n1. Add 'Add Note' button \u2014 search modal to assign an existing note to this person via updateNote(noteId, { person_id })\n2. Add 'Remove' buttons on existing linked notes to unassign person_id\n3. Can add a new note directly from PersonFocus (pre-assigned to this person)\n4. Keep all existing tabs and AI sidebar",
+      "acceptanceCriteria": [
+        "Can add an existing note to this person",
+        "Can remove a note from this person",
+        "Can create a new note pre-assigned to this person",
+        "npm run build passes"
+      ],
+      "validationCommands": [
+        "cd ui && npm run build"
+      ],
+      "passes": false,
+      "blocked": false,
+      "phase": "3.5",
+      "attempts": 0
+    },
+    {
+      "id": "V3.5-4d",
+      "title": "Tasks \u2014 add/remove note and project associations",
+      "description": "Tasks kanban view should allow attaching/detaching notes and projects from tasks.\n\nFile: ui/src/views/Tasks.jsx\n\nChanges:\n1. In each task card, add a small 'attach to note' action \u2014 opens a note search modal, calls updateTask(taskId, { note_id })\n2. Add 'attach to project' action \u2014 project picker, calls updateTask(taskId, { project_id })\n3. Show currently linked note/project on the task card\n4. Remove/change buttons for existing associations\n5. Keep drag-and-drop kanban (this is about entity relationships, not status)",
+      "acceptanceCriteria": [
+        "Can attach a task to a note from the Tasks view",
+        "Can change which project a task belongs to",
+        "Can remove note/project associations",
+        "Drag-and-drop status changes still work",
+        "npm run build passes"
+      ],
+      "validationCommands": [
+        "cd ui && npm run build"
+      ],
+      "passes": false,
+      "blocked": false,
+      "phase": "3.5",
+      "attempts": 0
+    },
+    {
+      "id": "V3.5-5",
+      "title": "Notes view \u2014 fix broken filters",
+      "description": "Notes view (ui/src/views/Notes.jsx) has entity sub-filters that may not work correctly when in project/area/person mode.\n\nCurrent state: FILTER_TABS has All/Projects/Areas/People/Inbox/Resource/Archive. When user selects 'Projects', an entity sub-filter shows 'All' + individual project names. Verify this works.\n\nAlso: the notes list should remain as a card grid (it's working well). Add a text search input to supplement the existing tab/entity filter.\n\nFiles: ui/src/views/Notes.jsx\n\nChanges:\n1. Verify entity sub-filter (when in project/area/person tab) works: clicking a project name should filter notes to only that project's notes\n2. Fix any bugs in the sub-filter logic (note.project_id and note.project_ids array handling)\n3. Add a text search input at the top of the note list that searches note.raw_text/title content\n4. Text search should combine with tab filter (e.g., 'inbox' tab + text search)",
+      "acceptanceCriteria": [
+        "All filter tabs work (All, Projects, Areas, People, Inbox, Resource, Archive)",
+        "Entity sub-filter (when in project/area/person tab) correctly filters notes",
+        "Text search filters notes by content/title",
+        "Text search combines with tab filter",
+        "npm run build passes"
+      ],
+      "validationCommands": [
+        "cd ui && npm run build"
+      ],
+      "passes": false,
+      "blocked": false,
+      "phase": "3.5",
+      "attempts": 0
     }
   ]
 }
