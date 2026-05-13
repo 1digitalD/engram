@@ -1,6 +1,7 @@
 """Integration tests for POST /api/v2/ai/propose-from-selection.
 
-Tests the 4 AI actions: classify, extract_task, create_link, improve_writing.
+Tests the 5 AI actions: classify, extract_task, create_link, improve_writing,
+find_and_update.
 All OpenAI calls are mocked.
 """
 
@@ -203,6 +204,40 @@ class TestCreateLinkAction:
         data = json.loads(res.data)
         assert data["action"] == "create_link"
         assert data["result"]["candidates"] == []
+
+
+# ─── Find and update action ──────────────────────────────────────────────────
+
+class TestFindAndUpdateAction:
+    @patch("api.ai_selection.search")
+    def test_find_and_update_returns_top_three_semantic_candidates(self, mock_search, client):
+        mock_search.return_value = [
+            {"id": "entity-1", "title": "Project Apollo", "type": "project", "content": "Launch planning"},
+            {"id": "entity-2", "title": "Launch Checklist", "type": "note", "content": "Checklist"},
+            {"id": "entity-3", "title": "Mission Debrief", "type": "note", "content": "Debrief"},
+            {"id": "entity-4", "title": "Extra Match", "type": "task", "content": "Extra"},
+        ]
+
+        res = client.post("/api/v2/ai/propose-from-selection", json={
+            "action": "find_and_update",
+            "selected_text": "Add the latest launch blockers and owners",
+        })
+
+        assert res.status_code == 200
+        data = json.loads(res.data)
+        assert data["action"] == "find_and_update"
+        assert len(data["result"]["candidates"]) == 3
+        assert [item["entity"]["id"] for item in data["result"]["candidates"]] == [
+            "entity-1", "entity-2", "entity-3"
+        ]
+        assert data["result"]["candidates"][0]["proposed_change"] == {
+            "content": "Add the latest launch blockers and owners"
+        }
+        mock_search.assert_called_once_with(
+            query="Add the latest launch blockers and owners",
+            limit=3,
+            mode="semantic",
+        )
 
 
 # ─── Improve writing action ─────────────────────────────────────────────────

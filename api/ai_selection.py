@@ -1,9 +1,10 @@
 """POST /api/v2/ai/propose-from-selection — AI actions on selected text.
 
-Supports 4 actions:
+Supports 5 actions:
 - classify: PARA classification of selected text
 - extract_task: extract tasks and create Entity(type='task') records
 - create_link: propose related entities as link candidates
+- find_and_update: find existing entities and propose updates
 - improve_writing: return improved/clarity version of text
 
 All AI actions write entity_events for auditability.
@@ -20,7 +21,13 @@ from services.search import search
 
 logger = logging.getLogger(__name__)
 
-VALID_ACTIONS = {"classify", "extract_task", "create_link", "improve_writing"}
+VALID_ACTIONS = {
+    "classify",
+    "extract_task",
+    "create_link",
+    "find_and_update",
+    "improve_writing",
+}
 
 
 @api_v2_bp.route("/ai/propose-from-selection", methods=["POST"])
@@ -44,6 +51,7 @@ def propose_from_selection():
         "classify": _handle_classify,
         "extract_task": _handle_extract_task,
         "create_link": _handle_create_link,
+        "find_and_update": _handle_find_and_update,
         "improve_writing": _handle_improve_writing,
     }
 
@@ -164,6 +172,37 @@ def _handle_create_link(text, data):
         "candidates": candidates,
         "total": len(candidates),
     }
+
+
+def _handle_find_and_update(text, data):
+    """Find matching entities via semantic search and propose a direct patch."""
+    search_results = search(query=text, limit=3, mode="semantic")
+
+    candidates = []
+    for entity_data in search_results[:3]:
+        entity_payload = {
+            "id": entity_data["id"],
+            "title": entity_data.get("title"),
+            "type": entity_data.get("type"),
+            "content": entity_data.get("content"),
+        }
+        proposed_change = _build_proposed_update(entity_data, text)
+        candidates.append({
+            "entity": entity_payload,
+            "proposed_change": proposed_change,
+            "proposed_change_summary": proposed_change.get("content", text),
+            "score": entity_data.get("_score", 0),
+        })
+
+    return {
+        "candidates": candidates,
+        "total": len(candidates),
+    }
+
+
+def _build_proposed_update(entity_data, text):
+    """Build a conservative PATCH payload for the existing entity."""
+    return {"content": text}
 
 
 def _handle_improve_writing(text, data):

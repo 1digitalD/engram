@@ -5,6 +5,7 @@ export const AI_ACTIONS = [
   { id: 'classify', label: 'Classify', description: 'Classify the selected text' },
   { id: 'extract_task', label: 'Extract Task', description: 'Extract actionable tasks' },
   { id: 'create_link', label: 'Find Links', description: 'Find related entities and links' },
+  { id: 'find_and_update', label: 'Find & Update', description: 'Find an existing entity to update' },
   { id: 'improve_writing', label: 'Improve', description: 'Improve clarity and tone' },
 ];
 
@@ -37,6 +38,13 @@ export default function AiSelectionPopover({
   const popoverRef = useRef(null);
   const [hoveredAction, setHoveredAction] = useState(null);
   const [closeHovered, setCloseHovered] = useState(false);
+  const [dismissedCandidateIds, setDismissedCandidateIds] = useState([]);
+  const [applyingCandidateIds, setApplyingCandidateIds] = useState([]);
+
+  useEffect(() => {
+    setDismissedCandidateIds([]);
+    setApplyingCandidateIds([]);
+  }, [result]);
 
   useEffect(() => {
     if (!visible) return;
@@ -127,6 +135,146 @@ export default function AiSelectionPopover({
     whiteSpace: 'pre-wrap',
   };
 
+  const disambiguationStyle = {
+    alignSelf: 'center',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+    width: 'min(420px, calc(100vw - 24px))',
+    padding: '10px',
+    background: 'var(--bg-surface)',
+    border: '1px solid var(--accent-dim)',
+    borderRadius: '7px',
+    boxShadow: '0 8px 24px rgba(0, 0, 0, 0.35)',
+  };
+
+  const candidateCardStyle = {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+    padding: '8px',
+    borderRadius: '6px',
+    background: 'var(--bg-surface-2, var(--bg-surface2, rgba(255,255,255,0.03)))',
+    border: '1px solid var(--border)',
+  };
+
+  const candidateActionsStyle = {
+    display: 'flex',
+    gap: '6px',
+  };
+
+  const candidateButtonStyle = (primary) => ({
+    minHeight: '24px',
+    padding: '4px 9px',
+    borderRadius: '5px',
+    border: primary ? '1px solid var(--accent-dim)' : '1px solid var(--border)',
+    background: primary ? 'rgba(111, 179, 255, 0.12)' : 'transparent',
+    color: primary ? 'var(--accent)' : 'var(--text-secondary)',
+    cursor: 'pointer',
+    fontSize: '11.5px',
+    fontWeight: 500,
+  });
+
+  const findAndUpdateCandidates = Array.isArray(result?.candidates)
+    ? result.candidates.filter((candidate) => (
+      candidate?.entity?.id && !dismissedCandidateIds.includes(candidate.entity.id)
+    ))
+    : [];
+
+  const handleApplyCandidate = useCallback(async (candidate) => {
+    const candidateId = candidate?.entity?.id;
+    if (!candidateId || !candidate?.proposed_change) return;
+
+    setApplyingCandidateIds((current) => current.concat(candidateId));
+    try {
+      const res = await fetch(`/api/v2/entities/${candidateId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(candidate.proposed_change),
+      });
+      if (!res.ok) {
+        let errorMessage = `Failed to update entity ${candidateId}`;
+        try {
+          const err = await res.json();
+          errorMessage = err.error || errorMessage;
+        } catch {
+          // Ignore malformed error JSON and use the fallback message.
+        }
+        throw new Error(errorMessage);
+      }
+      setDismissedCandidateIds((current) => current.concat(candidateId));
+    } finally {
+      setApplyingCandidateIds((current) => current.filter((id) => id !== candidateId));
+    }
+  }, []);
+
+  const handleDismissCandidate = useCallback((candidateId) => {
+    setDismissedCandidateIds((current) => current.concat(candidateId));
+  }, []);
+
+  const renderResult = () => {
+    if (!result) return null;
+
+    if (Array.isArray(result?.candidates)) {
+      if (findAndUpdateCandidates.length === 0) {
+        return (
+          <div style={resultStyle} data-testid="ai-selection-result">
+            No remaining update candidates.
+          </div>
+        );
+      }
+
+      return (
+        <div style={disambiguationStyle} data-testid="ai-selection-disambiguation">
+          {findAndUpdateCandidates.map((candidate) => {
+            const candidateId = candidate.entity.id;
+            const isApplying = applyingCandidateIds.includes(candidateId);
+            return (
+              <div key={candidateId} style={candidateCardStyle}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
+                  <strong style={{ color: 'var(--text-primary)', fontSize: '12px' }}>
+                    {candidate.entity.title || 'Untitled entity'}
+                  </strong>
+                  <span style={{ color: 'var(--text-secondary)', fontSize: '11px', textTransform: 'capitalize' }}>
+                    {candidate.entity.type}
+                  </span>
+                </div>
+                <div style={resultStyle}>
+                  {(candidate.proposed_change_summary || candidate.proposed_change?.content || '').trim()}
+                </div>
+                <div style={candidateActionsStyle}>
+                  <button
+                    type="button"
+                    style={candidateButtonStyle(true)}
+                    onClick={() => handleApplyCandidate(candidate)}
+                    disabled={isApplying}
+                    aria-label={`Apply ${candidate.entity.title || candidateId}`}
+                  >
+                    {isApplying ? 'Applying...' : 'Apply'}
+                  </button>
+                  <button
+                    type="button"
+                    style={candidateButtonStyle(false)}
+                    onClick={() => handleDismissCandidate(candidateId)}
+                    aria-label={`Dismiss ${candidate.entity.title || candidateId}`}
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
+    return (
+      <div style={resultStyle} data-testid="ai-selection-result">
+        {typeof result === 'string' ? result : JSON.stringify(result, null, 2)}
+      </div>
+    );
+  };
+
   return (
     <div
       ref={popoverRef}
@@ -134,11 +282,7 @@ export default function AiSelectionPopover({
       data-testid="ai-selection-popover"
       role="menu"
     >
-      {result && (
-        <div style={resultStyle} data-testid="ai-selection-result">
-          {result}
-        </div>
-      )}
+      {renderResult()}
       <div style={toolbarStyle}>
         {AI_ACTIONS.map(action => (
           <button

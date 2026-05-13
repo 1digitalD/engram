@@ -55,6 +55,7 @@ describe('AiSelectionPopover', () => {
     expect(screen.getByText('Classify')).toBeInTheDocument();
     expect(screen.getByText('Extract Task')).toBeInTheDocument();
     expect(screen.getByText('Find Links')).toBeInTheDocument();
+    expect(screen.getByText('Find & Update')).toBeInTheDocument();
     expect(screen.getByText('Improve')).toBeInTheDocument();
   });
 
@@ -70,6 +71,9 @@ describe('AiSelectionPopover', () => {
 
     await user.click(screen.getByTestId('ai-action-create_link'));
     expect(defaultProps.onAction).toHaveBeenCalledWith('create_link');
+
+    await user.click(screen.getByTestId('ai-action-find_and_update'));
+    expect(defaultProps.onAction).toHaveBeenCalledWith('find_and_update');
 
     await user.click(screen.getByTestId('ai-action-improve_writing'));
     expect(defaultProps.onAction).toHaveBeenCalledWith('improve_writing');
@@ -98,6 +102,81 @@ describe('AiSelectionPopover', () => {
   it('does not show result when null', () => {
     render(<AiSelectionPopover {...defaultProps} result={null} />);
     expect(screen.queryByTestId('ai-selection-result')).not.toBeInTheDocument();
+  });
+
+  it('renders the disambiguation panel for find and update candidates', () => {
+    render(
+      <AiSelectionPopover
+        {...defaultProps}
+        result={{
+          candidates: [
+            {
+              entity: { id: 'entity-1', title: 'Project Apollo', type: 'project' },
+              proposed_change: { content: 'Add the latest blockers' },
+            },
+          ],
+        }}
+      />
+    );
+
+    expect(screen.getByTestId('ai-selection-disambiguation')).toBeInTheDocument();
+    expect(screen.getByText('Project Apollo')).toBeInTheDocument();
+    expect(screen.getByText('Add the latest blockers')).toBeInTheDocument();
+  });
+
+  it('applies a proposed update to the selected entity', async () => {
+    const user = userEvent.setup();
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ data: { id: 'entity-1' } }),
+    });
+
+    render(
+      <AiSelectionPopover
+        {...defaultProps}
+        result={{
+          candidates: [
+            {
+              entity: { id: 'entity-1', title: 'Project Apollo', type: 'project' },
+              proposed_change: { content: 'Add the latest blockers' },
+            },
+          ],
+        }}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Apply Project Apollo' }));
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      '/api/v2/entities/entity-1',
+      expect.objectContaining({
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: 'Add the latest blockers' }),
+      })
+    );
+  });
+
+  it('dismisses a candidate from the disambiguation panel', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <AiSelectionPopover
+        {...defaultProps}
+        result={{
+          candidates: [
+            {
+              entity: { id: 'entity-1', title: 'Project Apollo', type: 'project' },
+              proposed_change: { content: 'Add the latest blockers' },
+            },
+          ],
+        }}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Dismiss Project Apollo' }));
+
+    expect(screen.queryByText('Project Apollo')).not.toBeInTheDocument();
   });
 
   it('calls onClose when close button is clicked', async () => {
@@ -131,8 +210,8 @@ describe('AiSelectionPopover', () => {
 });
 
 describe('AI_ACTIONS', () => {
-  it('contains exactly four actions', () => {
-    expect(AI_ACTIONS).toHaveLength(4);
+  it('contains exactly five actions', () => {
+    expect(AI_ACTIONS).toHaveLength(5);
   });
 
   it('has the correct action ids', () => {
@@ -140,11 +219,13 @@ describe('AI_ACTIONS', () => {
     expect(ids).toContain('classify');
     expect(ids).toContain('extract_task');
     expect(ids).toContain('create_link');
+    expect(ids).toContain('find_and_update');
     expect(ids).toContain('improve_writing');
   });
 
   it('maps the compact labels to the existing backend actions', () => {
     expect(AI_ACTIONS.find(a => a.id === 'create_link')?.label).toBe('Find Links');
+    expect(AI_ACTIONS.find(a => a.id === 'find_and_update')?.label).toBe('Find & Update');
     expect(AI_ACTIONS.find(a => a.id === 'improve_writing')?.label).toBe('Improve');
   });
 
