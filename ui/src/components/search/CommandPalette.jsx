@@ -13,9 +13,57 @@ const ICON_MAP = {
   person: Users, task: CheckSquare, graph: Network, command: Plus,
 };
 
+const ENTITY_LABELS = {
+  note: 'note', project: 'project', area: 'area',
+  person: 'person', task: 'task', command: 'command',
+};
+
 function paletteShortcutLabel() {
   if (typeof navigator === 'undefined') return '⌘K';
   return /Mac|iPhone|iPad|iPod/i.test(navigator.userAgent) ? '⌘K' : 'Ctrl+K';
+}
+
+function highlightMatch(text, query) {
+  if (!query || !text) return text;
+  const idx = text.toLowerCase().indexOf(query.toLowerCase());
+  if (idx === -1) return text;
+  return (
+    <>
+      {text.slice(0, idx)}
+      <span className={styles.matchHighlight}>{text.slice(idx, idx + query.length)}</span>
+      {text.slice(idx + query.length)}
+    </>
+  );
+}
+
+function getSubtitle(type, item) {
+  switch (type) {
+    case 'note':
+      return item.raw_text?.slice(0, 80) || '';
+    case 'project':
+      return item.status || 'project';
+    case 'area':
+      return 'area';
+    case 'person':
+      return item.role || 'person';
+    case 'task':
+      return item.status || 'task';
+    case 'command':
+      return item.subtitle || '';
+    default:
+      return type;
+  }
+}
+
+function getTitle(type, item) {
+  switch (type) {
+    case 'command':
+      return item.label;
+    case 'note':
+      return item.raw_text?.slice(0, 60) || 'Untitled note';
+    default:
+      return item.name || item.title || 'Untitled';
+  }
 }
 
 export default function CommandPalette({ onClose }) {
@@ -185,6 +233,8 @@ export default function CommandPalette({ onClose }) {
             )}
             {results.map((r, i) => {
               const Icon = r.type === 'command' ? (r.item.icon || Plus) : (ICON_MAP[r.type] || FileText);
+              const title = getTitle(r.type, r.item);
+              const subtitle = getSubtitle(r.type, r.item);
               return (
                 <button
                   key={`${r.type}-${r.item.id || r.item.id || r.item.label}`}
@@ -196,9 +246,13 @@ export default function CommandPalette({ onClose }) {
                   <Icon size={14} className={styles.resultIcon} />
                   <div className={styles.resultContent}>
                     <span className={styles.resultTitle}>
-                      {r.item.label || r.item.name || r.item.title || r.item.raw_text?.slice(0, 60)}
+                      {highlightMatch(title, query)}
                     </span>
-                    <span className={styles.resultType}>{r.type}</span>
+                    {subtitle && (
+                      <span className={styles.resultSubtitle}>
+                        {highlightMatch(subtitle, query)}
+                      </span>
+                    )}
                   </div>
                   <ArrowRight size={12} className={styles.resultArrow} />
                 </button>
