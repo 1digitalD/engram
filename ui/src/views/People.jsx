@@ -32,7 +32,7 @@ export default function People() {
     if (!searchQuery.trim()) return people;
     const q = searchQuery.toLowerCase();
     return people.filter((p) => {
-      const n = (p.name || p.title || '').toLowerCase();
+      const n = (p.title || '').toLowerCase();
       const e = (getProp(p, 'email') || '').toLowerCase();
       const r = (getProp(p, 'role') || '').toLowerCase();
       return n.includes(q) || e.includes(q) || r.includes(q);
@@ -63,7 +63,7 @@ export default function People() {
 
   const openEdit = (person) => {
     setEditingPerson(person);
-    setName(person.name || person.title || '');
+    setName(person.title || '');
     setEmail(getProp(person, 'email'));
     setRole(getProp(person, 'role'));
     setNoteText(getProp(person, 'notes_text') || getProp(person, 'notes') || '');
@@ -89,7 +89,7 @@ export default function People() {
   };
 
   const handleDelete = async (person) => {
-    if (!window.confirm(`Delete person "${person.name || person.title}"? This cannot be undone.`)) return;
+    if (!window.confirm(`Delete person "${person.title}"? This cannot be undone.`)) return;
     await deletePerson(person.id);
   };
 
@@ -136,7 +136,7 @@ export default function People() {
         <div className={styles.grid}>
           {filteredPeople.map(p => {
             const personNotes = notes.filter(n => n.person_id === p.id);
-            const initials = getInitials(p.name || p.title || '');
+            const initials = getInitials(p.title || '');
             const personRole = getProp(p, 'role');
             const personEmail = getProp(p, 'email');
 
@@ -156,7 +156,7 @@ export default function People() {
               >
                 <div className={styles.avatar}>{initials}</div>
                 <div className={styles.info}>
-                  <span className={styles.name}>{p.name || p.title}</span>
+                  <span className={styles.name}>{p.title}</span>
                   {personRole && <span className={styles.role}>{personRole}</span>}
                   {!personRole && personEmail && (
                     <span className={styles.role}>{personEmail}</span>

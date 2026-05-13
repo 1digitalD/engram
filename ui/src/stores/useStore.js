@@ -6,6 +6,26 @@
 import { create } from 'zustand';
 import { notesAPI, projectsAPI, areasAPI, peopleAPI, tasksAPI, ingestAPI, tagsAPI, resourcesAPI } from '../api/engram';
 
+/**
+ * Normalize entity objects from API responses to v2 field names.
+ * - `name` -> `title`
+ * - `ai_meta` -> `_ai_meta` (internal, not exposed to components)
+ */
+function normalizeEntity(entity) {
+  if (!entity || typeof entity !== 'object') return entity;
+  const { name, ai_meta, ...rest } = entity;
+  return {
+    ...rest,
+    title: name || rest.title,
+    ...(ai_meta !== undefined && { _ai_meta: ai_meta }),
+  };
+}
+
+/** Normalize an array of entities. */
+function normalizeList(list) {
+  return Array.isArray(list) ? list.map(normalizeEntity) : [];
+}
+
 const useStore = create((set, get) => ({
   // ── Data ──────────────────────────────────
   notes:    [],
@@ -59,13 +79,13 @@ const useStore = create((set, get) => ({
         resourcesAPI.list(),
       ]);
       set({
-        notes:    notes.data || [],
-        projects: projects.data || [],
-        areas:    areas.data || [],
-        people:   people.data || [],
-        tasks:    tasks.data || [],
+        notes:    normalizeList(notes.data),
+        projects: normalizeList(projects.data),
+        areas:    normalizeList(areas.data),
+        people:   normalizeList(people.data),
+        tasks:    normalizeList(tasks.data),
         tags:     tags.data || [],
-        resources: resources.data || [],
+        resources: normalizeList(resources.data),
         loading:  false,
       });
     } catch (e) {
@@ -115,8 +135,10 @@ const useStore = create((set, get) => ({
 
       if (Object.keys(overrides).length > 0) {
         const patched = await notesAPI.update(note.id, overrides);
-        note = patched.data;
-        res.note = note; // keep ref consistent
+        note = normalizeEntity(patched.data);
+        res.note = note;
+      } else {
+        note = normalizeEntity(note);
       }
 
       // Add note to state
@@ -124,24 +146,26 @@ const useStore = create((set, get) => ({
 
       // Merge any auto-created tasks
       if (res.tasks?.length) {
-        set(s => ({ tasks: [...res.tasks, ...s.tasks] }));
+        set(s => ({ tasks: [...normalizeList(res.tasks), ...s.tasks] }));
       }
 
       // Merge auto-created/matched project if new
       if (res.project) {
+        const normalizedProject = normalizeEntity(res.project);
         set(s => ({
-          projects: s.projects.find(p => p.id === res.project.id)
+          projects: s.projects.find(p => p.id === normalizedProject.id)
             ? s.projects
-            : [res.project, ...s.projects],
+            : [normalizedProject, ...s.projects],
         }));
       }
 
       // Merge auto-created/matched area if new
       if (res.area) {
+        const normalizedArea = normalizeEntity(res.area);
         set(s => ({
-          areas: s.areas.find(a => a.id === res.area.id)
+          areas: s.areas.find(a => a.id === normalizedArea.id)
             ? s.areas
-            : [res.area, ...s.areas],
+            : [normalizedArea, ...s.areas],
         }));
       }
 
@@ -149,7 +173,7 @@ const useStore = create((set, get) => ({
       if (res.people?.length) {
         set(s => {
           const existingIds = new Set(s.people.map(p => p.id));
-          const newPeople = res.people.filter(p => !existingIds.has(p.id));
+          const newPeople = normalizeList(res.people).filter(p => !existingIds.has(p.id));
           return newPeople.length ? { people: [...newPeople, ...s.people] } : {};
         });
       }
@@ -160,7 +184,7 @@ const useStore = create((set, get) => ({
         parts.push(`→ ${res.extraction.bucket}`);
       }
       if (res.tasks?.length) parts.push(`${res.tasks.length} task${res.tasks.length > 1 ? 's' : ''} created`);
-      if (res.project) parts.push(`project: ${res.project.name}`);
+      if (res.project) parts.push(`project: ${res.project.title}`);
       if (!res.confident && res.extraction?.confidence) parts.push('⚠ low confidence, check inbox');
 
       get().addToast({ type: 'success', message: parts.join(' · ') });
@@ -175,7 +199,7 @@ const useStore = create((set, get) => ({
     const { silent } = opts;
     try {
       const res = await notesAPI.update(id, data);
-      const updated = res.data;
+      const updated = normalizeEntity(res.data);
       set(s => ({
         notes: s.notes.map(n => n.id === id ? updated : n),
         activeNote: s.activeNote?.id === id ? updated : s.activeNote,
@@ -207,11 +231,12 @@ const useStore = create((set, get) => ({
   /** Merge a single note from the server (e.g. daily note fetch) into `notes`. */
   upsertNote: (note) => {
     if (!note?.id) return;
+    const normalized = normalizeEntity(note);
     set(s => {
-      const idx = s.notes.findIndex(n => n.id === note.id);
-      if (idx === -1) return { notes: [note, ...s.notes] };
+      const idx = s.notes.findIndex(n => n.id === normalized.id);
+      if (idx === -1) return { notes: [normalized, ...s.notes] };
       const next = [...s.notes];
-      next[idx] = note;
+      next[idx] = normalized;
       return { notes: next };
     });
   },
@@ -221,9 +246,9 @@ const useStore = create((set, get) => ({
   createProject: async (data) => {
     try {
       const res = await projectsAPI.create(data);
-      const project = res.data;
+      const project = normalizeEntity(res.data);
       set(s => ({ projects: [project, ...s.projects] }));
-      get().addToast({ type: 'success', message: `Project "${project.name}" created` });
+      get().addToast({ type: 'success', message: `Project "${project.title}" created` });
       return project;
     } catch (e) {
       get().addToast({ type: 'error', message: e.message });
@@ -234,7 +259,7 @@ const useStore = create((set, get) => ({
   updateProject: async (id, data) => {
     try {
       const res = await projectsAPI.update(id, data);
-      const updated = res.data;
+      const updated = normalizeEntity(res.data);
       set(s => ({
         projects: s.projects.map(p => p.id === id ? updated : p),
         activeProject: s.activeProject?.id === id ? updated : s.activeProject,
@@ -264,9 +289,9 @@ const useStore = create((set, get) => ({
   createArea: async (data) => {
     try {
       const res = await areasAPI.create(data);
-      const area = res.data;
+      const area = normalizeEntity(res.data);
       set(s => ({ areas: [area, ...s.areas] }));
-      get().addToast({ type: 'success', message: `Area "${area.name}" created` });
+      get().addToast({ type: 'success', message: `Area "${area.title}" created` });
       return area;
     } catch (e) {
       get().addToast({ type: 'error', message: e.message });
@@ -277,7 +302,7 @@ const useStore = create((set, get) => ({
   updateArea: async (id, data) => {
     try {
       const res = await areasAPI.update(id, data);
-      const updated = res.data;
+      const updated = normalizeEntity(res.data);
       set(s => ({
         areas: s.areas.map(a => a.id === id ? updated : a),
         activeArea: s.activeArea?.id === id ? updated : s.activeArea,
@@ -310,7 +335,7 @@ const useStore = create((set, get) => ({
   updateResource: async (id, data) => {
     try {
       const res = await resourcesAPI.update(id, data);
-      const updated = res.data;
+      const updated = normalizeEntity(res.data);
       set(s => ({
         resources: s.resources.map(r => r.id === id ? updated : r),
       }));
@@ -336,11 +361,12 @@ const useStore = create((set, get) => ({
   /** Replace or merge a resource row (e.g. after GET detail). */
   upsertResource: (resource) => {
     if (!resource?.id) return;
+    const normalized = normalizeEntity(resource);
     set(s => {
-      const idx = s.resources.findIndex(r => r.id === resource.id);
-      if (idx === -1) return { resources: [resource, ...s.resources] };
+      const idx = s.resources.findIndex(r => r.id === normalized.id);
+      if (idx === -1) return { resources: [normalized, ...s.resources] };
       const next = [...s.resources];
-      next[idx] = resource;
+      next[idx] = normalized;
       return { resources: next };
     });
   },
@@ -350,9 +376,9 @@ const useStore = create((set, get) => ({
   createPerson: async (data) => {
     try {
       const res = await peopleAPI.create(data);
-      const person = res.data;
+      const person = normalizeEntity(res.data);
       set(s => ({ people: [person, ...s.people] }));
-      get().addToast({ type: 'success', message: `${person.name} added` });
+      get().addToast({ type: 'success', message: `${person.title} added` });
       return person;
     } catch (e) {
       get().addToast({ type: 'error', message: e.message });
@@ -363,7 +389,7 @@ const useStore = create((set, get) => ({
   updatePerson: async (id, data) => {
     try {
       const res = await peopleAPI.update(id, data);
-      const updated = res.data;
+      const updated = normalizeEntity(res.data);
       set(s => ({
         people: s.people.map(p => p.id === id ? updated : p),
         activePerson: s.activePerson?.id === id ? updated : s.activePerson,
@@ -402,7 +428,7 @@ const useStore = create((set, get) => ({
         note_id: data.note_id ?? null,
       };
       const res = await tasksAPI.create(payload);
-      const task = res.data;
+      const task = normalizeEntity(res.data);
       set(s => ({ tasks: [task, ...s.tasks] }));
       get().addToast({ type: 'success', message: 'Task added' });
       return task;
@@ -421,7 +447,7 @@ const useStore = create((set, get) => ({
         ...(Object.prototype.hasOwnProperty.call(data, 'note_id') ? { note_id: data.note_id ?? null } : {}),
       };
       const res = await tasksAPI.update(id, payload);
-      const updated = res.data;
+      const updated = normalizeEntity(res.data);
       set(s => ({ tasks: s.tasks.map(t => t.id === id ? updated : t) }));
       return updated;
     } catch (e) {

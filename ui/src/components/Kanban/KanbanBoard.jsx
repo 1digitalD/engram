@@ -41,8 +41,8 @@ function KanbanCard({ task, projects, areas, tags, isOverlay }) {
     >
       <div className={styles.cardTitle}>{task.title}</div>
       <div className={styles.cardMeta}>
-        {project && <span className={styles.cardBadge} data-testid={`card-project-${task.id}`}>{project.name}</span>}
-        {area && <span className={styles.cardBadge} data-testid={`card-area-${task.id}`}>{area.name}</span>}
+        {project && <span className={styles.cardBadge} data-testid={`card-project-${task.id}`}>{project.title}</span>}
+        {area && <span className={styles.cardBadge} data-testid={`card-area-${task.id}`}>{area.title}</span>}
         {due && <span className={styles.cardDue}>{due}</span>}
       </div>
       {taskTags.length > 0 && (
@@ -178,7 +178,7 @@ export default function KanbanBoard() {
               data-testid="filter-project"
             >
               <option value="">All projects</option>
-              {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              {projects.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
             </select>
           </div>
           <div className={styles.filterGroup}>
@@ -189,7 +189,7 @@ export default function KanbanBoard() {
               data-testid="filter-area"
             >
               <option value="">All areas</option>
-              {areas.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+              {areas.map(a => <option key={a.id} value={a.id}>{a.title}</option>)}
             </select>
           </div>
           <div className={styles.filterGroup}>

@@ -211,19 +211,19 @@ export default function Graph() {
       ...projects.map((p) => ({
         id: `project-${p.id}`,
         type: 'project',
-        label: p.name,
+        label: p.title,
         data: p,
       })),
       ...areas.map((a) => ({
         id: `area-${a.id}`,
         type: 'area',
-        label: a.name,
+        label: a.title,
         data: a,
       })),
       ...people.map((p) => ({
         id: `person-${p.id}`,
         type: 'person',
-        label: p.name,
+        label: p.title,
         data: p,
       })),
     ].map((gn) => {
@@ -708,7 +708,7 @@ export default function Graph() {
                         checked={filterProjectIds.includes(String(p.id))}
                         onChange={() => toggleProjectFilter(p.id)}
                       />
-                      {p.name}
+                      {p.title}
                     </label>
                   ))
                 )}
@@ -729,7 +729,7 @@ export default function Graph() {
                         checked={filterAreaIds.includes(String(a.id))}
                         onChange={() => toggleAreaFilter(a.id)}
                       />
-                      {a.name}
+                      {a.title}
                     </label>
                   ))
                 )}

@@ -98,7 +98,7 @@ function TaskCard({
               color: projectColor.text,
             }}
           >
-            {project.name}
+            {project.title}
           </span>
         )}
         {dueDate && <span className={styles.dueDate}>{dueDate}</span>}
@@ -331,7 +331,7 @@ export default function Tasks() {
               className={`${styles.projectChip} ${selectedProjectId === project.id ? styles.projectChipActive : ''}`}
               onClick={() => setSelectedProjectId(project.id)}
             >
-              {project.name}
+              {project.title}
             </button>
           ))}
         </div>

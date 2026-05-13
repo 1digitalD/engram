@@ -119,7 +119,7 @@ export default function Notes() {
               className={`${styles.filterBtn} ${entityFilter === e.id ? styles.filterActive : ''}`}
               onClick={() => setEntityFilter(e.id)}
             >
-              {e.name}
+              {e.title}
             </button>
           ))}
         </div>

@@ -248,7 +248,7 @@ export default function Dashboard() {
                     className={styles.projectDot}
                     style={{ background: p.color || 'var(--accent)' }}
                   />
-                  <span className={styles.projectName}>{p.name}</span>
+                  <span className={styles.projectName}>{p.title}</span>
                 </Link>
               ))}
             </div>

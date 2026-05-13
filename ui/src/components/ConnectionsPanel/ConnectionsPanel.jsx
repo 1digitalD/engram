@@ -49,7 +49,7 @@ export function getEntityTitle(entity) {
       .replace(/^#\s*/, '')
       .trim() || entity.title || 'Untitled';
   }
-  return entity.title || entity.name || 'Untitled';
+  return entity.title || 'Untitled';
 }
 
 export function getEntityRoute(entity) {

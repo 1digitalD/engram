@@ -25,7 +25,7 @@ export function getEntityTitle(entity, type) {
     case 'task':
       return entity.title || 'Untitled';
     default:
-      return entity.name || 'Untitled';
+      return entity.title || 'Untitled';
   }
 }
 

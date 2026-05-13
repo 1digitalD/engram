@@ -35,7 +35,7 @@ export default function AreaFocus() {
   const areaTasks = tasks.filter(t => t.area_id === id);
 
   const openEdit = () => {
-    setName(area.name || '');
+    setName(area.title || '');
     setDescription(area.description || '');
     setColor(area.color || '');
     setShowEditModal(true);
@@ -47,7 +47,7 @@ export default function AreaFocus() {
     e.preventDefault();
     if (!name.trim()) return;
     await updateArea(area.id, {
-      name: name.trim(),
+      title: name.trim(),
       description: description.trim() || null,
       color: color.trim() || null,
     });
@@ -55,7 +55,7 @@ export default function AreaFocus() {
   };
 
   const handleDelete = async () => {
-    if (!window.confirm(`Delete area "${area.name}"? This cannot be undone.`)) return;
+    if (!window.confirm(`Delete area "${area.title}"? This cannot be undone.`)) return;
     await deleteArea(area.id);
     navigate('/areas');
   };
@@ -65,7 +65,7 @@ export default function AreaFocus() {
       <nav className={styles.breadcrumb} aria-label="Breadcrumb">
         <Link to="/areas">Areas</Link>
         <span className={styles.breadcrumbSep}>/</span>
-        <span className={styles.breadcrumbCurrent}>{area.name}</span>
+        <span className={styles.breadcrumbCurrent}>{area.title}</span>
       </nav>
 
       <button type="button" className={styles.backBtn} onClick={() => navigate('/areas')}>
@@ -74,7 +74,7 @@ export default function AreaFocus() {
 
       <div className={styles.projectHeader}>
         <span className={styles.dot} style={{ background: area.color || 'var(--accent-blue)' }} />
-        <h1>{area.name}</h1>
+        <h1>{area.title}</h1>
         {area.description && <p className={styles.desc}>{area.description}</p>}
         <div className={styles.headerActions}>
           <button type="button" className="btn btn-ghost btn-sm" onClick={openEdit}>
@@ -134,7 +134,7 @@ export default function AreaFocus() {
                   className={styles.areaProjectRow}
                 >
                   <span className={styles.projectDot} style={{ background: p.color || 'var(--accent)' }} />
-                  <span>{p.name}</span>
+                  <span>{p.title}</span>
                 </Link>
               ))}
             </div>

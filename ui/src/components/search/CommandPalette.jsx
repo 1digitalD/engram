@@ -62,7 +62,7 @@ function getTitle(type, item) {
     case 'note':
       return item.raw_text?.slice(0, 60) || 'Untitled note';
     default:
-      return item.name || item.title || 'Untitled';
+      return item.title || 'Untitled';
   }
 }
 
@@ -137,11 +137,11 @@ export default function CommandPalette({ onClose }) {
         ...commandResults,
         ...notes.filter(n => n.raw_text?.toLowerCase().includes(q))
           .slice(0, 5).map(n => ({ type: 'note', item: n })),
-        ...projects.filter(p => p.name?.toLowerCase().includes(q))
+        ...projects.filter(p => p.title?.toLowerCase().includes(q))
           .map(p => ({ type: 'project', item: p })),
-        ...areas.filter(a => a.name?.toLowerCase().includes(q))
+        ...areas.filter(a => a.title?.toLowerCase().includes(q))
           .map(a => ({ type: 'area', item: a })),
-        ...people.filter(p => p.name?.toLowerCase().includes(q))
+        ...people.filter(p => p.title?.toLowerCase().includes(q))
           .map(p => ({ type: 'person', item: p })),
         ...tasks.filter(t => t.title?.toLowerCase().includes(q))
           .slice(0, 3).map(t => ({ type: 'task', item: t })),

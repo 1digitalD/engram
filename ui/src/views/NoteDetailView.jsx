@@ -389,7 +389,7 @@ export default function NoteDetailView() {
 
   const tagNames = note.tag_names || [];
   const suggestedLinks = [
-    ...linkedProjects.slice(0, 2).map(p => ({ id: p.id, label: p.name, route: `/projects/${p.id}` })),
+    ...linkedProjects.slice(0, 2).map(p => ({ id: p.id, label: p.title, route: `/projects/${p.id}` })),
     ...linksOut.slice(0, 2).map(l => {
       const target = getResolvedEntity(l.dst_id);
       return {
@@ -468,12 +468,12 @@ export default function NoteDetailView() {
               {linkedProjects.map(p => (
                 <span key={p.id} className={styles.projectChipLinkWrap}>
                   <Link to={`/projects/${p.id}`} className={styles.entityChip}>
-                    <FolderOpen size={12} /> {p.name}
+                    <FolderOpen size={12} /> {p.title}
                   </Link>
                   <button
                     type="button"
                     className={styles.projectChipRemove}
-                    aria-label={`Remove ${p.name} from this note`}
+                    aria-label={`Remove ${p.title} from this note`}
                     onClick={e => handleRemoveProjectFromNote(p.id, e)}
                   >
                     <X size={12} strokeWidth={2.5} />
@@ -483,12 +483,12 @@ export default function NoteDetailView() {
               {area && (
                 <span className={styles.projectChipLinkWrap}>
                   <Link to={`/areas/${area.id}`} className={styles.entityChip}>
-                    <Map size={12} /> {area.name}
+                    <Map size={12} /> {area.title}
                   </Link>
                   <button
                     type="button"
                     className={styles.projectChipRemove}
-                    aria-label={`Remove ${area.name} from this note`}
+                    aria-label={`Remove ${area.title} from this note`}
                     onClick={handleRemoveAreaFromNote}
                   >
                     <X size={12} strokeWidth={2.5} />
@@ -498,12 +498,12 @@ export default function NoteDetailView() {
               {person && (
                 <span className={styles.projectChipLinkWrap}>
                   <Link to={`/people/${person.id}`} className={styles.entityChip}>
-                    <User size={12} /> {person.name}
+                    <User size={12} /> {person.title}
                   </Link>
                   <button
                     type="button"
                     className={styles.projectChipRemove}
-                    aria-label={`Remove ${person.name} from this note`}
+                    aria-label={`Remove ${person.title} from this note`}
                     onClick={handleRemovePersonFromNote}
                   >
                     <X size={12} strokeWidth={2.5} />
@@ -597,15 +597,15 @@ export default function NoteDetailView() {
           )}
 
           {/* AI info */}
-          {note.ai_meta && (
+          {note._ai_meta && (
             <div className={styles.aiInfo}>
               <span className={styles.aiLabel}>AI classified as</span>
-              <BucketBadge bucket={note.ai_meta.bucket?.toUpperCase()} />
+              <BucketBadge bucket={note._ai_meta.bucket?.toUpperCase()} />
               <span className={styles.aiConf}>
-                {Math.round((note.ai_meta.confidence || 0) * 100)}% confidence
+                {Math.round((note._ai_meta.confidence || 0) * 100)}% confidence
               </span>
-              {note.ai_meta.reasoning && (
-                <p className={styles.aiReason}>{note.ai_meta.reasoning}</p>
+              {note._ai_meta.reasoning && (
+                <p className={styles.aiReason}>{note._ai_meta.reasoning}</p>
               )}
             </div>
           )}

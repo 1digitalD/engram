@@ -61,7 +61,7 @@ function EntityCard({ entity, projectsById }) {
       <Icon size={14} className={styles.entityIcon} />
       <span className={styles.entityTitle}>{entity.title}</span>
       {project && (
-        <span className={styles.projectBadge}>{project.name}</span>
+        <span className={styles.projectBadge}>{project.title}</span>
       )}
       {dueTime && <span className={styles.dueTime}>{dueTime}</span>}
     </div>

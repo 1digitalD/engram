@@ -179,10 +179,10 @@ export default function ProjectFocus() {
                 }}
               >
                 <FolderOpen size={12} />
-                {parentArea.name}
+                {parentArea.title}
               </Link>
             )}
-            <h1 style={{ margin: 0, fontSize: '22px', lineHeight: 1.05 }}>{project.name}</h1>
+            <h1 style={{ margin: 0, fontSize: '22px', lineHeight: 1.05 }}>{project.title}</h1>
             <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '12.5px', lineHeight: 1.5 }}>
               {project.description || 'No description yet.'}
             </p>
@@ -449,10 +449,10 @@ export default function ProjectFocus() {
                       fontWeight: 700,
                       flexShrink: 0,
                     }}>
-                      {getInitials(person.name)}
+                      {getInitials(person.title)}
                     </div>
                     <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text)' }}>{person.name}</div>
+                      <div style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text)' }}>{person.title}</div>
                       <div style={{ marginTop: '3px', color: 'var(--text-secondary)', fontSize: '11px' }}>
                         {person.role || 'No role set'}
                       </div>

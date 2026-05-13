@@ -63,9 +63,9 @@ export default function NoteCard({ note, onEdit }) {
     <div className={`${styles.card} ${expanded ? styles.expanded : ''}`}>
       <div className={styles.header}>
         <div className={styles.entityChips}>
-          {project && <EntityChip to={`/projects/${project.id}`} emoji="📁">{project.name}</EntityChip>}
-          {area    && <EntityChip to={`/areas/${area.id}`}       emoji="🎯">{area.name}</EntityChip>}
-          {person  && <EntityChip to={`/people/${person.id}`}    emoji="👤">{person.name}</EntityChip>}
+          {project && <EntityChip to={`/projects/${project.id}`} emoji="📁">{project.title}</EntityChip>}
+          {area    && <EntityChip to={`/areas/${area.id}`}       emoji="🎯">{area.title}</EntityChip>}
+          {person  && <EntityChip to={`/people/${person.id}`}    emoji="👤">{person.title}</EntityChip>}
           {!project && !area && !person && (
             <span className={styles.inboxBadge}>Inbox</span>
           )}
@@ -142,9 +142,9 @@ export default function NoteCard({ note, onEdit }) {
               {expanded ? 'Show less' : 'Show more'}
             </button>
           )}
-          {note.ai_meta?.confidence && (
+          {note._ai_meta?.confidence && (
             <span className={styles.aiBadge}>
-              AI {Math.round(note.ai_meta.confidence * 100)}%
+              AI {Math.round(note._ai_meta.confidence * 100)}%
             </span>
           )}
         </div>

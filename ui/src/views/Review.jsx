@@ -790,7 +790,7 @@ export default function Review() {
               {activeProjects.map((proj) => (
                 <li key={proj.id}>
                   <Link to={`/projects/${proj.id}`} className={styles.workflowDashLink}>
-                    {proj.name || 'Untitled project'}
+                    {proj.title || 'Untitled project'}
                   </Link>
                 </li>
               ))}
@@ -818,7 +818,7 @@ export default function Review() {
               {activeAreas.map((a) => (
                 <li key={a.id}>
                   <Link to={`/areas/${a.id}`} className={styles.workflowDashLink}>
-                    {a.name || 'Untitled area'}
+                    {a.title || 'Untitled area'}
                   </Link>
                 </li>
               ))}
@@ -888,7 +888,7 @@ export default function Review() {
                             <option value="">—</option>
                             {activeProjects.map((p) => (
                               <option key={p.id} value={p.id}>
-                                {p.name || 'Untitled'}
+                                {p.title || 'Untitled'}
                               </option>
                             ))}
                           </select>
@@ -907,7 +907,7 @@ export default function Review() {
                             <option value="">—</option>
                             {activeAreas.map((a) => (
                               <option key={a.id} value={a.id}>
-                                {a.name || 'Untitled'}
+                                {a.title || 'Untitled'}
                               </option>
                             ))}
                           </select>

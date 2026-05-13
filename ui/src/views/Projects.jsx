@@ -51,7 +51,7 @@ export default function Projects() {
               <Link key={p.id} to={`/projects/${p.id}`} className={styles.card}>
                 <div className={styles.cardHeader}>
                   <span className={styles.dot} style={{ background: p.color || 'var(--accent)' }} />
-                  <span className={styles.name}>{p.name}</span>
+                  <span className={styles.name}>{p.title}</span>
                   <ChevronRight size={14} className={styles.arrow} />
                 </div>
                 {p.description && (
@@ -73,7 +73,7 @@ export default function Projects() {
           <div className={styles.grid}>
             {archived.map(p => (
               <Link key={p.id} to={`/projects/${p.id}`} className={`${styles.card} ${styles.cardArchived}`}>
-                <span className={styles.name}>{p.name}</span>
+                <span className={styles.name}>{p.title}</span>
                 <span className={styles.archivedBadge}>Archived</span>
               </Link>
             ))}

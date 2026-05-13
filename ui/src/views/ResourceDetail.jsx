@@ -387,7 +387,7 @@ export default function ResourceDetail() {
                     {areaId && (
                       <Link to={`/areas/${areaId}`} className={styles.areaLink}>
                         <FolderOpen size={14} />
-                        {area?.name || 'Area'}
+                        {area?.title || 'Area'}
                       </Link>
                     )}
                   </div>
@@ -437,7 +437,7 @@ export default function ResourceDetail() {
                         </span>
                       </div>
                       <span style={chipStyle}>
-                        {entity.type === 'person' ? getInitials(entity.name) : entity.type}
+                        {entity.type === 'person' ? getInitials(entity.title) : entity.type}
                       </span>
                     </>
                   );
@@ -495,7 +495,7 @@ export default function ResourceDetail() {
                 >
                   <option value="">— None —</option>
                   {areas.map((entry) => (
-                    <option key={entry.id} value={entry.id}>{entry.name}</option>
+                    <option key={entry.id} value={entry.id}>{entry.title}</option>
                   ))}
                 </select>
               </div>

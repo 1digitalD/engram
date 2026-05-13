@@ -260,7 +260,7 @@ export default function PersonFocus() {
   const role = person?.role || person?.properties?.role || person?.email || 'No role set';
   const tagNames = person?.tag_names || [];
   const suggestedLinks = [
-    ...linkedProjects.slice(0, 2).map((project) => ({ id: project.id, label: project.name, route: `/projects/${project.id}` })),
+    ...linkedProjects.slice(0, 2).map((project) => ({ id: project.id, label: project.title, route: `/projects/${project.id}` })),
     ...personNotes.slice(0, 2).map((note) => ({
       id: note.id,
       label: firstLine(note.raw_text) || 'Untitled note',
@@ -284,7 +284,7 @@ export default function PersonFocus() {
       <nav className={projectStyles.breadcrumb} aria-label="Breadcrumb">
         <Link to="/people">People</Link>
         <span className={projectStyles.breadcrumbSep}>/</span>
-        <span className={projectStyles.breadcrumbCurrent}>{person.name}</span>
+        <span className={projectStyles.breadcrumbCurrent}>{person.title}</span>
       </nav>
 
       <button type="button" className={projectStyles.backBtn} onClick={() => navigate('/people')}>
@@ -295,9 +295,9 @@ export default function PersonFocus() {
         <div style={mainPanelStyle}>
           <header style={headerStyle}>
             <div style={personMetaStyle}>
-              <div style={avatarStyle}>{getInitials(person.name)}</div>
+              <div style={avatarStyle}>{getInitials(person.title)}</div>
               <div style={headerCopyStyle}>
-                <h1 style={nameStyle}>{person.name}</h1>
+                <h1 style={nameStyle}>{person.title}</h1>
                 <p style={roleStyle}>{role}</p>
               </div>
             </div>
@@ -360,7 +360,7 @@ export default function PersonFocus() {
                         <span style={{ ...itemTitleStyle, cursor: 'default' }}>{task.title || getEntityTitle(task)}</span>
                         <span style={itemMetaStyle}>
                           {task.status || 'pending'}
-                          {task.project_id ? ` · ${projects.find((project) => project.id === task.project_id)?.name || 'Project task'}` : ''}
+                          {task.project_id ? ` · ${projects.find((project) => project.id === task.project_id)?.title || 'Project task'}` : ''}
                         </span>
                       </div>
                       <span style={badgeStyle}>
@@ -383,7 +383,7 @@ export default function PersonFocus() {
                     <div key={project.id} style={itemRowStyle}>
                       <div style={itemCopyStyle}>
                         <Link to={`/projects/${project.id}`} style={itemTitleStyle}>
-                          {project.name}
+                          {project.title}
                         </Link>
                         <span style={itemMetaStyle}>
                           {project.status || 'active'}

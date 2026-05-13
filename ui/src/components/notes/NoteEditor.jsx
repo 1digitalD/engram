@@ -32,7 +32,7 @@ export default function NoteEditor({ onClose, onSaved, initialData }) {
   const isEdit = !!initialData?.id;
 
   // Build suggestions from ai_meta if present (note creation or editing)
-  const aiSuggestions = initialData?.ai_meta || {};
+  const aiSuggestions = initialData?._ai_meta || {};
 
   useEffect(() => {
     setRawText(initialData?.raw_text || '');
@@ -91,18 +91,18 @@ export default function NoteEditor({ onClose, onSaved, initialData }) {
       return projects
         .filter(p => !p.is_archived)
         .filter(p => !selectedProjectIds.includes(p.id))
-        .filter(p => !q || (p.name || '').toLowerCase().includes(q))
+        .filter(p => !q || (p.title || '').toLowerCase().includes(q))
         .slice(0, 10);
     }
     if (type === 'area') {
       return areas
         .filter(a => !a.is_archived)
-        .filter(a => !q || (a.name || '').toLowerCase().includes(q))
+        .filter(a => !q || (a.title || '').toLowerCase().includes(q))
         .slice(0, 10);
     }
     if (type === 'person') {
       return people
-        .filter(p => !q || (p.name || '').toLowerCase().includes(q))
+        .filter(p => !q || (p.title || '').toLowerCase().includes(q))
         .slice(0, 10);
     }
     return [];
@@ -194,8 +194,8 @@ export default function NoteEditor({ onClose, onSaved, initialData }) {
                   className={styles.aiSuggestChip}
                   onClick={() => {
                     const name = aiSuggestions.suggested_project.toLowerCase();
-                    const exact = projects.find(p => p.name?.toLowerCase() === name);
-                    const subs  = projects.filter(p => p.name?.toLowerCase().includes(name));
+                    const exact = projects.find(p => p.title?.toLowerCase() === name);
+                    const subs  = projects.filter(p => p.title?.toLowerCase().includes(name));
                     const match = exact || (subs.length === 1 ? subs[0] : null);
                     if (match) addEntity('project', match.id);
                   }}
@@ -210,8 +210,8 @@ export default function NoteEditor({ onClose, onSaved, initialData }) {
                   className={styles.aiSuggestChip}
                   onClick={() => {
                     const name = aiSuggestions.suggested_area.toLowerCase();
-                    const exact = areas.find(a => a.name?.toLowerCase() === name);
-                    const subs  = areas.filter(a => a.name?.toLowerCase().includes(name));
+                    const exact = areas.find(a => a.title?.toLowerCase() === name);
+                    const subs  = areas.filter(a => a.title?.toLowerCase().includes(name));
                     const match = exact || (subs.length === 1 ? subs[0] : null);
                     if (match) addEntity('area', match.id);
                   }}
@@ -233,7 +233,7 @@ export default function NoteEditor({ onClose, onSaved, initialData }) {
               {selectedProjects.map(p => (
                 <span key={p.id} className={styles.entityChip}>
                   <span>📁</span>
-                  <span>{p.name}</span>
+                  <span>{p.title}</span>
                   <button type="button" onClick={() => removeEntity('project', p.id)}><X size={11} /></button>
                 </span>
               ))}
@@ -261,7 +261,7 @@ export default function NoteEditor({ onClose, onSaved, initialData }) {
                         <button type="button" className={styles.entityDropdownItem}
                           onMouseDown={e => e.preventDefault()}
                           onClick={() => addEntity('project', p.id)}>
-                          📁 {p.name}
+                          📁 {p.title}
                         </button>
                       </li>
                     ))}
@@ -279,7 +279,7 @@ export default function NoteEditor({ onClose, onSaved, initialData }) {
               {selectedArea && (
                 <span className={styles.entityChip}>
                   <span>🎯</span>
-                  <span>{selectedArea.name}</span>
+                  <span>{selectedArea.title}</span>
                   <button type="button" onClick={() => removeEntity('area', areaId)}><X size={11} /></button>
                 </span>
               )}
@@ -308,7 +308,7 @@ export default function NoteEditor({ onClose, onSaved, initialData }) {
                         <button type="button" className={styles.entityDropdownItem}
                           onMouseDown={e => e.preventDefault()}
                           onClick={() => addEntity('area', a.id)}>
-                          🎯 {a.name}
+                          🎯 {a.title}
                         </button>
                       </li>
                     ))}
@@ -326,7 +326,7 @@ export default function NoteEditor({ onClose, onSaved, initialData }) {
               {selectedPerson && (
                 <span className={styles.entityChip}>
                   <span>👤</span>
-                  <span>{selectedPerson.name}</span>
+                  <span>{selectedPerson.title}</span>
                   <button type="button" onClick={() => removeEntity('person', personId)}><X size={11} /></button>
                 </span>
               )}
@@ -355,7 +355,7 @@ export default function NoteEditor({ onClose, onSaved, initialData }) {
                         <button type="button" className={styles.entityDropdownItem}
                           onMouseDown={e => e.preventDefault()}
                           onClick={() => addEntity('person', p.id)}>
-                          👤 {p.name}
+                          👤 {p.title}
                         </button>
                       </li>
                     ))}

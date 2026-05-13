@@ -7,7 +7,7 @@ import EmptyState from '../components/ui/EmptyState';
 import styles from './Inbox.module.css';
 
 function AiSuggestionRow({ note, onAcceptProject, onAcceptArea }) {
-  const meta = note.ai_meta;
+  const meta = note._ai_meta;
   if (!meta) return null;
 
   const suggestedProject = meta.suggested_project;
@@ -58,11 +58,11 @@ export default function Inbox() {
     (a, b) => new Date(b.created_at) - new Date(a.created_at)
   );
 
-  const resolveEntity = (list, name) => {
-    const lower = name.toLowerCase();
-    return list.find(e => e.name?.toLowerCase() === lower)
+  const resolveEntity = (list, title) => {
+    const lower = title.toLowerCase();
+    return list.find(e => e.title?.toLowerCase() === lower)
         || (() => {
-          const matches = list.filter(e => e.name?.toLowerCase().includes(lower));
+          const matches = list.filter(e => e.title?.toLowerCase().includes(lower));
           return matches.length === 1 ? matches[0] : null;
         })();
   };

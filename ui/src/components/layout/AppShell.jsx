@@ -338,7 +338,7 @@ export default function AppShell({ children }) {
                   onClick={closeDrawer}
                 >
                   <span className={styles.projectDot} style={{ background: p.color || 'var(--accent)' }} />
-                  <span className={styles.projectName}>{p.name}</span>
+                  <span className={styles.projectName}>{p.title}</span>
                 </NavLink>
               ))}
             </div>

@@ -17,13 +17,13 @@ export default function Areas() {
   const handleCreate = async (e) => {
     e.preventDefault();
     if (!name.trim()) return;
-    await createArea({ name: name.trim(), description: description.trim() || undefined, color: color.trim() || undefined });
+    await createArea({ title: name.trim(), description: description.trim() || undefined, color: color.trim() || undefined });
     setName(''); setDescription(''); setColor(''); setShowModal(false);
   };
 
   const openEdit = (area) => {
     setEditingArea(area);
-    setName(area.name || '');
+    setName(area.title || '');
     setDescription(area.description || '');
     setColor(area.color || '');
   };
@@ -39,7 +39,7 @@ export default function Areas() {
     e.preventDefault();
     if (!editingArea || !name.trim()) return;
     await updateArea(editingArea.id, {
-      name: name.trim(),
+      title: name.trim(),
       description: description.trim() || null,
       color: color.trim() || null,
     });
@@ -47,7 +47,7 @@ export default function Areas() {
   };
 
   const handleDelete = async (area) => {
-    if (!window.confirm(`Delete area "${area.name}"? This cannot be undone.`)) return;
+    if (!window.confirm(`Delete area "${area.title}"? This cannot be undone.`)) return;
     await deleteArea(area.id);
   };
 
@@ -80,7 +80,7 @@ export default function Areas() {
                 <Link to={`/areas/${a.id}`} className={styles.cardLink}>
                   <div className={styles.cardHeader}>
                     <span className={styles.dot} style={{ background: a.color || 'var(--accent-blue)' }} />
-                    <span className={styles.name}>{a.name}</span>
+                    <span className={styles.name}>{a.title}</span>
                     <ChevronRight size={14} className={styles.arrow} />
                   </div>
                   {a.description && <p className={styles.desc}>{a.description}</p>}
