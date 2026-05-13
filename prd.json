@@ -712,6 +712,15 @@
       "phase": "3.5",
       "attempts": 1,
       "commit": "7ab84baf"
+    },
+    {
+      "id": "V3.6-1",
+      "title": "Fix failing frontend tests",
+      "description": "Fix the failing frontend tests in ui/src. The failures are caused by mock store missing notes array and status casing - some fixed manually. Need to fix: ProjectFocus, NoteDetailView, UniversalSearch, ConnectionsPanel test mocks. Run cd ui && npm test to see failures. Update mock stores and assertions to match current component behavior.",
+      "phase": "3.6",
+      "validationCommands": [
+        "cd ui && npm test"
+      ]
     }
   ]
 }
