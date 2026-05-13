@@ -189,3 +189,5 @@ If the session resets:
 > Executor: codex (primary), opencode/claude/cursor (fallback)
 > Source: prd.json (28 tasks, Phase 0-5)
 
+
+- **2026-05-12 18:18** V3-0.1 → 4eceb0a8: V3-0.1: completed, merged from codex worktree

@@ -1,7 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import {
   ArrowLeft, Edit2, Loader2, Trash2, Tag, User, FolderOpen, Map,
   Link2, CheckCircle, Circle, X, Sparkles,
@@ -9,7 +7,7 @@ import {
 import useStore from '../stores/useStore';
 import { linksAPI, proposalsAPI } from '../api/engram';
 import { BucketBadge, TagBadge } from '../components/ui/Badge';
-import TipTapEditor from '../components/Editor/TipTapEditor';
+import TipTapEditor, { renderStoredContent } from '../components/Editor/TipTapEditor';
 import ConnectionsPanel from '../components/ConnectionsPanel/ConnectionsPanel';
 import styles from './NoteDetailView.module.css';
 
@@ -412,11 +410,11 @@ export default function NoteDetailView() {
               initialContent={note.raw_text || ''}
               noteId={note.id}
               placeholder="Edit note..."
-              onSave={async ({ text }) => {
-                if (!text.trim() || saving) return;
+              onSave={async ({ html }) => {
+                if (!html.trim() || saving) return;
                 setSaving(true);
                 try {
-                  await updateNote(note.id, { raw_text: text });
+                  await updateNote(note.id, { content: html });
                   setIsEditing(false);
                 } finally {
                   setSaving(false);
@@ -445,9 +443,7 @@ export default function NoteDetailView() {
             aria-label="Edit note text"
           >
             <span className={styles.editHint}>Click to edit</span>
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {note.raw_text}
-            </ReactMarkdown>
+            <div dangerouslySetInnerHTML={{ __html: renderStoredContent(note.raw_text || '') }} />
           </article>
         )}
 

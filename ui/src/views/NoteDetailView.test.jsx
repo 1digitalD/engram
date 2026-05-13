@@ -1,6 +1,7 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import NoteDetailView from './NoteDetailView';
 import useStore from '../stores/useStore';
@@ -133,5 +134,48 @@ describe('NoteDetailView MOC note type', () => {
     expect(screen.queryByTestId('moc-header')).not.toBeInTheDocument();
     expect(screen.queryByTestId('moc-toc')).not.toBeInTheDocument();
     expect(screen.queryByTestId('moc-badge')).not.toBeInTheDocument();
+  });
+
+  it('renders stored HTML content and strips unsafe attributes', async () => {
+    vi.mocked(linksAPI.forNote).mockResolvedValue({ outgoing: [], incoming: [] });
+    const note = {
+      id: 'html-note',
+      raw_text: '<h1>Safe title</h1><p><img src="x" onerror="alert(1)" />Body copy</p>',
+      note_type: 'NOTE',
+      bucket: 'INBOX',
+      created_at: '2026-05-01T12:00:00Z',
+      modified_at: '2026-05-01T12:00:00Z',
+      tag_names: [],
+    };
+    const { container } = renderNoteDetail('/notes/html-note', [note]);
+
+    const article = await screen.findByRole('button', { name: 'Edit note text' });
+    expect(article.innerHTML).toContain('Safe title');
+    expect(article.innerHTML).toContain('<h1>');
+    const image = container.querySelector('img');
+    expect(image).toBeInTheDocument();
+    expect(image).not.toHaveAttribute('onerror');
+  });
+
+  it('saves edited note HTML through the content field', async () => {
+    vi.mocked(linksAPI.forNote).mockResolvedValue({ outgoing: [], incoming: [] });
+    const note = {
+      id: 'editable-note',
+      raw_text: '# Editable note',
+      note_type: 'NOTE',
+      bucket: 'INBOX',
+      created_at: '2026-05-01T12:00:00Z',
+      modified_at: '2026-05-01T12:00:00Z',
+      tag_names: [],
+    };
+    const user = userEvent.setup();
+    renderNoteDetail('/notes/editable-note', [note]);
+
+    await user.click(await screen.findByRole('button', { name: 'Edit' }));
+    await user.click(await screen.findByTestId('btn-save'));
+
+    await waitFor(() => {
+      expect(baseStore.updateNote).toHaveBeenCalledWith('editable-note', { content: '<h1>Editable note</h1>' });
+    });
   });
 });

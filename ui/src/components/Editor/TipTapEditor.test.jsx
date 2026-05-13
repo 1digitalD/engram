@@ -73,10 +73,10 @@ describe('TipTapEditor', () => {
     });
   });
 
-  it('renders preview toggle button', async () => {
+  it('does not render a preview toggle button', async () => {
     renderEditor();
     await waitFor(() => {
-      expect(screen.getByTestId('btn-preview')).toBeInTheDocument();
+      expect(screen.queryByTestId('btn-preview')).not.toBeInTheDocument();
     });
   });
 
@@ -147,26 +147,10 @@ describe('TipTapEditor', () => {
     });
   });
 
-  it('toggles preview mode when preview button is clicked', async () => {
-    const user = userEvent.setup();
-    renderEditor();
-
-    await waitFor(() => {
-      expect(screen.getByTestId('editor-wrapper')).toBeInTheDocument();
-    });
-
-    await user.click(screen.getByTestId('btn-preview'));
-
-    await waitFor(() => {
-      expect(screen.getByTestId('editor-preview')).toBeInTheDocument();
-    });
-    expect(screen.queryByTestId('editor-wrapper')).not.toBeInTheDocument();
-  });
-
   it('calls onSave when save button is clicked', async () => {
     const user = userEvent.setup();
     const onSave = vi.fn();
-    renderEditor({ onSave });
+    renderEditor({ initialContent: '# Heading', onSave });
 
     await waitFor(() => {
       expect(screen.getByTestId('btn-save')).toBeInTheDocument();
@@ -177,15 +161,18 @@ describe('TipTapEditor', () => {
     expect(onSave).toHaveBeenCalled();
     const callArgs = onSave.mock.calls[0][0];
     expect(callArgs).toHaveProperty('html');
-    expect(callArgs).toHaveProperty('text');
+    expect(callArgs).not.toHaveProperty('text');
+    expect(callArgs.html).toContain('<h1>');
+    expect(callArgs.html).toContain('Heading');
     expect(callArgs.noteId).toBe('test-note-1');
   });
 
-  it('renders with initial content', async () => {
-    renderEditor({ initialContent: '<p>Test content</p>' });
+  it('renders markdown initial content as formatted HTML in the editor', async () => {
+    renderEditor({ initialContent: '# Test content' });
     await waitFor(() => {
       expect(screen.getByTestId('tiptap-editor')).toBeInTheDocument();
     });
+    expect(screen.getByRole('heading', { level: 1, name: 'Test content' })).toBeInTheDocument();
   });
 });
 

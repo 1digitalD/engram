@@ -6,12 +6,12 @@ import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
 import Link from '@tiptap/extension-link';
 import CharacterCount from '@tiptap/extension-character-count';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import { marked } from 'marked';
+import DOMPurify from 'dompurify';
 import {
   Sparkles, Link2, Tag, CheckSquare, Bold, Italic,
   List, ListOrdered, Quote, Code, Heading1, Heading2,
-  Loader2, Eye, Edit3, X,
+  Loader2, X,
 } from 'lucide-react';
 import useStore from '../../stores/useStore';
 import styles from './TipTapEditor.module.css';
@@ -24,6 +24,19 @@ const SLASH_COMMANDS = [
   { id: 'link', label: 'Link', icon: Link2, description: 'Insert a link', shortcut: '/link' },
   { id: 'tag', label: 'Tag', icon: Tag, description: 'Insert a tag mention', shortcut: '/tag' },
 ];
+
+const HTML_TAG_RE = /<\/?[a-z][\s\S]*>/i;
+
+export function storedContentToHtml(content = '') {
+  const source = String(content || '').trim();
+  if (!source) return '';
+  if (HTML_TAG_RE.test(source)) return source;
+  return marked.parse(source, { gfm: true, breaks: true });
+}
+
+export function renderStoredContent(content = '') {
+  return DOMPurify.sanitize(storedContentToHtml(content));
+}
 
 function SlashCommandMenu({ items, onSelect, selectedIndex }) {
   if (!items.length) return null;
@@ -149,7 +162,6 @@ export default function TipTapEditor({
   const [slashQuery, setSlashQuery] = useState('');
   const [slashIndex, setSlashIndex] = useState(0);
   const [showAIPanel, setShowAIPanel] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
   const [aiSelectionBusy, setAiSelectionBusy] = useState(false);
   const [aiSelectionResult, setAiSelectionResult] = useState(null);
   const editorContainerRef = useRef(null);
@@ -176,7 +188,7 @@ export default function TipTapEditor({
       Link.configure({ openOnClick: true }),
       CharacterCount.configure({ limit: 50000 }),
     ],
-    content: initialContent,
+    content: renderStoredContent(initialContent),
     editorProps: {
       attributes: {
         class: styles.editorContent,
@@ -271,8 +283,7 @@ export default function TipTapEditor({
   const handleSave = useCallback(() => {
     if (!editor) return;
     const html = editor.getHTML();
-    const text = editor.getText();
-    onSave?.({ html, text, noteId });
+    onSave?.({ html, noteId });
   }, [editor, onSave, noteId]);
 
   const handleAiSelectionAction = useCallback(async (actionId) => {
@@ -301,13 +312,6 @@ export default function TipTapEditor({
       setAiSelectionBusy(false);
     }
   }, [selection.text, aiSelectionBusy, editor, createTask, noteId, addToast]);
-
-  const getMarkdownContent = useCallback(() => {
-    if (!editor) return '';
-    // Convert editor content to a simple markdown-like representation
-    const text = editor.getText();
-    return text;
-  }, [editor]);
 
   if (!editor) {
     return <div className={styles.editorLoading} data-testid="editor-loading">Loading editor...</div>;
@@ -409,15 +413,6 @@ export default function TipTapEditor({
         <div className={styles.toolbarGroup}>
           <button
             type="button"
-            className={`${styles.toolbarBtn} ${showPreview ? styles.toolbarBtnActive : ''}`}
-            onClick={() => setShowPreview(p => !p)}
-            title="Toggle preview"
-            data-testid="btn-preview"
-          >
-            {showPreview ? <Edit3 size={16} /> : <Eye size={16} />}
-          </button>
-          <button
-            type="button"
             className={`${styles.toolbarBtn} ${showAIPanel ? styles.toolbarBtnActive : ''}`}
             onClick={() => setShowAIPanel(p => !p)}
             title="AI Assistant"
@@ -430,26 +425,18 @@ export default function TipTapEditor({
 
       {/* Editor / Preview */}
       <div className={styles.editorBody}>
-        {showPreview ? (
-          <div className={styles.previewPane} data-testid="editor-preview">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {getMarkdownContent()}
-            </ReactMarkdown>
-          </div>
-        ) : (
-          <div className={styles.editorWrapper} data-testid="editor-wrapper">
-            <EditorContent editor={editor} />
-            {showSlashMenu && filteredCommands.length > 0 && (
-              <div ref={slashMenuRef}>
-                <SlashCommandMenu
-                  items={filteredCommands}
-                  onSelect={handleSlashSelect}
-                  selectedIndex={slashIndex}
-                />
-              </div>
-            )}
-          </div>
-        )}
+        <div className={styles.editorWrapper} data-testid="editor-wrapper">
+          <EditorContent editor={editor} />
+          {showSlashMenu && filteredCommands.length > 0 && (
+            <div ref={slashMenuRef}>
+              <SlashCommandMenu
+                items={filteredCommands}
+                onSelect={handleSlashSelect}
+                selectedIndex={slashIndex}
+              />
+            </div>
+          )}
+        </div>
 
         {/* AI Panel */}
         {showAIPanel && (
