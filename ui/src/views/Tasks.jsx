@@ -1,9 +1,16 @@
 import React, { useMemo, useState } from 'react';
-import { Plus, X, Loader2, Sparkles, Calendar } from 'lucide-react';
+import { Plus, X, Loader2, Sparkles, Calendar, FileText, FolderOpen, Link2, Unlink } from 'lucide-react';
 import useStore from '../stores/useStore';
 import EmptyState from '../components/ui/EmptyState';
 import DeleteConfirmModal from '../components/DeleteConfirmModal';
 import styles from './Tasks.module.css';
+
+function firstLine(text) {
+  return (text || '')
+    .split('\n')
+    .map((line) => line.replace(/^#+\s*/, '').trim())
+    .find(Boolean) || 'Untitled';
+}
 
 const COLUMNS = [
   { key: 'pending', label: 'Pending', dot: 'var(--text-muted)' },
@@ -79,10 +86,15 @@ function TaskCard({
   task,
   project,
   projectColor,
+  note,
   isDragging,
   onDelete,
   onDragStart,
   onDragEnd,
+  onAttachNote,
+  onAttachProject,
+  onRemoveNote,
+  onRemoveProject,
 }) {
   const dueDate = formatDueDate(task.due_date);
   const priorityColor = PRIORITY_COLORS[task.priority] || 'var(--text-muted)';
@@ -123,6 +135,12 @@ function TaskCard({
             {project.title}
           </span>
         )}
+        {note && (
+          <span className={styles.noteBadge}>
+            <FileText size={10} />
+            {firstLine(note.title || note.content || 'Untitled')}
+          </span>
+        )}
         {dueDate && <span className={styles.dueDate}>{dueDate}</span>}
         {followUpDate && (
           <span className={`${styles.followUpDate} ${followUpOverdue ? styles.followUpOverdue : ''}`}>
@@ -130,6 +148,50 @@ function TaskCard({
           </span>
         )}
       </div>
+
+      <div className={styles.linkActions}>
+        <button
+          type="button"
+          className={styles.linkBtn}
+          onClick={() => onAttachNote(task)}
+          title="Attach to note"
+        >
+          <Link2 size={10} />
+        </button>
+        <button
+          type="button"
+          className={styles.linkBtn}
+          onClick={() => onAttachProject(task)}
+          title="Attach to project"
+        >
+          <FolderOpen size={10} />
+        </button>
+      </div>
+
+      {(task.note_id || task.project_id) && (
+        <div className={styles.removeLinks}>
+          {task.note_id && (
+            <button
+              type="button"
+              className={styles.removeLinkBtn}
+              onClick={() => onRemoveNote(task)}
+              title="Remove note"
+            >
+              <Unlink size={9} /> Note
+            </button>
+          )}
+          {task.project_id && (
+            <button
+              type="button"
+              className={styles.removeLinkBtn}
+              onClick={() => onRemoveProject(task)}
+              title="Remove project"
+            >
+              <Unlink size={9} /> Project
+            </button>
+          )}
+        </div>
+      )}
 
       {task.ai_status === 'processing' && (
         <div className={styles.aiStatusRow}>
@@ -153,6 +215,7 @@ function TaskColumn({
   tasks,
   projectsById,
   projectPalette,
+  notesById,
   quickAddValue,
   quickAddOpen,
   dragTarget,
@@ -166,6 +229,10 @@ function TaskColumn({
   onDragStart,
   onDragEnd,
   onDelete,
+  onAttachNote,
+  onAttachProject,
+  onRemoveNote,
+  onRemoveProject,
 }) {
   return (
     <section className={styles.column} aria-label={column.label}>
@@ -213,10 +280,15 @@ function TaskColumn({
             task={task}
             project={task.project_id ? projectsById[task.project_id] : null}
             projectColor={projectPalette[task.project_id] || { border: 'var(--border)', text: 'var(--text-secondary)' }}
+            note={task.note_id ? notesById[task.note_id] : null}
             isDragging={draggedTaskId === task.id}
             onDelete={onDelete}
             onDragStart={onDragStart}
             onDragEnd={onDragEnd}
+            onAttachNote={onAttachNote}
+            onAttachProject={onAttachProject}
+            onRemoveNote={onRemoveNote}
+            onRemoveProject={onRemoveProject}
           />
         ))}
       </div>
@@ -225,7 +297,7 @@ function TaskColumn({
 }
 
 export default function Tasks() {
-  const { tasks, projects, createTask, updateTask, deleteTask, getDeletePreview } = useStore();
+  const { tasks, projects, notes, createTask, updateTask, deleteTask, getDeletePreview, addToast } = useStore();
   const [activeFilter, setActiveFilter] = useState(FILTERS.ALL);
   const [selectedProjectId, setSelectedProjectId] = useState(projects[0]?.id || '');
   const [quickAddStatus, setQuickAddStatus] = useState(null);
@@ -236,11 +308,37 @@ export default function Tasks() {
   const [deletePreview, setDeletePreview] = useState(null);
   const [pendingDeleteTask, setPendingDeleteTask] = useState(null);
 
+  // Note attachment modal
+  const [showNoteModal, setShowNoteModal] = useState(false);
+  const [notePickerTask, setNotePickerTask] = useState(null);
+  const [noteSearchQuery, setNoteSearchQuery] = useState('');
+  const [notePick, setNotePick] = useState('');
+  const [noteLinkBusy, setNoteLinkBusy] = useState(false);
+
+  // Project attachment modal
+  const [showProjectModal, setShowProjectModal] = useState(false);
+  const [projectPickerTask, setProjectPickerTask] = useState(null);
+  const [projectPick, setProjectPick] = useState('');
+
   const projectsById = useMemo(
     () => Object.fromEntries(projects.map((project) => [project.id, project])),
     [projects]
   );
   const projectPalette = useMemo(() => buildProjectPalette(projects), [projects]);
+  const notesById = useMemo(
+    () => Object.fromEntries(notes.map((note) => [note.id, note])),
+    [notes]
+  );
+
+  // Note candidates: notes not already linked to this task
+  const noteCandidates = useMemo(() => {
+    if (!notePickerTask) return [];
+    const alreadyLinkedNoteId = notePickerTask.note_id;
+    return notes
+      .filter(n => n.id !== alreadyLinkedNoteId)
+      .filter(n => firstLine(n.title || n.content || '').toLowerCase().includes(noteSearchQuery.trim().toLowerCase()))
+      .slice(0, 50);
+  }, [notes, notePickerTask, noteSearchQuery]);
 
   const filteredTasks = useMemo(() => {
     if (activeFilter === FILTERS.OVERDUE) {
@@ -350,6 +448,65 @@ export default function Tasks() {
       return;
     }
     setActiveFilter(filter);
+  }
+
+  // Note attachment handlers
+  function handleAttachNote(task) {
+    setNotePickerTask(task);
+    setNoteSearchQuery('');
+    setNotePick('');
+    setShowNoteModal(true);
+  }
+
+  async function handleAddNoteLink() {
+    if (!notePick || noteLinkBusy || !notePickerTask) return;
+    setNoteLinkBusy(true);
+    try {
+      await updateTask(notePickerTask.id, { note_id: notePick });
+      setNotePick('');
+      setNoteSearchQuery('');
+      setShowNoteModal(false);
+      setNotePickerTask(null);
+    } catch (e) {
+      addToast({ type: 'error', message: e.message || 'Could not link note' });
+    } finally {
+      setNoteLinkBusy(false);
+    }
+  }
+
+  async function handleRemoveNote(task) {
+    try {
+      await updateTask(task.id, { note_id: null });
+    } catch (e) {
+      addToast({ type: 'error', message: e.message || 'Could not unlink note' });
+    }
+  }
+
+  // Project attachment handlers
+  function handleAttachProject(task) {
+    setProjectPickerTask(task);
+    setProjectPick(task.project_id || '');
+    setShowProjectModal(true);
+  }
+
+  async function handleAddProjectLink() {
+    if (!projectPickerTask) return;
+    try {
+      await updateTask(projectPickerTask.id, { project_id: projectPick || null });
+      setProjectPick('');
+      setShowProjectModal(false);
+      setProjectPickerTask(null);
+    } catch (e) {
+      addToast({ type: 'error', message: e.message || 'Could not link project' });
+    }
+  }
+
+  async function handleRemoveProject(task) {
+    try {
+      await updateTask(task.id, { project_id: null });
+    } catch (e) {
+      addToast({ type: 'error', message: e.message || 'Could not unlink project' });
+    }
   }
 
   return (
