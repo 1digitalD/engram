@@ -62,8 +62,9 @@ class TestDeletePreviewService:
     def test_preview_not_found(self, app):
         """Preview raises ValueError for nonexistent entity."""
         from services.entity_service import delete_preview
-        with pytest.raises(ValueError):
-            delete_preview("00000000-0000-0000-0000-000000000000")
+        with app.app_context():
+            with pytest.raises(ValueError):
+                delete_preview("00000000-0000-0000-0000-000000000000")
 
 
 class TestCascadeDelete:

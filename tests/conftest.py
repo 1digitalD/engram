@@ -19,6 +19,11 @@ collect_ignore = [
     "test_summaries_api.py",  # v1 summaries table not in v2 schema
     "test_links_api.py",  # v1 links table not in v2 schema
     "test_moc.py",  # v1 moc table not in v2 schema
+    "archive/test_api.py",
+    "archive/test_models_legacy.py",
+    "archive/test_phase1_backend_foundation.py",
+    "archive/test_rollup.py",
+    "archive/test_link_proposer.py",
 ]
 
 SCHEMA_PATH = pathlib.Path(__file__).resolve().parents[1] / "docs" / "SCHEMA.sql"

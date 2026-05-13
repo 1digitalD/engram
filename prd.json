@@ -548,9 +548,11 @@
       "validationCommands": [
         "pytest -q"
       ],
-      "passes": false,
+      "passes": true,
       "blocked": false,
-      "phase": "5"
+      "phase": "5",
+      "commit": "2f1fa8c6",
+      "attempts": 1
     }
   ]
 }
