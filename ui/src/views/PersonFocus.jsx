@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, CheckSquare, FileText, FolderOpen, Sparkles, Tag, UserPlus } from 'lucide-react';
+import { ArrowLeft, CheckSquare, FileText, FolderOpen, Sparkles, Tag, UserPlus, Plus, X, Loader2, CheckCircle } from 'lucide-react';
 import useStore from '../stores/useStore';
 import ConnectionsPanel from '../components/ConnectionsPanel/ConnectionsPanel';
+import NoteEditor from '../components/notes/NoteEditor';
 import { getEntityTitle } from '../components/ConnectionsPanel/ConnectionsPanel';
 import projectStyles from './ProjectFocus.module.css';
 
@@ -213,8 +214,17 @@ const actionButtonStyle = {
 export default function PersonFocus() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { people, notes, tasks, projects, setActivePerson } = useStore();
+  const { people, notes, tasks, projects, setActivePerson, createNote, updateNote, addToast } = useStore();
   const [tab, setTab] = useState('notes');
+
+  // Add-note modal state
+  const [showAddNoteModal, setShowAddNoteModal] = useState(false);
+  const [noteSearchQuery, setNoteSearchQuery] = useState('');
+  const [notePick, setNotePick] = useState('');
+  const [noteLinkBusy, setNoteLinkBusy] = useState(false);
+
+  // Inline new-note creation
+  const [showNewNoteEditor, setShowNewNoteEditor] = useState(false);
 
   const person = people.find((entry) => entry.id === id);
 
@@ -267,6 +277,38 @@ export default function PersonFocus() {
       route: `/notes/${note.id}`,
     })),
   ];
+
+  // Note candidates: notes not already linked to this person
+  const alreadyLinkedNoteIds = new Set(personNotes.map((n) => n.id));
+  const noteCandidates = notes
+    .filter((n) => !alreadyLinkedNoteIds.has(n.id))
+    .filter((n) => (n.title || firstLine(n.raw_text)).toLowerCase().includes(noteSearchQuery.trim().toLowerCase()))
+    .slice(0, 80);
+
+  // ── Add existing note to this person ──
+  async function handleAddNoteLink() {
+    if (!notePick || noteLinkBusy) return;
+    setNoteLinkBusy(true);
+    try {
+      await updateNote(notePick, { person_id: id });
+      setNotePick('');
+      setNoteSearchQuery('');
+      setShowAddNoteModal(false);
+    } catch (e) {
+      addToast({ type: 'error', message: e.message || 'Could not link note' });
+    } finally {
+      setNoteLinkBusy(false);
+    }
+  }
+
+  // ── Remove note from this person ──
+  async function handleRemoveNoteFromPerson(noteId) {
+    try {
+      await updateNote(noteId, { person_id: null });
+    } catch (e) {
+      addToast({ type: 'error', message: e.message || 'Could not unlink note' });
+    }
+  }
 
   if (!person) {
     return (
@@ -324,12 +366,93 @@ export default function PersonFocus() {
 
           {tab === 'notes' && (
             <div className={projectStyles.content} style={tabBodyStyle}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'center' }}>
+                <span style={{ color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                  {personNotes.length} linked notes
+                </span>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button className="btn btn-secondary btn-sm" type="button" onClick={() => setShowAddNoteModal(true)}>
+                    <Plus size={13} /> Add Note
+                  </button>
+                  <button className="btn btn-primary btn-sm" type="button" onClick={() => setShowNewNoteEditor(true)}>
+                    <Plus size={13} /> New Note
+                  </button>
+                </div>
+              </div>
+
+              {/* Add existing note modal */}
+              {showAddNoteModal && (
+                <div style={{
+                  background: 'var(--surface)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '14px',
+                  padding: '14px',
+                  display: 'grid',
+                  gap: '10px',
+                  marginBottom: '12px',
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text)' }}>Link existing note</span>
+                    <button
+                      type="button"
+                      onClick={() => { setShowAddNoteModal(false); setNotePick(''); setNoteSearchQuery(''); }}
+                      style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '2px' }}
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                  <input
+                    type="search"
+                    placeholder="Filter notes…"
+                    value={noteSearchQuery}
+                    onChange={(e) => setNoteSearchQuery(e.target.value)}
+                    style={{
+                      padding: '8px 10px',
+                      fontSize: '12px',
+                      background: 'var(--surface2)',
+                      border: '1px solid var(--border-faint)',
+                      borderRadius: '6px',
+                      color: 'var(--text)',
+                      outline: 'none',
+                    }}
+                  />
+                  <select
+                    value={notePick}
+                    onChange={(e) => setNotePick(e.target.value)}
+                    style={{
+                      padding: '8px 10px',
+                      fontSize: '12px',
+                      background: 'var(--surface2)',
+                      border: '1px solid var(--border-faint)',
+                      borderRadius: '6px',
+                      color: 'var(--text)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <option value="">Select a note…</option>
+                    {noteCandidates.map((n) => (
+                      <option key={n.id} value={n.id}>{n.title || firstLine(n.raw_text)}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    onClick={handleAddNoteLink}
+                    disabled={!notePick || noteLinkBusy}
+                    style={{ alignSelf: 'end' }}
+                  >
+                    {noteLinkBusy ? <Loader2 size={13} className="spin" /> : <CheckCircle size={13} />}
+                    Add link
+                  </button>
+                </div>
+              )}
+
               {personNotes.length === 0 ? (
                 <p className={projectStyles.empty}>No notes linked to this person yet.</p>
               ) : (
                 <div style={itemListStyle}>
                   {personNotes.map((note) => (
-                    <div key={note.id} style={itemRowStyle}>
+                    <div key={note.id} style={{ ...itemRowStyle, position: 'relative' }}>
                       <div style={itemCopyStyle}>
                         <Link to={`/notes/${note.id}`} style={itemTitleStyle}>
                           {firstLine(note.raw_text) || 'Untitled note'}
@@ -338,9 +461,29 @@ export default function PersonFocus() {
                           {note.project_id ? 'Linked to project note' : 'Standalone note'}
                         </span>
                       </div>
-                      <span style={badgeStyle}>
-                        <FileText size={12} /> Note
-                      </span>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <span style={badgeStyle}>
+                          <FileText size={12} /> Note
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveNoteFromPerson(note.id)}
+                          style={{
+                            background: 'none',
+                            border: '1px solid var(--border-faint)',
+                            borderRadius: '6px',
+                            color: 'var(--text-muted)',
+                            cursor: 'pointer',
+                            padding: '4px 6px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            fontSize: '10px',
+                          }}
+                          title="Remove note from person"
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -464,6 +607,14 @@ export default function PersonFocus() {
           </section>
         </aside>
       </div>
+
+      {showNewNoteEditor && (
+        <NoteEditor
+          initialData={{ person_id: id, bucket: 'PEOPLE' }}
+          onClose={() => setShowNewNoteEditor(false)}
+          onSaved={() => setShowNewNoteEditor(false)}
+        />
+      )}
     </div>
   );
 }
