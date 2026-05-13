@@ -1,8 +1,16 @@
-import React from 'react';
+import React, { createRef } from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import AiSelectionPopover, { AI_ACTIONS, callAiAction, useTextSelection } from './AiSelectionPopover';
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  global.fetch = vi.fn().mockResolvedValue({
+    ok: true,
+    json: async () => ({ action: 'classify', result: 'done', text: 'Hello world' }),
+  });
+});
 
 describe('AiSelectionPopover', () => {
   const defaultProps = {
@@ -14,10 +22,6 @@ describe('AiSelectionPopover', () => {
     busy: false,
     result: null,
   };
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
 
   it('renders the popover when visible', () => {
     render(<AiSelectionPopover {...defaultProps} />);
@@ -34,15 +38,9 @@ describe('AiSelectionPopover', () => {
     expect(screen.queryByTestId('ai-selection-popover')).not.toBeInTheDocument();
   });
 
-  it('shows the selected text preview', () => {
+  it('renders without the old selected text preview copy in the toolbar', () => {
     render(<AiSelectionPopover {...defaultProps} selectedText="This is a test selection" />);
-    expect(screen.getByTestId('ai-selection-popover')).toHaveTextContent('This is a test selection');
-  });
-
-  it('truncates long selected text', () => {
-    const longText = 'a'.repeat(100);
-    render(<AiSelectionPopover {...defaultProps} selectedText={longText} />);
-    expect(screen.getByTestId('ai-selection-popover')).toHaveTextContent('...');
+    expect(screen.getByTestId('ai-selection-popover')).not.toHaveTextContent('This is a test selection');
   });
 
   it('renders all four AI action buttons', () => {
@@ -56,8 +54,8 @@ describe('AiSelectionPopover', () => {
     render(<AiSelectionPopover {...defaultProps} />);
     expect(screen.getByText('Classify')).toBeInTheDocument();
     expect(screen.getByText('Extract Task')).toBeInTheDocument();
-    expect(screen.getByText('Create Link')).toBeInTheDocument();
-    expect(screen.getByText('Improve Writing')).toBeInTheDocument();
+    expect(screen.getByText('Find Links')).toBeInTheDocument();
+    expect(screen.getByText('Improve')).toBeInTheDocument();
   });
 
   it('calls onAction with the action id when clicked', async () => {
@@ -88,6 +86,13 @@ describe('AiSelectionPopover', () => {
     render(<AiSelectionPopover {...defaultProps} result="Classification: Note" />);
     expect(screen.getByTestId('ai-selection-result')).toBeInTheDocument();
     expect(screen.getByTestId('ai-selection-result')).toHaveTextContent('Classification: Note');
+  });
+
+  it('renders the result panel above the toolbar', () => {
+    render(<AiSelectionPopover {...defaultProps} result="Classification: Note" />);
+    const popover = screen.getByTestId('ai-selection-popover');
+    const result = screen.getByTestId('ai-selection-result');
+    expect(popover.firstChild).toBe(result);
   });
 
   it('does not show result when null', () => {
@@ -121,7 +126,7 @@ describe('AiSelectionPopover', () => {
   it('positions the popover at the given coordinates', () => {
     render(<AiSelectionPopover {...defaultProps} position={{ x: 150, y: 300 }} />);
     const popover = screen.getByTestId('ai-selection-popover');
-    expect(popover).toHaveStyle({ left: '150px', top: '300px' });
+    expect(popover).toHaveStyle({ left: '150px', top: '300px', transform: 'translate(-50%, calc(-100% - 8px))' });
   });
 });
 
@@ -138,22 +143,29 @@ describe('AI_ACTIONS', () => {
     expect(ids).toContain('improve_writing');
   });
 
+  it('maps the compact labels to the existing backend actions', () => {
+    expect(AI_ACTIONS.find(a => a.id === 'create_link')?.label).toBe('Find Links');
+    expect(AI_ACTIONS.find(a => a.id === 'improve_writing')?.label).toBe('Improve');
+  });
+
   it('each action has label, icon, and description', () => {
     AI_ACTIONS.forEach(action => {
       expect(action).toHaveProperty('id');
       expect(action).toHaveProperty('label');
-      expect(action).toHaveProperty('icon');
       expect(action).toHaveProperty('description');
     });
   });
 });
 
 describe('callAiAction', () => {
-  it('returns a simulated result when no apiCall is provided', async () => {
+  it('calls the backend endpoint when no apiCall is provided', async () => {
     const result = await callAiAction('classify', 'Hello world');
     expect(result).toHaveProperty('action', 'classify');
-    expect(result).toHaveProperty('text', 'Hello world');
-    expect(result).toHaveProperty('result');
+    expect(global.fetch).toHaveBeenCalledWith('/api/v2/ai/propose-from-selection', expect.objectContaining({
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'classify', selected_text: 'Hello world' }),
+    }));
   });
 
   it('calls apiCall when provided', async () => {
@@ -180,7 +192,9 @@ describe('useTextSelection', () => {
 
 function renderHookWithSelection() {
   let hookResult;
-  const containerRef = { current: document.createElement('div') };
+  const containerRef = createRef();
+  containerRef.current = document.createElement('div');
+  document.body.appendChild(containerRef.current);
 
   function TestComponent() {
     hookResult = useTextSelection(containerRef);
