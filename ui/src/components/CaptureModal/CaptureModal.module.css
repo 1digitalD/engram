@@ -1,0 +1,222 @@
+/* CaptureModal.module.css */
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 60;
+  animation: fadeIn var(--duration-fast) var(--ease-out) both;
+}
+
+.panel {
+  width: min(100%, 480px);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-5);
+  animation: scaleIn var(--duration-normal) var(--ease-out) both;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.subtitle {
+  margin: 6px 0 0;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+
+.closeBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--duration-fast);
+  flex-shrink: 0;
+}
+.closeBtn:hover {
+  background: var(--surface3);
+  color: var(--text);
+}
+.closeBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.form {
+  margin-top: 18px;
+}
+
+.typeSelector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: 14px;
+}
+
+.typeBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  padding: 7px 11px;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--duration-fast);
+}
+.typeBtn:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.typeBtn.active {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+.typeBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.textarea {
+  width: 100%;
+  resize: vertical;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  padding: 12px 14px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  font-family: var(--font-sans);
+  outline: none;
+  min-height: 120px;
+  transition: border-color var(--duration-fast);
+  box-sizing: border-box;
+}
+.textarea::placeholder {
+  color: var(--text-muted);
+}
+.textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-dim);
+}
+.textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-top: 14px;
+}
+
+.status {
+  min-height: 20px;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+.status.error {
+  color: var(--red);
+}
+.status.processing {
+  color: var(--accent);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cancelBtn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  transition: all var(--duration-fast);
+}
+.cancelBtn:hover:not(:disabled) {
+  background: var(--surface2);
+  color: var(--text);
+}
+.cancelBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.createBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 112px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: all var(--duration-fast);
+}
+.createBtn:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+.createBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.spinner {
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
