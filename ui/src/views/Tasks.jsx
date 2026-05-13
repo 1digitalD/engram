@@ -6,8 +6,8 @@ import styles from './Tasks.module.css';
 
 const COLUMNS = [
   { key: 'PENDING', label: 'Pending', dot: 'var(--text-muted)' },
-  { key: 'IN_PROGRESS', label: 'In Progress', dot: 'var(--warning)' },
-  { key: 'DONE', label: 'Done', dot: 'var(--success)' },
+  { key: 'IN_PROGRESS', label: 'In Progress', dot: 'var(--yellow)' },
+  { key: 'DONE', label: 'Done', dot: 'var(--green)' },
 ];
 
 const PRIORITY_COLORS = {
