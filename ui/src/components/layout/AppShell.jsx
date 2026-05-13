@@ -17,13 +17,11 @@ const NAV_ITEMS = [
   { to: '/today',    icon: Sun,             label: 'Today' },
   { to: '/inbox',    icon: Inbox,           label: 'Inbox' },
   { to: '/notes',    icon: FileText,        label: 'Notes' },
-  { to: '/moc',      icon: Layers,          label: 'Maps' },
   { to: '/projects', icon: FolderOpen,      label: 'Projects' },
   { to: '/areas',    icon: Map,             label: 'Areas' },
   { to: '/resources', icon: Library,        label: 'Resources' },
   { to: '/people',   icon: Users,           label: 'People' },
   { to: '/tasks',    icon: CheckSquare,     label: 'Tasks' },
-  { to: '/graph',    icon: Network,         label: 'Graph' },
   { to: '/review',   icon: Calendar,        label: 'Review' },
 ];
 
