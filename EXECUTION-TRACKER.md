@@ -205,3 +205,5 @@ If the session resets:
 - **2026-05-12 19:01** V3-1.2 → 0b40ec83: V3-1.2: completed, merged from codex worktree
 
 - **2026-05-12 19:11** V3-1.3 → b314c33f: V3-1.3: completed, merged from codex worktree
+
+- **2026-05-12 19:21** V3-1.4 → 1b990b67: V3-1.4: completed, merged from codex worktree

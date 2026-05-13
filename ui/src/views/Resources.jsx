@@ -37,6 +37,17 @@ function RatingStars({ value }) {
   );
 }
 
+function normalizeResource(resource) {
+  const props = resource.properties || {};
+  return {
+    ...resource,
+    resource_type: resource.resource_type || props.resource_type || 'OTHER',
+    author: resource.author || props.author || '',
+    is_read: resource.is_read ?? props.is_read ?? false,
+    rating: resource.rating ?? props.rating ?? null,
+  };
+}
+
 export default function Resources() {
   const { resources } = useStore();
   const [titleQuery, setTitleQuery] = useState('');
@@ -44,7 +55,7 @@ export default function Resources() {
 
   const filtered = useMemo(() => {
     const q = titleQuery.trim().toLowerCase();
-    return resources.filter((r) => {
+    return resources.map(normalizeResource).filter((r) => {
       if (typeFilter && r.resource_type !== typeFilter) return false;
       if (q && !(r.title || '').toLowerCase().includes(q)) return false;
       return true;
