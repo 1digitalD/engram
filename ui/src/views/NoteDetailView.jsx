@@ -2,7 +2,8 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   ArrowLeft, Edit2, Loader2, Trash2, Tag, User, FolderOpen, Map,
-  Link2, CheckCircle, Circle, X, Sparkles,
+  Link2, CheckCircle, Circle, X, Sparkles, Diamond, Calendar,
+  Clock, FileText,
 } from 'lucide-react';
 import useStore from '../stores/useStore';
 import { linksAPI } from '../api/engram';
@@ -39,6 +40,112 @@ async function fetchJson(url, options = {}) {
 
   return res.json();
 }
+
+function formatDate(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
+function formatDateTime(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+const shellStyle = {
+  display: 'grid',
+  gridTemplateColumns: 'minmax(0, 1fr) 224px',
+  gap: '24px',
+  alignItems: 'start',
+};
+
+const sidebarStyle = {
+  width: '224px',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '12px',
+};
+
+const sidebarCardStyle = {
+  background: 'var(--surface)',
+  border: '1px solid var(--border-faint)',
+  borderRadius: 'var(--radius-md)',
+  padding: '14px',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '10px',
+};
+
+const sidebarTitleStyle = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '8px',
+  fontSize: '12px',
+  fontWeight: 600,
+  color: 'var(--text)',
+  margin: 0,
+};
+
+const actionButtonStyle = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '8px',
+  width: '100%',
+  padding: '9px 10px',
+  borderRadius: 'var(--radius-md)',
+  border: '1px solid var(--border-faint)',
+  background: 'var(--surface)',
+  color: 'var(--text)',
+  fontSize: '12px',
+  textAlign: 'left',
+  cursor: 'pointer',
+};
+
+const metaRowStyle = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '6px',
+};
+
+const metaItemStyle = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '8px',
+  fontSize: '12px',
+  color: 'var(--text-secondary)',
+};
+
+const metaLabelStyle = {
+  fontSize: '11px',
+  color: 'var(--text-muted)',
+  textTransform: 'uppercase',
+  letterSpacing: '0.06em',
+  minWidth: '72px',
+};
+
+const chipStyle = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  padding: '4px 8px',
+  borderRadius: 'var(--radius-full)',
+  background: 'var(--surface2)',
+  border: '1px solid var(--border-faint)',
+  color: 'var(--text-secondary)',
+  fontSize: '11px',
+};
 
 export default function NoteDetailView() {
   const { id } = useParams();
@@ -197,34 +304,6 @@ export default function NoteDetailView() {
     setIsEditing(false);
   };
 
-  const saveInlineEdit = async () => {
-    if (!draftText.trim() || saving) return;
-    setSaving(true);
-    try {
-      await updateNote(note.id, { raw_text: draftText });
-      setIsEditing(false);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleEditKeyDown = (e) => {
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      cancelEditing();
-      return;
-    }
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-      e.preventDefault();
-      saveInlineEdit();
-    }
-  };
-
-  const handleBodyClick = (e) => {
-    if (e.target instanceof Element && e.target.closest('a')) return;
-    startEditing();
-  };
-
   const handleDelete = async () => {
     if (!confirm('Delete this note?')) return;
     await deleteNote(note.id);
@@ -308,6 +387,19 @@ export default function NoteDetailView() {
     setNewTaskTitle('');
   };
 
+  const tagNames = note.tag_names || [];
+  const suggestedLinks = [
+    ...linkedProjects.slice(0, 2).map(p => ({ id: p.id, label: p.name, route: `/projects/${p.id}` })),
+    ...linksOut.slice(0, 2).map(l => {
+      const target = getResolvedEntity(l.dst_id);
+      return {
+        id: l.dst_id,
+        label: target ? getEntityTitle(target) : `Entity ${String(l.dst_id).slice(0, 8)}`,
+        route: target ? getEntityRoute(target) : null,
+      };
+    }).filter(Boolean),
+  ];
+
   return (
     <div className={styles.page}>
       <nav className={styles.breadcrumb} aria-label="Breadcrumb">
@@ -316,378 +408,550 @@ export default function NoteDetailView() {
         <span className={styles.breadcrumbCurrent}>{notePreviewLine(note)}</span>
       </nav>
 
-      {/* Back */}
       <button type="button" className={styles.backBtn} onClick={() => navigate(-1)}>
         <ArrowLeft size={14} /> Back
       </button>
 
-      <div className={styles.content}>
-        {/* Meta bar */}
-        <div className={styles.metaBar}>
-          <BucketBadge bucket={note.bucket} />
-          {isMoc ? (
-            <span className={styles.mocBadge} data-testid="moc-badge">
-              <Map size={12} aria-hidden /> MOC
-            </span>
-          ) : null}
-          <span className={styles.date}>
-            {new Date(note.created_at).toLocaleDateString('en-US', {
-              weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
-            })}
-          </span>
-          <div className={styles.metaActions}>
-            {!isEditing && (
-              <button className="btn btn-ghost btn-sm" onClick={startEditing}>
-                <Edit2 size={13} /> Edit
-              </button>
-            )}
-            <button
-              className="btn btn-ghost btn-sm"
-              onClick={handleClassify}
-              disabled={classifying}
-              title="Re-run AI classification on this note"
-            >
-              {classifying ? <Loader2 size={13} className="spin" /> : <Sparkles size={13} />}
-              Classify
-            </button>
-            <button className="btn btn-ghost btn-sm" onClick={handleDelete}>
-              <Trash2 size={13} />
-            </button>
-          </div>
-        </div>
-
-        {isMoc ? (
-          <header className={styles.mocHeader} data-testid="moc-header">
-            <div className={styles.mocHeaderInner}>
-              <Map size={28} className={styles.mocHeaderIcon} aria-hidden />
-              <div className={styles.mocHeaderText}>
-                <p className={styles.mocHeaderEyebrow}>Map of contents</p>
-                <h2 className={styles.mocHeaderTitle}>{notePreviewLine(note)}</h2>
-                <p className={styles.mocHeaderBlurb}>
-                  Outline built from outgoing links. Add or reorder links in the panel below.
-                </p>
+      <div style={shellStyle}>
+        {/* Main content */}
+        <div className={styles.mainContent}>
+          {/* Header */}
+          <header className={styles.header}>
+            <div className={styles.headerTop}>
+              <div className={styles.headerIcon}>
+                <Diamond size={22} strokeWidth={1.5} />
+              </div>
+              <h1 className={styles.title}>{notePreviewLine(note)}</h1>
+            </div>
+            <div className={styles.metaRow}>
+              <span className={styles.metaDate}>
+                <Clock size={12} />
+                {formatDateTime(note.created_at)}
+              </span>
+              {note.updated_at && note.updated_at !== note.created_at && (
+                <span className={styles.metaDate}>
+                  <Clock size={12} />
+                  Modified {formatDateTime(note.updated_at)}
+                </span>
+              )}
+              <span className={styles.entityTypeLabel}>Note</span>
+              {isMoc && (
+                <span className={styles.mocBadge} data-testid="moc-badge">
+                  <Map size={12} aria-hidden /> MOC
+                </span>
+              )}
+              <div className={styles.metaActions}>
+                {!isEditing && (
+                  <button className="btn btn-ghost btn-sm" onClick={startEditing}>
+                    <Edit2 size={13} /> Edit
+                  </button>
+                )}
+                <button
+                  className="btn btn-ghost btn-sm"
+                  onClick={handleClassify}
+                  disabled={classifying}
+                  title="Re-run AI classification on this note"
+                >
+                  {classifying ? <Loader2 size={13} className="spin" /> : <Sparkles size={13} />}
+                  Classify
+                </button>
+                <button className="btn btn-ghost btn-sm" onClick={handleDelete}>
+                  <Trash2 size={13} />
+                </button>
               </div>
             </div>
           </header>
-        ) : null}
 
-        {isMoc ? (
-          <nav className={styles.mocToc} data-testid="moc-toc" aria-label="Table of contents">
-            <h3 className={styles.mocTocHeading}>Contents</h3>
-            {linksLoading ? (
-              <p className={styles.panelMuted}>
-                <Loader2 size={14} className="spin" aria-hidden /> Building outline…
-              </p>
-            ) : linksOut.length === 0 ? (
-              <p className={styles.panelMuted}>
-                No outgoing links yet. Link notes here to populate this table of contents.
-              </p>
-            ) : (
-              <ol className={styles.mocTocList}>
-                {linksOut.map((l) => {
-                  const target = getResolvedEntity(l.dst_id);
-                  const label = target ? getEntityTitle(target) : `Entity ${String(l.dst_id).slice(0, 8)}…`;
-                  return (
-                    <li key={l.id}>
-                      {renderEntityLink(l.dst_id, label)}
-                    </li>
-                  );
-                })}
-              </ol>
-            )}
-          </nav>
-        ) : null}
-
-        {/* Linked entities */}
-        {(linkedProjects.length > 0 || area || person) && (
-          <div className={styles.linkedEntities}>
-            {linkedProjects.map(p => (
-              <span key={p.id} className={styles.projectChipLinkWrap}>
-                <Link to={`/projects/${p.id}`} className={styles.entityChip}>
-                  <FolderOpen size={12} /> {p.name}
-                </Link>
-                <button
-                  type="button"
-                  className={styles.projectChipRemove}
-                  aria-label={`Remove ${p.name} from this note`}
-                  onClick={e => handleRemoveProjectFromNote(p.id, e)}
-                >
-                  <X size={12} strokeWidth={2.5} />
-                </button>
-              </span>
-            ))}
-            {area && (
-              <span className={styles.projectChipLinkWrap}>
-                <Link to={`/areas/${area.id}`} className={styles.entityChip}>
-                  <Map size={12} /> {area.name}
-                </Link>
-                <button
-                  type="button"
-                  className={styles.projectChipRemove}
-                  aria-label={`Remove ${area.name} from this note`}
-                  onClick={handleRemoveAreaFromNote}
-                >
-                  <X size={12} strokeWidth={2.5} />
-                </button>
-              </span>
-            )}
-            {person && (
-              <span className={styles.projectChipLinkWrap}>
-                <Link to={`/people/${person.id}`} className={styles.entityChip}>
-                  <User size={12} /> {person.name}
-                </Link>
-                <button
-                  type="button"
-                  className={styles.projectChipRemove}
-                  aria-label={`Remove ${person.name} from this note`}
-                  onClick={handleRemovePersonFromNote}
-                >
-                  <X size={12} strokeWidth={2.5} />
-                </button>
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* Note body */}
-        {isEditing ? (
-          <div className={styles.inlineEditor}>
-            <TipTapEditor
-              initialContent={note.raw_text || ''}
-              noteId={note.id}
-              placeholder="Edit note..."
-              onSave={async ({ html }) => {
-                if (!html.trim() || saving) return;
-                setSaving(true);
-                try {
-                  await updateNote(note.id, { content: html });
-                  setIsEditing(false);
-                } finally {
-                  setSaving(false);
-                }
-              }}
-            />
-            <div className={styles.inlineActions}>
-              <span className={styles.shortcutHint}>Use the editor toolbar to save</span>
-              <button type="button" className="btn btn-ghost btn-sm" onClick={cancelEditing} disabled={saving}>
-                Cancel
-              </button>
+          {/* Linked entities */}
+          {(linkedProjects.length > 0 || area || person) && (
+            <div className={styles.linkedEntities}>
+              {linkedProjects.map(p => (
+                <span key={p.id} className={styles.projectChipLinkWrap}>
+                  <Link to={`/projects/${p.id}`} className={styles.entityChip}>
+                    <FolderOpen size={12} /> {p.name}
+                  </Link>
+                  <button
+                    type="button"
+                    className={styles.projectChipRemove}
+                    aria-label={`Remove ${p.name} from this note`}
+                    onClick={e => handleRemoveProjectFromNote(p.id, e)}
+                  >
+                    <X size={12} strokeWidth={2.5} />
+                  </button>
+                </span>
+              ))}
+              {area && (
+                <span className={styles.projectChipLinkWrap}>
+                  <Link to={`/areas/${area.id}`} className={styles.entityChip}>
+                    <Map size={12} /> {area.name}
+                  </Link>
+                  <button
+                    type="button"
+                    className={styles.projectChipRemove}
+                    aria-label={`Remove ${area.name} from this note`}
+                    onClick={handleRemoveAreaFromNote}
+                  >
+                    <X size={12} strokeWidth={2.5} />
+                  </button>
+                </span>
+              )}
+              {person && (
+                <span className={styles.projectChipLinkWrap}>
+                  <Link to={`/people/${person.id}`} className={styles.entityChip}>
+                    <User size={12} /> {person.name}
+                  </Link>
+                  <button
+                    type="button"
+                    className={styles.projectChipRemove}
+                    aria-label={`Remove ${person.name} from this note`}
+                    onClick={handleRemovePersonFromNote}
+                  >
+                    <X size={12} strokeWidth={2.5} />
+                  </button>
+                </span>
+              )}
             </div>
-          </div>
-        ) : (
-          <article
-            className={styles.body}
-            onClick={handleBodyClick}
-            onKeyDown={e => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                startEditing();
-              }
-            }}
-            role="button"
-            tabIndex={0}
-            aria-label="Edit note text"
-          >
-            <span className={styles.editHint}>Click to edit</span>
-            <div dangerouslySetInnerHTML={{ __html: renderStoredContent(note.raw_text || '') }} />
-          </article>
-        )}
+          )}
 
-        {/* Tags */}
-        {note.tag_names?.length > 0 && (
-          <div className={styles.tags}>
-            <Tag size={13} className={styles.tagIcon} />
-            {note.tag_names.map(t => <TagBadge key={t} tag={t} />)}
-          </div>
-        )}
-
-        {/* AI info */}
-        {note.ai_meta && (
-          <div className={styles.aiInfo}>
-            <span className={styles.aiLabel}>AI classified as</span>
-            <BucketBadge bucket={note.ai_meta.bucket?.toUpperCase()} />
-            <span className={styles.aiConf}>
-              {Math.round((note.ai_meta.confidence || 0) * 100)}% confidence
-            </span>
-            {note.ai_meta.reasoning && (
-              <p className={styles.aiReason}>{note.ai_meta.reasoning}</p>
-            )}
-          </div>
-        )}
-
-        <div className={styles.panels}>
-          <ConnectionsPanel entityId={note.id} refreshKey={linksOut.length + linksIn.length} />
-
-          <section className={styles.panel}>
-            <h2 className={styles.panelTitle}>
-              <Link2 size={14} /> Links &amp; backlinks
-            </h2>
-            <div className={styles.proposedSection}>
-              <span className={styles.linkHeading}>
-                <Sparkles size={12} aria-hidden />
-                Suggested Links
-              </span>
-              {proposalsLoading ? (
+          {/* MOC TOC */}
+          {isMoc && (
+            <nav className={styles.mocToc} data-testid="moc-toc" aria-label="Table of contents">
+              <h3 className={styles.mocTocHeading}>Contents</h3>
+              {linksLoading ? (
                 <p className={styles.panelMuted}>
-                  <Loader2 size={14} className="spin" /> Loading suggestions…
+                  <Loader2 size={14} className="spin" aria-hidden /> Building outline…
                 </p>
-              ) : proposals.length === 0 ? (
-                <p className={styles.panelMuted}>No pending suggestions for this note.</p>
+              ) : linksOut.length === 0 ? (
+                <p className={styles.panelMuted}>
+                  No outgoing links yet. Link notes here to populate this table of contents.
+                </p>
               ) : (
-                <ul className={styles.proposalList}>
-                  {proposals.map((p) => {
-                    const otherId = p.other_entity?.id || (p.src_id === note.id ? p.dst_id : p.src_id);
-                    const other = p.other_entity || getResolvedEntity(otherId);
-                    const busy = proposalActionId === p.id;
+                <ol className={styles.mocTocList}>
+                  {linksOut.map((l) => {
+                    const target = getResolvedEntity(l.dst_id);
+                    const label = target ? getEntityTitle(target) : `Entity ${String(l.dst_id).slice(0, 8)}…`;
                     return (
-                      <li key={p.id} className={styles.proposalRow}>
-                        <div className={styles.proposalMain}>
-                          {renderEntityLink(
-                            otherId,
-                            other ? getEntityTitle(other) : `Entity ${String(otherId).slice(0, 8)}…`,
-                            other,
-                          )}
-                          <span className={styles.proposalConf}>
-                            {Math.round((p.confidence ?? 0) * 100)}% confidence
-                          </span>
-                          {p.reason ? (
-                            <p className={styles.proposalReason}>{p.reason}</p>
-                          ) : null}
-                        </div>
-                        <div className={styles.proposalActions}>
-                          <button
-                            type="button"
-                            className="btn btn-primary btn-sm"
-                            onClick={() => handleAcceptProposal(p)}
-                            disabled={busy}
-                            title="Accept and create link"
-                          >
-                            {busy ? <Loader2 size={13} className="spin" /> : <CheckCircle size={13} />}
-                            Accept
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn-ghost btn-sm"
-                            onClick={() => handleDismissProposal(p.id)}
-                            disabled={busy}
-                            title="Dismiss suggestion"
-                          >
-                            Dismiss
-                          </button>
-                        </div>
+                      <li key={l.id}>
+                        {renderEntityLink(l.dst_id, label)}
                       </li>
                     );
                   })}
-                </ul>
+                </ol>
+              )}
+            </nav>
+          )}
+
+          {/* Note body / Editor */}
+          {isEditing ? (
+            <div className={styles.inlineEditor}>
+              <TipTapEditor
+                initialContent={note.raw_text || ''}
+                noteId={note.id}
+                placeholder="Edit note..."
+                onSave={async ({ html }) => {
+                  if (!html.trim() || saving) return;
+                  setSaving(true);
+                  try {
+                    await updateNote(note.id, { content: html });
+                    setIsEditing(false);
+                  } finally {
+                    setSaving(false);
+                  }
+                }}
+              />
+              <div className={styles.inlineActions}>
+                <span className={styles.shortcutHint}>Use the editor toolbar to save</span>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={cancelEditing} disabled={saving}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <article
+              className={styles.body}
+              onClick={(e) => {
+                if (e.target instanceof Element && e.target.closest('a')) return;
+                startEditing();
+              }}
+              onKeyDown={e => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  startEditing();
+                }
+              }}
+              role="button"
+              tabIndex={0}
+              aria-label="Edit note text"
+            >
+              <span className={styles.editHint}>Click to edit</span>
+              <div dangerouslySetInnerHTML={{ __html: renderStoredContent(note.raw_text || '') }} />
+            </article>
+          )}
+
+          {/* Tags */}
+          {tagNames.length > 0 && (
+            <div className={styles.tags}>
+              <Tag size={13} className={styles.tagIcon} />
+              {tagNames.map(t => <TagBadge key={t} tag={t} />)}
+            </div>
+          )}
+
+          {/* AI info */}
+          {note.ai_meta && (
+            <div className={styles.aiInfo}>
+              <span className={styles.aiLabel}>AI classified as</span>
+              <BucketBadge bucket={note.ai_meta.bucket?.toUpperCase()} />
+              <span className={styles.aiConf}>
+                {Math.round((note.ai_meta.confidence || 0) * 100)}% confidence
+              </span>
+              {note.ai_meta.reasoning && (
+                <p className={styles.aiReason}>{note.ai_meta.reasoning}</p>
               )}
             </div>
-            {linksLoading ? (
-              <p className={styles.panelMuted}>
-                <Loader2 size={14} className="spin" /> Loading confirmed links…
-              </p>
+          )}
+
+          {/* Metadata section */}
+          <section className={styles.metadataSection}>
+            <h2 className={styles.sectionTitle}>
+              <FileText size={14} /> Metadata
+            </h2>
+            <div className={styles.metadataGrid}>
+              <div style={metaRowStyle}>
+                <span style={metaLabelStyle}>Type</span>
+                <span style={metaItemStyle}>
+                  <Diamond size={12} /> Note
+                  {isMoc && <span className={styles.mocInline}>MOC</span>}
+                </span>
+              </div>
+              <div style={metaRowStyle}>
+                <span style={metaLabelStyle}>Status</span>
+                <span style={metaItemStyle}>
+                  <BucketBadge bucket={note.bucket || 'INBOX'} />
+                </span>
+              </div>
+              <div style={metaRowStyle}>
+                <span style={metaLabelStyle}>Created</span>
+                <span style={metaItemStyle}>{formatDateTime(note.created_at)}</span>
+              </div>
+              <div style={metaRowStyle}>
+                <span style={metaLabelStyle}>Modified</span>
+                <span style={metaItemStyle}>{formatDateTime(note.updated_at || note.created_at)}</span>
+              </div>
+              {note.follow_up_at && (
+                <div style={metaRowStyle}>
+                  <span style={metaLabelStyle}>Follow-up</span>
+                  <span style={{ ...metaItemStyle, color: 'var(--yellow)' }}>
+                    <Calendar size={12} /> {formatDate(note.follow_up_at)}
+                  </span>
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* Panels */}
+          <div className={styles.panels}>
+            <ConnectionsPanel entityId={note.id} refreshKey={linksOut.length + linksIn.length} />
+
+            <section className={styles.panel}>
+              <h2 className={styles.panelTitle}>
+                <Link2 size={14} /> Links &amp; backlinks
+              </h2>
+              <div className={styles.proposedSection}>
+                <span className={styles.linkHeading}>
+                  <Sparkles size={12} aria-hidden />
+                  Suggested Links
+                </span>
+                {proposalsLoading ? (
+                  <p className={styles.panelMuted}>
+                    <Loader2 size={14} className="spin" /> Loading suggestions…
+                  </p>
+                ) : proposals.length === 0 ? (
+                  <p className={styles.panelMuted}>No pending suggestions for this note.</p>
+                ) : (
+                  <ul className={styles.proposalList}>
+                    {proposals.map((p) => {
+                      const otherId = p.other_entity?.id || (p.src_id === note.id ? p.dst_id : p.src_id);
+                      const other = p.other_entity || getResolvedEntity(otherId);
+                      const busy = proposalActionId === p.id;
+                      return (
+                        <li key={p.id} className={styles.proposalRow}>
+                          <div className={styles.proposalMain}>
+                            {renderEntityLink(
+                              otherId,
+                              other ? getEntityTitle(other) : `Entity ${String(otherId).slice(0, 8)}…`,
+                              other,
+                            )}
+                            <span className={styles.proposalConf}>
+                              {Math.round((p.confidence ?? 0) * 100)}% confidence
+                            </span>
+                            {p.reason ? (
+                              <p className={styles.proposalReason}>{p.reason}</p>
+                            ) : null}
+                          </div>
+                          <div className={styles.proposalActions}>
+                            <button
+                              type="button"
+                              className="btn btn-primary btn-sm"
+                              onClick={() => handleAcceptProposal(p)}
+                              disabled={busy}
+                              title="Accept and create link"
+                            >
+                              {busy ? <Loader2 size={13} className="spin" /> : <CheckCircle size={13} />}
+                              Accept
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-ghost btn-sm"
+                              onClick={() => handleDismissProposal(p.id)}
+                              disabled={busy}
+                              title="Dismiss suggestion"
+                            >
+                              Dismiss
+                            </button>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+              {linksLoading ? (
+                <p className={styles.panelMuted}>
+                  <Loader2 size={14} className="spin" /> Loading confirmed links…
+                </p>
+              ) : (
+                <>
+                  <div className={styles.linkSection}>
+                    <span className={styles.linkHeading}>From this note</span>
+                    {linksOut.length === 0 ? (
+                      <p className={styles.panelMuted}>No outgoing links.</p>
+                    ) : (
+                      <ul className={styles.linkList}>
+                        {linksOut.map(l => {
+                          const other = getResolvedEntity(l.dst_id);
+                          return (
+                            <li key={l.id}>
+                              {renderEntityLink(l.dst_id, other ? getEntityTitle(other) : `Entity ${l.dst_id.slice(0, 8)}…`)}
+                              <span className={styles.linkMeta}>{l.link_type}</span>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
+                  <div className={styles.linkSection}>
+                    <span className={styles.linkHeading}>Backlinks</span>
+                    {linksIn.length === 0 ? (
+                      <p className={styles.panelMuted}>No notes link here yet.</p>
+                    ) : (
+                      <ul className={styles.linkList}>
+                        {linksIn.map(l => {
+                          const other = getResolvedEntity(l.src_id);
+                          return (
+                            <li key={l.id}>
+                              {renderEntityLink(l.src_id, other ? getEntityTitle(other) : `Entity ${l.src_id.slice(0, 8)}…`)}
+                              <span className={styles.linkMeta}>{l.link_type}</span>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
+                  <div className={styles.linkAdd}>
+                    <input
+                      type="search"
+                      className={styles.linkFilter}
+                      placeholder="Filter notes…"
+                      value={linkQuery}
+                      onChange={e => setLinkQuery(e.target.value)}
+                    />
+                    <select
+                      className={styles.linkSelect}
+                      value={linkPick}
+                      onChange={e => setLinkPick(e.target.value)}
+                    >
+                      <option value="">Link to note…</option>
+                      {linkCandidates.map(n => (
+                        <option key={n.id} value={n.id}>{notePreviewLine(n)}</option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      onClick={handleAddLink}
+                      disabled={!linkPick || linkBusy}
+                    >
+                      {linkBusy ? <Loader2 size={13} className="spin" /> : 'Add link'}
+                    </button>
+                  </div>
+                </>
+              )}
+            </section>
+
+            <section className={styles.panel}>
+              <h2 className={styles.panelTitle}>Tasks on this note</h2>
+              {linkedTasks.length === 0 ? (
+                <p className={styles.panelMuted}>No tasks linked yet.</p>
+              ) : (
+                <ul className={styles.taskRows}>
+                  {linkedTasks.map(t => (
+                    <li key={t.id} className={styles.taskRow}>
+                      <button
+                        type="button"
+                        className={styles.taskCheck}
+                        onClick={() => toggleLinkedTask(t)}
+                        aria-label={t.status === 'DONE' ? 'Mark pending' : 'Mark done'}
+                      >
+                        {t.status === 'DONE' ? <CheckCircle size={16} /> : <Circle size={16} />}
+                      </button>
+                      <span className={t.status === 'DONE' ? styles.taskTitleDone : styles.taskTitle}>{t.title}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <form className={styles.taskAdd} onSubmit={handleAddNoteTask}>
+                <input
+                  className={styles.taskInput}
+                  placeholder="New task…"
+                  value={newTaskTitle}
+                  onChange={e => setNewTaskTitle(e.target.value)}
+                />
+                <button type="submit" className="btn btn-primary btn-sm" disabled={!newTaskTitle.trim()}>
+                  Add
+                </button>
+              </form>
+            </section>
+          </div>
+        </div>
+
+        {/* AI Sidebar */}
+        <aside style={sidebarStyle}>
+          {/* Tags */}
+          <section style={sidebarCardStyle}>
+            <h2 style={sidebarTitleStyle}>
+              <Tag size={13} /> Tags
+            </h2>
+            {tagNames.length > 0 ? (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                {tagNames.map(tag => (
+                  <span key={tag} style={chipStyle}>{tag}</span>
+                ))}
+              </div>
             ) : (
-              <>
-                <div className={styles.linkSection}>
-                  <span className={styles.linkHeading}>From this note</span>
-                  {linksOut.length === 0 ? (
-                    <p className={styles.panelMuted}>No outgoing links.</p>
-                  ) : (
-                    <ul className={styles.linkList}>
-                      {linksOut.map(l => {
-                        const other = getResolvedEntity(l.dst_id);
-                        return (
-                          <li key={l.id}>
-                            {renderEntityLink(l.dst_id, other ? getEntityTitle(other) : `Entity ${l.dst_id.slice(0, 8)}…`)}
-                            <span className={styles.linkMeta}>{l.link_type}</span>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  )}
-                </div>
-                <div className={styles.linkSection}>
-                  <span className={styles.linkHeading}>Backlinks</span>
-                  {linksIn.length === 0 ? (
-                    <p className={styles.panelMuted}>No notes link here yet.</p>
-                  ) : (
-                    <ul className={styles.linkList}>
-                      {linksIn.map(l => {
-                        const other = getResolvedEntity(l.src_id);
-                        return (
-                          <li key={l.id}>
-                            {renderEntityLink(l.src_id, other ? getEntityTitle(other) : `Entity ${l.src_id.slice(0, 8)}…`)}
-                            <span className={styles.linkMeta}>{l.link_type}</span>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  )}
-                </div>
-                <div className={styles.linkAdd}>
-                  <input
-                    type="search"
-                    className={styles.linkFilter}
-                    placeholder="Filter notes…"
-                    value={linkQuery}
-                    onChange={e => setLinkQuery(e.target.value)}
-                  />
-                  <select
-                    className={styles.linkSelect}
-                    value={linkPick}
-                    onChange={e => setLinkPick(e.target.value)}
-                  >
-                    <option value="">Link to note…</option>
-                    {linkCandidates.map(n => (
-                      <option key={n.id} value={n.id}>{notePreviewLine(n)}</option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    className="btn btn-secondary btn-sm"
-                    onClick={handleAddLink}
-                    disabled={!linkPick || linkBusy}
-                  >
-                    {linkBusy ? <Loader2 size={13} className="spin" /> : 'Add link'}
-                  </button>
-                </div>
-              </>
+              <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)' }}>No tags yet.</p>
             )}
           </section>
 
-          <section className={styles.panel}>
-            <h2 className={styles.panelTitle}>Tasks on this note</h2>
-            {linkedTasks.length === 0 ? (
-              <p className={styles.panelMuted}>No tasks linked yet.</p>
+          {/* Suggested links */}
+          <section style={sidebarCardStyle}>
+            <h2 style={sidebarTitleStyle}>
+              <Sparkles size={13} /> Suggested links
+            </h2>
+            {suggestedLinks.length > 0 ? (
+              suggestedLinks.map(entry => (
+                entry.route ? (
+                  <Link key={entry.id} to={entry.route} style={{
+                    color: 'var(--text-secondary)',
+                    textDecoration: 'none',
+                    fontSize: '12px',
+                    lineHeight: 1.4,
+                  }}>
+                    {entry.label}
+                  </Link>
+                ) : (
+                  <span key={entry.id} style={{
+                    color: 'var(--text-secondary)',
+                    fontSize: '12px',
+                    lineHeight: 1.4,
+                  }}>
+                    {entry.label}
+                  </span>
+                )
+              ))
             ) : (
-              <ul className={styles.taskRows}>
-                {linkedTasks.map(t => (
-                  <li key={t.id} className={styles.taskRow}>
-                    <button
-                      type="button"
-                      className={styles.taskCheck}
-                      onClick={() => toggleLinkedTask(t)}
-                      aria-label={t.status === 'DONE' ? 'Mark pending' : 'Mark done'}
-                    >
-                      {t.status === 'DONE' ? <CheckCircle size={16} /> : <Circle size={16} />}
-                    </button>
-                    <span className={t.status === 'DONE' ? styles.taskTitleDone : styles.taskTitle}>{t.title}</span>
-                  </li>
-                ))}
-              </ul>
+              <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)' }}>No suggested links yet.</p>
             )}
-            <form className={styles.taskAdd} onSubmit={handleAddNoteTask}>
-              <input
-                className={styles.taskInput}
-                placeholder="New task…"
-                value={newTaskTitle}
-                onChange={e => setNewTaskTitle(e.target.value)}
-              />
-              <button type="submit" className="btn btn-primary btn-sm" disabled={!newTaskTitle.trim()}>
-                Add
-              </button>
-            </form>
           </section>
-        </div>
+
+          {/* Quick actions */}
+          <section style={sidebarCardStyle}>
+            <h2 style={sidebarTitleStyle}>
+              <Sparkles size={13} /> Quick actions
+            </h2>
+            <button
+              type="button"
+              style={actionButtonStyle}
+              onClick={handleClassify}
+              disabled={classifying}
+            >
+              {classifying ? <Loader2 size={13} className="spin" /> : <Sparkles size={13} />}
+              Re-classify
+            </button>
+            <button
+              type="button"
+              style={actionButtonStyle}
+              onClick={() => {
+                if (linkedProjects.length > 0) {
+                  navigate(`/projects/${linkedProjects[0].id}`);
+                } else if (area) {
+                  navigate(`/areas/${area.id}`);
+                } else {
+                  navigate('/notes');
+                }
+              }}
+            >
+              <FolderOpen size={13} /> Open related project
+            </button>
+            <button
+              type="button"
+              style={actionButtonStyle}
+              onClick={() => navigate('/notes')}
+            >
+              <FileText size={13} /> All notes
+            </button>
+          </section>
+
+          {/* Metadata */}
+          <section style={sidebarCardStyle}>
+            <h2 style={sidebarTitleStyle}>
+              <FileText size={13} /> Metadata
+            </h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)', minWidth: '52px' }}>Type</span>
+                <span style={{ color: 'var(--text-secondary)' }}>
+                  <Diamond size={11} style={{ verticalAlign: 'middle', marginRight: '4px' }} />
+                  Note
+                </span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)', minWidth: '52px' }}>Status</span>
+                <BucketBadge bucket={note.bucket || 'INBOX'} />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)', minWidth: '52px' }}>Created</span>
+                <span style={{ color: 'var(--text-secondary)', fontSize: '11px', fontFamily: 'var(--font-mono)' }}>
+                  {formatDate(note.created_at)}
+                </span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)', minWidth: '52px' }}>Modified</span>
+                <span style={{ color: 'var(--text-secondary)', fontSize: '11px', fontFamily: 'var(--font-mono)' }}>
+                  {formatDate(note.updated_at || note.created_at)}
+                </span>
+              </div>
+              {note.follow_up_at && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', minWidth: '52px' }}>Follow-up</span>
+                  <span style={{ color: 'var(--yellow)', fontSize: '11px', fontFamily: 'var(--font-mono)' }}>
+                    <Calendar size={11} style={{ verticalAlign: 'middle', marginRight: '4px' }} />
+                    {formatDate(note.follow_up_at)}
+                  </span>
+                </div>
+              )}
+            </div>
+          </section>
+        </aside>
       </div>
     </div>
   );

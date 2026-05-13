@@ -1,8 +1,8 @@
-/* NoteDetailView.module.css */
+/* NoteDetailView.module.css — V3 Design */
 
 .page {
   padding: var(--space-6) var(--space-8);
-  max-width: var(--content-max);
+  max-width: var(--content-wide);
   margin: 0 auto;
   animation: fadeIn var(--duration-slow) var(--ease-out) both;
 }
@@ -16,7 +16,7 @@
   background: none;
   border: none;
   cursor: pointer;
-  margin-bottom: var(--space-5);
+  margin-bottom: var(--space-4);
   padding: var(--space-2);
   border-radius: var(--radius-sm);
   transition: all var(--duration-fast);
@@ -37,7 +37,7 @@
   gap: var(--space-2);
   flex-wrap: wrap;
   font-size: var(--text-sm);
-  margin-bottom: var(--space-4);
+  margin-bottom: var(--space-3);
 }
 .breadcrumb a {
   color: var(--text-muted);
@@ -58,17 +58,69 @@
   max-width: min(60vw, 320px);
 }
 
-.content {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
+/* ── Header ─────────────────────────────────── */
+
+.header {
+  padding-bottom: var(--space-5);
+  margin-bottom: var(--space-5);
+  border-bottom: 1px solid var(--border-faint);
 }
 
-.metaBar {
+.headerTop {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.headerIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  background: var(--accent-dim);
+  color: var(--accent);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.title {
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  margin: 0;
+  min-width: 0;
+}
+
+.metaRow {
   display: flex;
   align-items: center;
   gap: var(--space-3);
   flex-wrap: wrap;
+}
+
+.metaDate {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+}
+
+.entityTypeLabel {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--entity-note);
+  background: var(--accent-dim);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
 }
 
 .mocBadge {
@@ -86,10 +138,16 @@
   border-radius: var(--radius-full);
 }
 
-.date {
-  font-size: var(--text-sm);
-  color: var(--text-muted);
-  font-family: var(--font-mono);
+.mocInline {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--green);
+  background: rgba(34, 197, 94, 0.1);
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  margin-left: 6px;
 }
 
 .metaActions {
@@ -98,99 +156,19 @@
   gap: var(--space-1);
 }
 
-.mocHeader {
-  border-radius: var(--radius-md);
-  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--accent) 12%, var(--surface2)) 0%,
-    var(--surface2) 100%
-  );
-  padding: var(--space-5) var(--space-6);
-}
+/* ── Main content ───────────────────────────── */
 
-.mocHeaderInner {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-4);
-}
-
-.mocHeaderIcon {
-  flex-shrink: 0;
-  color: var(--accent);
-  opacity: 0.95;
-}
-
-.mocHeaderText {
+.mainContent {
   min-width: 0;
 }
 
-.mocHeaderEyebrow {
-  margin: 0 0 var(--space-1);
-  font-size: var(--text-xs);
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--accent);
-}
-
-.mocHeaderTitle {
-  margin: 0 0 var(--space-2);
-  font-size: var(--text-xl);
-  font-weight: 650;
-  line-height: 1.25;
-  color: var(--text);
-}
-
-.mocHeaderBlurb {
-  margin: 0;
-  font-size: var(--text-sm);
-  color: var(--text-muted);
-  line-height: 1.45;
-  max-width: 52ch;
-}
-
-.mocToc {
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border);
-  background: var(--surface2);
-  padding: var(--space-4) var(--space-5);
-}
-
-.mocTocHeading {
-  margin: 0 0 var(--space-3);
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--text-secondary);
-}
-
-.mocTocList {
-  margin: 0;
-  padding-left: 1.25rem;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  font-size: var(--text-sm);
-}
-
-.mocTocList li::marker {
-  color: var(--text-muted);
-}
-
-.mocTocList a {
-  color: var(--accent);
-  text-decoration: none;
-  font-weight: 500;
-}
-
-.mocTocList a:hover {
-  text-decoration: underline;
-}
+/* ── Linked entities ────────────────────────── */
 
 .linkedEntities {
   display: flex;
   gap: var(--space-2);
   flex-wrap: wrap;
+  margin-bottom: var(--space-4);
 }
 
 .entityChip {
@@ -250,12 +228,54 @@
   background: var(--surface3);
 }
 
-/* Body */
+/* ── MOC TOC ────────────────────────────────── */
+
+.mocToc {
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  padding: var(--space-4) var(--space-5);
+  margin-bottom: var(--space-4);
+}
+
+.mocTocHeading {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.mocTocList {
+  margin: 0;
+  padding-left: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.mocTocList li::marker {
+  color: var(--text-muted);
+}
+
+.mocTocList a {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.mocTocList a:hover {
+  text-decoration: underline;
+}
+
+/* ── Body ───────────────────────────────────── */
+
 .body {
   position: relative;
-  font-size: var(--text-base);
-  line-height: 1.8;
-  color: var(--text);
+  font-size: 13.5px;
+  font-weight: 400;
+  line-height: 1.7;
+  color: var(--text-secondary);
   padding: var(--space-3);
   margin: calc(var(--space-3) * -1);
   border: 1px solid transparent;
@@ -271,20 +291,40 @@
   outline: none;
 }
 
-.body h1, .body h2, .body h3 {
+.body h1 {
+  font-size: var(--text-xl);
+  font-weight: 700;
   margin-top: var(--space-6);
   margin-bottom: var(--space-3);
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+
+.body h2 {
+  font-size: 15px;
+  font-weight: 600;
+  margin-top: var(--space-5);
+  margin-bottom: var(--space-2);
+  color: var(--text);
+}
+
+.body h3 {
+  font-size: var(--text-base);
+  font-weight: 600;
+  margin-top: var(--space-4);
+  margin-bottom: var(--space-2);
+  color: var(--text);
 }
 
 .body p {
-  color: var(--text);
+  color: var(--text-secondary);
   margin-bottom: var(--space-4);
 }
 
 .body ul, .body ol {
   padding-left: var(--space-6);
   margin-bottom: var(--space-4);
-  color: var(--text);
+  color: var(--text-secondary);
 }
 
 .body blockquote {
@@ -300,7 +340,8 @@
   padding: 2px 6px;
   border-radius: var(--radius-sm);
   font-size: 0.9em;
-  color: var(--entity-project);
+  color: var(--accent);
+  font-family: var(--font-mono);
 }
 
 .body pre {
@@ -341,30 +382,13 @@
   opacity: 1;
 }
 
+/* ── Inline editor ──────────────────────────── */
+
 .inlineEditor {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-}
-
-.inlineTextarea {
-  width: 100%;
-  min-height: 360px;
-  padding: var(--space-4);
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  color: var(--text);
-  font-size: var(--text-base);
-  font-family: var(--font-sans);
-  line-height: 1.8;
-  resize: vertical;
-  transition: border-color var(--duration-fast);
-}
-
-.inlineTextarea:focus {
-  outline: none;
-  border-color: var(--accent);
+  margin-bottom: var(--space-4);
 }
 
 .inlineActions {
@@ -380,7 +404,8 @@
   font-size: var(--text-xs);
 }
 
-/* Tags */
+/* ── Tags ───────────────────────────────────── */
+
 .tags {
   display: flex;
   align-items: center;
@@ -388,23 +413,26 @@
   flex-wrap: wrap;
   padding-top: var(--space-4);
   border-top: 1px solid var(--border-faint);
+  margin-bottom: var(--space-4);
 }
 
 .tagIcon {
   color: var(--text-muted);
 }
 
-/* AI info */
+/* ── AI info ────────────────────────────────── */
+
 .aiInfo {
   padding: var(--space-3) var(--space-4);
-  background: rgba(124,106,255,0.05);
-  border: 1px solid rgba(124,106,255,0.15);
+  background: var(--accent-dim);
+  border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--border-faint));
   border-radius: var(--radius-md);
   font-size: var(--text-sm);
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
+  margin-bottom: var(--space-4);
 }
 
 .aiLabel {
@@ -425,6 +453,34 @@
   font-style: italic;
 }
 
+/* ── Metadata section ───────────────────────── */
+
+.metadataSection {
+  padding: var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-5);
+}
+
+.sectionTitle {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.metadataGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-3);
+}
+
+/* ── Panels ─────────────────────────────────── */
+
 .panels {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -434,7 +490,7 @@
 
 .panel {
   padding: var(--space-4);
-  background: var(--surface2);
+  background: var(--surface);
   border: 1px solid var(--border-faint);
   border-radius: var(--radius-md);
 }
@@ -500,7 +556,7 @@
   justify-content: space-between;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
-  background: var(--surface);
+  background: var(--surface2);
   border: 1px solid var(--border-faint);
   border-radius: var(--radius-sm);
 }
@@ -591,7 +647,7 @@
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  background: var(--surface);
+  background: var(--surface2);
   color: var(--text);
   font-size: var(--text-xs);
 }
@@ -602,7 +658,7 @@
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  background: var(--surface);
+  background: var(--surface2);
   color: var(--text);
   font-size: var(--text-xs);
 }
@@ -658,7 +714,7 @@
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  background: var(--surface);
+  background: var(--surface2);
   color: var(--text);
   font-size: var(--text-sm);
 }
