@@ -245,3 +245,22 @@ If the session resets:
 - **2026-05-12 23:24** V3-5.4 → c269ecd5: V3-5.4: completed, merged from opencode worktree
 
 - **2026-05-12 23:39** V3-5.5 → 2f1fa8c6: V3-5.5: completed, merged from opencode worktree
+
+
+## V3.5 — Scope Polish + Relationship Management
+
+> V3.5 scope defined in revised V3_PLAN.md (synced from xenodochial-lalande worktree).
+> All original V3 tasks completed. V3.5 adds remaining polish and relationship parity.
+> Automation: coding_loop.py tick --project engram (cron every 20 min).
+
+| Task | Description | Status |
+|---|---|---|
+| V3.5-1 | QuickCapture type picker | pending |
+| V3.5-2 | raw_text → content field cleanup | pending |
+| V3.5-3 | Phase 4 design system (IBM Plex + oklch tokens) | pending |
+| V3.5-4a | ProjectFocus relationship management | pending |
+| V3.5-4b | AreaFocus relationship management | pending |
+| V3.5-4c | PersonFocus relationship management | pending |
+| V3.5-4d | Tasks relationship management | pending |
+| V3.5-5 | Notes view filter fixes + text search | pending |
+
