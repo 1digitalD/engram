@@ -1,6 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Plus, Pencil, Trash2, ChevronDown, AlertTriangle, Loader2 } from 'lucide-react';
+import { ArrowLeft, Plus, Pencil, Trash2, ChevronDown, AlertTriangle, Loader2, X, CheckCircle, FileText, FolderOpen } from 'lucide-react';
 import Modal from '../components/ui/Modal';
 import useStore from '../stores/useStore';
 import NoteCard from '../components/notes/NoteCard';
@@ -23,7 +23,7 @@ const STATUS_COLORS = {
 export default function AreaFocus() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { areas, notes, projects, tasks, updateArea, deleteArea, getDeletePreview } = useStore();
+  const { areas, notes, projects, tasks, updateArea, deleteArea, getDeletePreview, createProject, updateProject, updateNote, addToast } = useStore();
   const [tab, setTab] = useState('notes');
   const [showNoteEditor, setShowNoteEditor] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -41,6 +41,21 @@ export default function AreaFocus() {
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [archiving, setArchiving] = useState(false);
   const [detachedCount, setDetachedCount] = useState(0);
+
+  // Add-project modal state
+  const [showAddProjectModal, setShowAddProjectModal] = useState(false);
+  const [projectSearchQuery, setProjectSearchQuery] = useState('');
+  const [projectPick, setProjectPick] = useState('');
+  const [projectLinkBusy, setProjectLinkBusy] = useState(false);
+
+  // Inline project creation
+  const [newProjectTitle, setNewProjectTitle] = useState('');
+
+  // Add-note modal state (existing notes)
+  const [showAddNoteModal, setShowAddNoteModal] = useState(false);
+  const [noteSearchQuery, setNoteSearchQuery] = useState('');
+  const [notePick, setNotePick] = useState('');
+  const [noteLinkBusy, setNoteLinkBusy] = useState(false);
 
   useEffect(() => {
     function handleClickOutside(e) {
@@ -138,6 +153,83 @@ export default function AreaFocus() {
   const currentStatus = area.status || 'active';
   const currentStatusConfig = AREA_STATUSES.find(s => s.value === currentStatus) || AREA_STATUSES[0];
   const statusColor = STATUS_COLORS[currentStatus] || 'var(--text)';
+
+  // ── Project candidates: projects not already linked to this area ──
+  const alreadyLinkedProjectIds = new Set(areaProjects.map(p => p.id));
+  const projectCandidates = projects
+    .filter(p => !alreadyLinkedProjectIds.has(p.id) && !p.is_archived)
+    .filter(p => (p.title || '').toLowerCase().includes(projectSearchQuery.trim().toLowerCase()))
+    .slice(0, 80);
+
+  // ── Note candidates: notes not already linked to this area ──
+  const alreadyLinkedNoteIds = new Set(areaNotes.map(n => n.id));
+  const noteCandidates = notes
+    .filter(n => !alreadyLinkedNoteIds.has(n.id))
+    .filter(n => (n.title || n.raw_text || '').toLowerCase().includes(noteSearchQuery.trim().toLowerCase()))
+    .slice(0, 80);
+
+  // ── Add existing project to area ──
+  async function handleAddProjectLink() {
+    if (!projectPick || projectLinkBusy) return;
+    setProjectLinkBusy(true);
+    try {
+      await updateProject(projectPick, { area_id: id });
+      setProjectPick('');
+      setProjectSearchQuery('');
+      setShowAddProjectModal(false);
+    } catch (e) {
+      addToast({ type: 'error', message: e.message || 'Could not link project' });
+    } finally {
+      setProjectLinkBusy(false);
+    }
+  }
+
+  // ── Remove project from area ──
+  async function handleRemoveProjectFromArea(projectId) {
+    try {
+      await updateProject(projectId, { area_id: null });
+    } catch (e) {
+      addToast({ type: 'error', message: e.message || 'Could not unlink project' });
+    }
+  }
+
+  // ── Create new project for this area ──
+  async function handleCreateProject(e) {
+    e.preventDefault();
+    const title = newProjectTitle.trim();
+    if (!title) return;
+    try {
+      await createProject({ title, area_id: id });
+      setNewProjectTitle('');
+    } catch (e) {
+      addToast({ type: 'error', message: e.message || 'Could not create project' });
+    }
+  }
+
+  // ── Add existing note to area ──
+  async function handleAddNoteLink() {
+    if (!notePick || noteLinkBusy) return;
+    setNoteLinkBusy(true);
+    try {
+      await updateNote(notePick, { area_id: id });
+      setNotePick('');
+      setNoteSearchQuery('');
+      setShowAddNoteModal(false);
+    } catch (e) {
+      addToast({ type: 'error', message: e.message || 'Could not link note' });
+    } finally {
+      setNoteLinkBusy(false);
+    }
+  }
+
+  // ── Remove note from area ──
+  async function handleRemoveNoteFromArea(noteId) {
+    try {
+      await updateNote(noteId, { area_id: null });
+    } catch (e) {
+      addToast({ type: 'error', message: e.message || 'Could not unlink note' });
+    }
+  }
 
   return (
     <div className={styles.page}>
@@ -249,15 +341,114 @@ export default function AreaFocus() {
       {tab === 'notes' && (
         <div className={styles.content}>
           <div className={styles.contentHeader}>
-            <button type="button" className="btn btn-primary btn-sm" onClick={() => setShowNoteEditor(true)}>
-              <Plus size={13} /> Add Note
-            </button>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowAddNoteModal(true)}>
+                <Plus size={13} /> Add Note
+              </button>
+              <button type="button" className="btn btn-primary btn-sm" onClick={() => setShowNoteEditor(true)}>
+                <Plus size={13} /> New Note
+              </button>
+            </div>
           </div>
+
+          {/* Add existing note modal */}
+          {showAddNoteModal && (
+            <div style={{
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              borderRadius: '14px',
+              padding: '14px',
+              display: 'grid',
+              gap: '10px',
+              marginBottom: '12px',
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text)' }}>Link existing note</span>
+                <button
+                  type="button"
+                  onClick={() => { setShowAddNoteModal(false); setNotePick(''); setNoteSearchQuery(''); }}
+                  style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '2px' }}
+                >
+                  <X size={14} />
+                </button>
+              </div>
+              <input
+                type="search"
+                placeholder="Filter notes…"
+                value={noteSearchQuery}
+                onChange={e => setNoteSearchQuery(e.target.value)}
+                style={{
+                  padding: '8px 10px',
+                  fontSize: '12px',
+                  background: 'var(--surface2)',
+                  border: '1px solid var(--border-faint)',
+                  borderRadius: '6px',
+                  color: 'var(--text)',
+                  outline: 'none',
+                }}
+              />
+              <select
+                value={notePick}
+                onChange={e => setNotePick(e.target.value)}
+                style={{
+                  padding: '8px 10px',
+                  fontSize: '12px',
+                  background: 'var(--surface2)',
+                  border: '1px solid var(--border-faint)',
+                  borderRadius: '6px',
+                  color: 'var(--text)',
+                  cursor: 'pointer',
+                }}
+              >
+                <option value="">Select a note…</option>
+                {noteCandidates.map(n => (
+                  <option key={n.id} value={n.id}>{n.title || (n.raw_text || '').slice(0, 60)}</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={handleAddNoteLink}
+                disabled={!notePick || noteLinkBusy}
+                style={{ alignSelf: 'end' }}
+              >
+                {noteLinkBusy ? <Loader2 size={13} className="spin" /> : <CheckCircle size={13} />}
+                Add link
+              </button>
+            </div>
+          )}
+
           {areaNotes.length === 0 ? (
             <p className={styles.empty}>No notes in this area yet.</p>
           ) : (
             <div className={styles.noteGrid}>
-              {areaNotes.map(n => <NoteCard key={n.id} note={n} />)}
+              {areaNotes.map(n => (
+                <div key={n.id} style={{ position: 'relative' }}>
+                  <NoteCard note={n} />
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveNoteFromArea(n.id)}
+                    style={{
+                      position: 'absolute',
+                      top: '8px',
+                      right: '8px',
+                      background: 'var(--surface)',
+                      border: '1px solid var(--border-faint)',
+                      borderRadius: '6px',
+                      color: 'var(--text-muted)',
+                      cursor: 'pointer',
+                      padding: '4px 6px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      fontSize: '10px',
+                      zIndex: 1,
+                    }}
+                    title="Remove note from area"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              ))}
             </div>
           )}
         </div>
@@ -265,19 +456,162 @@ export default function AreaFocus() {
 
       {tab === 'projects' && (
         <div className={styles.content}>
+          <div className={styles.contentHeader}>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowAddProjectModal(true)}>
+                <Plus size={13} /> Add Project
+              </button>
+            </div>
+          </div>
+
+          {/* Add existing project modal */}
+          {showAddProjectModal && (
+            <div style={{
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              borderRadius: '14px',
+              padding: '14px',
+              display: 'grid',
+              gap: '10px',
+              marginBottom: '12px',
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text)' }}>Link existing project</span>
+                <button
+                  type="button"
+                  onClick={() => { setShowAddProjectModal(false); setProjectPick(''); setProjectSearchQuery(''); }}
+                  style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '2px' }}
+                >
+                  <X size={14} />
+                </button>
+              </div>
+              <input
+                type="search"
+                placeholder="Filter projects…"
+                value={projectSearchQuery}
+                onChange={e => setProjectSearchQuery(e.target.value)}
+                style={{
+                  padding: '8px 10px',
+                  fontSize: '12px',
+                  background: 'var(--surface2)',
+                  border: '1px solid var(--border-faint)',
+                  borderRadius: '6px',
+                  color: 'var(--text)',
+                  outline: 'none',
+                }}
+              />
+              <select
+                value={projectPick}
+                onChange={e => setProjectPick(e.target.value)}
+                style={{
+                  padding: '8px 10px',
+                  fontSize: '12px',
+                  background: 'var(--surface2)',
+                  border: '1px solid var(--border-faint)',
+                  borderRadius: '6px',
+                  color: 'var(--text)',
+                  cursor: 'pointer',
+                }}
+              >
+                <option value="">Select a project…</option>
+                {projectCandidates.map(p => (
+                  <option key={p.id} value={p.id}>{p.title}</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={handleAddProjectLink}
+                disabled={!projectPick || projectLinkBusy}
+                style={{ alignSelf: 'end' }}
+              >
+                {projectLinkBusy ? <Loader2 size={13} className="spin" /> : <CheckCircle size={13} />}
+                Add link
+              </button>
+            </div>
+          )}
+
+          {/* Quick-add new project */}
+          <form onSubmit={handleCreateProject} style={{ display: 'flex', gap: '6px', marginBottom: '12px' }}>
+            <input
+              type="text"
+              placeholder="New project…"
+              value={newProjectTitle}
+              onChange={e => setNewProjectTitle(e.target.value)}
+              style={{
+                flex: 1,
+                padding: '7px 9px',
+                fontSize: '12px',
+                background: 'var(--surface2)',
+                border: '1px solid var(--border-faint)',
+                borderRadius: '6px',
+                color: 'var(--text)',
+                outline: 'none',
+              }}
+            />
+            <button
+              type="submit"
+              className="btn btn-primary btn-sm"
+              disabled={!newProjectTitle.trim()}
+              style={{ padding: '6px 10px', fontSize: '11px' }}
+            >
+              Create
+            </button>
+          </form>
+
           {areaProjects.length === 0 ? (
             <p className={styles.empty}>No projects linked to this area yet.</p>
           ) : (
             <div className={styles.taskList}>
               {areaProjects.map(p => (
-                <Link
+                <div
                   key={p.id}
-                  to={`/projects/${p.id}`}
-                  className={styles.areaProjectRow}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '12px',
+                    padding: '10px 14px',
+                    background: 'var(--surface)',
+                    border: '1px solid var(--border-faint)',
+                    borderRadius: '8px',
+                  }}
                 >
-                  <span className={styles.projectDot} style={{ background: p.color || 'var(--accent)' }} />
-                  <span>{p.title}</span>
-                </Link>
+                  <Link
+                    to={`/projects/${p.id}`}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      textDecoration: 'none',
+                      color: 'inherit',
+                      flex: 1,
+                      minWidth: 0,
+                    }}
+                  >
+                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: p.color || 'var(--accent)', flexShrink: 0 }} />
+                    <span style={{ fontSize: '13px', fontWeight: 500 }}>{p.title}</span>
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveProjectFromArea(p.id)}
+                    style={{
+                      background: 'none',
+                      border: '1px solid var(--border-faint)',
+                      borderRadius: '6px',
+                      color: 'var(--text-muted)',
+                      cursor: 'pointer',
+                      padding: '4px 6px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      fontSize: '10px',
+                      flexShrink: 0,
+                    }}
+                    title="Remove project from area"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
               ))}
             </div>
           )}
