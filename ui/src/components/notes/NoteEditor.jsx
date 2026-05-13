@@ -65,7 +65,7 @@ export default function NoteEditor({ onClose, onSaved, initialData }) {
     setSaving(true);
     try {
       const data = {
-        raw_text: rawText.trim(),
+        content: rawText.trim(),
         ...(selectedProjectIds.length > 0 && { project_ids: selectedProjectIds }),
         ...(areaId  && { area_id: areaId }),
         ...(personId && { person_id: personId }),

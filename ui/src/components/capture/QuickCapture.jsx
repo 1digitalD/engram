@@ -38,7 +38,7 @@ export default function QuickCapture({ onRequestFullEditor }) {
         upsertResource(normalized);
         addToast({ type: 'success', message: 'Saved as reference' });
       } else {
-        await createNote({ raw_text: raw, bucket: 'INBOX' });
+        await createNote({ content: raw, bucket: 'INBOX' });
       }
       setText('');
       closeCapture();

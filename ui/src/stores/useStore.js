@@ -96,7 +96,7 @@ const useStore = create((set, get) => ({
 
   createNote: async (data) => {
     try {
-      const { raw_text, bucket, project_id, project_ids, area_id, person_id } = data;
+      const { content, bucket, project_id, project_ids, area_id, person_id } = data;
 
       const noteProjectIdsEqual = (a, b) => {
         const sa = new Set(a || []);
@@ -110,7 +110,7 @@ const useStore = create((set, get) => ({
       // extraction, entity resolution, embeddings) — not a plain DB insert.
       // Note: ingest returns { note, tasks, project, area, people, ... }
       // while the REST notes API returns { data: note }.
-      const res = await ingestAPI.capture({ content: raw_text, source: 'ui' });
+      const res = await ingestAPI.capture({ content, source: 'ui' });
       let note = res.note || res.data;
 
       const existingProjectIds = note.project_ids?.length

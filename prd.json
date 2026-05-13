@@ -589,10 +589,11 @@
         "pytest -q",
         "cd ui && npm run build"
       ],
-      "passes": false,
+      "passes": true,
       "blocked": false,
       "phase": "1.2",
-      "attempts": 0
+      "attempts": 1,
+      "commit": "b195b118"
     },
     {
       "id": "V3.5-3",
