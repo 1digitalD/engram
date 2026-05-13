@@ -80,9 +80,9 @@ describe('NoteDetailView MOC note type', () => {
     };
     renderNoteDetail('/notes/moc-1', [moc]);
 
-    expect(await screen.findByTestId('moc-header')).toBeInTheDocument();
-    expect(screen.getByText('Map of contents')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 2, name: 'Product MOC' })).toBeInTheDocument();
+    expect(await screen.findByTestId('moc-badge')).toBeInTheDocument();
+    expect(screen.getByText('MOC')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Product MOC' })).toBeInTheDocument();
   });
 
   it('renders auto-generated TOC from outgoing links', async () => {
@@ -209,8 +209,8 @@ describe('NoteDetailView MOC note type', () => {
         },
       ],
       tasks: [{ id: 'task-1', title: 'Ship the release' }],
-      projects: [{ id: 'project-1', name: 'Apollo' }],
-      people: [{ id: 'person-1', name: 'Ada Lovelace' }],
+      projects: [{ id: 'project-1', title: 'Apollo' }],
+      people: [{ id: 'person-1', title: 'Ada Lovelace' }],
       resources: [],
     });
 
@@ -282,7 +282,7 @@ describe('NoteDetailView MOC note type', () => {
         modified_at: '2026-05-01T12:00:00Z',
         tag_names: [],
       }],
-      projects: [{ id: 'project-1', name: 'Apollo' }],
+      projects: [{ id: 'project-1', title: 'Apollo' }],
     });
 
     render(

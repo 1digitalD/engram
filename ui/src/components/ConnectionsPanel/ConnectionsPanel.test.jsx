@@ -89,7 +89,7 @@ describe('ConnectionsPanel', () => {
         {
           id: 'link-3',
           dst_id: 'proj-1',
-          dst_entity: { id: 'proj-1', type: 'project', name: 'Project X' },
+          dst_entity: { id: 'proj-1', type: 'project', title: 'Project X' },
           link_type: 'related',
         },
       ],
@@ -97,13 +97,13 @@ describe('ConnectionsPanel', () => {
         {
           id: 'link-4',
           src_id: 'area-1',
-          src_entity: { id: 'area-1', type: 'area', name: 'Area Y' },
+          src_entity: { id: 'area-1', type: 'area', title: 'Area Y' },
           link_type: 'related',
         },
         {
           id: 'link-5',
           src_id: 'person-1',
-          src_entity: { id: 'person-1', type: 'person', name: 'Jane Doe' },
+          src_entity: { id: 'person-1', type: 'person', title: 'Jane Doe' },
           link_type: 'mentions',
         },
       ],
@@ -137,19 +137,19 @@ describe('ConnectionsPanel', () => {
         {
           id: 'link-2',
           dst_id: 'proj-1',
-          dst_entity: { id: 'proj-1', type: 'project', name: 'Click Project' },
+          dst_entity: { id: 'proj-1', type: 'project', title: 'Click Project' },
           link_type: 'related',
         },
         {
           id: 'link-3',
           dst_id: 'area-1',
-          dst_entity: { id: 'area-1', type: 'area', name: 'Click Area' },
+          dst_entity: { id: 'area-1', type: 'area', title: 'Click Area' },
           link_type: 'related',
         },
         {
           id: 'link-4',
           dst_id: 'person-1',
-          dst_entity: { id: 'person-1', type: 'person', name: 'Click Person' },
+          dst_entity: { id: 'person-1', type: 'person', title: 'Click Person' },
           link_type: 'related',
         },
       ],
@@ -236,7 +236,7 @@ describe('ConnectionsPanel', () => {
         {
           id: 'link-2',
           dst_id: 'proj-1',
-          dst_entity: { id: 'proj-1', type: 'project', name: 'Project X' },
+          dst_entity: { id: 'proj-1', type: 'project', title: 'Project X' },
           link_type: 'related',
         },
       ],
@@ -244,7 +244,7 @@ describe('ConnectionsPanel', () => {
         {
           id: 'link-3',
           src_id: 'area-1',
-          src_entity: { id: 'area-1', type: 'area', name: 'Area Y' },
+          src_entity: { id: 'area-1', type: 'area', title: 'Area Y' },
           link_type: 'related',
         },
       ],
@@ -325,7 +325,7 @@ describe('ConnectionsPanel', () => {
     vi.mocked(useStore).mockReturnValue({
       ...baseStore,
       tasks: [{ id: 'task-1', title: 'Store task' }],
-      resources: [{ id: 'resource-1', name: 'Store resource' }],
+      resources: [{ id: 'resource-1', title: 'Store resource' }],
     });
     vi.mocked(connectionsAPI.forEntity).mockResolvedValue({
       outgoing: [

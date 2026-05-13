@@ -19,20 +19,20 @@ const mockTasks = [
 ];
 
 const mockProjects = [
-  { id: 'p1', name: 'Project Alpha' },
-  { id: 'p2', name: 'Project Beta' },
+  { id: 'p1', title: 'Project Alpha' },
+  { id: 'p2', title: 'Project Beta' },
 ];
 
 const mockAreas = [
-  { id: 'a1', name: 'Engineering' },
+  { id: 'a1', title: 'Engineering' },
 ];
 
 const mockPeople = [
-  { id: 'pe1', name: 'Alice Johnson' },
+  { id: 'pe1', title: 'Alice Johnson' },
 ];
 
 const mockResources = [
-  { id: 'r1', name: 'API Reference', url: 'https://example.com/api' },
+  { id: 'r1', title: 'API Reference', url: 'https://example.com/api' },
 ];
 
 const mockStore = {
@@ -234,24 +234,24 @@ describe('getEntityTitle', () => {
     expect(getEntityTitle(note, 'note')).toBe('Meeting Notes');
   });
 
-  it('returns name for projects', () => {
-    expect(getEntityTitle({ name: 'Project Alpha' }, 'project')).toBe('Project Alpha');
+  it('returns title for projects', () => {
+    expect(getEntityTitle({ title: 'Project Alpha' }, 'project')).toBe('Project Alpha');
   });
 
-  it('returns name for areas', () => {
-    expect(getEntityTitle({ name: 'Engineering' }, 'area')).toBe('Engineering');
+  it('returns title for areas', () => {
+    expect(getEntityTitle({ title: 'Engineering' }, 'area')).toBe('Engineering');
   });
 
-  it('returns name for people', () => {
-    expect(getEntityTitle({ name: 'Alice' }, 'person')).toBe('Alice');
+  it('returns title for people', () => {
+    expect(getEntityTitle({ title: 'Alice' }, 'person')).toBe('Alice');
   });
 
   it('returns title for tasks', () => {
     expect(getEntityTitle({ title: 'Fix bug' }, 'task')).toBe('Fix bug');
   });
 
-  it('returns name for resources', () => {
-    expect(getEntityTitle({ name: 'API Docs' }, 'resource')).toBe('API Docs');
+  it('returns title for resources', () => {
+    expect(getEntityTitle({ title: 'API Docs' }, 'resource')).toBe('API Docs');
   });
 
   it('returns Untitled for empty entities', () => {
