@@ -741,7 +741,10 @@
       "phase": "bugfix",
       "validationCommands": [
         "cd ui && npm run build"
-      ]
+      ],
+      "passes": true,
+      "commit": "156f853a",
+      "attempts": 1
     },
     {
       "id": "BUG-3",

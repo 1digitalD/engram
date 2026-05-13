@@ -3,13 +3,13 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   ArrowLeft, Edit2, Loader2, Trash2, Tag, User, FolderOpen, Map,
   Link2, CheckCircle, Circle, X, Sparkles, Diamond, Calendar,
-  Clock, FileText,
+  FileText,
 } from 'lucide-react';
 import useStore from '../stores/useStore';
 import { linksAPI } from '../api/engram';
 import { BucketBadge, TagBadge } from '../components/ui/Badge';
 import TipTapEditor, { renderStoredContent } from '../components/Editor/TipTapEditor';
-import ConnectionsPanel, {
+import {
   EntityTypeIcon,
   getEntityRoute,
   getEntityTitle,
@@ -484,16 +484,6 @@ export default function NoteDetailView() {
               <h1 className={styles.title}>{notePreviewLine(note)}</h1>
             </div>
             <div className={styles.metaRow}>
-              <span className={styles.metaDate}>
-                <Clock size={12} />
-                {formatDateTime(note.created_at)}
-              </span>
-              {note.updated_at && note.updated_at !== note.created_at && (
-                <span className={styles.metaDate}>
-                  <Clock size={12} />
-                  Modified {formatDateTime(note.updated_at)}
-                </span>
-              )}
               <span className={styles.entityTypeLabel}>Note</span>
               {isMoc && (
                 <span className={styles.mocBadge} data-testid="moc-badge">
@@ -659,8 +649,6 @@ export default function NoteDetailView() {
 
           {/* Panels */}
           <div className={styles.panels}>
-            <ConnectionsPanel entityId={note.id} refreshKey={linksOut.length + linksIn.length} />
-
             <section className={styles.panel}>
               <h2 className={styles.panelTitle}>
                 <Link2 size={14} /> Links &amp; backlinks
@@ -957,18 +945,6 @@ export default function NoteDetailView() {
                   <option value="RESOURCE">RESOURCE</option>
                   <option value="ARCHIVE">ARCHIVE</option>
                 </select>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)', minWidth: '52px' }}>Created</span>
-                <span style={{ color: 'var(--text-secondary)', fontSize: '11px', fontFamily: 'var(--font-mono)' }}>
-                  {formatDate(note.created_at)}
-                </span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)', minWidth: '52px' }}>Modified</span>
-                <span style={{ color: 'var(--text-secondary)', fontSize: '11px', fontFamily: 'var(--font-mono)' }}>
-                  {formatDate(note.updated_at || note.created_at)}
-                </span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
                 <span style={{ fontSize: '11px', color: 'var(--text-muted)', minWidth: '52px' }}>Follow-up</span>
