@@ -8,7 +8,12 @@ import useStore from '../stores/useStore';
 import { linksAPI, proposalsAPI } from '../api/engram';
 import { BucketBadge, TagBadge } from '../components/ui/Badge';
 import TipTapEditor, { renderStoredContent } from '../components/Editor/TipTapEditor';
-import ConnectionsPanel from '../components/ConnectionsPanel/ConnectionsPanel';
+import ConnectionsPanel, {
+  EntityTypeIcon,
+  getEntityRoute,
+  getEntityTitle,
+  resolveEntity,
+} from '../components/ConnectionsPanel/ConnectionsPanel';
 import styles from './NoteDetailView.module.css';
 
 function notePreviewLine(n) {
@@ -30,6 +35,7 @@ export default function NoteDetailView() {
     areas,
     people,
     tasks,
+    resources,
     updateNote,
     deleteNote,
     createTask,
@@ -98,7 +104,26 @@ export default function NoteDetailView() {
     if (!isEditing) setDraftText(note?.raw_text || '');
   }, [note?.id, note?.raw_text, isEditing]);
 
-  const resolveNote = (nid) => notes.find(n => n.id === nid);
+  const entityStore = { notes, tasks, projects, areas, people, resources };
+  const getResolvedEntity = (entityId) => resolveEntity(entityId, entityStore);
+  const renderEntityLink = (entityId, fallbackLabel) => {
+    const entity = getResolvedEntity(entityId);
+    const route = getEntityRoute(entity);
+    const label = entity ? getEntityTitle(entity) : fallbackLabel;
+
+    const content = (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+        <EntityTypeIcon type={entity?.type} size={12} />
+        <span>{label}</span>
+      </span>
+    );
+
+    if (!route) {
+      return content;
+    }
+
+    return <Link to={route}>{content}</Link>;
+  };
 
   const linkedTasks = note ? tasks.filter(t => t.note_id === note.id) : [];
 
@@ -339,11 +364,11 @@ export default function NoteDetailView() {
             ) : (
               <ol className={styles.mocTocList}>
                 {linksOut.map((l) => {
-                  const target = resolveNote(l.dst_id);
-                  const label = notePreviewLine(target) || `Note ${String(l.dst_id).slice(0, 8)}…`;
+                  const target = getResolvedEntity(l.dst_id);
+                  const label = target ? getEntityTitle(target) : `Entity ${String(l.dst_id).slice(0, 8)}…`;
                   return (
                     <li key={l.id}>
-                      <Link to={`/notes/${l.dst_id}`}>{label}</Link>
+                      {renderEntityLink(l.dst_id, label)}
                     </li>
                   );
                 })}
@@ -491,14 +516,12 @@ export default function NoteDetailView() {
                 <ul className={styles.proposalList}>
                   {proposals.map((p) => {
                     const otherId = p.src_id === note.id ? p.dst_id : p.src_id;
-                    const other = resolveNote(otherId);
+                    const other = getResolvedEntity(otherId);
                     const busy = proposalActionId === p.id;
                     return (
                       <li key={p.id} className={styles.proposalRow}>
                         <div className={styles.proposalMain}>
-                          <Link to={`/notes/${otherId}`}>
-                            {notePreviewLine(other) || `Note ${String(otherId).slice(0, 8)}…`}
-                          </Link>
+                          {renderEntityLink(otherId, other ? getEntityTitle(other) : `Entity ${String(otherId).slice(0, 8)}…`)}
                           <span className={styles.proposalConf}>
                             {Math.round((p.confidence ?? 0) * 100)}% match
                           </span>
@@ -546,10 +569,10 @@ export default function NoteDetailView() {
                   ) : (
                     <ul className={styles.linkList}>
                       {linksOut.map(l => {
-                        const other = resolveNote(l.dst_id);
+                        const other = getResolvedEntity(l.dst_id);
                         return (
                           <li key={l.id}>
-                            <Link to={`/notes/${l.dst_id}`}>{notePreviewLine(other) || `Note ${l.dst_id.slice(0, 8)}…`}</Link>
+                            {renderEntityLink(l.dst_id, other ? getEntityTitle(other) : `Entity ${l.dst_id.slice(0, 8)}…`)}
                             <span className={styles.linkMeta}>{l.link_type}</span>
                           </li>
                         );
@@ -564,10 +587,10 @@ export default function NoteDetailView() {
                   ) : (
                     <ul className={styles.linkList}>
                       {linksIn.map(l => {
-                        const other = resolveNote(l.src_id);
+                        const other = getResolvedEntity(l.src_id);
                         return (
                           <li key={l.id}>
-                            <Link to={`/notes/${l.src_id}`}>{notePreviewLine(other) || `Note ${l.src_id.slice(0, 8)}…`}</Link>
+                            {renderEntityLink(l.src_id, other ? getEntityTitle(other) : `Entity ${l.src_id.slice(0, 8)}…`)}
                             <span className={styles.linkMeta}>{l.link_type}</span>
                           </li>
                         );

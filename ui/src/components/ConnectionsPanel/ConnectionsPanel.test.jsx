@@ -5,10 +5,21 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import ConnectionsPanel from './ConnectionsPanel';
 import { connectionsAPI } from '../../api/engram';
+import useStore from '../../stores/useStore';
 
 vi.mock('../../api/engram', () => ({
   connectionsAPI: { forEntity: vi.fn() },
 }));
+vi.mock('../../stores/useStore');
+
+const baseStore = {
+  notes: [],
+  tasks: [],
+  projects: [],
+  areas: [],
+  people: [],
+  resources: [],
+};
 
 function renderPanel(entityId, refreshKey = 0) {
   return render(
@@ -21,6 +32,8 @@ function renderPanel(entityId, refreshKey = 0) {
 describe('ConnectionsPanel', () => {
   beforeEach(() => {
     vi.mocked(connectionsAPI.forEntity).mockReset();
+    vi.mocked(useStore).mockReset();
+    vi.mocked(useStore).mockReturnValue(baseStore);
   });
 
   it('shows loading state initially', () => {
@@ -306,5 +319,26 @@ describe('ConnectionsPanel', () => {
     await waitFor(() => {
       expect(screen.getByText('references')).toBeInTheDocument();
     });
+  });
+
+  it('resolves entities from the store when the API only returns ids', async () => {
+    vi.mocked(useStore).mockReturnValue({
+      ...baseStore,
+      tasks: [{ id: 'task-1', title: 'Store task' }],
+      resources: [{ id: 'resource-1', name: 'Store resource' }],
+    });
+    vi.mocked(connectionsAPI.forEntity).mockResolvedValue({
+      outgoing: [
+        { id: 'link-1', dst_id: 'task-1', link_type: 'related' },
+      ],
+      incoming: [
+        { id: 'link-2', src_id: 'resource-1', link_type: 'references' },
+      ],
+    });
+
+    renderPanel('entity-1');
+
+    expect(await screen.findByRole('link', { name: /store task/i })).toHaveAttribute('href', '/tasks/task-1');
+    expect(screen.getByRole('link', { name: /store resource/i })).toHaveAttribute('href', '/resources/resource-1');
   });
 });

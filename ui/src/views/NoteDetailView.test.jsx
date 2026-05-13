@@ -18,6 +18,7 @@ const baseStore = {
   areas: [],
   people: [],
   tasks: [],
+  resources: [],
   updateNote: vi.fn(),
   deleteNote: vi.fn(),
   createTask: vi.fn(),
@@ -177,5 +178,49 @@ describe('NoteDetailView MOC note type', () => {
     await waitFor(() => {
       expect(baseStore.updateNote).toHaveBeenCalledWith('editable-note', { content: '<h1>Editable note</h1>' });
     });
+  });
+
+  it('resolves typed links from the store and routes them by entity type', async () => {
+    vi.mocked(linksAPI.forNote).mockResolvedValue({
+      outgoing: [
+        { id: 'link-task', src_id: 'note-1', dst_id: 'task-1', link_type: 'related' },
+        { id: 'link-project', src_id: 'note-1', dst_id: 'project-1', link_type: 'supports' },
+      ],
+      incoming: [
+        { id: 'link-person', src_id: 'person-1', dst_id: 'note-1', link_type: 'mentions' },
+      ],
+    });
+
+    vi.mocked(useStore).mockReturnValue({
+      ...baseStore,
+      notes: [
+        {
+          id: 'note-1',
+          raw_text: '# Source note',
+          note_type: 'NOTE',
+          bucket: 'INBOX',
+          created_at: '2026-05-01T12:00:00Z',
+          modified_at: '2026-05-01T12:00:00Z',
+          tag_names: [],
+        },
+      ],
+      tasks: [{ id: 'task-1', title: 'Ship the release' }],
+      projects: [{ id: 'project-1', name: 'Apollo' }],
+      people: [{ id: 'person-1', name: 'Ada Lovelace' }],
+      resources: [],
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/notes/note-1']}>
+        <Routes>
+          <Route path="/notes/:id" element={<NoteDetailView />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole('link', { name: /ship the release/i })).toHaveAttribute('href', '/tasks/task-1');
+    expect(screen.getByRole('link', { name: /apollo/i })).toHaveAttribute('href', '/projects/project-1');
+    expect(screen.getByRole('link', { name: /ada lovelace/i })).toHaveAttribute('href', '/people/person-1');
+    expect(screen.queryByText(/Note task-1/i)).not.toBeInTheDocument();
   });
 });
