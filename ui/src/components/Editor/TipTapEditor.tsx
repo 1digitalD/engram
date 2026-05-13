@@ -72,21 +72,36 @@ function AIPanel({ editor, onClose }) {
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState('');
   const { addToast } = useStore();
+  const selection = editor?.state.selection;
+  const selectedText = selection ? editor.state.doc.textBetween(selection.from, selection.to, ' ').trim() : '';
+  const selectedContent = selectedText || prompt.trim();
 
   const handleAIAction = async () => {
-    if (!prompt.trim() || busy) return;
+    if (!selectedContent || busy) return;
     setBusy(true);
     try {
-      // Simulate AI action — in production this calls the backend AI endpoint
-      const selection = editor?.state.selection;
-      const selectedText = selection ? editor.state.doc.textBetween(selection.from, selection.to, ' ') : '';
-      const aiResponse = `[AI: ${prompt}]${selectedText ? ` for "${selectedText}"` : ''}`;
+      const res = await fetch('/api/v2/ai/propose-from-selection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          selected_text: selectedContent,
+          action: 'improve_writing',
+        }),
+      });
+      const payload = await res.json();
+      if (!res.ok) {
+        throw new Error(payload.error || `AI action failed: ${res.status}`);
+      }
+
+      const aiResponse = getAiResultText(payload.result);
+      if (!aiResponse) {
+        throw new Error('AI action returned no result');
+      }
+
       setResult(aiResponse);
 
-      if (editor && selectedText) {
-        editor.chain().focus().insertContent(` ${aiResponse} `).run();
-      } else if (editor) {
-        editor.chain().focus().insertContent(`\n${aiResponse}\n`).run();
+      if (editor) {
+        insertAiResult(editor, aiResponse, Boolean(selectedText));
       }
 
       addToast({ type: 'success', message: 'AI assistant applied' });
@@ -131,7 +146,7 @@ function AIPanel({ editor, onClose }) {
         <button
           className="btn btn-primary btn-sm"
           onClick={handleAIAction}
-          disabled={busy || !prompt.trim()}
+          disabled={busy || !selectedContent}
           data-testid="ai-apply-btn"
         >
           {busy ? <Loader2 size={13} className="spin" /> : <Sparkles size={13} />}
@@ -146,6 +161,29 @@ function AIPanel({ editor, onClose }) {
       )}
     </div>
   );
+}
+
+function getAiResultText(result) {
+  if (!result) return '';
+  if (typeof result === 'string') return result;
+  if (typeof result.improved_text === 'string') return result.improved_text;
+  if (typeof result.summary === 'string') return result.summary;
+  return JSON.stringify(result);
+}
+
+function insertAiResult(editor, text, replaceSelection) {
+  if (!editor || !text) return;
+
+  const { from, to } = editor.state.selection;
+
+  if (replaceSelection && from !== to) {
+    editor.commands.insertContentAt({ from, to }, text);
+    return;
+  }
+
+  const docEnd = editor.state.doc.content.size;
+  const prefix = editor.state.doc.textContent.trim() ? '\n' : '';
+  editor.commands.insertContentAt(docEnd, `${prefix}${text}`);
 }
 
 // ─── Main TipTapEditor Component ────────────────────────────────────────

@@ -6,6 +6,7 @@ import TipTapEditor, { createTaskFromSelection } from './TipTapEditor';
 import useStore from '../../stores/useStore';
 
 vi.mock('../../stores/useStore');
+global.fetch = vi.fn();
 
 const mockStore = {
   createTask: vi.fn(),
@@ -29,6 +30,7 @@ const renderEditor = (props = {}) => {
 describe('TipTapEditor', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    global.fetch.mockReset();
   });
 
   it('renders the editor container', async () => {
@@ -173,6 +175,64 @@ describe('TipTapEditor', () => {
       expect(screen.getByTestId('tiptap-editor')).toBeInTheDocument();
     });
     expect(screen.getByRole('heading', { level: 1, name: 'Test content' })).toBeInTheDocument();
+  });
+
+  it('calls the AI backend and appends the returned result instead of echoing the prompt', async () => {
+    const user = userEvent.setup();
+    global.fetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        action: 'improve_writing',
+        result: { improved_text: 'Improved draft text.' },
+        entity: null,
+      }),
+    });
+
+    renderEditor();
+
+    await user.click(screen.getByTestId('btn-ai-assistant'));
+    await user.type(screen.getByTestId('ai-prompt'), 'Polish this draft');
+    await user.click(screen.getByTestId('ai-apply-btn'));
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v2/ai/propose-from-selection', expect.objectContaining({
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      }));
+    });
+
+    const [, request] = global.fetch.mock.calls[0];
+    expect(JSON.parse(request.body)).toEqual({
+      selected_text: 'Polish this draft',
+      action: 'improve_writing',
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('ai-result')).toHaveTextContent('Improved draft text.');
+    });
+
+    expect(screen.queryByText('[AI: Polish this draft]')).not.toBeInTheDocument();
+    expect(mockStore.addToast).toHaveBeenCalledWith({ type: 'success', message: 'AI assistant applied' });
+  });
+
+  it('shows a graceful error when the AI backend request fails', async () => {
+    const user = userEvent.setup();
+    global.fetch.mockResolvedValue({
+      ok: false,
+      json: async () => ({ error: 'Backend unavailable' }),
+    });
+
+    renderEditor();
+
+    await user.click(screen.getByTestId('btn-ai-assistant'));
+    await user.type(screen.getByTestId('ai-prompt'), 'Polish this draft');
+    await user.click(screen.getByTestId('ai-apply-btn'));
+
+    await waitFor(() => {
+      expect(mockStore.addToast).toHaveBeenCalledWith({ type: 'error', message: 'Backend unavailable' });
+    });
+
+    expect(screen.queryByTestId('ai-result')).not.toBeInTheDocument();
   });
 });
 

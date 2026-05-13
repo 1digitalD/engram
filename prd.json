@@ -66,9 +66,11 @@
       "validationCommands": [
         "cd ui && npm run build"
       ],
-      "passes": false,
+      "passes": true,
       "blocked": false,
-      "phase": "0"
+      "phase": "0",
+      "commit": "c9e50e5b",
+      "attempts": 1
     },
     {
       "id": "V3-0.4",
