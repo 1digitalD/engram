@@ -1,13 +1,22 @@
-import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import { ArrowRight, Calendar, Edit2, ExternalLink, Loader2 } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { CheckSquare, FileText, Folder, Circle, User, BookOpen, Plus } from 'lucide-react';
 import useStore from '../stores/useStore';
-import { dailyAPI } from '../api/engram';
-import { BucketBadge } from '../components/ui/Badge';
-import TaskCheckboxRow from '../components/tasks/TaskCheckboxRow';
 import styles from './Today.module.css';
+
+const ENTITY_ICONS = {
+  task: CheckSquare,
+  note: FileText,
+  project: Folder,
+  area: Circle,
+  person: User,
+  resource: BookOpen,
+};
+
+const SECTIONS = [
+  { key: 'overdue', label: 'Overdue', dot: 'var(--red)', emptyMsg: 'Nothing overdue. Great job staying on top of things!' },
+  { key: 'dueToday', label: 'Due Today', dot: 'var(--yellow)', emptyMsg: 'No tasks due today. Enjoy the breathing room.' },
+  { key: 'followUp', label: 'Follow-up', dot: 'var(--accent)', emptyMsg: 'No follow-ups scheduled. Set one from any entity.' },
+];
 
 function localDateISO(d = new Date()) {
   const y = d.getFullYear();
@@ -16,183 +25,156 @@ function localDateISO(d = new Date()) {
   return `${y}-${m}-${day}`;
 }
 
+function formatDueTime(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+}
+
+function isOverdue(task) {
+  if (!task?.due_date || task.status === 'DONE' || task.status === 'CANCELLED') return false;
+  const due = new Date(task.due_date);
+  if (Number.isNaN(due.getTime())) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return due < today;
+}
+
+function isDueToday(task, dateStr) {
+  if (!task?.due_date || task.status === 'DONE' || task.status === 'CANCELLED') return false;
+  return task.due_date.slice(0, 10) === dateStr;
+}
+
+function hasFollowUpToday(entity, dateStr) {
+  if (!entity?.follow_up_at) return false;
+  return entity.follow_up_at.slice(0, 10) === dateStr;
+}
+
+function EntityCard({ entity, projectsById }) {
+  const Icon = ENTITY_ICONS[entity._entityType] || FileText;
+  const project = entity.project_id ? projectsById[entity.project_id] : null;
+  const dueTime = formatDueTime(entity.due_date || entity.follow_up_at);
+
+  return (
+    <div className={styles.entityCard}>
+      <Icon size={14} className={styles.entityIcon} />
+      <span className={styles.entityTitle}>{entity.title}</span>
+      {project && (
+        <span className={styles.projectBadge}>{project.name}</span>
+      )}
+      {dueTime && <span className={styles.dueTime}>{dueTime}</span>}
+    </div>
+  );
+}
+
+function Section({ section, items, projectsById }) {
+  return (
+    <div className={styles.section}>
+      <div className={styles.sectionHeader}>
+        <span className={styles.sectionDot} style={{ background: section.dot }} />
+        <span className={styles.sectionLabel}>{section.label}</span>
+        <span className={styles.sectionCount}>{items.length}</span>
+      </div>
+      {items.length === 0 ? (
+        <p className={styles.emptyState}>{section.emptyMsg}</p>
+      ) : (
+        <div className={styles.cardList}>
+          {items.map(entity => (
+            <EntityCard key={`${entity._entityType}-${entity.id}`} entity={entity} projectsById={projectsById} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Today() {
-  const { notes, tasks, upsertNote, updateNote, addToast } = useStore();
-  const [dateStr] = useState(() => localDateISO());
-  const [dailyId, setDailyId] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(null);
-  const [isEditing, setIsEditing] = useState(false);
-  const [draftText, setDraftText] = useState('');
-  const [saving, setSaving] = useState(false);
+  const { tasks, notes, projects, createTask } = useStore();
+  const [quickAddValue, setQuickAddValue] = useState('');
+  const dateStr = localDateISO();
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      setLoadError(null);
-      try {
-        const res = await dailyAPI.get(dateStr);
-        const note = res.data;
-        if (cancelled || !note?.id) return;
-        upsertNote(note);
-        setDailyId(note.id);
-      } catch (e) {
-        if (!cancelled) {
-          setLoadError(e.message || 'Failed to load daily note');
-          addToast({ type: 'error', message: e.message || 'Daily note failed' });
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [dateStr, upsertNote, addToast]);
-
-  const note = dailyId ? notes.find(n => n.id === dailyId) : null;
-
-  useEffect(() => {
-    if (!isEditing && note) setDraftText(note.raw_text || '');
-  }, [note?.id, note?.raw_text, isEditing]);
-
-  const dueToday = tasks.filter(
-    t => t.due_date && t.due_date.slice(0, 10) === dateStr && t.status !== 'CANCELLED'
+  const projectsById = useMemo(
+    () => Object.fromEntries(projects.map(p => [p.id, p])),
+    [projects]
   );
 
-  const startEditing = () => {
-    setDraftText(note?.raw_text || '');
-    setIsEditing(true);
-  };
+  const overdue = useMemo(
+    () => tasks.filter(isOverdue).map(t => ({ ...t, _entityType: 'task' })),
+    [tasks]
+  );
 
-  const cancelEditing = () => {
-    setDraftText(note?.raw_text || '');
-    setIsEditing(false);
-  };
+  const dueToday = useMemo(
+    () => tasks.filter(t => isDueToday(t, dateStr)).map(t => ({ ...t, _entityType: 'task' })),
+    [tasks, dateStr]
+  );
 
-  const saveInline = async () => {
-    if (!note || saving) return;
-    setSaving(true);
-    try {
-      await updateNote(note.id, { raw_text: draftText });
-      setIsEditing(false);
-    } finally {
-      setSaving(false);
+  const followUp = useMemo(() => {
+    const followUpTasks = tasks
+      .filter(t => hasFollowUpToday(t, dateStr) && !isDueToday(t, dateStr) && !isOverdue(t))
+      .map(t => ({ ...t, _entityType: 'task' }));
+    const followUpNotes = notes
+      .filter(n => hasFollowUpToday(n, dateStr))
+      .map(n => ({ ...n, _entityType: 'note' }));
+    return [...followUpTasks, ...followUpNotes];
+  }, [tasks, notes, dateStr]);
+
+  async function submitQuickAdd() {
+    const title = quickAddValue.trim();
+    if (!title) return;
+    await createTask({ title, due_date: `${dateStr}T09:00:00Z` });
+    setQuickAddValue('');
+  }
+
+  function handleKeyDown(e) {
+    if (e.key === 'Enter' && quickAddValue.trim()) {
+      e.preventDefault();
+      submitQuickAdd();
     }
-  };
-
-  const handleKeyDown = (e) => {
     if (e.key === 'Escape') {
-      e.preventDefault();
-      cancelEditing();
-      return;
+      setQuickAddValue('');
     }
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-      e.preventDefault();
-      saveInline();
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className={styles.page}>
-        <p className={styles.loading}>
-          <Loader2 size={16} className="spin" /> Loading today&rsquo;s note…
-        </p>
-      </div>
-    );
   }
 
-  if (loadError || !note) {
-    return (
-      <div className={styles.page}>
-        <p className={styles.error}>{loadError || 'Daily note unavailable.'}</p>
-      </div>
-    );
-  }
+  const dateDisplay = new Date(`${dateStr}T12:00:00`).toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+  });
 
   return (
     <div className={styles.page}>
       <header className={styles.header}>
-        <div className={styles.headerRow}>
-          <div className={styles.titleBlock}>
-            <Calendar size={18} className={styles.titleIcon} />
-            <div>
-              <h1>Today</h1>
-              <p className={styles.sub}>
-                {new Date(`${dateStr}T12:00:00`).toLocaleDateString('en-US', {
-                  weekday: 'long',
-                  month: 'long',
-                  day: 'numeric',
-                  year: 'numeric',
-                })}
-              </p>
-            </div>
-          </div>
-          <div className={styles.headerActions}>
-            <BucketBadge bucket={note.bucket} />
-            <Link to={`/notes/${note.id}`} className={styles.fullLink}>
-              Full note <ExternalLink size={12} />
-            </Link>
-          </div>
-        </div>
+        <h1>Today</h1>
+        <p className={styles.date}>{dateDisplay}</p>
       </header>
 
-      <div className={styles.grid}>
-        <section className={styles.mainCol}>
-          {!isEditing ? (
-            <>
-              <div className={styles.editBar}>
-                <button type="button" className="btn btn-ghost btn-sm" onClick={startEditing}>
-                  <Edit2 size={13} /> Edit
-                </button>
-              </div>
-              <article className={styles.body}>
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{note.raw_text}</ReactMarkdown>
-              </article>
-            </>
-          ) : (
-            <div className={styles.inlineEditor}>
-              <textarea
-                className={styles.textarea}
-                value={draftText}
-                onChange={e => setDraftText(e.target.value)}
-                onKeyDown={handleKeyDown}
-                rows={18}
-                autoFocus
-              />
-              <div className={styles.inlineActions}>
-                <span className={styles.hint}>Cmd/Ctrl+Enter to save · Esc to cancel</span>
-                <button type="button" className="btn btn-ghost btn-sm" onClick={cancelEditing} disabled={saving}>
-                  Cancel
-                </button>
-                <button type="button" className="btn btn-primary btn-sm" onClick={saveInline} disabled={saving}>
-                  {saving ? <Loader2 size={13} className="spin" /> : null}
-                  Save
-                </button>
-              </div>
-            </div>
-          )}
-        </section>
+      <div className={styles.quickAdd}>
+        <Plus size={14} className={styles.quickAddIcon} />
+        <input
+          type="text"
+          className={styles.quickAddInput}
+          placeholder="Add a task for today..."
+          value={quickAddValue}
+          onChange={e => setQuickAddValue(e.target.value)}
+          onKeyDown={handleKeyDown}
+        />
+      </div>
 
-        <aside className={styles.sideCol}>
-          <h2 className={styles.sideTitle}>Due today</h2>
-          {dueToday.length === 0 ? (
-            <p className={styles.sideEmpty}>No tasks with this due date.</p>
-          ) : (
-            <ul className={styles.taskList}>
-              {dueToday.map(t => (
-                <li key={t.id}>
-                  <div className={styles.dueTaskRow}>
-                    <TaskCheckboxRow task={t} className={styles.dueTaskInner} />
-                    <Link to="/tasks" className={styles.taskBoardLink} title="Open tasks board" aria-label="Open tasks board">
-                      <ArrowRight size={14} />
-                    </Link>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </aside>
+      <div className={styles.sections}>
+        {SECTIONS.map(section => {
+          const items = section.key === 'overdue' ? overdue
+            : section.key === 'dueToday' ? dueToday
+            : followUp;
+          return (
+            <Section
+              key={section.key}
+              section={section}
+              items={items}
+              projectsById={projectsById}
+            />
+          );
+        })}
       </div>
     </div>
   );
