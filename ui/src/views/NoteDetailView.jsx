@@ -184,6 +184,7 @@ export default function NoteDetailView() {
   const [proposalActionId, setProposalActionId] = useState(null);
 
   const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [linkedTasksRefresh, setLinkedTasksRefresh] = useState(0);
   const [classifying, setClassifying] = useState(false);
   const [followUpBusy, setFollowUpBusy] = useState(false);
   const [lifecycleBusy, setLifecycleBusy] = useState(false);
@@ -445,6 +446,7 @@ export default function NoteDetailView() {
     if (!title) return;
     await createTask({ title, note_id: note.id });
     setNewTaskTitle('');
+    setLinkedTasksRefresh(r => r + 1);
   };
 
   const tagNames = note.tag_names || [];
