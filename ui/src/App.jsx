@@ -13,6 +13,7 @@ import AreaFocus from './views/AreaFocus';
 import Resources from './views/Resources';
 import ResourceDetail from './views/ResourceDetail';
 import People from './views/People';
+import PersonFocus from './views/PersonFocus';
 import Tasks from './views/Tasks';
 import Graph from './views/Graph';
 import Review from './views/Review';
@@ -44,6 +45,7 @@ export default function App() {
           <Route path="/resources"       element={<Resources />} />
           <Route path="/resources/:id"  element={<ResourceDetail />} />
           <Route path="/people"          element={<People />} />
+          <Route path="/people/:id"      element={<PersonFocus />} />
           <Route path="/tasks"           element={<Tasks />} />
           <Route path="/graph"           element={<Graph />} />
           <Route path="/review"          element={<Review />} />

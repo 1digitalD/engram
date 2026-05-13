@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Plus, Mail, Pencil, Trash2 } from 'lucide-react';
 import Modal from '../components/ui/Modal';
 import useStore from '../stores/useStore';
@@ -6,7 +7,8 @@ import EmptyState from '../components/ui/EmptyState';
 import styles from './People.module.css';
 
 export default function People() {
-  const { people, notes, createPerson, updatePerson, deletePerson } = useStore();
+  const navigate = useNavigate();
+  const { people, notes, createPerson, updatePerson, deletePerson, setActivePerson } = useStore();
   const [showModal, setShowModal] = useState(false);
   const [editingPerson, setEditingPerson] = useState(null);
   const [name, setName] = useState('');
@@ -64,6 +66,11 @@ export default function People() {
     await deletePerson(person.id);
   };
 
+  const handleOpenPerson = (person) => {
+    setActivePerson(person);
+    navigate(`/people/${person.id}`);
+  };
+
   return (
     <div className={styles.page}>
       <div className={styles.header}>
@@ -88,7 +95,20 @@ export default function People() {
           {people.map(p => {
             const personNotes = notes.filter(n => n.person_id === p.id);
             return (
-              <div key={p.id} className={styles.card}>
+              <div
+                key={p.id}
+                className={styles.card}
+                role="button"
+                tabIndex={0}
+                onClick={() => handleOpenPerson(p)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    handleOpenPerson(p);
+                  }
+                }}
+                style={{ cursor: 'pointer' }}
+              >
                 <div className={styles.avatar}>{p.name.charAt(0).toUpperCase()}</div>
                 <div className={styles.info}>
                   <span className={styles.name}>{p.name}</span>
@@ -103,10 +123,18 @@ export default function People() {
                   )}
                   <span className={styles.meta}>{personNotes.length} notes</span>
                   <div className={styles.cardActions}>
-                    <button className={styles.iconBtn} onClick={() => openEdit(p)} title="Edit person">
+                    <button
+                      className={styles.iconBtn}
+                      onClick={(e) => { e.stopPropagation(); openEdit(p); }}
+                      title="Edit person"
+                    >
                       <Pencil size={13} /> Edit
                     </button>
-                    <button className={`${styles.iconBtn} ${styles.dangerBtn}`} onClick={() => handleDelete(p)} title="Delete person">
+                    <button
+                      className={`${styles.iconBtn} ${styles.dangerBtn}`}
+                      onClick={(e) => { e.stopPropagation(); handleDelete(p); }}
+                      title="Delete person"
+                    >
                       <Trash2 size={13} /> Delete
                     </button>
                   </div>
