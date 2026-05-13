@@ -1,8 +1,8 @@
 {
   "project": "engram",
-  "version": 3,
-  "phase": "v3",
-  "updatedAt": "2026-05-13T00:22:18.850076+00:00",
+  "version": 3.5,
+  "phase": "v3.5",
+  "updatedAt": "2026-05-13T17:00:00.000000+00:00",
   "integrationBranch": "main",
   "planSource": "V3_PLAN.md",
   "mergePolicy": "Merge validated task commits into main; use isolated executor worktrees per task. Sequential phases: Phase 0 must complete before Phase 1, etc.",

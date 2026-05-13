@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, FolderOpen, ChevronRight, Loader2, Sparkles } from 'lucide-react';
+import { Plus, Search } from 'lucide-react';
 import Modal from '../components/ui/Modal';
 import useStore from '../stores/useStore';
 import EmptyState from '../components/ui/EmptyState';
@@ -11,9 +11,15 @@ export default function Projects() {
   const [showModal, setShowModal] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [filter, setFilter] = useState('');
 
   const active = projects.filter(p => !p.is_archived);
   const archived = projects.filter(p => p.is_archived);
+
+  const filteredActive = active.filter(p =>
+    p.title.toLowerCase().includes(filter.toLowerCase()) ||
+    (p.description || '').toLowerCase().includes(filter.toLowerCase())
+  );
 
   const handleCreate = async (e) => {
     e.preventDefault();
@@ -44,45 +50,42 @@ export default function Projects() {
           action={<button className="btn btn-primary" onClick={() => setShowModal(true)}><Plus size={14} /> Create project</button>}
         />
       ) : (
-        <div className={styles.grid}>
-          {active.map(p => {
-            const projectNotes = notes.filter(n => n.project_id === p.id);
-            return (
-              <Link key={p.id} to={`/projects/${p.id}`} className={styles.card}>
-                <div className={styles.cardHeader}>
+        <>
+          <div className={styles.filterRow}>
+            <Search size={14} className={styles.filterIcon} />
+            <input
+              className={styles.filterInput}
+              type="text"
+              placeholder="Filter projects..."
+              value={filter}
+              onChange={e => setFilter(e.target.value)}
+            />
+          </div>
+
+          <div className={styles.list}>
+            {filteredActive.map(p => {
+              const projectNotes = notes.filter(n => n.project_id === p.id);
+              return (
+                <Link key={p.id} to={`/projects/${p.id}`} className={styles.row}>
                   <span className={styles.dot} style={{ background: p.color || 'var(--accent)' }} />
-                  <span className={styles.name}>{p.title}</span>
-                  {p.ai_status === 'processing' && (
-                    <span className={styles.aiProcessing}><Loader2 size={10} className="spin" /></span>
-                  )}
-                  {p.ai_status === 'done' && p._ai_meta?.bucket && (
-                    <span className={styles.aiClassification}>
-                      <Sparkles size={10} />
-                      {p._ai_meta.bucket}
-                    </span>
-                  )}
-                  <ChevronRight size={14} className={styles.arrow} />
-                </div>
-                {p.description && (
-                  <p className={styles.desc}>{p.description}</p>
-                )}
-                <div className={styles.cardMeta}>
-                  <span>{projectNotes.length} notes</span>
+                  <span className={styles.rowTitle}>{p.title}</span>
+                  {p.description && <span className={styles.rowDesc}>{p.description}</span>}
+                  <span className={styles.rowMeta}>{projectNotes.length} notes</span>
                   {p.priority && <span className={styles.priority}>{p.priority}</span>}
-                </div>
-              </Link>
-            );
-          })}
-        </div>
+                </Link>
+              );
+            })}
+          </div>
+        </>
       )}
 
       {archived.length > 0 && (
         <>
           <h3 className={styles.archiveLabel}>Archived</h3>
-          <div className={styles.grid}>
+          <div className={styles.list}>
             {archived.map(p => (
-              <Link key={p.id} to={`/projects/${p.id}`} className={`${styles.card} ${styles.cardArchived}`}>
-                <span className={styles.name}>{p.title}</span>
+              <Link key={p.id} to={`/projects/${p.id}`} className={`${styles.row} ${styles.rowArchived}`}>
+                <span className={styles.rowTitle}>{p.title}</span>
                 <span className={styles.archivedBadge}>Archived</span>
               </Link>
             ))}

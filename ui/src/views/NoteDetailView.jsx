@@ -522,57 +522,6 @@ export default function NoteDetailView() {
             </div>
           </header>
 
-          {/* Linked entities */}
-          {(linkedProjects.length > 0 || area || person) && (
-            <div className={styles.linkedEntities}>
-              {linkedProjects.map(p => (
-                <span key={p.id} className={styles.projectChipLinkWrap}>
-                  <Link to={`/projects/${p.id}`} className={styles.entityChip}>
-                    <FolderOpen size={12} /> {p.title}
-                  </Link>
-                  <button
-                    type="button"
-                    className={styles.projectChipRemove}
-                    aria-label={`Remove ${p.title} from this note`}
-                    onClick={e => handleRemoveProjectFromNote(p.id, e)}
-                  >
-                    <X size={12} strokeWidth={2.5} />
-                  </button>
-                </span>
-              ))}
-              {area && (
-                <span className={styles.projectChipLinkWrap}>
-                  <Link to={`/areas/${area.id}`} className={styles.entityChip}>
-                    <Map size={12} /> {area.title}
-                  </Link>
-                  <button
-                    type="button"
-                    className={styles.projectChipRemove}
-                    aria-label={`Remove ${area.title} from this note`}
-                    onClick={handleRemoveAreaFromNote}
-                  >
-                    <X size={12} strokeWidth={2.5} />
-                  </button>
-                </span>
-              )}
-              {person && (
-                <span className={styles.projectChipLinkWrap}>
-                  <Link to={`/people/${person.id}`} className={styles.entityChip}>
-                    <User size={12} /> {person.title}
-                  </Link>
-                  <button
-                    type="button"
-                    className={styles.projectChipRemove}
-                    aria-label={`Remove ${person.title} from this note`}
-                    onClick={handleRemovePersonFromNote}
-                  >
-                    <X size={12} strokeWidth={2.5} />
-                  </button>
-                </span>
-              )}
-            </div>
-          )}
-
           {/* MOC TOC */}
           {isMoc && (
             <nav className={styles.mocToc} data-testid="moc-toc" aria-label="Table of contents">

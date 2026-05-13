@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, ChevronRight, Pencil, Trash2, Loader2, Sparkles } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search } from 'lucide-react';
 import Modal from '../components/ui/Modal';
 import useStore from '../stores/useStore';
 import EmptyState from '../components/ui/EmptyState';
@@ -17,6 +17,7 @@ export default function Areas() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deletePreview, setDeletePreview] = useState(null);
   const [pendingDeleteArea, setPendingDeleteArea] = useState(null);
+  const [filter, setFilter] = useState('');
 
   const handleCreate = async (e) => {
     e.preventDefault();
@@ -69,6 +70,11 @@ export default function Areas() {
     setPendingDeleteArea(null);
   };
 
+  const filtered = areas.filter(a =>
+    a.title.toLowerCase().includes(filter.toLowerCase()) ||
+    (a.description || '').toLowerCase().includes(filter.toLowerCase())
+  );
+
   return (
     <div className={styles.page}>
       <div className={styles.header}>
@@ -90,41 +96,42 @@ export default function Areas() {
           action={<button className="btn btn-primary" onClick={() => setShowModal(true)}><Plus size={14} /> Create area</button>}
         />
       ) : (
-        <div className={styles.grid}>
-          {areas.map(a => {
-            const areaNotes = notes.filter(n => n.area_id === a.id);
-            return (
-              <div key={a.id} className={styles.card}>
-                <Link to={`/areas/${a.id}`} className={styles.cardLink}>
-                  <div className={styles.cardHeader}>
+        <>
+          <div className={styles.filterRow}>
+            <Search size={14} className={styles.filterIcon} />
+            <input
+              className={styles.filterInput}
+              type="text"
+              placeholder="Filter areas..."
+              value={filter}
+              onChange={e => setFilter(e.target.value)}
+            />
+          </div>
+
+          <div className={styles.list}>
+            {filtered.map(a => {
+              const areaNotes = notes.filter(n => n.area_id === a.id);
+              return (
+                <div key={a.id} className={styles.row}>
+                  <Link to={`/areas/${a.id}`} className={styles.rowLink}>
                     <span className={styles.dot} style={{ background: a.color || 'var(--accent-blue)' }} />
-                    <span className={styles.name}>{a.title}</span>
-                    {a.ai_status === 'processing' && (
-                      <span className={styles.aiProcessing}><Loader2 size={10} className="spin" /></span>
-                    )}
-                    {a.ai_status === 'done' && a._ai_meta?.bucket && (
-                      <span className={styles.aiClassification}>
-                        <Sparkles size={10} />
-                        {a._ai_meta.bucket}
-                      </span>
-                    )}
-                    <ChevronRight size={14} className={styles.arrow} />
+                    <span className={styles.rowTitle}>{a.title}</span>
+                    {a.description && <span className={styles.rowDesc}>{a.description}</span>}
+                    <span className={styles.rowMeta}>{areaNotes.length} notes</span>
+                  </Link>
+                  <div className={styles.rowActions}>
+                    <button className={styles.iconBtn} onClick={() => openEdit(a)} title="Edit area">
+                      <Pencil size={13} />
+                    </button>
+                    <button className={`${styles.iconBtn} ${styles.dangerBtn}`} onClick={() => handleDeleteClick(a)} title="Delete area">
+                      <Trash2 size={13} />
+                    </button>
                   </div>
-                  {a.description && <p className={styles.desc}>{a.description}</p>}
-                  <div className={styles.meta}>{areaNotes.length} notes</div>
-                </Link>
-                <div className={styles.cardActions}>
-                  <button className={styles.iconBtn} onClick={() => openEdit(a)} title="Edit area">
-                    <Pencil size={13} /> Edit
-                  </button>
-                  <button className={`${styles.iconBtn} ${styles.dangerBtn}`} onClick={() => handleDeleteClick(a)} title="Delete area">
-                    <Trash2 size={13} /> Delete
-                  </button>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        </>
       )}
 
       {showModal && (
