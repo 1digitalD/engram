@@ -86,6 +86,25 @@
   font-family: var(--font-mono);
 }
 
+.followUpDate {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--surface2);
+  border: 1px solid var(--border-faint);
+}
+
+.followUpOverdue {
+  color: var(--yellow);
+  border-color: color-mix(in srgb, var(--yellow) 30%, var(--border-faint));
+  background: color-mix(in srgb, var(--yellow) 8%, transparent);
+}
+
 .actions {
   position: relative;
 }

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Plus, X, Loader2, Sparkles } from 'lucide-react';
+import { Plus, X, Loader2, Sparkles, Calendar } from 'lucide-react';
 import useStore from '../stores/useStore';
 import EmptyState from '../components/ui/EmptyState';
 import DeleteConfirmModal from '../components/DeleteConfirmModal';
@@ -25,6 +25,25 @@ const FILTERS = {
 };
 
 function formatDueDate(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
+function isFollowUpOverdue(followUpAt) {
+  if (!followUpAt) return false;
+  const date = new Date(followUpAt);
+  if (Number.isNaN(date.getTime())) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return date < today;
+}
+
+function formatFollowUpDate(value) {
   if (!value) return null;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return null;
@@ -67,6 +86,8 @@ function TaskCard({
 }) {
   const dueDate = formatDueDate(task.due_date);
   const priorityColor = PRIORITY_COLORS[task.priority] || 'var(--text-muted)';
+  const followUpDate = formatFollowUpDate(task.follow_up_at);
+  const followUpOverdue = isFollowUpOverdue(task.follow_up_at);
 
   return (
     <div
@@ -103,6 +124,11 @@ function TaskCard({
           </span>
         )}
         {dueDate && <span className={styles.dueDate}>{dueDate}</span>}
+        {followUpDate && (
+          <span className={`${styles.followUpDate} ${followUpOverdue ? styles.followUpOverdue : ''}`}>
+            <Calendar size={10} /> {followUpDate}
+          </span>
+        )}
       </div>
 
       {task.ai_status === 'processing' && (

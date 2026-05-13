@@ -185,6 +185,7 @@ export default function NoteDetailView() {
 
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [classifying, setClassifying] = useState(false);
+  const [followUpBusy, setFollowUpBusy] = useState(false);
 
   const note = notes.find(n => n.id === id);
 
@@ -342,6 +343,29 @@ export default function NoteDetailView() {
       addToast({ type: 'error', message: 'Classification failed' });
     } finally {
       setClassifying(false);
+    }
+  };
+
+  const handleFollowUpChange = async (e) => {
+    const value = e.target.value;
+    setFollowUpBusy(true);
+    try {
+      await updateNote(note.id, { follow_up_at: value || null }, { silent: true });
+    } catch (e) {
+      addToast({ type: 'error', message: 'Failed to update follow-up date' });
+    } finally {
+      setFollowUpBusy(false);
+    }
+  };
+
+  const handleFollowUpClear = async () => {
+    setFollowUpBusy(true);
+    try {
+      await updateNote(note.id, { follow_up_at: null }, { silent: true });
+    } catch (e) {
+      addToast({ type: 'error', message: 'Failed to clear follow-up date' });
+    } finally {
+      setFollowUpBusy(false);
     }
   };
 
@@ -962,15 +986,44 @@ export default function NoteDetailView() {
                   {formatDate(note.updated_at || note.created_at)}
                 </span>
               </div>
-              {note.follow_up_at && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
-                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', minWidth: '52px' }}>Follow-up</span>
-                  <span style={{ color: 'var(--yellow)', fontSize: '11px', fontFamily: 'var(--font-mono)' }}>
-                    <Calendar size={11} style={{ verticalAlign: 'middle', marginRight: '4px' }} />
-                    {formatDate(note.follow_up_at)}
-                  </span>
-                </div>
-              )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)', minWidth: '52px' }}>Follow-up</span>
+                <input
+                  type="date"
+                  value={note.follow_up_at ? note.follow_up_at.slice(0, 10) : ''}
+                  onChange={handleFollowUpChange}
+                  disabled={followUpBusy}
+                  style={{
+                    fontSize: '11px',
+                    fontFamily: 'var(--font-mono)',
+                    color: note.follow_up_at ? 'var(--yellow)' : 'var(--text-secondary)',
+                    background: 'transparent',
+                    border: '1px solid var(--border-faint)',
+                    borderRadius: '4px',
+                    padding: '2px 4px',
+                    width: '120px',
+                  }}
+                />
+                {note.follow_up_at && (
+                  <button
+                    type="button"
+                    onClick={handleFollowUpClear}
+                    disabled={followUpBusy}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--text-muted)',
+                      cursor: 'pointer',
+                      padding: '2px',
+                      display: 'flex',
+                      alignItems: 'center',
+                    }}
+                    title="Clear follow-up date"
+                  >
+                    <X size={10} />
+                  </button>
+                )}
+              </div>
             </div>
           </section>
         </aside>

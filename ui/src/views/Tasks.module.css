@@ -216,6 +216,25 @@
   color: var(--text-muted);
 }
 
+.followUpDate {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
+  background: var(--surface2);
+  border: 1px solid var(--border-faint);
+}
+
+.followUpOverdue {
+  color: var(--yellow);
+  border-color: color-mix(in srgb, var(--yellow) 30%, var(--border-faint));
+  background: color-mix(in srgb, var(--yellow) 8%, transparent);
+}
+
 @media (max-width: 960px) {
   .page {
     padding: var(--space-4);

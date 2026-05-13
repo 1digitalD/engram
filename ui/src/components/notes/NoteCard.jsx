@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Link, useNavigate } from 'react-router-dom';
-import { MoreHorizontal, Trash2, Edit2, Loader2, Sparkles } from 'lucide-react';
+import { MoreHorizontal, Trash2, Edit2, Loader2, Sparkles, Calendar } from 'lucide-react';
 import useStore from '../../stores/useStore';
 import styles from './NoteCard.module.css';
 
@@ -14,6 +14,25 @@ function isMetadataOnlyImport(text = '') {
 
 function truncateMarkdown(text = '') {
   return text.length > PREVIEW_LIMIT ? `${text.slice(0, PREVIEW_LIMIT).trimEnd()}…` : text;
+}
+
+function isFollowUpOverdue(followUpAt) {
+  if (!followUpAt) return false;
+  const date = new Date(followUpAt);
+  if (Number.isNaN(date.getTime())) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return date < today;
+}
+
+function formatFollowUpDate(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+  });
 }
 
 const markdownComponents = {
@@ -59,6 +78,9 @@ export default function NoteCard({ note, onEdit }) {
     month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
   });
 
+  const followUpDate = formatFollowUpDate(note.follow_up_at);
+  const followUpOverdue = isFollowUpOverdue(note.follow_up_at);
+
   return (
     <div className={`${styles.card} ${expanded ? styles.expanded : ''}`}>
       <div className={styles.header}>
@@ -71,6 +93,11 @@ export default function NoteCard({ note, onEdit }) {
           )}
         </div>
         <span className={styles.date}>{date}</span>
+        {followUpDate && (
+          <span className={`${styles.followUpDate} ${followUpOverdue ? styles.followUpOverdue : ''}`}>
+            <Calendar size={10} /> {followUpDate}
+          </span>
+        )}
         <div className={styles.actions}>
           <button
             className={styles.menuBtn}
