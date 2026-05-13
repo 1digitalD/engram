@@ -264,3 +264,5 @@ If the session resets:
 | V3.5-4d | Tasks relationship management | pending |
 | V3.5-5 | Notes view filter fixes + text search | pending |
 
+
+- **2026-05-13 10:59** V3.5-1 → abec0374: V3.5-1: completed, merged from opencode worktree

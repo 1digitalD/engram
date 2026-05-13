@@ -1,12 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { X, Loader2 } from 'lucide-react';
 import useStore from '../../stores/useStore';
+import { resourcesAPI } from '../../api/engram';
 import styles from './QuickCapture.module.css';
 
+const TYPES = ['note', 'task', 'resource', 'person'];
+
 export default function QuickCapture({ onRequestFullEditor }) {
-  const { createNote, closeCapture } = useStore();
+  const { createNote, createTask, createPerson, closeCapture, addToast, upsertResource } = useStore();
   const [text, setText] = useState('');
   const [saving, setSaving] = useState(false);
+  const [selectedType, setSelectedType] = useState('note');
   const taRef = useRef(null);
 
   useEffect(() => {
@@ -23,7 +27,19 @@ export default function QuickCapture({ onRequestFullEditor }) {
     if (!raw || saving) return;
     setSaving(true);
     try {
-      await createNote({ raw_text: raw, bucket: 'INBOX' });
+      if (selectedType === 'task') {
+        await createTask({ title: raw });
+      } else if (selectedType === 'person') {
+        await createPerson({ title: raw });
+        addToast({ type: 'success', message: 'Person added' });
+      } else if (selectedType === 'resource') {
+        const res = await resourcesAPI.create({ title: raw, entity_type: 'resource' });
+        const normalized = res.data;
+        upsertResource(normalized);
+        addToast({ type: 'success', message: 'Saved as reference' });
+      } else {
+        await createNote({ raw_text: raw, bucket: 'INBOX' });
+      }
       setText('');
       closeCapture();
     } finally {
@@ -56,8 +72,25 @@ export default function QuickCapture({ onRequestFullEditor }) {
             <h2 id="quick-capture-title" className={styles.title}>
               Quick capture
             </h2>
+            <div className={styles.headerRow}>
+              <div className={styles.typePicker}>
+                {TYPES.map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    className={`${styles.typeChip} ${selectedType === t ? styles.typeChipActive : ''}`}
+                    onClick={() => setSelectedType(t)}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
             <p className={styles.hint}>
-              Saves to inbox · AI classifies on save ·{' '}
+              {selectedType === 'note' && 'Saves to inbox · AI classifies on save · '}
+              {selectedType === 'task' && 'Creates a task directly · '}
+              {selectedType === 'resource' && 'Saves as a reference · '}
+              {selectedType === 'person' && 'Adds a person · '}
               <kbd>Cmd/Ctrl+Enter</kbd> to submit · <kbd>Esc</kbd> to close
             </p>
           </div>
