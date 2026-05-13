@@ -275,6 +275,7 @@ class Entity(BaseModel):
         """Return full API response shape with backward-compat aliases."""
         # Resolve tag data from relationship or test-time attributes
         tag_ids = []
+        tag_names = []
         tags = []
         if hasattr(self, "_tag_objects"):
             tags = [
@@ -282,10 +283,12 @@ class Entity(BaseModel):
                 for t in self._tag_objects
             ]
             tag_ids = [t.id for t in self._tag_objects]
+            tag_names = [t.name for t in self._tag_objects]
         elif self.entity_tags:
             for et in self.entity_tags:
                 tag_ids.append(et.tag_id)
                 if hasattr(et, "tag") and et.tag:
+                    tag_names.append(et.tag.name)
                     tags.append({"id": et.tag.id, "name": et.tag.name, "color": et.tag.color})
 
         # Link count from relationship or test-time attribute
@@ -311,6 +314,7 @@ class Entity(BaseModel):
             "ai_meta": self.ai_meta or {},
             "ai_status": self.ai_status,
             "tag_ids": tag_ids,
+            "tag_names": tag_names,
             "tags": tags,
             "link_count": link_count,
             "created_at": _iso(self.created_at),

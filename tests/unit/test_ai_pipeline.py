@@ -4,7 +4,7 @@ import pytest
 from unittest.mock import patch, MagicMock
 
 from extensions import db
-from models import Entity, Job, EntityChunk, EntityEvent
+from models import Entity, Job, EntityChunk, EntityEvent, EntityTag, Tag
 
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -239,6 +239,59 @@ class TestRunClassify:
             # Should have created a project entity
             projects = Entity.query.filter_by(type="project", title="Auto Project").all()
             assert len(projects) >= 1
+
+    @patch("services.extractor.extract")
+    def test_classify_persists_extracted_tags_as_entity_tags(self, mock_extract, app):
+        from services.ai_pipeline import run_classify
+        from services.extractor import ExtractionResult
+
+        mock_extract.return_value = ExtractionResult(
+            summary="Tagged note",
+            para_bucket="INBOX",
+            confidence=0.85,
+            reasoning="Found tags",
+            tags=["Urgent", " urgent ", "Planning", ""],
+        )
+
+        with app.app_context():
+            entity = _create_entity(content="Need urgent planning follow-up")
+
+            run_classify({"entity_id": entity.id})
+
+            entity_tags = EntityTag.query.filter_by(entity_id=str(entity.id)).all()
+            assert len(entity_tags) == 2
+
+            tag_names = sorted(et.tag.name for et in entity_tags)
+            assert tag_names == ["planning", "urgent"]
+
+    @patch("services.extractor.extract")
+    def test_classify_reuses_existing_tag_records(self, mock_extract, app):
+        from services.ai_pipeline import run_classify
+        from services.extractor import ExtractionResult
+
+        mock_extract.return_value = ExtractionResult(
+            summary="Tagged note",
+            para_bucket="INBOX",
+            confidence=0.85,
+            reasoning="Found tags",
+            tags=["Existing"],
+        )
+
+        with app.app_context():
+            existing = Tag(name="existing")
+            db.session.add(existing)
+            db.session.commit()
+
+            entity = _create_entity(content="Existing tag should be reused")
+
+            run_classify({"entity_id": entity.id})
+
+            tags = Tag.query.filter_by(name="existing").all()
+            assert len(tags) == 1
+
+            entity_tags = EntityTag.query.filter_by(entity_id=str(entity.id)).all()
+            assert len(entity_tags) == 1
+            assert entity_tags[0].tag_id == existing.id
 
 
 # ─── run_embed Handler ───────────────────────────────────────────────────────

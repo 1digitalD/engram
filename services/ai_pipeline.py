@@ -17,7 +17,7 @@ import re
 from datetime import datetime, timezone
 
 from extensions import db
-from models import Entity, EntityChunk, EntityEvent, Job
+from models import Entity, EntityChunk, EntityEvent, EntityTag, Job, Tag
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +35,45 @@ EMBED_DIMS = int(__import__("os").getenv("EMBED_DIMS", "1536"))
 # Chunking defaults (token-aware: ~4 chars/token)
 DEFAULT_CHUNK_SIZE = 400  # tokens
 DEFAULT_CHUNK_OVERLAP = 64  # tokens
+
+
+def _normalize_tag_name(name):
+    """Normalize a tag name for case-insensitive deduplication."""
+    if not isinstance(name, str):
+        return ""
+    return name.strip().lower()
+
+
+def _upsert_extracted_tags(entity, tag_names):
+    """Create or reuse Tag records and attach them to the entity once each."""
+    normalized_names = []
+    seen = set()
+    for raw_name in tag_names or []:
+        name = _normalize_tag_name(raw_name)
+        if not name or name in seen:
+            continue
+        seen.add(name)
+        normalized_names.append(name)
+
+    if not normalized_names:
+        return
+
+    existing_tag_ids = {
+        et.tag_id for et in EntityTag.query.filter_by(entity_id=entity.id).all()
+    }
+
+    for name in normalized_names:
+        tag = Tag.query.filter(Tag.name.ilike(name)).first()
+        if not tag:
+            tag = Tag(name=name)
+            db.session.add(tag)
+            db.session.flush()
+
+        if tag.id in existing_tag_ids:
+            continue
+
+        db.session.add(EntityTag(entity_id=entity.id, tag_id=tag.id))
+        existing_tag_ids.add(tag.id)
 
 # ─── Job Enqueueing ──────────────────────────────────────────────────────────
 
@@ -258,6 +297,7 @@ def run_classify(payload):
             ai_meta["extracted_tags"] = extraction.tags[:6]
 
         entity.ai_meta = ai_meta
+        _upsert_extracted_tags(entity, extraction.tags)
         entity.ai_status = "done"
 
         # Write classification event

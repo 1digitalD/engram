@@ -84,9 +84,11 @@
       "validationCommands": [
         "pytest -q -k 'classify or tag or ai_pipeline' 2>&1 || true"
       ],
-      "passes": false,
+      "passes": true,
       "blocked": false,
-      "phase": "0"
+      "phase": "0",
+      "commit": "2c0a9074",
+      "attempts": 1
     },
     {
       "id": "V3-0.5",

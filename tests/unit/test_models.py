@@ -316,6 +316,7 @@ class TestEntityToDict:
         e._tag_objects = [tag]
         d = e.to_dict()
         assert d["tag_ids"] == [tag.id]
+        assert d["tag_names"] == [tag.name]
         assert d["tags"] == [{"id": tag.id, "name": tag.name, "color": tag.color}]
 
     def test_link_count(self):
