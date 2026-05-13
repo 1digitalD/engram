@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Plus } from 'lucide-react';
+import { Plus, Search } from 'lucide-react';
 import useStore from '../stores/useStore';
 import NoteCard from '../components/notes/NoteCard';
 import NoteEditor from '../components/notes/NoteEditor';
@@ -23,36 +23,41 @@ export default function Notes() {
   const [filter, setFilter] = useState('all');
   const [editingNote, setEditingNote] = useState(null);
   const [showEditor, setShowEditor] = useState(false);
+  const [textSearch, setTextSearch] = useState('');
   const tagFilter = searchParams.get('tag');
 
   // Entity name sub-filter when in project/area/person mode
   const [entityFilter, setEntityFilter] = useState('');
 
   const filtered = notes.filter(n => {
-    const tagMatches = !tagFilter || n.tag_names?.includes(tagFilter);
+    const searchLower = textSearch.toLowerCase().trim();
+    const textMatches = !searchLower ||
+      (n.content && n.content.toLowerCase().includes(searchLower)) ||
+      (n.title && n.title.toLowerCase().includes(searchLower));
 
-    if (filter === 'all') return tagMatches;
-    if (filter === 'inbox')  return tagMatches && n.bucket === 'INBOX';
-    if (filter === 'resource') return tagMatches && n.bucket === 'RESOURCES';
-    if (filter === 'archive')  return tagMatches && n.bucket === 'ARCHIVES';
+    const tagMatches = !tagFilter || n.tag_names?.includes(tagFilter);
+    const baseMatches = textMatches && tagMatches;
+
+    if (filter === 'all') return baseMatches;
+    if (filter === 'inbox')  return baseMatches && n.bucket === 'INBOX';
+    if (filter === 'resource') return baseMatches && n.bucket === 'RESOURCES';
+    if (filter === 'archive')  return baseMatches && n.bucket === 'ARCHIVES';
     if (filter === 'project') {
-      const match = tagMatches && (n.project_id || (n.project_ids?.length > 0));
+      const match = baseMatches && (n.project_id || (n.project_ids?.length > 0));
       if (!entityFilter) return match;
-      const target = projects.find(p => p.id === entityFilter);
-      if (!target) return match;
       return match && (n.project_id === entityFilter || n.project_ids?.includes(entityFilter));
     }
     if (filter === 'area') {
-      const match = tagMatches && !!n.area_id;
+      const match = baseMatches && !!n.area_id;
       if (!entityFilter) return match;
       return match && n.area_id === entityFilter;
     }
     if (filter === 'person') {
-      const match = tagMatches && !!n.person_id;
+      const match = baseMatches && !!n.person_id;
       if (!entityFilter) return match;
       return match && n.person_id === entityFilter;
     }
-    return tagMatches;
+    return baseMatches;
   });
 
   const sorted = [...filtered].sort(
@@ -124,6 +129,28 @@ export default function Notes() {
           ))}
         </div>
       )}
+
+      {/* Text search input */}
+      <div style={{ marginBottom: 'var(--space-4)', position: 'relative' }}>
+        <Search size={15} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+        <input
+          type="text"
+          placeholder="Search notes..."
+          value={textSearch}
+          onChange={(e) => setTextSearch(e.target.value)}
+          className={styles.searchInput}
+          style={{
+            width: '100%',
+            padding: 'var(--space-2) var(--space-3) var(--space-2) 36px',
+            borderRadius: 'var(--radius-md)',
+            border: '1px solid var(--border)',
+            background: 'var(--surface)',
+            color: 'var(--text)',
+            fontSize: 'var(--text-sm)',
+            fontFamily: 'var(--font-sans)',
+          }}
+        />
+      </div>
 
       {/* Note list */}
       {sorted.length === 0 ? (
