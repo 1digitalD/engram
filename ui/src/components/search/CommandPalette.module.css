@@ -14,7 +14,7 @@
 }
 
 .palette {
-  background: var(--bg-surface);
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-xl);
@@ -44,7 +44,7 @@
   flex: 1;
   background: none;
   border: none;
-  color: var(--text-primary);
+  color: var(--text);
   font-size: var(--text-md);
   outline: none;
   box-shadow: none;
@@ -66,19 +66,19 @@
   transition: all var(--duration-fast);
 }
 .clearBtn:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
+  background: var(--surface3);
+  color: var(--text);
 }
 
 .inputHint {
   font-family: var(--font-sans);
   font-size: 10px;
-  background: var(--bg-elevated);
+  background: var(--surface2);
   padding: 3px 6px;
   border-radius: 3px;
   color: var(--text-muted);
   flex-shrink: 0;
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--border-faint);
 }
 
 /* Results */
@@ -102,7 +102,7 @@
   transition: background var(--duration-fast);
 }
 .result:hover, .resultActive {
-  background: var(--bg-hover);
+  background: var(--surface3);
 }
 
 .resultIcon {
@@ -120,7 +120,7 @@
 
 .resultTitle {
   font-size: var(--text-sm);
-  color: var(--text-primary);
+  color: var(--text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -193,7 +193,7 @@
 .footer kbd {
   font-family: var(--font-sans);
   font-size: 10px;
-  background: var(--bg-elevated);
+  background: var(--surface2);
   padding: 1px 4px;
   border-radius: 3px;
 }

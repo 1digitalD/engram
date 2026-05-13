@@ -10,7 +10,7 @@
   display: inline-flex;
   align-self: flex-start;
   padding: 3px;
-  background: var(--bg-elevated);
+  background: var(--surface2);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
 }
@@ -26,10 +26,10 @@
   transition: all var(--duration-fast);
 }
 
-.tab:hover { color: var(--text-primary); }
+.tab:hover { color: var(--text); }
 .tabActive {
-  background: var(--bg-surface);
-  color: var(--text-primary);
+  background: var(--surface);
+  color: var(--text);
   box-shadow: var(--shadow-sm);
 }
 
@@ -37,10 +37,10 @@
   width: 100%;
   min-height: 160px;
   padding: var(--space-3);
-  background: var(--bg-elevated);
+  background: var(--surface2);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  color: var(--text-primary);
+  color: var(--text);
   font-size: var(--text-base);
   font-family: var(--font-sans);
   line-height: 1.7;
@@ -52,10 +52,10 @@
 .preview {
   min-height: 160px;
   padding: var(--space-3);
-  background: var(--bg-elevated);
+  background: var(--surface2);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  color: var(--text-primary);
+  color: var(--text);
   font-size: var(--text-base);
   line-height: 1.7;
 }
@@ -64,8 +64,8 @@
 .preview p:first-child, .preview ul:first-child, .preview ol:first-child { margin-top: 0; }
 .preview p, .preview ul, .preview ol { margin-bottom: var(--space-3); }
 .preview ul, .preview ol { padding-left: var(--space-5); }
-.preview code { background: var(--bg-surface); padding: 2px 6px; border-radius: var(--radius-sm); color: var(--accent-blue); font-size: 0.9em; }
-.preview pre { overflow-x: auto; padding: var(--space-3); background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.preview code { background: var(--surface); padding: 2px 6px; border-radius: var(--radius-sm); color: var(--entity-project); font-size: 0.9em; }
+.preview pre { overflow-x: auto; padding: var(--space-3); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); }
 .previewEmpty { margin: 0; color: var(--text-muted); font-style: italic; }
 
 /* AI Suggestions */
@@ -100,7 +100,7 @@
   background: rgba(124, 106, 255, 0.12);
   border: 1px solid rgba(124, 106, 255, 0.25);
   border-radius: var(--radius-full);
-  color: var(--text-primary);
+  color: var(--text);
   font-size: var(--text-xs);
   cursor: pointer;
   transition: all var(--duration-fast);
@@ -147,14 +147,14 @@
   align-items: center;
   gap: 4px;
   padding: 3px 6px 3px 8px;
-  background: var(--bg-elevated);
+  background: var(--surface2);
   border: 1px solid var(--border);
   border-radius: var(--radius-full);
   font-size: var(--text-xs);
   color: var(--text-secondary);
   transition: all var(--duration-fast);
 }
-.entityChip:hover { border-color: var(--border-focus); color: var(--text-primary); }
+.entityChip:hover { border-color: var(--border-focus); color: var(--text); }
 .entityChip span:first-of-type { font-size: 10px; }
 .entityChip button {
   display: inline-flex;
@@ -168,7 +168,7 @@
   cursor: pointer;
   transition: color var(--duration-fast);
 }
-.entityChip button:hover { color: var(--accent-warm); }
+.entityChip button:hover { color: var(--red); }
 
 /* Entity combo search */
 .entityCombo {
@@ -178,10 +178,10 @@
 .entitySearchInput {
   width: 100%;
   padding: 4px 8px;
-  background: var(--bg-elevated);
+  background: var(--surface2);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  color: var(--text-primary);
+  color: var(--text);
   font-size: var(--text-xs);
   transition: border-color var(--duration-fast);
 }
@@ -201,7 +201,7 @@
   margin: 0;
   padding: var(--space-1);
   list-style: none;
-  background: var(--bg-surface);
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow-md);
@@ -216,12 +216,12 @@
   border: none;
   border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--text-primary);
+  color: var(--text);
   font-size: var(--text-sm);
   cursor: pointer;
   transition: background var(--duration-fast);
 }
-.entityDropdownItem:hover { background: var(--bg-hover); }
+.entityDropdownItem:hover { background: var(--surface3); }
 .entityDropdownEmpty {
   padding: var(--space-2) var(--space-3);
   color: var(--text-muted);

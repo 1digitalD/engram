@@ -45,7 +45,7 @@
 }
 
 .closeBtn:hover {
-  color: var(--text-primary);
+  color: var(--text);
   background: var(--bg-tertiary);
 }
 

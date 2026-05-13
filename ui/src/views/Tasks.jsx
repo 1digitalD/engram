@@ -45,10 +45,10 @@ function isOverdue(task) {
 function buildProjectPalette(projects) {
   return projects.reduce((palette, project, index) => {
     const colors = [
-      { border: 'rgba(96, 165, 250, 0.4)', text: '#93C5FD' },
-      { border: 'rgba(74, 222, 128, 0.4)', text: '#86EFAC' },
-      { border: 'rgba(251, 191, 36, 0.4)', text: '#FCD34D' },
-      { border: 'rgba(244, 114, 182, 0.4)', text: '#F9A8D4' },
+      { border: 'rgba(59, 130, 246, 0.4)', text: 'var(--entity-project)' },
+      { border: 'rgba(34, 197, 94, 0.4)', text: 'var(--entity-task)' },
+      { border: 'rgba(245, 158, 11, 0.4)', text: 'var(--entity-area)' },
+      { border: 'rgba(236, 72, 153, 0.4)', text: 'var(--entity-person)' },
     ];
     palette[project.id] = colors[index % colors.length];
     return palette;

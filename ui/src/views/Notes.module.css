@@ -39,13 +39,13 @@
   transition: all var(--duration-fast);
 }
 .filterBtn:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
+  background: var(--surface3);
+  color: var(--text);
 }
 .filterActive {
-  background: var(--bg-elevated);
+  background: var(--surface2);
   border-color: var(--border);
-  color: var(--text-primary);
+  color: var(--text);
 }
 
 .grid {

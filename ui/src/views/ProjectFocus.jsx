@@ -223,7 +223,7 @@ export default function ProjectFocus() {
                 borderRadius: '999px',
                 border: '1px solid transparent',
                 background: completionState === 'completed' ? 'var(--success)' : 'var(--accent)',
-                color: completionState === 'completed' ? '#08110c' : '#081018',
+                color: completionState === 'completed' ? 'var(--text)' : 'var(--text)',
                 fontSize: '12px',
                 fontWeight: 700,
                 cursor: completionState === 'idle' ? 'pointer' : 'default',

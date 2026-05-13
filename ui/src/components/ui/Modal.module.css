@@ -13,7 +13,7 @@
 }
 
 .modal {
-  background: var(--bg-surface);
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-xl);
@@ -38,7 +38,7 @@
 .title {
   font-size: var(--text-md);
   font-weight: 600;
-  color: var(--text-primary);
+  color: var(--text);
 }
 
 .closeBtn {
@@ -53,8 +53,8 @@
   cursor: pointer;
 }
 .closeBtn:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
+  background: var(--surface3);
+  color: var(--text);
 }
 
 .body {

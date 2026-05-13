@@ -70,7 +70,7 @@
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
   background: var(--bg-primary);
-  color: var(--text-primary);
+  color: var(--text);
 }
 
 .textarea:focus {
@@ -98,7 +98,7 @@
 }
 
 .linkBtn:hover {
-  color: var(--text-primary);
+  color: var(--text);
 }
 
 .closeBtn {
@@ -112,6 +112,6 @@
 }
 
 .closeBtn:hover {
-  color: var(--text-primary);
+  color: var(--text);
   background: var(--bg-tertiary);
 }

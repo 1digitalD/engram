@@ -46,8 +46,8 @@
   font-size: var(--text-sm);
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
-  background: var(--bg-surface);
-  color: var(--text-primary);
+  background: var(--surface);
+  color: var(--text);
 }
 
 .searchInput:focus {
@@ -64,7 +64,7 @@
 
 .chip {
   border: 1px solid var(--border);
-  background: var(--bg-surface);
+  background: var(--surface);
   color: var(--text-secondary);
   font-size: var(--text-xs);
   font-weight: 600;
@@ -78,7 +78,7 @@
 
 .chip:hover {
   border-color: var(--border-focus);
-  color: var(--text-primary);
+  color: var(--text);
 }
 
 .chipActive {
@@ -94,7 +94,7 @@
 }
 
 .card {
-  background: var(--bg-surface);
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: var(--space-4);
@@ -125,7 +125,7 @@
   align-items: center;
   justify-content: center;
   border-radius: var(--radius-md);
-  background: var(--bg-hover);
+  background: var(--surface3);
   color: var(--accent);
 }
 
@@ -137,7 +137,7 @@
 .title {
   font-size: var(--text-base);
   font-weight: 600;
-  color: var(--text-primary);
+  color: var(--text);
   line-height: 1.35;
   margin: 0;
 }
@@ -187,5 +187,5 @@
 }
 
 .readBadgeDone {
-  color: var(--success, #34c759);
+  color: var(--green);
 }

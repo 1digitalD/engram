@@ -25,14 +25,36 @@ import {
 import styles from './Graph.module.css';
 
 const TYPE_COLORS = {
-  note: '#7C6AFF',
-  daily: '#7C6AFF',
-  moc: '#2DD4BF',
-  resource: '#C084FC',
-  project: '#4ADE80',
-  area: '#60A5FA',
-  person: '#FBBF24',
+  note: 'var(--entity-note)',
+  daily: 'var(--entity-note)',
+  moc: 'var(--green)',
+  resource: 'var(--entity-resource)',
+  project: 'var(--entity-project)',
+  area: 'var(--entity-area)',
+  person: 'var(--entity-person)',
 };
+
+function getEntityColor(type) {
+  const el = document.documentElement;
+  const style = getComputedStyle(el);
+  switch (type) {
+    case 'note':
+    case 'daily':
+      return style.getPropertyValue('--entity-note').trim() || '#7C6AFF';
+    case 'moc':
+      return style.getPropertyValue('--green').trim() || '#22C55E';
+    case 'resource':
+      return style.getPropertyValue('--entity-resource').trim() || '#8B5CF6';
+    case 'project':
+      return style.getPropertyValue('--entity-project').trim() || '#3B82F6';
+    case 'area':
+      return style.getPropertyValue('--entity-area').trim() || '#F59E0B';
+    case 'person':
+      return style.getPropertyValue('--entity-person').trim() || '#EC4899';
+    default:
+      return style.getPropertyValue('--text-muted').trim() || '#ADB5BD';
+  }
+}
 
 const MOC_MAP_ICON = '\u{1F5FA}'; /* world map — distinct from daily calendar */
 
@@ -369,7 +391,7 @@ export default function Graph() {
 
     node.each(function (d) {
       const el = d3.select(this);
-      let fill = TYPE_COLORS[d.type] || '#888';
+      let fill = getEntityColor(d.type);
       let stroke = fill;
       let r =
         d.type === 'moc'
@@ -393,7 +415,7 @@ export default function Graph() {
         el.append('circle')
           .attr('r', r + 5)
           .attr('fill', 'none')
-          .attr('stroke', '#FACC15')
+          .attr('stroke', getEntityColor('area'))
           .attr('stroke-width', 2.5)
           .attr('stroke-opacity', 0.95);
       }
@@ -482,7 +504,7 @@ export default function Graph() {
         d.type === 'person' ? 18 : d.type === 'daily' || d.type === 'moc' ? 22 : 16,
       )
       .attr('text-anchor', 'middle')
-      .attr('fill', '#8888A0')
+      .attr('fill', getEntityColor('default'))
       .attr('font-size', 10)
       .attr('font-family', 'Inter, sans-serif')
       .each(function (d) {
@@ -552,7 +574,7 @@ export default function Graph() {
     people.length > 0 ||
     resources.length > 0;
 
-  const selectedColor = selected ? TYPE_COLORS[selected.type] || '#888' : null;
+  const selectedColor = selected ? getEntityColor(selected.type) : null;
 
   const toggleType = (t) => {
     setEnabledTypes((prev) => {

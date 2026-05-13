@@ -1,96 +1,151 @@
 /* =============================================
    ENGRAM — Design Tokens + Global Styles
+   Light mode default, dark mode via .dark on <html>
    ============================================= */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap');
 
-/* ── CSS Variables ─────────────────────────── */
+/* ── Light Mode (default) ──────────────────── */
 :root {
+  /* Fonts */
+  --font-sans: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+  --font-mono: 'IBM Plex Mono', 'Fira Code', monospace;
+
+  /* Base */
+  --base-size: 13px;
+  --base-line-height: 1.5;
+
   /* Backgrounds */
-  --bg-base:      #0D0D0F;
-  --bg-surface:   #16161A;
-  --bg-elevated:  #1E1E24;
-  --bg-hover:     #25252E;
-  --bg-active:    #2C2C38;
+  --bg:          #FFFFFF;
+  --surface:     #F8F9FA;
+  --surface2:    #F1F3F5;
+  --surface3:    #E9ECEF;
+  --hover:       #DEE2E6;
 
   /* Borders */
-  --border:       #2A2A32;
-  --border-focus: #4A4A58;
-  --border-subtle:#1E1E24;
+  --border:       #CED4DA;
+  --border-faint: #E9ECEF;
+  --border-focus: #7C6AFF;
 
   /* Text */
-  --text-primary:   #EDEDEF;
-  --text-secondary: #8888A0;
-  --text-muted:    #7C7C94;
+  --text:           #212529;
+  --text-secondary: #6C757D;
+  --text-muted:     #ADB5BD;
 
   /* Accent */
-  --accent:        #7C6AFF;
-  --accent-hover:  #6A58E0;
-  --accent-warm:  #FF6B6B;
-  --accent-green: #4ADE80;
-  --accent-amber: #FBBF24;
-  --accent-blue:  #60A5FA;
+  --accent:       #7C6AFF;
+  --accent-dim:   rgba(124, 106, 255, 0.12);
+  --accent-hover: #6A58E0;
 
-  /* Bucket Colors */
-  --bucket-inbox:    #7C6AFF;
-  --bucket-projects: #4ADE80;
-  --bucket-areas:    #60A5FA;
-  --bucket-resources: #FBBF24;
-  --bucket-archives: #55556A;
+  /* Semantic colors */
+  --green:  #22C55E;
+  --yellow: #F59E0B;
+  --red:    #EF4444;
+  --pink:   #EC4899;
 
-  /* Semantic */
-  --danger:  #FF6B6B;
-  --success: #4ADE80;
-  --warning: #FBBF24;
-  --info:    #60A5FA;
+  /* Bucket colors */
+  --bucket-inbox:     #7C6AFF;
+  --bucket-projects:  #22C55E;
+  --bucket-areas:     #3B82F6;
+  --bucket-resources: #F59E0B;
+  --bucket-archives:  #6B7280;
+
+  /* Entity type colors */
+  --entity-note:      #7C6AFF;
+  --entity-task:      #22C55E;
+  --entity-project:   #3B82F6;
+  --entity-area:      #F59E0B;
+  --entity-person:    #EC4899;
+  --entity-resource:  #8B5CF6;
 
   /* Shadows */
-  --shadow-sm: 0 1px 3px rgba(0,0,0,0.4);
-  --shadow-md: 0 4px 12px rgba(0,0,0,0.5);
-  --shadow-lg: 0 8px 32px rgba(0,0,0,0.6);
-  --shadow-xl: 0 16px 48px rgba(0,0,0,0.7);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.12);
+  --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.16);
 
   /* Spacing */
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-5: 20px;
-  --space-6: 24px;
-  --space-8: 32px;
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-8:  32px;
   --space-10: 40px;
   --space-12: 48px;
 
-  /* Typography */
-  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
-
-  --text-xs:   12px;
-  --text-sm:   13px;
-  --text-base: 15px;
-  --text-md:   16px;
-  --text-lg:   20px;
-  --text-xl:   28px;
-  --text-2xl:  36px;
+  /* Typography scale */
+  --text-xs:   11px;
+  --text-sm:   12px;
+  --text-base: 13px;
+  --text-md:   15px;
+  --text-lg:   18px;
+  --text-xl:   22px;
+  --text-2xl:  26px;
+  --text-3xl:  32px;
 
   /* Radii */
-  --radius-sm:   6px;
-  --radius-md:   10px;
-  --radius-lg:   14px;
+  --radius-sm:   5px;
+  --radius-md:   8px;
+  --radius-lg:   12px;
   --radius-full: 9999px;
 
   /* Transitions */
-  --ease-out:    cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out:       cubic-bezier(0.16, 1, 0.3, 1);
   --duration-fast:   120ms;
   --duration-normal: 200ms;
   --duration-slow:   350ms;
 
   /* Layout */
-  --sidebar-width: 240px;
-  --sidebar-collapsed: 56px;
+  --sidebar-w: 216px;
+  --topbar-h:  44px;
   --content-max:  720px;
   --content-wide: 1200px;
-  --header-height: 52px;
+}
+
+/* ── Dark Mode ─────────────────────────────── */
+html.dark {
+  --bg:          #0D0D0F;
+  --surface:     #16161A;
+  --surface2:    #1E1E24;
+  --surface3:    #25252E;
+  --hover:       #2C2C38;
+
+  --border:       #2A2A32;
+  --border-faint: #1E1E24;
+  --border-focus: #7C6AFF;
+
+  --text:           #EDEDEF;
+  --text-secondary: #8888A0;
+  --text-muted:     #7C7C94;
+
+  --accent:       #7C6AFF;
+  --accent-dim:   rgba(124, 106, 255, 0.15);
+  --accent-hover: #6A58E0;
+
+  --green:  #4ADE80;
+  --yellow: #FBBF24;
+  --red:    #FF6B6B;
+  --pink:   #F472B6;
+
+  --bucket-inbox:     #7C6AFF;
+  --bucket-projects:  #4ADE80;
+  --bucket-areas:     #60A5FA;
+  --bucket-resources: #FBBF24;
+  --bucket-archives:  #55556A;
+
+  --entity-note:      #7C6AFF;
+  --entity-task:      #4ADE80;
+  --entity-project:   #60A5FA;
+  --entity-area:      #FBBF24;
+  --entity-person:    #F472B6;
+  --entity-resource:  #A78BFA;
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.6);
+  --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.7);
 }
 
 /* ── Reset ─────────────────────────────────── */
@@ -101,7 +156,8 @@
 }
 
 html {
-  font-size: 15px;
+  font-size: var(--base-size);
+  line-height: var(--base-line-height);
   scroll-behavior: smooth;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -109,9 +165,9 @@ html {
 
 body {
   font-family: var(--font-sans);
-  background: var(--bg-base);
-  color: var(--text-primary);
-  line-height: 1.6;
+  background: var(--bg);
+  color: var(--text);
+  line-height: var(--base-line-height);
   overflow: hidden;
   height: 100vh;
 }
@@ -121,32 +177,33 @@ body {
   display: flex;
 }
 
-/* ── Scrollbar ──────────────────────────────── */
+/* ── Scrollbar (5px, transparent track, border thumb, 3px radius) ── */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: var(--radius-full);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--border-focus);
+  border-color: var(--text-muted);
 }
 
 /* ── Typography ─────────────────────────────── */
 h1, h2, h3, h4, h5 {
   font-weight: 600;
   line-height: 1.3;
-  color: var(--text-primary);
+  color: var(--text);
 }
-h1 { font-size: var(--text-xl); }
-h2 { font-size: var(--text-lg); }
-h3 { font-size: var(--text-md); }
-h4 { font-size: var(--text-base); font-weight: 500; }
+h1 { font-size: var(--text-2xl); letter-spacing: -0.02em; }
+h2 { font-size: var(--text-xl); }
+h3 { font-size: var(--text-lg); }
+h4 { font-size: var(--text-md); font-weight: 500; }
 
 p {
   color: var(--text-secondary);
@@ -168,14 +225,14 @@ code, pre {
 }
 
 code {
-  background: var(--bg-elevated);
+  background: var(--surface2);
   padding: 2px 6px;
   border-radius: var(--radius-sm);
-  color: var(--accent-blue);
+  color: var(--accent);
 }
 
 pre {
-  background: var(--bg-surface);
+  background: var(--surface);
   padding: var(--space-4);
   border-radius: var(--radius-md);
   overflow-x: auto;
@@ -234,12 +291,12 @@ button {
 }
 
 .btn-secondary {
-  background: var(--bg-elevated);
-  color: var(--text-primary);
+  background: var(--surface2);
+  color: var(--text);
   border-color: var(--border);
 }
 .btn-secondary:hover {
-  background: var(--bg-hover);
+  background: var(--hover);
   border-color: var(--border-focus);
 }
 
@@ -249,14 +306,14 @@ button {
   border-color: transparent;
 }
 .btn-ghost:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
+  background: var(--surface2);
+  color: var(--text);
 }
 
 .btn-danger {
-  background: var(--danger);
+  background: var(--red);
   color: white;
-  border-color: var(--danger);
+  border-color: var(--red);
 }
 .btn-danger:hover {
   opacity: 0.85;
@@ -276,10 +333,10 @@ button {
 input, textarea, select {
   font-family: var(--font-sans);
   font-size: var(--text-base);
-  background: var(--bg-elevated);
+  background: var(--surface2);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  color: var(--text-primary);
+  color: var(--text);
   padding: var(--space-2) var(--space-3);
   transition: border-color var(--duration-fast) var(--ease-out);
   width: 100%;
@@ -288,7 +345,7 @@ input, textarea, select {
 input:focus, textarea:focus, select:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(124, 106, 255, 0.25);
+  box-shadow: 0 0 0 2px var(--accent-dim);
 }
 
 input::placeholder, textarea::placeholder {

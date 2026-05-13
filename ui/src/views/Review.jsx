@@ -183,7 +183,7 @@ function HealthTrendChart({ series }) {
         <line x1={pad.l} y1={pad.t} x2={pad.l} y2={pad.t + ih} stroke="var(--border)" strokeWidth={1} />
         <line x1={pad.l + iw} y1={pad.t} x2={pad.l + iw} y2={pad.t + ih} stroke="var(--border)" strokeWidth={1} />
         {ptsOrphan ? (
-          <polyline fill="none" stroke="var(--accent-danger, #e74c3c)" strokeWidth={2} points={ptsOrphan} />
+          <polyline fill="none" stroke="var(--red)" strokeWidth={2} points={ptsOrphan} />
         ) : null}
         {ptsCap ? (
           <polyline fill="none" stroke="var(--accent)" strokeWidth={2} points={ptsCap} />

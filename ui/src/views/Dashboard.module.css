@@ -29,7 +29,7 @@
 }
 
 .statCard {
-  background: var(--bg-surface);
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: var(--space-4);
@@ -52,7 +52,7 @@
   width: 36px;
   height: 36px;
   border-radius: var(--radius-sm);
-  background: var(--bg-elevated);
+  background: var(--surface2);
   flex-shrink: 0;
 }
 
@@ -64,7 +64,7 @@
 .statValue {
   font-size: var(--text-xl);
   font-weight: 700;
-  color: var(--text-primary);
+  color: var(--text);
   line-height: 1;
 }
 
@@ -76,7 +76,7 @@
 
 /* Knowledge Health */
 .healthCard {
-  background: var(--bg-surface);
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: var(--space-5);
@@ -143,7 +143,7 @@
 .healthMetricValue {
   font-size: var(--text-xl);
   font-weight: 700;
-  color: var(--text-primary);
+  color: var(--text);
   line-height: 1.2;
 }
 
@@ -156,23 +156,23 @@
 }
 
 .orphanGood {
-  color: var(--success, #22c55e);
+  color: var(--green);
 }
 .orphanWarn {
-  color: var(--accent-amber, #eab308);
+  color: var(--yellow);
 }
 .orphanBad {
-  color: var(--danger, #ef4444);
+  color: var(--red);
 }
 
 .inboxGood {
-  color: var(--text-primary);
+  color: var(--text);
 }
 .inboxWarn {
-  color: var(--accent-amber, #eab308);
+  color: var(--yellow);
 }
 .inboxBad {
-  color: var(--danger, #ef4444);
+  color: var(--red);
 }
 
 .captureChartWrap {
@@ -203,7 +203,7 @@
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  background: var(--bg-elevated);
+  background: var(--surface2);
   border-radius: var(--radius-sm);
   min-width: 0;
 }
@@ -225,7 +225,7 @@
 }
 
 .section {
-  background: var(--bg-surface);
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: var(--space-5);
@@ -284,7 +284,7 @@
   text-decoration: none;
   transition: background var(--duration-fast);
 }
-.inboxItem:hover { background: var(--bg-hover); }
+.inboxItem:hover { background: var(--surface3); }
 
 .inboxDot {
   width: 6px;
@@ -347,7 +347,7 @@
   text-decoration: none;
   transition: background var(--duration-fast);
 }
-.projectCard:hover { background: var(--bg-hover); }
+.projectCard:hover { background: var(--surface3); }
 
 .projectDot {
   width: 8px;
@@ -360,7 +360,7 @@
   font-size: var(--text-sm);
   color: var(--text-secondary);
 }
-.projectCard:hover .projectName { color: var(--text-primary); }
+.projectCard:hover .projectName { color: var(--text); }
 
 .empty {
   font-size: var(--text-sm);

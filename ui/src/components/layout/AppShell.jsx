@@ -157,7 +157,7 @@ function CaptureModal({ onClose, onCreated }) {
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(15, 23, 42, 0.44)',
+        background: 'rgba(0, 0, 0, 0.3)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -175,7 +175,7 @@ function CaptureModal({ onClose, onCreated }) {
           borderRadius: '16px',
           border: '1px solid var(--border)',
           background: 'var(--surface)',
-          boxShadow: '0 28px 60px rgba(15, 23, 42, 0.22)',
+          boxShadow: 'var(--shadow-lg)',
           padding: '20px',
         }}
       >

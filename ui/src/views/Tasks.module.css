@@ -28,7 +28,7 @@
 .projectChip {
   border: 1px solid var(--border);
   border-radius: 999px;
-  background: var(--bg-surface);
+  background: var(--surface);
   color: var(--text-secondary);
   padding: 6px 12px;
   font-size: 12px;
@@ -37,9 +37,9 @@
 
 .filterChipActive,
 .projectChipActive {
-  background: var(--bg-elevated);
+  background: var(--surface2);
   border-color: var(--border-focus);
-  color: var(--text-primary);
+  color: var(--text);
 }
 
 .projectFilters {
@@ -95,7 +95,7 @@
   height: 24px;
   border: 1px solid var(--border);
   border-radius: 999px;
-  background: var(--bg-surface);
+  background: var(--surface);
   color: var(--text-secondary);
   display: inline-flex;
   align-items: center;
@@ -103,7 +103,7 @@
 }
 
 .addBtn:hover {
-  color: var(--text-primary);
+  color: var(--text);
   border-color: var(--border-focus);
 }
 
@@ -113,8 +113,8 @@
   padding: 8px 10px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: var(--bg-surface);
-  color: var(--text-primary);
+  background: var(--surface);
+  color: var(--text);
   font-size: 12px;
 }
 
@@ -123,7 +123,7 @@
   padding: 10px;
   border: 1px solid var(--border);
   border-radius: 14px;
-  background: var(--bg-surface);
+  background: var(--surface);
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -132,7 +132,7 @@
 }
 
 .columnBodyActive {
-  background: var(--bg-elevated);
+  background: var(--surface2);
   border-color: var(--border-focus);
 }
 
@@ -146,7 +146,7 @@
 .taskCard {
   border: 1px solid var(--border);
   border-radius: 12px;
-  background: #121217;
+  background: var(--surface);
   padding: 10px 10px 11px;
   display: flex;
   flex-direction: column;
@@ -180,14 +180,14 @@
 }
 
 .deleteBtn:hover {
-  color: var(--text-primary);
+  color: var(--text);
 }
 
 .cardTitle {
   font-size: 12.5px;
   font-weight: 500;
   line-height: 1.45;
-  color: var(--text-primary);
+  color: var(--text);
 }
 
 .cardMeta {
