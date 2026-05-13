@@ -14,7 +14,6 @@ import Resources from './views/Resources';
 import ResourceDetail from './views/ResourceDetail';
 import People from './views/People';
 import Tasks from './views/Tasks';
-import KanbanBoard from './components/Kanban/KanbanBoard';
 import Graph from './views/Graph';
 import Review from './views/Review';
 import MOCView from './views/MOCView';
@@ -46,7 +45,6 @@ export default function App() {
           <Route path="/resources/:id"  element={<ResourceDetail />} />
           <Route path="/people"          element={<People />} />
           <Route path="/tasks"           element={<Tasks />} />
-          <Route path="/kanban"          element={<KanbanBoard />} />
           <Route path="/graph"           element={<Graph />} />
           <Route path="/review"          element={<Review />} />
           <Route path="*"               element={<Navigate to="/" replace />} />
