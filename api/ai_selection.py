@@ -29,12 +29,12 @@ def propose_from_selection():
     data = request.get_json(silent=True) or {}
 
     action = data.get("action")
-    text = data.get("text")
+    text = (data.get("selected_text") or data.get("text") or "").strip()
 
     if not action:
         return jsonify({"error": "action is required"}), 400
     if not text:
-        return jsonify({"error": "text is required"}), 400
+        return jsonify({"error": "selected_text is required"}), 400
     if action not in VALID_ACTIONS:
         return jsonify({
             "error": f"invalid action: {action}. Valid actions: {sorted(VALID_ACTIONS)}"
@@ -50,7 +50,7 @@ def propose_from_selection():
     try:
         result = handlers[action](text, data)
         status_code = 201 if action == "extract_task" else 200
-        return jsonify({"action": action, "result": result}), status_code
+        return jsonify({"action": action, "result": result, "entity": None}), status_code
     except Exception as e:
         logger.error("AI action %s failed: %s", action, e)
         return jsonify({"error": str(e)}), 500

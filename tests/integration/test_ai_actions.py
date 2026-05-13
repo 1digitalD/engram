@@ -32,7 +32,7 @@ class TestInvalidAction:
     def test_invalid_action_returns_400(self, client):
         res = client.post("/api/v2/ai/propose-from-selection", json={
             "action": "unknown_action",
-            "text": "some text",
+            "selected_text": "some text",
         })
         assert res.status_code == 400
         data = json.loads(res.data)
@@ -40,7 +40,7 @@ class TestInvalidAction:
 
     def test_missing_action_returns_400(self, client):
         res = client.post("/api/v2/ai/propose-from-selection", json={
-            "text": "some text",
+            "selected_text": "some text",
         })
         assert res.status_code == 400
         data = json.loads(res.data)
@@ -75,11 +75,13 @@ class TestClassifyAction:
 
         res = client.post("/api/v2/ai/propose-from-selection", json={
             "action": "classify",
-            "text": "We need to finish the rocket launch by Friday",
+            "selected_text": "We need to finish the rocket launch by Friday",
         })
         assert res.status_code == 200
         data = json.loads(res.data)
         assert data["action"] == "classify"
+        assert "entity" in data
+        assert data["entity"] is None
         assert data["result"]["para_bucket"] == "PROJECTS"
         assert data["result"]["confidence"] == 0.92
         assert data["result"]["summary"] == "A project note"
@@ -99,7 +101,7 @@ class TestClassifyAction:
 
         res = client.post("/api/v2/ai/propose-from-selection", json={
             "action": "classify",
-            "text": "Weekly gym routine and meal prep",
+            "selected_text": "Weekly gym routine and meal prep",
         })
         assert res.status_code == 200
         data = json.loads(res.data)
@@ -130,7 +132,7 @@ class TestExtractTaskAction:
 
         res = client.post("/api/v2/ai/propose-from-selection", json={
             "action": "extract_task",
-            "text": "Need to follow up with the design team about the new mockups by Friday",
+            "selected_text": "Need to follow up with the design team about the new mockups by Friday",
         })
         assert res.status_code == 201
         data = json.loads(res.data)
@@ -156,7 +158,7 @@ class TestExtractTaskAction:
 
         res = client.post("/api/v2/ai/propose-from-selection", json={
             "action": "extract_task",
-            "text": "Remember to review the PR tomorrow",
+            "selected_text": "Remember to review the PR tomorrow",
         })
         assert res.status_code == 201
 
@@ -184,7 +186,7 @@ class TestCreateLinkAction:
 
         res = client.post("/api/v2/ai/propose-from-selection", json={
             "action": "create_link",
-            "text": "Python best practices and tips",
+            "selected_text": "Python best practices and tips",
             "source_entity_id": entity_ids[0],
         })
         assert res.status_code == 200
@@ -195,7 +197,7 @@ class TestCreateLinkAction:
     def test_propose_link_no_candidates_when_no_entities(self, client):
         res = client.post("/api/v2/ai/propose-from-selection", json={
             "action": "create_link",
-            "text": "Some random text",
+            "selected_text": "Some random text",
         })
         assert res.status_code == 200
         data = json.loads(res.data)
@@ -209,7 +211,7 @@ class TestImproveWritingAction:
     def test_improve_writing_returns_improved_text(self, client):
         res = client.post("/api/v2/ai/propose-from-selection", json={
             "action": "improve_writing",
-            "text": "this is a badly written sentance with erors",
+            "selected_text": "this is a badly written sentance with erors",
         })
         assert res.status_code == 200
         data = json.loads(res.data)

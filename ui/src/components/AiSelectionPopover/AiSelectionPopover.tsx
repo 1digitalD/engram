@@ -14,10 +14,10 @@ export async function callAiAction(action, selectedText, apiCall) {
     return apiCall(action, selectedText);
   }
   // Call the real backend endpoint
-  const res = await fetch('/api/v1/ai/propose-from-selection', {
+  const res = await fetch('/api/v2/ai/propose-from-selection', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action, text: selectedText }),
+    body: JSON.stringify({ action, selected_text: selectedText }),
   });
   if (!res.ok) {
     const err = await res.json();
