@@ -1,10 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Mail, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2 } from 'lucide-react';
 import Modal from '../components/ui/Modal';
 import useStore from '../stores/useStore';
 import EmptyState from '../components/ui/EmptyState';
 import styles from './People.module.css';
+
+function getInitials(name) {
+  const parts = (name || '').trim().split(/\s+/).filter(Boolean).slice(0, 2);
+  if (parts.length === 0) return '?';
+  return parts.map((part) => part[0].toUpperCase()).join('');
+}
+
+function getProp(person, key) {
+  return (person.properties && person.properties[key]) || person[key] || '';
+}
 
 export default function People() {
   const navigate = useNavigate();
@@ -13,15 +23,29 @@ export default function People() {
   const [editingPerson, setEditingPerson] = useState(null);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [role, setRole] = useState('');
   const [noteText, setNoteText] = useState('');
   const [lastContactedAt, setLastContactedAt] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredPeople = useMemo(() => {
+    if (!searchQuery.trim()) return people;
+    const q = searchQuery.toLowerCase();
+    return people.filter((p) => {
+      const n = (p.name || p.title || '').toLowerCase();
+      const e = (getProp(p, 'email') || '').toLowerCase();
+      const r = (getProp(p, 'role') || '').toLowerCase();
+      return n.includes(q) || e.includes(q) || r.includes(q);
+    });
+  }, [people, searchQuery]);
 
   const handleCreate = async (e) => {
     e.preventDefault();
     if (!name.trim()) return;
     await createPerson({
-      name: name.trim(),
+      title: name.trim(),
       email: email.trim() || undefined,
+      role: role.trim() || undefined,
       notes: noteText.trim() || undefined,
       last_contacted_at: lastContactedAt || undefined,
     });
@@ -32,16 +56,18 @@ export default function People() {
   const resetForm = () => {
     setName('');
     setEmail('');
+    setRole('');
     setNoteText('');
     setLastContactedAt('');
   };
 
   const openEdit = (person) => {
     setEditingPerson(person);
-    setName(person.name || '');
-    setEmail(person.email || '');
-    setNoteText(person.notes || '');
-    setLastContactedAt(person.last_contacted_at ? person.last_contacted_at.slice(0, 10) : '');
+    setName(person.name || person.title || '');
+    setEmail(getProp(person, 'email'));
+    setRole(getProp(person, 'role'));
+    setNoteText(getProp(person, 'notes_text') || getProp(person, 'notes') || '');
+    setLastContactedAt(getProp(person, 'last_contacted_at') ? getProp(person, 'last_contacted_at').slice(0, 10) : '');
   };
 
   const closeEdit = () => {
@@ -53,8 +79,9 @@ export default function People() {
     e.preventDefault();
     if (!editingPerson || !name.trim()) return;
     await updatePerson(editingPerson.id, {
-      name: name.trim(),
+      title: name.trim(),
       email: email.trim() || null,
+      role: role.trim() || null,
       notes: noteText.trim() || null,
       last_contacted_at: lastContactedAt || null,
     });
@@ -62,7 +89,7 @@ export default function People() {
   };
 
   const handleDelete = async (person) => {
-    if (!window.confirm(`Delete person "${person.name}"? This cannot be undone.`)) return;
+    if (!window.confirm(`Delete person "${person.name || person.title}"? This cannot be undone.`)) return;
     await deletePerson(person.id);
   };
 
@@ -78,9 +105,20 @@ export default function People() {
           <h1>People</h1>
           <p className={styles.count}>{people.length} contacts</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowModal(true)}>
-          <Plus size={15} /> Add Person
+        <button className={styles.addBtn} onClick={() => setShowModal(true)}>
+          <Plus size={12} /> Add Person
         </button>
+      </div>
+
+      <div className={styles.searchBar}>
+        <Search size={14} className={styles.searchIcon} />
+        <input
+          type="text"
+          placeholder="Search by name, email, or role..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className={styles.searchInput}
+        />
       </div>
 
       {people.length === 0 ? (
@@ -90,10 +128,18 @@ export default function People() {
           message="Add the people you work with — teammates, partners, clients — so you can link notes to them."
           action={<button className="btn btn-primary" onClick={() => setShowModal(true)}><Plus size={14} /> Add person</button>}
         />
+      ) : filteredPeople.length === 0 ? (
+        <div className={styles.emptySearch}>
+          <p>No matches for &ldquo;{searchQuery}&rdquo;</p>
+        </div>
       ) : (
         <div className={styles.grid}>
-          {people.map(p => {
+          {filteredPeople.map(p => {
             const personNotes = notes.filter(n => n.person_id === p.id);
+            const initials = getInitials(p.name || p.title || '');
+            const personRole = getProp(p, 'role');
+            const personEmail = getProp(p, 'email');
+
             return (
               <div
                 key={p.id}
@@ -107,38 +153,34 @@ export default function People() {
                     handleOpenPerson(p);
                   }
                 }}
-                style={{ cursor: 'pointer' }}
               >
-                <div className={styles.avatar}>{p.name.charAt(0).toUpperCase()}</div>
+                <div className={styles.avatar}>{initials}</div>
                 <div className={styles.info}>
-                  <span className={styles.name}>{p.name}</span>
-                  {p.email && (
-                    <span className={styles.email}>
-                      <Mail size={11} /> {p.email}
-                    </span>
+                  <span className={styles.name}>{p.name || p.title}</span>
+                  {personRole && <span className={styles.role}>{personRole}</span>}
+                  {!personRole && personEmail && (
+                    <span className={styles.role}>{personEmail}</span>
                   )}
-                  {p.notes && <p className={styles.desc}>{p.notes}</p>}
-                  {p.last_contacted_at && (
-                    <span className={styles.meta}>Last contacted {new Date(p.last_contacted_at).toLocaleDateString()}</span>
-                  )}
-                  <span className={styles.meta}>{personNotes.length} notes</span>
                   <div className={styles.cardActions}>
                     <button
                       className={styles.iconBtn}
                       onClick={(e) => { e.stopPropagation(); openEdit(p); }}
                       title="Edit person"
                     >
-                      <Pencil size={13} /> Edit
+                      <Pencil size={12} />
                     </button>
                     <button
                       className={`${styles.iconBtn} ${styles.dangerBtn}`}
                       onClick={(e) => { e.stopPropagation(); handleDelete(p); }}
                       title="Delete person"
                     >
-                      <Trash2 size={13} /> Delete
+                      <Trash2 size={12} />
                     </button>
                   </div>
                 </div>
+                {personNotes.length > 0 && (
+                  <span className={styles.noteCount}>{personNotes.length}</span>
+                )}
               </div>
             );
           })}
@@ -150,8 +192,9 @@ export default function People() {
           <><button className="btn btn-ghost" onClick={() => { resetForm(); setShowModal(false); }}>Cancel</button>
           <button className="btn btn-primary" onClick={handleCreate} disabled={!name.trim()}>Add</button></>
         }>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+          <div className={styles.formFields}>
             <div><label className={styles.label}>Name</label><input value={name} onChange={e => setName(e.target.value)} placeholder="Full name" autoFocus /></div>
+            <div><label className={styles.label}>Role</label><input value={role} onChange={e => setRole(e.target.value)} placeholder="e.g. Engineering Manager" /></div>
             <div><label className={styles.label}>Email</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="name@company.com" /></div>
             <div><label className={styles.label}>Notes</label><textarea value={noteText} onChange={e => setNoteText(e.target.value)} rows={3} placeholder="Context about this person..." /></div>
             <div><label className={styles.label}>Last Contacted</label><input type="date" value={lastContactedAt} onChange={e => setLastContactedAt(e.target.value)} /></div>
@@ -164,8 +207,9 @@ export default function People() {
           <><button className="btn btn-ghost" onClick={closeEdit}>Cancel</button>
           <button className="btn btn-primary" onClick={handleUpdate} disabled={!name.trim()}>Save</button></>
         }>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+          <div className={styles.formFields}>
             <div><label className={styles.label}>Name</label><input value={name} onChange={e => setName(e.target.value)} placeholder="Full name" autoFocus /></div>
+            <div><label className={styles.label}>Role</label><input value={role} onChange={e => setRole(e.target.value)} placeholder="e.g. Engineering Manager" /></div>
             <div><label className={styles.label}>Email</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="name@company.com" /></div>
             <div><label className={styles.label}>Notes</label><textarea value={noteText} onChange={e => setNoteText(e.target.value)} rows={3} placeholder="Context about this person..." /></div>
             <div><label className={styles.label}>Last Contacted</label><input type="date" value={lastContactedAt} onChange={e => setLastContactedAt(e.target.value)} /></div>

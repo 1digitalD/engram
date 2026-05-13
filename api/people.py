@@ -23,6 +23,8 @@ def create_person():
     properties = {}
     if data.get("email"):
         properties["email"] = data["email"]
+    if data.get("role"):
+        properties["role"] = data["role"]
     if data.get("external_ids"):
         properties["external_ids"] = data["external_ids"]
     if data.get("notes"):
@@ -66,6 +68,8 @@ def update_person(person_id):
     props = dict(person.properties or {})
     if "email" in data:
         props["email"] = data["email"]
+    if "role" in data:
+        props["role"] = data["role"]
     if "external_ids" in data:
         props["external_ids"] = {**(props.get("external_ids") or {}), **data["external_ids"]}
     if "notes" in data:
