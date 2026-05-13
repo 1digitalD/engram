@@ -1,14 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Inbox, FileText, FolderOpen, Library,
   Map, Layers, Users, CheckSquare, Network, Calendar, Sun,
-  Search, Plus, ChevronLeft, ChevronRight, Menu, Keyboard,
+  Search, Plus, ChevronLeft, ChevronRight, Menu, Keyboard, Loader2, X,
 } from 'lucide-react';
 import styles from './AppShell.module.css';
 import CommandPalette from '../search/CommandPalette';
 import NoteEditor from '../notes/NoteEditor';
-import QuickCapture from '../capture/QuickCapture';
 import KeyboardShortcutsModal from './KeyboardShortcutsModal';
 import useStore from '../../stores/useStore';
 
@@ -59,9 +58,234 @@ function paletteKbdHint() {
   return /Mac|iPhone|iPad|iPod/i.test(navigator.userAgent) ? '⌘K' : 'Ctrl+K';
 }
 
+const CAPTURE_TYPES = [
+  { value: 'note', label: 'Note', icon: FileText },
+  { value: 'task', label: 'Task', icon: CheckSquare },
+  { value: 'resource', label: 'Resource', icon: Library },
+  { value: 'person', label: 'Person', icon: Users },
+];
+
+function getCaptureRoute(entity, fallbackType = 'note') {
+  const type = String(entity?.type || entity?.entity_type || fallbackType).toLowerCase();
+  const id = entity?.id;
+
+  switch (type) {
+    case 'project':
+      return id ? `/projects/${id}` : '/projects';
+    case 'area':
+      return id ? `/areas/${id}` : '/areas';
+    case 'resource':
+      return id ? `/resources/${id}` : '/resources';
+    case 'person':
+      return id ? `/people/${id}` : '/people';
+    case 'task':
+      return '/tasks';
+    case 'note':
+    default:
+      return id ? `/notes/${id}` : '/notes';
+  }
+}
+
+function CaptureModal({ onClose, onCreated }) {
+  const [content, setContent] = useState('');
+  const [entityType, setEntityType] = useState('note');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const textareaRef = React.useRef(null);
+
+  useEffect(() => {
+    textareaRef.current?.focus();
+  }, []);
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    const body = content.trim();
+    if (!body || submitting) return;
+
+    setSubmitting(true);
+    setError('');
+
+    try {
+      const response = await fetch('/api/v2/capture', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: body,
+          entity_type: entityType,
+          source: 'ui',
+        }),
+      });
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.error || payload.message || `HTTP ${response.status}`);
+      }
+
+      const entity = payload.data || payload.entity || payload.note;
+      if (!entity?.id) {
+        throw new Error('Capture response did not include a created entity');
+      }
+
+      onCreated({
+        entity,
+        aiStatus: payload.ai_status || entity.ai_status || 'processing',
+        selectedType: entityType,
+      });
+    } catch (err) {
+      setError(err.message || 'Capture failed');
+      setSubmitting(false);
+    }
+  };
+
+  const handleKeyDown = (event) => {
+    if (event.key === 'Escape' && !submitting) {
+      event.preventDefault();
+      onClose();
+    }
+    if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+      event.preventDefault();
+      handleSubmit(event);
+    }
+  };
+
+  return (
+    <div
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget && !submitting) onClose();
+      }}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(15, 23, 42, 0.44)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '24px',
+        zIndex: 60,
+      }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="capture-modal-title"
+        onMouseDown={(event) => event.stopPropagation()}
+        style={{
+          width: 'min(100%, 520px)',
+          borderRadius: '16px',
+          border: '1px solid var(--border)',
+          background: 'var(--surface)',
+          boxShadow: '0 28px 60px rgba(15, 23, 42, 0.22)',
+          padding: '20px',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
+          <div>
+            <h2 id="capture-modal-title" style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>
+              Quick capture
+            </h2>
+            <p style={{ margin: '6px 0 0', color: 'var(--text-secondary)', fontSize: '0.88rem' }}>
+              Create from anywhere. AI classifies and links after save.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={submitting}
+            aria-label="Close capture"
+            className={styles.iconBtn}
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} style={{ marginTop: '18px' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '14px' }}>
+            {CAPTURE_TYPES.map(({ value, label, icon: Icon }) => {
+              const active = value === entityType;
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setEntityType(value)}
+                  disabled={submitting}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    borderRadius: '999px',
+                    border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
+                    background: active ? 'var(--accent-dim)' : 'transparent',
+                    color: active ? 'var(--accent)' : 'var(--text-secondary)',
+                    padding: '7px 11px',
+                    fontSize: '0.82rem',
+                    fontWeight: 500,
+                  }}
+                >
+                  <Icon size={14} />
+                  <span>{label}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <textarea
+            ref={textareaRef}
+            value={content}
+            onChange={(event) => setContent(event.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Capture a thought, task, person, or reference..."
+            rows={7}
+            disabled={submitting}
+            style={{
+              width: '100%',
+              resize: 'vertical',
+              borderRadius: '12px',
+              border: '1px solid var(--border)',
+              background: 'var(--surface-2)',
+              color: 'var(--text)',
+              padding: '14px 15px',
+              fontSize: '0.94rem',
+              lineHeight: 1.5,
+              outline: 'none',
+              minHeight: '148px',
+            }}
+          />
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginTop: '14px' }}>
+            <div style={{ minHeight: '20px', fontSize: '0.82rem', color: error ? 'var(--red)' : 'var(--text-secondary)' }}>
+              {error ? error : submitting ? 'AI pipeline running: classifying and linking…' : 'Cmd/Ctrl+Enter to create'}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={onClose}
+                disabled={submitting}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="btn btn-primary"
+                disabled={submitting || !content.trim()}
+                style={{ minWidth: '112px', justifyContent: 'center' }}
+              >
+                {submitting ? <Loader2 size={14} className="spin" /> : null}
+                {submitting ? 'Processing…' : 'Create'}
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function AppShell({ children }) {
-  const { projects, notes, captureOpen, openCapture } = useStore();
+  const { projects, notes, captureOpen, openCapture, closeCapture, addToast } = useStore();
   const location = useLocation();
+  const navigate = useNavigate();
   const isMobile = useIsMobile();
 
   const [collapsed, setCollapsed] = useState(false);
@@ -120,6 +344,16 @@ export default function AppShell({ children }) {
 
   const closeDrawer = () => setDrawerOpen(false);
   const navEndProps = isMobile ? { onClick: closeDrawer } : {};
+  const handleCaptureCreated = ({ entity, aiStatus, selectedType }) => {
+    closeCapture();
+    addToast({
+      type: 'success',
+      message: aiStatus === 'done'
+        ? 'Capture created'
+        : 'Capture created · AI classifying and linking…',
+    });
+    navigate(getCaptureRoute(entity, selectedType));
+  };
 
   return (
     <div className={`${styles.shell} ${drawerOpen ? styles.drawerOpen : ''}`}>
@@ -197,6 +431,18 @@ export default function AppShell({ children }) {
               </svg>
               {!sidebarCollapsed && <span className={styles.brandName}>Engram</span>}
             </NavLink>
+            <button
+              type="button"
+              className={styles.iconBtn}
+              onClick={() => {
+                openCapture();
+                closeDrawer();
+              }}
+              title="Quick capture"
+              aria-label="Quick capture"
+            >
+              <Plus size={16} />
+            </button>
             {!isMobile && (
               <button
                 className={styles.collapseBtn}
@@ -345,7 +591,10 @@ export default function AppShell({ children }) {
         <CommandPalette onClose={() => setShowPalette(false)} />
       )}
       {captureOpen && (
-        <QuickCapture onRequestFullEditor={() => setShowNoteEditor(true)} />
+        <CaptureModal
+          onClose={() => closeCapture()}
+          onCreated={handleCaptureCreated}
+        />
       )}
       {showNoteEditor && (
         <NoteEditor

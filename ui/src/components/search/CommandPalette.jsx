@@ -10,7 +10,7 @@ import styles from './CommandPalette.module.css';
 
 const ICON_MAP = {
   note: FileText, project: FolderOpen, area: Map,
-  person: Users, task: CheckSquare, graph: Network,
+  person: Users, task: CheckSquare, graph: Network, command: Plus,
 };
 
 function paletteShortcutLabel() {
@@ -33,6 +33,41 @@ export default function CommandPalette({ onClose }) {
     inputRef.current?.focus();
   }, []);
 
+  const commands = useMemo(() => ([
+    {
+      id: 'capture-entity',
+      label: 'Capture entity',
+      subtitle: 'Open the quick capture modal',
+      keywords: ['capture', 'new', 'create', 'quick'],
+      icon: Plus,
+      action: () => openCapture(),
+    },
+    {
+      id: 'view-tasks',
+      label: 'View tasks',
+      subtitle: 'Jump to task board',
+      keywords: ['tasks', 'todo', 'work'],
+      icon: CheckSquare,
+      action: () => navigate('/tasks'),
+    },
+    {
+      id: 'view-graph',
+      label: 'View graph',
+      subtitle: 'Open the relationship graph',
+      keywords: ['graph', 'links', 'connections'],
+      icon: Network,
+      action: () => navigate('/graph'),
+    },
+    {
+      id: 'weekly-review',
+      label: 'Weekly review',
+      subtitle: 'Open the review view',
+      keywords: ['review', 'weekly'],
+      icon: Calendar,
+      action: () => navigate('/review'),
+    },
+  ]), [navigate, openCapture]);
+
   // Search as user types
   useEffect(() => {
     if (!query.trim()) {
@@ -43,7 +78,15 @@ export default function CommandPalette({ onClose }) {
     debounceRef.current = setTimeout(async () => {
       setLoading(true);
       const q = query.toLowerCase();
+      const commandResults = commands
+        .filter((command) =>
+          command.label.toLowerCase().includes(q)
+          || command.subtitle.toLowerCase().includes(q)
+          || command.keywords.some((keyword) => keyword.includes(q))
+        )
+        .map((command) => ({ type: 'command', item: command }));
       const localResults = [
+        ...commandResults,
         ...notes.filter(n => n.raw_text?.toLowerCase().includes(q))
           .slice(0, 5).map(n => ({ type: 'note', item: n })),
         ...projects.filter(p => p.name?.toLowerCase().includes(q))
@@ -59,16 +102,19 @@ export default function CommandPalette({ onClose }) {
       setActiveIndex(0);
       setLoading(false);
     }, 200);
-  }, [query, notes, projects, areas, people, tasks]);
+  }, [query, notes, projects, areas, people, tasks, commands]);
 
   const handleSelect = useCallback((result) => {
     if (!result) return;
     const { type, item } = result;
     switch (type) {
+      case 'command':
+        item.action();
+        break;
       case 'note':    navigate(`/notes/${item.id}`); break;
       case 'project': navigate(`/projects/${item.id}`); break;
       case 'area':    navigate(`/areas/${item.id}`); break;
-      case 'person':  navigate(`/people`); break;
+      case 'person':  navigate(`/people/${item.id}`); break;
       case 'task':    navigate(`/tasks`); break;
       default: break;
     }
@@ -95,7 +141,7 @@ export default function CommandPalette({ onClose }) {
       label: 'Actions',
       icon: Zap,
       items: [
-        { label: 'Capture note', action: () => openCapture(), icon: Inbox },
+        { label: 'Capture entity', action: () => openCapture(), icon: Plus },
         { label: 'New project', action: () => navigate('/projects'), icon: Plus },
       ],
     },
@@ -138,10 +184,10 @@ export default function CommandPalette({ onClose }) {
               <div className={styles.empty}>No results for &quot;{query}&quot;</div>
             )}
             {results.map((r, i) => {
-              const Icon = ICON_MAP[r.type] || FileText;
+              const Icon = r.type === 'command' ? (r.item.icon || Plus) : (ICON_MAP[r.type] || FileText);
               return (
                 <button
-                  key={`${r.type}-${r.item.id}`}
+                  key={`${r.type}-${r.item.id || r.item.id || r.item.label}`}
                   type="button"
                   className={`${styles.result} ${i === activeIndex ? styles.resultActive : ''}`}
                   onClick={() => handleSelect(r)}
@@ -150,7 +196,7 @@ export default function CommandPalette({ onClose }) {
                   <Icon size={14} className={styles.resultIcon} />
                   <div className={styles.resultContent}>
                     <span className={styles.resultTitle}>
-                      {r.item.name || r.item.title || r.item.raw_text?.slice(0, 60)}
+                      {r.item.label || r.item.name || r.item.title || r.item.raw_text?.slice(0, 60)}
                     </span>
                     <span className={styles.resultType}>{r.type}</span>
                   </div>
