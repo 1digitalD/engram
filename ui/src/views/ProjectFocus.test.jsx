@@ -8,6 +8,10 @@ import useStore from '../stores/useStore';
 
 const mockNavigate = vi.fn();
 
+vi.mock('../components/ConnectionsPanel/ConnectionsPanel', () => ({
+  default: () => <div data-testid="connections-panel">Connections panel</div>,
+}));
+
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom');
   return {
@@ -54,42 +58,94 @@ describe('ProjectFocus complete project', () => {
     mockNavigate.mockClear();
   });
 
-  it('with parent area shows rollup confirmation, then archives with rollup and navigates to area', async () => {
-    const user = userEvent.setup();
-    const { updateProject, loadAll } = renderFocus({
-      projects: [{ id: 'p1', name: 'Alpha', is_archived: false, area_id: 'a1', color: '#abc' }],
+  it('renders the redesigned header, progress section, and notes tab rows', () => {
+    renderFocus({
+      projects: [{
+        id: 'p1',
+        name: 'Apollo',
+        description: 'Ship the redesign',
+        status: 'IN_PROGRESS',
+        due_date: '2026-05-20',
+        area_id: 'a1',
+        color: '#abc',
+      }],
       areas: [{ id: 'a1', name: 'Work', is_archived: false }],
+      notes: [{
+        id: 'n1',
+        project_id: 'p1',
+        raw_text: '# Launch plan',
+        updated_at: '2026-05-11T10:00:00Z',
+        tag_names: ['launch', 'design'],
+      }],
+      tasks: [
+        { id: 't1', project_id: 'p1', title: 'Write brief', status: 'DONE' },
+        { id: 't2', project_id: 'p1', title: 'Build UI', status: 'IN_PROGRESS' },
+        { id: 't3', project_id: 'p1', title: 'QA pass', status: 'PENDING' },
+      ],
     });
 
-    await user.click(screen.getByTestId('complete-project-btn'));
-    expect(screen.getByTestId('rollup-confirm-copy')).toBeInTheDocument();
-    expect(screen.getByTestId('rollup-confirm-copy')).toHaveTextContent('Work');
-
-    await user.click(screen.getByTestId('rollup-confirm-submit'));
-
-    await waitFor(() => {
-      expect(updateProject).toHaveBeenCalledWith('p1', {
-        is_archived: true,
-        rollup_confirmed: true,
-      });
-    });
-    expect(loadAll).toHaveBeenCalled();
-    expect(mockNavigate).toHaveBeenCalledWith('/areas/a1');
+    expect(screen.getByText('Work')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Apollo' })).toBeInTheDocument();
+    expect(screen.getByText('Ship the redesign')).toBeInTheDocument();
+    expect(screen.getByText(/Due May/)).toBeInTheDocument();
+    expect(screen.getByText('Done')).toBeInTheDocument();
+    expect(screen.getAllByText('In Progress').length).toBeGreaterThan(0);
+    expect(screen.getByText('Pending')).toBeInTheDocument();
+    expect(screen.getByText('33%')).toBeInTheDocument();
+    expect(screen.getByText('Launch plan')).toBeInTheDocument();
+    expect(screen.getByText('launch')).toBeInTheDocument();
+    expect(screen.getByText('design')).toBeInTheDocument();
   });
 
-  it('without parent area archives directly and navigates to projects list', async () => {
+  it('switches between tabs and shows compact task and people content', async () => {
     const user = userEvent.setup();
-    const { updateProject, loadAll } = renderFocus({
-      projects: [{ id: 'p1', name: 'Solo', is_archived: false, area_id: null, color: null }],
+    renderFocus({
+      projects: [{ id: 'p1', name: 'Alpha', is_archived: false, area_id: 'a1', color: '#abc' }],
+      areas: [{ id: 'a1', name: 'Work', is_archived: false }],
+      notes: [{ id: 'n1', project_id: 'p1', raw_text: 'Meeting notes', person_id: 'person-1' }],
+      tasks: [
+        { id: 't1', project_id: 'p1', title: 'Done task', status: 'DONE' },
+        { id: 't2', project_id: 'p1', title: 'Active task', status: 'IN_PROGRESS' },
+        { id: 't3', project_id: 'p1', title: 'Planned task', status: 'PENDING' },
+      ],
+      people: [{ id: 'person-1', name: 'Ada Lovelace', role: 'Designer' }],
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Tasks' }));
+    expect(screen.getByText('Done task')).toBeInTheDocument();
+    expect(screen.getByText('Active task')).toBeInTheDocument();
+    expect(screen.getByText('Planned task')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'People' }));
+    expect(screen.getByText('Ada Lovelace')).toBeInTheDocument();
+    expect(screen.getByText('Designer')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Connections' }));
+    expect(screen.getByTestId('connections-panel')).toBeInTheDocument();
+  });
+
+  it('marks the project done and shows the rolling up to completed transition', async () => {
+    const user = userEvent.setup();
+    let resolveUpdate;
+    const updateProjectMock = vi.fn().mockImplementation(() => new Promise((resolve) => {
+      resolveUpdate = resolve;
+    }));
+
+    const { updateProject } = renderFocus({
+      projects: [{ id: 'p1', name: 'Solo', is_archived: false, area_id: null, color: null, status: 'ACTIVE' }],
+      updateProject: updateProjectMock,
     });
 
     await user.click(screen.getByTestId('complete-project-btn'));
-    await user.click(screen.getByTestId('archive-only-submit'));
+    expect(screen.getByRole('button', { name: 'Rolling up...' })).toBeDisabled();
+
+    resolveUpdate({ project: { id: 'p1', status: 'DONE' }, rollup: null });
 
     await waitFor(() => {
-      expect(updateProject).toHaveBeenCalledWith('p1', { is_archived: true });
+      expect(updateProject).toHaveBeenCalledWith('p1', { status: 'DONE' });
     });
-    expect(loadAll).toHaveBeenCalled();
-    expect(mockNavigate).toHaveBeenCalledWith('/projects');
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Completed' })).toBeDisabled();
+    });
   });
 });
