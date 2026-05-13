@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, ChevronRight, Pencil, Trash2 } from 'lucide-react';
+import { Plus, ChevronRight, Pencil, Trash2, Loader2, Sparkles } from 'lucide-react';
 import Modal from '../components/ui/Modal';
 import useStore from '../stores/useStore';
 import EmptyState from '../components/ui/EmptyState';
@@ -81,6 +81,15 @@ export default function Areas() {
                   <div className={styles.cardHeader}>
                     <span className={styles.dot} style={{ background: a.color || 'var(--accent-blue)' }} />
                     <span className={styles.name}>{a.title}</span>
+                    {a.ai_status === 'processing' && (
+                      <span className={styles.aiProcessing}><Loader2 size={10} className="spin" /></span>
+                    )}
+                    {a.ai_status === 'done' && a._ai_meta?.bucket && (
+                      <span className={styles.aiClassification}>
+                        <Sparkles size={10} />
+                        {a._ai_meta.bucket}
+                      </span>
+                    )}
                     <ChevronRight size={14} className={styles.arrow} />
                   </div>
                   {a.description && <p className={styles.desc}>{a.description}</p>}

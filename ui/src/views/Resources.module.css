@@ -189,3 +189,25 @@
 .readBadgeDone {
   color: var(--green);
 }
+
+.aiProcessing {
+  display: inline-flex;
+  align-items: center;
+  color: var(--accent);
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+
+.aiClassification {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--accent);
+  background: rgba(124,106,255,0.1);
+  padding: 1px 5px;
+  border-radius: var(--radius-full);
+  font-weight: 500;
+  flex-shrink: 0;
+}

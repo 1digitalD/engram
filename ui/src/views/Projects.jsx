@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, FolderOpen, ChevronRight } from 'lucide-react';
+import { Plus, FolderOpen, ChevronRight, Loader2, Sparkles } from 'lucide-react';
 import Modal from '../components/ui/Modal';
 import useStore from '../stores/useStore';
 import EmptyState from '../components/ui/EmptyState';
@@ -52,6 +52,15 @@ export default function Projects() {
                 <div className={styles.cardHeader}>
                   <span className={styles.dot} style={{ background: p.color || 'var(--accent)' }} />
                   <span className={styles.name}>{p.title}</span>
+                  {p.ai_status === 'processing' && (
+                    <span className={styles.aiProcessing}><Loader2 size={10} className="spin" /></span>
+                  )}
+                  {p.ai_status === 'done' && p._ai_meta?.bucket && (
+                    <span className={styles.aiClassification}>
+                      <Sparkles size={10} />
+                      {p._ai_meta.bucket}
+                    </span>
+                  )}
                   <ChevronRight size={14} className={styles.arrow} />
                 </div>
                 {p.description && (

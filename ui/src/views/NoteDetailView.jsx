@@ -162,6 +162,7 @@ export default function NoteDetailView() {
     createTask,
     updateTask,
     addToast,
+    startAiStatusPoll,
   } = useStore();
   const [isEditing, setIsEditing] = useState(false);
   const [draftText, setDraftText] = useState('');
@@ -220,6 +221,12 @@ export default function NoteDetailView() {
   useEffect(() => {
     loadProposals();
   }, [loadProposals]);
+
+  useEffect(() => {
+    if (note?.ai_status === 'processing' && note?.id) {
+      startAiStatusPoll(note.id, 'note');
+    }
+  }, [note?.id, note?.ai_status, startAiStatusPoll]);
 
   useEffect(() => {
     if (!isEditing) setDraftText(note?.raw_text || '');

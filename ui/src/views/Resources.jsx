@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   FileText, BookOpen, Link2, Video, ScrollText, Wrench, Bookmark, Star,
+  Loader2, Sparkles,
 } from 'lucide-react';
 import useStore from '../stores/useStore';
 import EmptyState from '../components/ui/EmptyState';
@@ -126,6 +127,15 @@ export default function Resources() {
                   <h2 className={styles.title}>{r.title}</h2>
                   {r.author && <p className={styles.author}>{r.author}</p>}
                 </div>
+                {r.ai_status === 'processing' && (
+                  <span className={styles.aiProcessing}><Loader2 size={12} className="spin" /></span>
+                )}
+                {r.ai_status === 'done' && r._ai_meta?.bucket && (
+                  <span className={styles.aiClassification}>
+                    <Sparkles size={10} />
+                    {r._ai_meta.bucket}
+                  </span>
+                )}
               </div>
               <div className={styles.metaRow}>
                 <span className={styles.typePill}>{r.resource_type}</span>

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Plus, X } from 'lucide-react';
+import { Plus, X, Loader2, Sparkles } from 'lucide-react';
 import useStore from '../stores/useStore';
 import EmptyState from '../components/ui/EmptyState';
 import styles from './Tasks.module.css';
@@ -103,6 +103,20 @@ function TaskCard({
         )}
         {dueDate && <span className={styles.dueDate}>{dueDate}</span>}
       </div>
+
+      {task.ai_status === 'processing' && (
+        <div className={styles.aiStatusRow}>
+          <span className={styles.aiProcessing}><Loader2 size={10} className="spin" /> Classifying</span>
+        </div>
+      )}
+      {task.ai_status === 'done' && task._ai_meta?.bucket && (
+        <div className={styles.aiStatusRow}>
+          <span className={styles.aiClassification}>
+            <Sparkles size={10} />
+            {task._ai_meta.bucket}
+          </span>
+        </div>
+      )}
     </div>
   );
 }

@@ -81,7 +81,7 @@ function getCaptureRoute(entity, fallbackType = 'note') {
 }
 
 export default function AppShell({ children }) {
-  const { projects, notes, captureOpen, openCapture, closeCapture, addToast } = useStore();
+  const { projects, notes, captureOpen, openCapture, closeCapture, addToast, startAiStatusPoll } = useStore();
   const location = useLocation();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
@@ -150,6 +150,9 @@ export default function AppShell({ children }) {
         ? 'Capture created'
         : 'Capture created · AI classifying and linking…',
     });
+    if (aiStatus === 'processing' && entity?.id) {
+      startAiStatusPoll(entity.id, selectedType);
+    }
     navigate(getCaptureRoute(entity, selectedType));
   };
 

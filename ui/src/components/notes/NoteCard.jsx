@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Link, useNavigate } from 'react-router-dom';
-import { MoreHorizontal, Trash2, Edit2 } from 'lucide-react';
+import { MoreHorizontal, Trash2, Edit2, Loader2, Sparkles } from 'lucide-react';
 import useStore from '../../stores/useStore';
 import styles from './NoteCard.module.css';
 
@@ -142,7 +142,24 @@ export default function NoteCard({ note, onEdit }) {
               {expanded ? 'Show less' : 'Show more'}
             </button>
           )}
-          {note._ai_meta?.confidence && (
+          {note.ai_status === 'processing' && (
+            <span className={styles.aiProcessing}>
+              <Loader2 size={10} className="spin" />
+              Classifying…
+            </span>
+          )}
+          {note.ai_status === 'done' && note._ai_meta?.bucket && (
+            <span className={styles.aiClassification}>
+              <Sparkles size={10} />
+              {note._ai_meta.bucket}
+              {note._ai_meta?.confidence != null && (
+                <span className={styles.aiConfidence}>
+                  {Math.round(note._ai_meta.confidence * 100)}%
+                </span>
+              )}
+            </span>
+          )}
+          {note.ai_status !== 'processing' && !note._ai_meta?.bucket && note._ai_meta?.confidence && (
             <span className={styles.aiBadge}>
               AI {Math.round(note._ai_meta.confidence * 100)}%
             </span>

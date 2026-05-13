@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, Loader2, Sparkles } from 'lucide-react';
 import Modal from '../components/ui/Modal';
 import useStore from '../stores/useStore';
 import EmptyState from '../components/ui/EmptyState';
@@ -160,6 +160,15 @@ export default function People() {
                   {personRole && <span className={styles.role}>{personRole}</span>}
                   {!personRole && personEmail && (
                     <span className={styles.role}>{personEmail}</span>
+                  )}
+                  {p.ai_status === 'processing' && (
+                    <span className={styles.aiProcessing}><Loader2 size={10} className="spin" /></span>
+                  )}
+                  {p.ai_status === 'done' && p._ai_meta?.bucket && (
+                    <span className={styles.aiClassification}>
+                      <Sparkles size={10} />
+                      {p._ai_meta.bucket}
+                    </span>
                   )}
                   <div className={styles.cardActions}>
                     <button

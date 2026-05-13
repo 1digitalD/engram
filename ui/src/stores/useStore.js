@@ -6,11 +6,9 @@
 import { create } from 'zustand';
 import { notesAPI, projectsAPI, areasAPI, peopleAPI, tasksAPI, ingestAPI, tagsAPI, resourcesAPI } from '../api/engram';
 
-/**
- * Normalize entity objects from API responses to v2 field names.
- * - `name` -> `title`
- * - `ai_meta` -> `_ai_meta` (internal, not exposed to components)
- */
+const AI_STATUS_POLL_INTERVAL = 2000;
+const AI_STATUS_POLL_MAX = 30;
+
 function normalizeEntity(entity) {
   if (!entity || typeof entity !== 'object') return entity;
   const { name, ai_meta, ...rest } = entity;
@@ -239,6 +237,119 @@ const useStore = create((set, get) => ({
       next[idx] = normalized;
       return { notes: next };
     });
+  },
+
+  // ── AI Status Polling ─────────────────────
+
+  _aiPollTimers: {},
+
+  startAiStatusPoll: (entityId, entityType) => {
+    const { _aiPollTimers } = get();
+    if (_aiPollTimers[entityId]) return;
+
+    let attempts = 0;
+    const timer = setInterval(async () => {
+      attempts += 1;
+      if (attempts > AI_STATUS_POLL_MAX) {
+        clearInterval(timer);
+        set(s => {
+          const next = { ...s._aiPollTimers };
+          delete next[entityId];
+          return { _aiPollTimers: next };
+        });
+        return;
+      }
+
+      try {
+        let res;
+        if (entityType === 'note') res = await notesAPI.get(entityId);
+        else if (entityType === 'project') res = await projectsAPI.get(entityId);
+        else if (entityType === 'area') res = await areasAPI.get(entityId);
+        else if (entityType === 'person') res = await peopleAPI.get(entityId);
+        else if (entityType === 'task') res = await tasksAPI.get(entityId);
+        else if (entityType === 'resource') res = await resourcesAPI.get(entityId);
+        else return;
+
+        const updated = normalizeEntity(res.data);
+        if (updated.ai_status !== 'processing') {
+          clearInterval(timer);
+          set(s => {
+            const next = { ...s._aiPollTimers };
+            delete next[entityId];
+            return { _aiPollTimers: next };
+          });
+          if (entityType === 'note') {
+            set(s => ({
+              notes: s.notes.map(n => n.id === entityId ? updated : n),
+              activeNote: s.activeNote?.id === entityId ? updated : s.activeNote,
+            }));
+          } else if (entityType === 'project') {
+            set(s => ({
+              projects: s.projects.map(p => p.id === entityId ? updated : p),
+              activeProject: s.activeProject?.id === entityId ? updated : s.activeProject,
+            }));
+          } else if (entityType === 'area') {
+            set(s => ({
+              areas: s.areas.map(a => a.id === entityId ? updated : a),
+              activeArea: s.activeArea?.id === entityId ? updated : s.activeArea,
+            }));
+          } else if (entityType === 'person') {
+            set(s => ({
+              people: s.people.map(p => p.id === entityId ? updated : p),
+              activePerson: s.activePerson?.id === entityId ? updated : s.activePerson,
+            }));
+          } else if (entityType === 'task') {
+            set(s => ({
+              tasks: s.tasks.map(t => t.id === entityId ? updated : t),
+            }));
+          } else if (entityType === 'resource') {
+            set(s => ({
+              resources: s.resources.map(r => r.id === entityId ? updated : r),
+            }));
+          }
+        } else {
+          set(s => {
+            if (entityType === 'note') {
+              return { notes: s.notes.map(n => n.id === entityId ? { ...n, ai_status: 'processing' } : n) };
+            } else if (entityType === 'project') {
+              return { projects: s.projects.map(p => p.id === entityId ? { ...p, ai_status: 'processing' } : p) };
+            } else if (entityType === 'area') {
+              return { areas: s.areas.map(a => a.id === entityId ? { ...a, ai_status: 'processing' } : a) };
+            } else if (entityType === 'person') {
+              return { people: s.people.map(p => p.id === entityId ? { ...p, ai_status: 'processing' } : p) };
+            } else if (entityType === 'task') {
+              return { tasks: s.tasks.map(t => t.id === entityId ? { ...t, ai_status: 'processing' } : t) };
+            } else if (entityType === 'resource') {
+              return { resources: s.resources.map(r => r.id === entityId ? { ...r, ai_status: 'processing' } : r) };
+            }
+            return {};
+          });
+        }
+      } catch {
+        if (attempts > AI_STATUS_POLL_MAX) {
+          clearInterval(timer);
+          set(s => {
+            const next = { ...s._aiPollTimers };
+            delete next[entityId];
+            return { _aiPollTimers: next };
+          });
+        }
+      }
+    }, AI_STATUS_POLL_INTERVAL);
+
+    set(s => ({ _aiPollTimers: { ...s._aiPollTimers, [entityId]: timer } }));
+  },
+
+  stopAiStatusPoll: (entityId) => {
+    const { _aiPollTimers } = get();
+    if (_aiPollTimers[entityId]) {
+      clearInterval(_aiPollTimers[entityId]);
+      set(s => {
+        const next = { ...s._aiPollTimers };
+        delete next[entityId];
+        return { _aiPollTimers: next };
+      });
+    }
   },
 
   // ── Projects ───────────────────────────────
