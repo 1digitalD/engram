@@ -14,8 +14,8 @@ const mockNotes = [
 ];
 
 const mockTasks = [
-  { id: 't1', title: 'Fix login bug', status: 'PENDING' },
-  { id: 't2', title: 'Write documentation', status: 'IN_PROGRESS' },
+  { id: 't1', title: 'Fix login bug', status: 'pending' },
+  { id: 't2', title: 'Write documentation', status: 'in_progress' },
 ];
 
 const mockProjects = [

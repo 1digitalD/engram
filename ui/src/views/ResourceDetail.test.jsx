@@ -113,7 +113,7 @@ describe('ResourceDetail', () => {
     vi.mocked(connectionsAPI.forEntity).mockResolvedValue({
       outgoing: [
         { id: 'l1', src_id: 'r1', dst_id: 'n1', dst_entity: { id: 'n1', type: 'note', raw_text: '# Reading note' } },
-        { id: 'l2', src_id: 'r1', dst_id: 't1', dst_entity: { id: 't1', type: 'task', title: 'Draft summary', status: 'IN_PROGRESS' } },
+        { id: 'l2', src_id: 'r1', dst_id: 't1', dst_entity: { id: 't1', type: 'task', title: 'Draft summary', status: 'in_progress' } },
         { id: 'l3', src_id: 'r1', dst_id: 'person-1', dst_entity: { id: 'person-1', type: 'person', name: 'Ada Lovelace', role: 'Researcher' } },
       ],
       incoming: [],
@@ -129,7 +129,7 @@ describe('ResourceDetail', () => {
         tag_names: ['systems', 'thinking'],
       }],
       notes: [{ id: 'n1', raw_text: '# Reading note', type: 'note' }],
-      tasks: [{ id: 't1', title: 'Draft summary', status: 'IN_PROGRESS', type: 'task' }],
+      tasks: [{ id: 't1', title: 'Draft summary', status: 'in_progress', type: 'task' }],
       people: [{ id: 'person-1', name: 'Ada Lovelace', role: 'Researcher', type: 'person' }],
     });
 

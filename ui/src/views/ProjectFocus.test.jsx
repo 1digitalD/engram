@@ -64,7 +64,7 @@ describe('ProjectFocus complete project', () => {
         id: 'p1',
         name: 'Apollo',
         description: 'Ship the redesign',
-        status: 'IN_PROGRESS',
+        status: 'in_progress',
         due_date: '2026-05-20',
         area_id: 'a1',
         color: '#abc',
@@ -78,9 +78,9 @@ describe('ProjectFocus complete project', () => {
         tag_names: ['launch', 'design'],
       }],
       tasks: [
-        { id: 't1', project_id: 'p1', title: 'Write brief', status: 'DONE' },
-        { id: 't2', project_id: 'p1', title: 'Build UI', status: 'IN_PROGRESS' },
-        { id: 't3', project_id: 'p1', title: 'QA pass', status: 'PENDING' },
+        { id: 't1', project_id: 'p1', title: 'Write brief', status: 'done' },
+        { id: 't2', project_id: 'p1', title: 'Build UI', status: 'in_progress' },
+        { id: 't3', project_id: 'p1', title: 'QA pass', status: 'pending' },
       ],
     });
 
@@ -104,9 +104,9 @@ describe('ProjectFocus complete project', () => {
       areas: [{ id: 'a1', name: 'Work', is_archived: false }],
       notes: [{ id: 'n1', project_id: 'p1', raw_text: 'Meeting notes', person_id: 'person-1' }],
       tasks: [
-        { id: 't1', project_id: 'p1', title: 'Done task', status: 'DONE' },
-        { id: 't2', project_id: 'p1', title: 'Active task', status: 'IN_PROGRESS' },
-        { id: 't3', project_id: 'p1', title: 'Planned task', status: 'PENDING' },
+        { id: 't1', project_id: 'p1', title: 'Done task', status: 'done' },
+        { id: 't2', project_id: 'p1', title: 'Active task', status: 'in_progress' },
+        { id: 't3', project_id: 'p1', title: 'Planned task', status: 'pending' },
       ],
       people: [{ id: 'person-1', name: 'Ada Lovelace', role: 'Designer' }],
     });
@@ -139,10 +139,10 @@ describe('ProjectFocus complete project', () => {
     await user.click(screen.getByTestId('complete-project-btn'));
     expect(screen.getByRole('button', { name: 'Rolling up...' })).toBeDisabled();
 
-    resolveUpdate({ project: { id: 'p1', status: 'DONE' }, rollup: null });
+    resolveUpdate({ project: { id: 'p1', status: 'done' }, rollup: null });
 
     await waitFor(() => {
-      expect(updateProject).toHaveBeenCalledWith('p1', { status: 'DONE' });
+      expect(updateProject).toHaveBeenCalledWith('p1', { status: 'done' });
     });
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Completed' })).toBeDisabled();

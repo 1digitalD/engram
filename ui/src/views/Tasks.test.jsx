@@ -11,7 +11,7 @@ const mockTasks = [
   {
     id: 't1',
     title: 'Draft kickoff notes',
-    status: 'PENDING',
+    status: 'pending',
     priority: 'HIGH',
     due_date: '2026-05-15',
     project_id: 'p1',
@@ -19,7 +19,7 @@ const mockTasks = [
   {
     id: 't2',
     title: 'Ship drag UI',
-    status: 'IN_PROGRESS',
+    status: 'in_progress',
     priority: 'MEDIUM',
     due_date: '2026-05-10',
     project_id: 'p2',
@@ -27,7 +27,7 @@ const mockTasks = [
   {
     id: 't3',
     title: 'Close sprint',
-    status: 'DONE',
+    status: 'done',
     priority: 'LOW',
     due_date: null,
     project_id: 'p1',
@@ -43,8 +43,9 @@ function renderTasks(overrides = {}) {
   const store = {
     tasks: mockTasks,
     projects: mockProjects,
+    notes: [],
     createTask: vi.fn().mockResolvedValue({ id: 'new-task' }),
-    updateTask: vi.fn().mockResolvedValue({ id: 't1', status: 'IN_PROGRESS' }),
+    updateTask: vi.fn().mockResolvedValue({ id: 't1', status: 'in_progress' }),
     deleteTask: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
@@ -69,7 +70,7 @@ describe('Tasks view', () => {
     await waitFor(() => {
       expect(store.createTask).toHaveBeenCalledWith({
         title: 'Write release notes',
-        status: 'PENDING',
+        status: 'pending',
       });
     });
   });
@@ -77,7 +78,7 @@ describe('Tasks view', () => {
   it('updates task status when dropped into another column', async () => {
     const { store } = renderTasks();
     const card = screen.getByTestId('task-card-t1');
-    const dropZone = screen.getByTestId('task-column-IN_PROGRESS');
+    const dropZone = screen.getByTestId('task-column-in_progress');
     const dataTransfer = {
       effectAllowed: 'move',
       dropEffect: 'move',
@@ -90,7 +91,7 @@ describe('Tasks view', () => {
     fireEvent.drop(dropZone, { dataTransfer });
 
     await waitFor(() => {
-      expect(store.updateTask).toHaveBeenCalledWith('t1', { status: 'IN_PROGRESS' });
+      expect(store.updateTask).toHaveBeenCalledWith('t1', { status: 'in_progress' });
     });
   });
 
