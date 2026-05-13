@@ -530,9 +530,11 @@
       "validationCommands": [
         "pytest -q -k 'mcp' 2>&1 || true"
       ],
-      "passes": false,
+      "passes": true,
       "blocked": false,
-      "phase": "5"
+      "phase": "5",
+      "commit": "c269ecd5",
+      "attempts": 1
     },
     {
       "id": "V3-5.5",

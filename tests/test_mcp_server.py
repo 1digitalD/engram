@@ -15,10 +15,14 @@ def test_mcp_tools_registered():
     names = asyncio.run(_names())
     assert names == [
         "capture",
+        "create_entity",
+        "get_entity",
         "get_note",
         "link_notes",
         "list_recent",
         "review",
         "search",
+        "search_entities",
+        "update_entity",
         "update_note",
     ]
