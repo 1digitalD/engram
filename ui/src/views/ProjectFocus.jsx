@@ -1,10 +1,11 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
   FileText,
   FolderOpen,
   Plus,
+  ChevronDown,
 } from 'lucide-react';
 import useStore from '../stores/useStore';
 import NoteEditor from '../components/notes/NoteEditor';
@@ -24,10 +25,24 @@ const TASK_COLUMNS = [
   { key: 'PENDING', label: 'Pending' },
 ];
 
+const PROJECT_STATUSES = [
+  { value: 'active', label: 'Active' },
+  { value: 'on_hold', label: 'On Hold' },
+  { value: 'completed', label: 'Completed' },
+  { value: 'cancelled', label: 'Archived' },
+];
+
 const surfaceCardStyle = {
   background: 'var(--surface)',
   border: '1px solid var(--border)',
   borderRadius: '14px',
+};
+
+const STATUS_COLORS = {
+  active: 'var(--green)',
+  on_hold: 'var(--yellow)',
+  completed: 'var(--accent)',
+  cancelled: 'var(--text-muted)',
 };
 
 function firstLine(text) {
@@ -89,6 +104,20 @@ export default function ProjectFocus() {
   const [tab, setTab] = useState('notes');
   const [showNoteEditor, setShowNoteEditor] = useState(false);
   const [completionState, setCompletionState] = useState('idle');
+  const [showStatusPicker, setShowStatusPicker] = useState(false);
+  const statusPickerRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (statusPickerRef.current && !statusPickerRef.current.contains(e.target)) {
+        setShowStatusPicker(false);
+      }
+    }
+    if (showStatusPicker) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showStatusPicker]);
 
   const project = projects.find((entry) => entry.id === id);
 
@@ -127,16 +156,28 @@ export default function ProjectFocus() {
     );
   }
 
-  async function handleCompleteProject() {
-    if (completionState !== 'idle') return;
-    setCompletionState('rolling-up');
-    try {
-      await updateProject(id, { status: 'DONE' });
-      setCompletionState('completed');
-    } catch {
-      setCompletionState('idle');
+  async function handleStatusChange(newStatus) {
+    setShowStatusPicker(false);
+    if (newStatus === 'completed') {
+      setCompletionState('rolling-up');
+      try {
+        await updateProject(id, { status: 'completed' });
+        setCompletionState('completed');
+      } catch {
+        setCompletionState('idle');
+      }
+    } else {
+      try {
+        await updateProject(id, { status: newStatus });
+      } catch {
+        // Status change failed
+      }
     }
   }
+
+  const currentStatus = completionState === 'completed' ? 'completed' : (project.status || 'active');
+  const currentStatusConfig = PROJECT_STATUSES.find(s => s.value === currentStatus) || PROJECT_STATUSES[0];
+  const statusColor = STATUS_COLORS[currentStatus] || 'var(--text)';
 
   const completeButtonLabel = completionState === 'rolling-up'
     ? 'Rolling up...'
@@ -190,49 +231,106 @@ export default function ProjectFocus() {
 
           <div style={{ display: 'grid', gap: '8px', justifyItems: 'end', flex: '0 0 auto' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-              <span style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                padding: '5px 10px',
-                borderRadius: '999px',
-                background: 'var(--surface2)',
-                border: '1px solid var(--border)',
-                color: 'var(--text)',
-                fontSize: '11px',
-                fontWeight: 600,
-                letterSpacing: '0.06em',
-                textTransform: 'uppercase',
-              }}>
-                {getStatusLabel(completionState === 'completed' ? 'DONE' : project.status)}
-              </span>
+              {/* Status picker dropdown */}
+              <div ref={statusPickerRef} style={{ position: 'relative' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowStatusPicker(!showStatusPicker)}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '5px 10px',
+                    borderRadius: '999px',
+                    background: 'var(--surface2)',
+                    border: `1px solid ${statusColor}`,
+                    color: statusColor,
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    letterSpacing: '0.06em',
+                    textTransform: 'uppercase',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: statusColor }} />
+                  {currentStatusConfig.label}
+                  <ChevronDown size={12} />
+                </button>
+                {showStatusPicker && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '100%',
+                    right: 0,
+                    marginTop: '4px',
+                    background: 'var(--surface)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    padding: '4px',
+                    minWidth: '140px',
+                    zIndex: 100,
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+                  }}>
+                    {PROJECT_STATUSES.map((status) => {
+                      const color = STATUS_COLORS[status.value];
+                      return (
+                        <button
+                          key={status.value}
+                          type="button"
+                          onClick={() => handleStatusChange(status.value)}
+                          disabled={status.value === currentStatus || completionState !== 'idle'}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            width: '100%',
+                            padding: '8px 10px',
+                            border: 'none',
+                            borderRadius: '6px',
+                            background: status.value === currentStatus ? 'var(--surface2)' : 'transparent',
+                            color: 'var(--text)',
+                            fontSize: '12px',
+                            cursor: status.value === currentStatus || completionState !== 'idle' ? 'default' : 'pointer',
+                            textAlign: 'left',
+                          }}
+                        >
+                          <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: color }} />
+                          {status.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
               {project.due_date && (
                 <span style={{ color: 'var(--text-secondary)', fontSize: '12px', fontFamily: 'var(--font-mono, monospace)' }}>
                   Due {formatDate(project.due_date)}
                 </span>
               )}
             </div>
-            <button
-              type="button"
-              data-testid="complete-project-btn"
-              onClick={handleCompleteProject}
-              disabled={completionState !== 'idle'}
-              style={{
-                minWidth: '148px',
-                height: '34px',
-                padding: '0 14px',
-                borderRadius: '999px',
-                border: '1px solid transparent',
-                background: completionState === 'completed' ? 'var(--green)' : 'var(--accent)',
-                color: completionState === 'completed' ? 'var(--text)' : 'var(--text)',
-                fontSize: '12px',
-                fontWeight: 700,
-                cursor: completionState === 'idle' ? 'pointer' : 'default',
-                opacity: completionState === 'rolling-up' ? 0.85 : 1,
-                transition: 'background 180ms ease, opacity 180ms ease, transform 180ms ease',
-              }}
-            >
-              {completeButtonLabel}
-            </button>
+            {currentStatus !== 'completed' && (
+              <button
+                type="button"
+                data-testid="complete-project-btn"
+                onClick={() => handleStatusChange('completed')}
+                disabled={completionState !== 'idle'}
+                style={{
+                  minWidth: '148px',
+                  height: '34px',
+                  padding: '0 14px',
+                  borderRadius: '999px',
+                  border: '1px solid transparent',
+                  background: completionState === 'completed' ? 'var(--green)' : 'var(--accent)',
+                  color: completionState === 'completed' ? 'var(--text)' : 'var(--text)',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  cursor: completionState === 'idle' ? 'pointer' : 'default',
+                  opacity: completionState === 'rolling-up' ? 0.85 : 1,
+                  transition: 'background 180ms ease, opacity 180ms ease, transform 180ms ease',
+                }}
+              >
+                {completeButtonLabel}
+              </button>
+            )}
             <span aria-live="polite" style={{ minHeight: '16px', color: 'var(--text-muted)', fontSize: '11px' }}>
               {completionState === 'rolling-up' ? 'Rolling up...' : completionState === 'completed' ? 'Completed' : ''}
             </span>

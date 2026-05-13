@@ -434,7 +434,8 @@ const useStore = create((set, get) => ({
         areas: s.areas.map(a => a.id === id ? updated : a),
         activeArea: s.activeArea?.id === id ? updated : s.activeArea,
       }));
-      return updated;
+      // Return detached_projects count if archiving
+      return { ...updated, detached_projects: res.detached_projects };
     } catch (e) {
       get().addToast({ type: 'error', message: e.message });
       throw e;

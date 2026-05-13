@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Plus, Pencil, Trash2 } from 'lucide-react';
+import { ArrowLeft, Plus, Pencil, Trash2, ChevronDown, AlertTriangle, Loader2 } from 'lucide-react';
 import Modal from '../components/ui/Modal';
 import useStore from '../stores/useStore';
 import NoteCard from '../components/notes/NoteCard';
@@ -9,6 +9,16 @@ import TaskCheckboxRow from '../components/tasks/TaskCheckboxRow';
 import ConnectionsPanel from '../components/ConnectionsPanel/ConnectionsPanel';
 import DeleteConfirmModal from '../components/DeleteConfirmModal';
 import styles from './ProjectFocus.module.css';
+
+const AREA_STATUSES = [
+  { value: 'active', label: 'Active' },
+  { value: 'archived', label: 'Archived' },
+];
+
+const STATUS_COLORS = {
+  active: 'var(--green)',
+  archived: 'var(--text-muted)',
+};
 
 export default function AreaFocus() {
   const { id } = useParams();
@@ -22,6 +32,27 @@ export default function AreaFocus() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [color, setColor] = useState('');
+
+  // Status picker state
+  const [showStatusPicker, setShowStatusPicker] = useState(false);
+  const statusPickerRef = useRef(null);
+
+  // Archive confirmation modal
+  const [showArchiveModal, setShowArchiveModal] = useState(false);
+  const [archiving, setArchiving] = useState(false);
+  const [detachedCount, setDetachedCount] = useState(0);
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (statusPickerRef.current && !statusPickerRef.current.contains(e.target)) {
+        setShowStatusPicker(false);
+      }
+    }
+    if (showStatusPicker) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showStatusPicker]);
 
   const area = areas.find(a => a.id === id);
   if (!area) return (
@@ -74,6 +105,40 @@ export default function AreaFocus() {
     navigate('/areas');
   };
 
+  const handleStatusChange = async (newStatus) => {
+    setShowStatusPicker(false);
+    if (newStatus === 'archived') {
+      setShowArchiveModal(true);
+    } else {
+      try {
+        await updateArea(area.id, { status: newStatus });
+      } catch {
+        // Status change failed
+      }
+    }
+  };
+
+  const handleArchiveConfirm = async () => {
+    setArchiving(true);
+    try {
+      const res = await updateArea(area.id, { is_archived: true });
+      setDetachedCount(res.detached_projects || 0);
+      setShowArchiveModal(false);
+      useStore.getState().addToast({
+        type: 'success',
+        message: `Area archived${res.detached_projects ? `, ${res.detached_projects} project(s) detached` : ''}`,
+      });
+    } catch (e) {
+      useStore.getState().addToast({ type: 'error', message: e.message || 'Failed to archive area' });
+    } finally {
+      setArchiving(false);
+    }
+  };
+
+  const currentStatus = area.status || 'active';
+  const currentStatusConfig = AREA_STATUSES.find(s => s.value === currentStatus) || AREA_STATUSES[0];
+  const statusColor = STATUS_COLORS[currentStatus] || 'var(--text)';
+
   return (
     <div className={styles.page}>
       <nav className={styles.breadcrumb} aria-label="Breadcrumb">
@@ -91,6 +156,69 @@ export default function AreaFocus() {
         <h1>{area.title}</h1>
         {area.description && <p className={styles.desc}>{area.description}</p>}
         <div className={styles.headerActions}>
+          {/* Status picker */}
+          <div ref={statusPickerRef} style={{ position: 'relative' }}>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={() => setShowStatusPicker(!showStatusPicker)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                border: `1px solid ${statusColor}`,
+                color: statusColor,
+              }}
+            >
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: statusColor }} />
+              {currentStatusConfig.label}
+              <ChevronDown size={12} />
+            </button>
+            {showStatusPicker && (
+              <div style={{
+                position: 'absolute',
+                top: '100%',
+                right: 0,
+                marginTop: '4px',
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                borderRadius: '8px',
+                padding: '4px',
+                minWidth: '130px',
+                zIndex: 100,
+                boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+              }}>
+                {AREA_STATUSES.map((status) => {
+                  const color = STATUS_COLORS[status.value];
+                  return (
+                    <button
+                      key={status.value}
+                      type="button"
+                      onClick={() => handleStatusChange(status.value)}
+                      disabled={status.value === currentStatus}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        width: '100%',
+                        padding: '8px 10px',
+                        border: 'none',
+                        borderRadius: '6px',
+                        background: status.value === currentStatus ? 'var(--surface2)' : 'transparent',
+                        color: 'var(--text)',
+                        fontSize: '12px',
+                        cursor: status.value === currentStatus ? 'default' : 'pointer',
+                        textAlign: 'left',
+                      }}
+                    >
+                      <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: color }} />
+                      {status.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
           <button type="button" className="btn btn-ghost btn-sm" onClick={openEdit}>
             <Pencil size={13} /> Edit
           </button>
@@ -208,6 +336,31 @@ export default function AreaFocus() {
           </div>
         </Modal>
       )}
+
+      {/* Archive confirmation modal */}
+      <Modal isOpen={showArchiveModal} onClose={() => !archiving && setShowArchiveModal(false)} title="Archive Area" footer={
+        <>
+          <button type="button" className="btn btn-ghost" onClick={() => setShowArchiveModal(false)} disabled={archiving}>Cancel</button>
+          <button type="button" className="btn btn-primary" onClick={handleArchiveConfirm} disabled={archiving} style={{ background: 'var(--yellow)', color: 'var(--text)' }}>
+            {archiving ? <><Loader2 size={13} className="spin" /> Archiving...</> : 'Confirm Archive'}
+          </button>
+        </>
+      }>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--yellow)' }}>
+            <AlertTriangle size={16} />
+            <span style={{ fontSize: '13px', fontWeight: 600 }}>This will archive the area</span>
+          </div>
+          {areaProjects.length > 0 && (
+            <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-secondary)' }}>
+              {areaProjects.length} project(s) will be detached from this area. They will remain active but no longer linked.
+            </p>
+          )}
+          <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-muted)' }}>
+            You can restore the area later by changing its status back to Active.
+          </p>
+        </div>
+      </Modal>
 
       <DeleteConfirmModal
         isOpen={showDeleteModal}

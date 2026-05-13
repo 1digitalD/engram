@@ -512,9 +512,11 @@
         "pytest -q -k 'rollup or status' 2>&1 || true",
         "cd ui && npm run build"
       ],
-      "passes": false,
+      "passes": true,
       "blocked": false,
-      "phase": "5"
+      "phase": "5",
+      "commit": "6c21d550",
+      "attempts": 1
     },
     {
       "id": "V3-5.4",

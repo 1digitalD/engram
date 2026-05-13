@@ -7,6 +7,20 @@ from models import Entity
 from services.entity_service import create_entity, update_entity, transition_status, delete_entity
 
 
+# Status normalization: map frontend status values to backend canonical values.
+STATUS_NORMALIZE = {
+    "DONE": "completed",
+    "IN_PROGRESS": "on_hold",
+    "PENDING": "active",
+    "ACTIVE": "active",
+    "ON_HOLD": "on_hold",
+    "ON HOLD": "on_hold",
+    "COMPLETED": "completed",
+    "CANCELLED": "cancelled",
+    "ARCHIVED": "cancelled",
+}
+
+
 @api_bp.route("/projects", methods=["GET"])
 def list_projects():
     archived = request.args.get("archived", "false").lower() == "true"
@@ -63,12 +77,29 @@ def update_project(project_id):
         return jsonify({"error": "not found"}), 404
 
     data = request.get_json() or {}
+    rollup_result = None
 
     # Handle status transitions
     if "status" in data:
+        raw_status = data["status"]
+        normalized_status = STATUS_NORMALIZE.get(raw_status, raw_status)
         try:
-            transition_status(project_id, data["status"], actor="user")
+            transition_status(project_id, normalized_status, actor="user")
             project = db.session.get(Entity, project_id)
+
+            # Trigger rollup summary when project is completed
+            if normalized_status == "completed":
+                area_id = (project.properties or {}).get("area_id")
+                if area_id:
+                    try:
+                        from services.rollup import rollup_project_to_area
+                        summary = rollup_project_to_area(project_id)
+                        rollup_result = {
+                            "summary_id": summary.id,
+                            "summary_title": summary.title,
+                        }
+                    except Exception:
+                        pass  # Rollup failed — project is still marked completed
         except ValueError as e:
             return jsonify({"error": str(e)}), 400
 
@@ -94,7 +125,7 @@ def update_project(project_id):
             project.lifecycle = "active"
             db.session.commit()
         project = db.session.get(Entity, project_id)
-        return jsonify({"data": project.to_dict()})
+        return jsonify({"data": project.to_dict(), "rollup": rollup_result})
 
     # Regular field updates
     fields = {}
@@ -119,7 +150,7 @@ def update_project(project_id):
         update_entity(project_id, fields, actor="user")
         project = db.session.get(Entity, project_id)
 
-    return jsonify({"data": project.to_dict()})
+    return jsonify({"data": project.to_dict(), "rollup": rollup_result})
 
 
 @api_bp.route("/projects/<project_id>", methods=["DELETE"])

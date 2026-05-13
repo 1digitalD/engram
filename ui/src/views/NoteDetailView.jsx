@@ -186,6 +186,7 @@ export default function NoteDetailView() {
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [classifying, setClassifying] = useState(false);
   const [followUpBusy, setFollowUpBusy] = useState(false);
+  const [lifecycleBusy, setLifecycleBusy] = useState(false);
 
   const note = notes.find(n => n.id === id);
 
@@ -366,6 +367,19 @@ export default function NoteDetailView() {
       addToast({ type: 'error', message: 'Failed to clear follow-up date' });
     } finally {
       setFollowUpBusy(false);
+    }
+  };
+
+  const handleLifecycleChange = async (e) => {
+    const newBucket = e.target.value;
+    setLifecycleBusy(true);
+    try {
+      await updateNote(note.id, { bucket: newBucket }, { silent: true });
+      addToast({ type: 'success', message: `Note moved to ${newBucket}` });
+    } catch (e) {
+      addToast({ type: 'error', message: 'Failed to update lifecycle' });
+    } finally {
+      setLifecycleBusy(false);
     }
   };
 
@@ -972,7 +986,28 @@ export default function NoteDetailView() {
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
                 <span style={{ fontSize: '11px', color: 'var(--text-muted)', minWidth: '52px' }}>Status</span>
-                <BucketBadge bucket={note.bucket || 'INBOX'} />
+                <select
+                  value={note.bucket || 'INBOX'}
+                  onChange={handleLifecycleChange}
+                  disabled={lifecycleBusy}
+                  style={{
+                    fontSize: '11px',
+                    fontFamily: 'var(--font-mono)',
+                    color: 'var(--text-secondary)',
+                    background: 'transparent',
+                    border: '1px solid var(--border-faint)',
+                    borderRadius: '4px',
+                    padding: '2px 4px',
+                    cursor: lifecycleBusy ? 'default' : 'pointer',
+                    opacity: lifecycleBusy ? 0.6 : 1,
+                  }}
+                >
+                  <option value="INBOX">INBOX</option>
+                  <option value="PROJECT">PROJECT</option>
+                  <option value="AREA">AREA</option>
+                  <option value="RESOURCE">RESOURCE</option>
+                  <option value="ARCHIVE">ARCHIVE</option>
+                </select>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
                 <span style={{ fontSize: '11px', color: 'var(--text-muted)', minWidth: '52px' }}>Created</span>
