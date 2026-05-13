@@ -1,9 +1,7 @@
 /* =============================================
    ENGRAM — Design Tokens + Global Styles
-   Light mode default, dark mode via .dark on <html>
+   Light mode default, dark mode via [data-theme="dark"] on <html>
    ============================================= */
-
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap');
 
 /* ── Light Mode (default) ──────────────────── */
 :root {
@@ -16,47 +14,47 @@
   --base-line-height: 1.5;
 
   /* Backgrounds */
-  --bg:          #FFFFFF;
-  --surface:     #F8F9FA;
-  --surface2:    #F1F3F5;
-  --surface3:    #E9ECEF;
-  --hover:       #DEE2E6;
+  --bg:          oklch(97.5% 0.014 88);
+  --surface:     oklch(100%  0.006 88);
+  --surface2:    oklch(95%   0.016 88);
+  --surface3:    oklch(91%   0.018 88);
+  --hover:       oklch(87%   0.018 88);
 
   /* Borders */
-  --border:       #CED4DA;
-  --border-faint: #E9ECEF;
-  --border-focus: #7C6AFF;
+  --border:       oklch(87%   0.018 88);
+  --border-faint: oklch(92%   0.012 88);
+  --border-focus: oklch(50% 0.14 278);
 
   /* Text */
-  --text:           #212529;
-  --text-secondary: #6C757D;
-  --text-muted:     #ADB5BD;
+  --text:           oklch(18% 0.015 75);
+  --text-secondary: oklch(38% 0.012 75);
+  --text-muted:     oklch(58% 0.010 75);
 
   /* Accent */
-  --accent:       #7C6AFF;
-  --accent-dim:   rgba(124, 106, 255, 0.12);
-  --accent-hover: #6A58E0;
+  --accent:       oklch(50% 0.14 278);
+  --accent-dim:   oklch(93% 0.04 278);
+  --accent-hover: oklch(45% 0.14 278);
 
   /* Semantic colors */
-  --green:  #22C55E;
-  --yellow: #F59E0B;
-  --red:    #EF4444;
-  --pink:   #EC4899;
+  --green:  oklch(40% 0.14 155);
+  --yellow: oklch(48% 0.14  82);
+  --red:    oklch(46% 0.18  22);
+  --pink:   oklch(46% 0.14 340);
 
   /* Bucket colors */
-  --bucket-inbox:     #7C6AFF;
-  --bucket-projects:  #22C55E;
-  --bucket-areas:     #3B82F6;
-  --bucket-resources: #F59E0B;
-  --bucket-archives:  #6B7280;
+  --bucket-inbox:     oklch(50% 0.14 278);
+  --bucket-projects:  oklch(40% 0.14 155);
+  --bucket-areas:     oklch(46% 0.14 340);
+  --bucket-resources: oklch(48% 0.14  82);
+  --bucket-archives:  oklch(58% 0.010 75);
 
   /* Entity type colors */
-  --entity-note:      #7C6AFF;
-  --entity-task:      #22C55E;
-  --entity-project:   #3B82F6;
-  --entity-area:      #F59E0B;
-  --entity-person:    #EC4899;
-  --entity-resource:  #8B5CF6;
+  --entity-note:      oklch(58% 0.010 75);
+  --entity-task:      oklch(48% 0.14  82);
+  --entity-project:   oklch(50% 0.14 278);
+  --entity-area:      oklch(46% 0.14 340);
+  --entity-person:    oklch(40% 0.14 155);
+  --entity-resource:  oklch(58% 0.010 75);
 
   /* Shadows */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
@@ -105,42 +103,42 @@
 }
 
 /* ── Dark Mode ─────────────────────────────── */
-html.dark {
-  --bg:          #0D0D0F;
-  --surface:     #16161A;
-  --surface2:    #1E1E24;
-  --surface3:    #25252E;
-  --hover:       #2C2C38;
+[data-theme="dark"] {
+  --bg:          oklch(11%   0.016 272);
+  --surface:     oklch(14.5% 0.016 272);
+  --surface2:    oklch(18%   0.016 272);
+  --surface3:    oklch(22%   0.016 272);
+  --hover:       oklch(26%   0.018 272);
 
-  --border:       #2A2A32;
-  --border-faint: #1E1E24;
-  --border-focus: #7C6AFF;
+  --border:       oklch(26%   0.018 272);
+  --border-faint: oklch(20%   0.012 272);
+  --border-focus: oklch(50% 0.14 278);
 
-  --text:           #EDEDEF;
-  --text-secondary: #8888A0;
-  --text-muted:     #7C7C94;
+  --text:           oklch(93% 0.008 272);
+  --text-secondary: oklch(70% 0.010 272);
+  --text-muted:     oklch(48% 0.012 272);
 
-  --accent:       #7C6AFF;
-  --accent-dim:   rgba(124, 106, 255, 0.15);
-  --accent-hover: #6A58E0;
+  --accent:       oklch(50% 0.14 278);
+  --accent-dim:   oklch(93% 0.04 278);
+  --accent-hover: oklch(55% 0.14 278);
 
-  --green:  #4ADE80;
-  --yellow: #FBBF24;
-  --red:    #FF6B6B;
-  --pink:   #F472B6;
+  --green:  oklch(68% 0.14 155);
+  --yellow: oklch(78% 0.14  82);
+  --red:    oklch(62% 0.18  22);
+  --pink:   oklch(68% 0.14 340);
 
-  --bucket-inbox:     #7C6AFF;
-  --bucket-projects:  #4ADE80;
-  --bucket-areas:     #60A5FA;
-  --bucket-resources: #FBBF24;
-  --bucket-archives:  #55556A;
+  --bucket-inbox:     oklch(50% 0.14 278);
+  --bucket-projects:  oklch(68% 0.14 155);
+  --bucket-areas:     oklch(68% 0.14 340);
+  --bucket-resources: oklch(78% 0.14  82);
+  --bucket-archives:  oklch(48% 0.012 272);
 
-  --entity-note:      #7C6AFF;
-  --entity-task:      #4ADE80;
-  --entity-project:   #60A5FA;
-  --entity-area:      #FBBF24;
-  --entity-person:    #F472B6;
-  --entity-resource:  #A78BFA;
+  --entity-note:      oklch(48% 0.012 272);
+  --entity-task:      oklch(78% 0.14  82);
+  --entity-project:   oklch(50% 0.14 278);
+  --entity-area:      oklch(68% 0.14 340);
+  --entity-person:    oklch(68% 0.14 155);
+  --entity-resource:  oklch(48% 0.012 272);
 
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
@@ -186,12 +184,11 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: transparent;
-  border: 1px solid var(--border);
+  background: var(--border);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  border-color: var(--text-muted);
+  background: var(--text-muted);
 }
 
 /* ── Typography ─────────────────────────────── */
