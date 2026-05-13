@@ -6,6 +6,10 @@ import {
   FolderOpen,
   Plus,
   ChevronDown,
+  X,
+  Loader2,
+  CheckCircle,
+  User,
 } from 'lucide-react';
 import useStore from '../stores/useStore';
 import NoteEditor from '../components/notes/NoteEditor';
@@ -100,12 +104,27 @@ function ProgressMetric({ label, value }) {
 export default function ProjectFocus() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { projects, notes, tasks, people, areas, updateProject } = useStore();
+  const { projects, notes, tasks, people, areas, updateProject, updateNote, createTask, updateTask, addToast } = useStore();
   const [tab, setTab] = useState('notes');
   const [showNoteEditor, setShowNoteEditor] = useState(false);
   const [completionState, setCompletionState] = useState('idle');
   const [showStatusPicker, setShowStatusPicker] = useState(false);
   const statusPickerRef = useRef(null);
+
+  // Add-note modal state
+  const [showAddNoteModal, setShowAddNoteModal] = useState(false);
+  const [noteSearchQuery, setNoteSearchQuery] = useState('');
+  const [notePick, setNotePick] = useState('');
+  const [noteLinkBusy, setNoteLinkBusy] = useState(false);
+
+  // Add-person modal state
+  const [showAddPersonModal, setShowAddPersonModal] = useState(false);
+  const [personSearchQuery, setPersonSearchQuery] = useState('');
+  const [personPick, setPersonPick] = useState('');
+  const [personLinkBusy, setPersonLinkBusy] = useState(false);
+
+  // Inline task creation
+  const [newTaskTitle, setNewTaskTitle] = useState('');
 
   useEffect(() => {
     function handleClickOutside(e) {
@@ -122,7 +141,10 @@ export default function ProjectFocus() {
   const project = projects.find((entry) => entry.id === id);
 
   const parentArea = project?.area_id ? areas.find((area) => area.id === project.area_id) : null;
-  const projectNotes = useMemo(() => notes.filter((note) => note.project_id === id), [id, notes]);
+  const projectNotes = useMemo(() => notes.filter((note) => {
+    const noteProjectIds = note.project_ids?.length ? note.project_ids : (note.project_id ? [note.project_id] : []);
+    return noteProjectIds.includes(id);
+  }), [id, notes]);
   const projectTasks = useMemo(() => tasks.filter((task) => task.project_id === id), [id, tasks]);
 
   const linkedPeople = useMemo(() => {
@@ -146,6 +168,20 @@ export default function ProjectFocus() {
       return acc;
     }, {})
   ), [projectTasks]);
+
+  // Note candidates: notes not already linked to this project
+  const alreadyLinkedNoteIds = new Set(projectNotes.map(n => n.id));
+  const noteCandidates = notes
+    .filter(n => !alreadyLinkedNoteIds.has(n.id))
+    .filter(n => firstLine(n.raw_text || n.title).toLowerCase().includes(noteSearchQuery.trim().toLowerCase()))
+    .slice(0, 80);
+
+  // Person candidates: people not already linked
+  const alreadyLinkedPersonIds = new Set(linkedPeople.map(p => p.id));
+  const personCandidates = people
+    .filter(p => !alreadyLinkedPersonIds.has(p.id))
+    .filter(p => (p.title || '').toLowerCase().includes(personSearchQuery.trim().toLowerCase()))
+    .slice(0, 80);
 
   if (!project) {
     return (
@@ -184,6 +220,103 @@ export default function ProjectFocus() {
     : completionState === 'completed'
       ? 'Completed'
       : 'Complete Project';
+
+  // ── Add note to project ──
+  async function handleAddNoteLink() {
+    if (!notePick || noteLinkBusy) return;
+    setNoteLinkBusy(true);
+    try {
+      const note = notes.find(n => n.id === notePick);
+      if (!note) return;
+      const existingIds = note.project_ids?.length ? note.project_ids : (note.project_id ? [note.project_id] : []);
+      if (!existingIds.includes(id)) {
+        await updateNote(note.id, { project_ids: [...existingIds, id] });
+      }
+      setNotePick('');
+      setNoteSearchQuery('');
+      setShowAddNoteModal(false);
+    } catch (e) {
+      addToast({ type: 'error', message: e.message || 'Could not link note' });
+    } finally {
+      setNoteLinkBusy(false);
+    }
+  }
+
+  // ── Remove note from project ──
+  async function handleRemoveNoteFromProject(noteId, e) {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      const note = notes.find(n => n.id === noteId);
+      if (!note) return;
+      const existingIds = note.project_ids?.length ? note.project_ids : (note.project_id ? [note.project_id] : []);
+      const newIds = existingIds.filter(pid => pid !== id);
+      await updateNote(note.id, { project_ids: newIds.length ? newIds : null });
+    } catch (e) {
+      addToast({ type: 'error', message: e.message || 'Could not unlink note' });
+    }
+  }
+
+  // ── Create task for this project ──
+  async function handleCreateTask(e) {
+    e.preventDefault();
+    const title = newTaskTitle.trim();
+    if (!title) return;
+    try {
+      await createTask({ title, project_id: id });
+      setNewTaskTitle('');
+    } catch (e) {
+      addToast({ type: 'error', message: e.message || 'Could not create task' });
+    }
+  }
+
+  // ── Remove task from project ──
+  async function handleRemoveTaskFromProject(taskId) {
+    try {
+      await updateTask(taskId, { project_id: null });
+    } catch (e) {
+      addToast({ type: 'error', message: e.message || 'Could not unlink task' });
+    }
+  }
+
+  // ── Add person to project notes ──
+  async function handleAddPersonLink() {
+    if (!personPick || personLinkBusy) return;
+    setPersonLinkBusy(true);
+    try {
+      // Associate the person with all notes linked to this project that don't have a person yet
+      const notesToUpdate = projectNotes.filter(n => !n.person_id);
+      if (notesToUpdate.length === 0) {
+        addToast({ type: 'info', message: 'All project notes already have a person assigned' });
+      } else {
+        for (const note of notesToUpdate) {
+          await updateNote(note.id, { person_id: personPick });
+        }
+        addToast({ type: 'success', message: `Person added to ${notesToUpdate.length} note(s)` });
+      }
+      setPersonPick('');
+      setPersonSearchQuery('');
+      setShowAddPersonModal(false);
+    } catch (e) {
+      addToast({ type: 'error', message: e.message || 'Could not link person' });
+    } finally {
+      setPersonLinkBusy(false);
+    }
+  }
+
+  // ── Remove person from project notes ──
+  async function handleRemovePersonFromProject(personId, e) {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      const notesToUpdate = projectNotes.filter(n => n.person_id === personId);
+      for (const note of notesToUpdate) {
+        await updateNote(note.id, { person_id: null });
+      }
+    } catch (e) {
+      addToast({ type: 'error', message: e.message || 'Could not unlink person' });
+    }
+  }
 
   return (
     <div className={styles.page} style={{ paddingBottom: '28px' }}>
@@ -398,10 +531,79 @@ export default function ProjectFocus() {
               <span style={{ color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                 {projectNotes.length} linked notes
               </span>
-              <button className="btn btn-primary btn-sm" type="button" onClick={() => setShowNoteEditor(true)}>
-                <Plus size={13} /> Add Note
-              </button>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button className="btn btn-secondary btn-sm" type="button" onClick={() => setShowAddNoteModal(true)}>
+                  <Plus size={13} /> Add Note
+                </button>
+                <button className="btn btn-primary btn-sm" type="button" onClick={() => setShowNoteEditor(true)}>
+                  <Plus size={13} /> New Note
+                </button>
+              </div>
             </div>
+
+            {/* Add Note Modal */}
+            {showAddNoteModal && (
+              <div style={{
+                ...surfaceCardStyle,
+                padding: '14px',
+                display: 'grid',
+                gap: '10px',
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text)' }}>Link existing note</span>
+                  <button
+                    type="button"
+                    onClick={() => { setShowAddNoteModal(false); setNotePick(''); setNoteSearchQuery(''); }}
+                    style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '2px' }}
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+                <input
+                  type="search"
+                  placeholder="Filter notes…"
+                  value={noteSearchQuery}
+                  onChange={e => setNoteSearchQuery(e.target.value)}
+                  style={{
+                    padding: '8px 10px',
+                    fontSize: '12px',
+                    background: 'var(--surface2)',
+                    border: '1px solid var(--border-faint)',
+                    borderRadius: '6px',
+                    color: 'var(--text)',
+                    outline: 'none',
+                  }}
+                />
+                <select
+                  value={notePick}
+                  onChange={e => setNotePick(e.target.value)}
+                  style={{
+                    padding: '8px 10px',
+                    fontSize: '12px',
+                    background: 'var(--surface2)',
+                    border: '1px solid var(--border-faint)',
+                    borderRadius: '6px',
+                    color: 'var(--text)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <option value="">Select a note…</option>
+                  {noteCandidates.map(n => (
+                    <option key={n.id} value={n.id}>{firstLine(n.raw_text || n.title)}</option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={handleAddNoteLink}
+                  disabled={!notePick || noteLinkBusy}
+                  style={{ alignSelf: 'end' }}
+                >
+                  {noteLinkBusy ? <Loader2 size={13} className="spin" /> : <CheckCircle size={13} />}
+                  Add link
+                </button>
+              </div>
+            )}
 
             {projectNotes.length === 0 ? (
               <div style={{ ...surfaceCardStyle, padding: '18px', color: 'var(--text-secondary)', fontSize: '12px' }}>
@@ -409,9 +611,8 @@ export default function ProjectFocus() {
               </div>
             ) : (
               projectNotes.map((note) => (
-                <Link
+                <div
                   key={note.id}
-                  to={`/notes/${note.id}`}
                   style={{
                     ...surfaceCardStyle,
                     padding: '14px 16px',
@@ -419,11 +620,20 @@ export default function ProjectFocus() {
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     gap: '12px',
-                    color: 'inherit',
-                    textDecoration: 'none',
                   }}
                 >
-                  <div style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <Link
+                    to={`/notes/${note.id}`}
+                    style={{
+                      minWidth: 0,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      color: 'inherit',
+                      textDecoration: 'none',
+                      flex: 1,
+                    }}
+                  >
                     <div style={{
                       width: '30px',
                       height: '30px',
@@ -446,8 +656,8 @@ export default function ProjectFocus() {
                         {formatModifiedTime(note.updated_at || note.created_at)}
                       </div>
                     </div>
-                  </div>
-                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                  </Link>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end', alignItems: 'center' }}>
                     {(note.tag_names || []).map((tag) => (
                       <span
                         key={tag}
@@ -463,8 +673,26 @@ export default function ProjectFocus() {
                         {tag}
                       </span>
                     ))}
+                    <button
+                      type="button"
+                      onClick={(e) => handleRemoveNoteFromProject(note.id, e)}
+                      style={{
+                        background: 'none',
+                        border: '1px solid var(--border-faint)',
+                        borderRadius: '6px',
+                        color: 'var(--text-muted)',
+                        cursor: 'pointer',
+                        padding: '4px 6px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        fontSize: '10px',
+                      }}
+                      title="Remove note from project"
+                    >
+                      <X size={12} />
+                    </button>
                   </div>
-                </Link>
+                </div>
               ))
             )}
           </section>
@@ -485,8 +713,27 @@ export default function ProjectFocus() {
                 ) : (
                   tasksByColumn[column.key].map((task) => (
                     <div key={task.id} style={{ padding: '12px', borderRadius: '12px', background: 'var(--surface2)', border: '1px solid var(--border)', display: 'grid', gap: '8px' }}>
-                      <div style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text)' }}>
-                        {task.title}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                        <div style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text)', flex: 1 }}>
+                          {task.title}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveTaskFromProject(task.id)}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--text-muted)',
+                            cursor: 'pointer',
+                            padding: '2px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            flexShrink: 0,
+                          }}
+                          title="Remove task from project"
+                        >
+                          <X size={12} />
+                        </button>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
                         <span style={{ color: 'var(--text-secondary)', fontSize: '10px', fontFamily: 'var(--font-mono, monospace)' }}>
@@ -499,6 +746,35 @@ export default function ProjectFocus() {
                     </div>
                   ))
                 )}
+                {/* Quick-add task form for PENDING column */}
+                {column.key === 'PENDING' && (
+                  <form onSubmit={handleCreateTask} style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
+                    <input
+                      type="text"
+                      placeholder="New task…"
+                      value={newTaskTitle}
+                      onChange={e => setNewTaskTitle(e.target.value)}
+                      style={{
+                        flex: 1,
+                        padding: '7px 9px',
+                        fontSize: '11.5px',
+                        background: 'var(--surface2)',
+                        border: '1px solid var(--border-faint)',
+                        borderRadius: '6px',
+                        color: 'var(--text)',
+                        outline: 'none',
+                      }}
+                    />
+                    <button
+                      type="submit"
+                      className="btn btn-primary btn-sm"
+                      disabled={!newTaskTitle.trim()}
+                      style={{ padding: '6px 10px', fontSize: '11px' }}
+                    >
+                      Add
+                    </button>
+                  </form>
+                )}
               </div>
             ))}
           </section>
@@ -510,10 +786,77 @@ export default function ProjectFocus() {
               <span style={{ color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                 {linkedPeople.length} people linked
               </span>
-              <button className="btn btn-secondary btn-sm" type="button" onClick={() => navigate('/people')}>
-                <Plus size={13} /> Add person
-              </button>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button className="btn btn-secondary btn-sm" type="button" onClick={() => setShowAddPersonModal(true)}>
+                  <Plus size={13} /> Add person
+                </button>
+              </div>
             </div>
+
+            {/* Add Person Modal */}
+            {showAddPersonModal && (
+              <div style={{
+                ...surfaceCardStyle,
+                padding: '14px',
+                display: 'grid',
+                gap: '10px',
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text)' }}>Link person to project notes</span>
+                  <button
+                    type="button"
+                    onClick={() => { setShowAddPersonModal(false); setPersonPick(''); setPersonSearchQuery(''); }}
+                    style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '2px' }}
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+                <input
+                  type="search"
+                  placeholder="Filter people…"
+                  value={personSearchQuery}
+                  onChange={e => setPersonSearchQuery(e.target.value)}
+                  style={{
+                    padding: '8px 10px',
+                    fontSize: '12px',
+                    background: 'var(--surface2)',
+                    border: '1px solid var(--border-faint)',
+                    borderRadius: '6px',
+                    color: 'var(--text)',
+                    outline: 'none',
+                  }}
+                />
+                <select
+                  value={personPick}
+                  onChange={e => setPersonPick(e.target.value)}
+                  style={{
+                    padding: '8px 10px',
+                    fontSize: '12px',
+                    background: 'var(--surface2)',
+                    border: '1px solid var(--border-faint)',
+                    borderRadius: '6px',
+                    color: 'var(--text)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <option value="">Select a person…</option>
+                  {personCandidates.map(p => (
+                    <option key={p.id} value={p.id}>{p.title}</option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={handleAddPersonLink}
+                  disabled={!personPick || personLinkBusy}
+                  style={{ alignSelf: 'end' }}
+                >
+                  {personLinkBusy ? <Loader2 size={13} className="spin" /> : <CheckCircle size={13} />}
+                  Add link
+                </button>
+              </div>
+            )}
+
             {linkedPeople.length === 0 ? (
               <div style={{ ...surfaceCardStyle, padding: '18px', color: 'var(--text-secondary)', fontSize: '12px' }}>
                 No people linked to this project yet.
@@ -521,41 +864,69 @@ export default function ProjectFocus() {
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '12px' }}>
                 {linkedPeople.map((person) => (
-                  <Link
+                  <div
                     key={person.id}
-                    to={`/people/${person.id}`}
                     style={{
                       ...surfaceCardStyle,
                       padding: '14px',
                       display: 'flex',
                       alignItems: 'center',
                       gap: '12px',
-                      textDecoration: 'none',
-                      color: 'inherit',
                     }}
                   >
-                    <div style={{
-                      width: '32px',
-                      height: '32px',
-                      borderRadius: '999px',
-                      background: 'var(--accent-dim)',
-                      color: 'var(--accent)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '12px',
-                      fontWeight: 700,
-                      flexShrink: 0,
-                    }}>
-                      {getInitials(person.title)}
-                    </div>
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text)' }}>{person.title}</div>
-                      <div style={{ marginTop: '3px', color: 'var(--text-secondary)', fontSize: '11px' }}>
-                        {person.role || 'No role set'}
+                    <Link
+                      to={`/people/${person.id}`}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                        textDecoration: 'none',
+                        color: 'inherit',
+                        flex: 1,
+                        minWidth: 0,
+                      }}
+                    >
+                      <div style={{
+                        width: '32px',
+                        height: '32px',
+                        borderRadius: '999px',
+                        background: 'var(--accent-dim)',
+                        color: 'var(--accent)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        flexShrink: 0,
+                      }}>
+                        {getInitials(person.title)}
                       </div>
-                    </div>
-                  </Link>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text)' }}>{person.title}</div>
+                        <div style={{ marginTop: '3px', color: 'var(--text-secondary)', fontSize: '11px' }}>
+                          {person.role || 'No role set'}
+                        </div>
+                      </div>
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={(e) => handleRemovePersonFromProject(person.id, e)}
+                      style={{
+                        background: 'none',
+                        border: '1px solid var(--border-faint)',
+                        borderRadius: '6px',
+                        color: 'var(--text-muted)',
+                        cursor: 'pointer',
+                        padding: '4px 6px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        flexShrink: 0,
+                      }}
+                      title="Remove person from project"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
                 ))}
               </div>
             )}
