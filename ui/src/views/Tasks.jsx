@@ -6,9 +6,9 @@ import DeleteConfirmModal from '../components/DeleteConfirmModal';
 import styles from './Tasks.module.css';
 
 const COLUMNS = [
-  { key: 'PENDING', label: 'Pending', dot: 'var(--text-muted)' },
-  { key: 'IN_PROGRESS', label: 'In Progress', dot: 'var(--yellow)' },
-  { key: 'DONE', label: 'Done', dot: 'var(--green)' },
+  { key: 'pending', label: 'Pending', dot: 'var(--text-muted)' },
+  { key: 'in_progress', label: 'In Progress', dot: 'var(--yellow)' },
+  { key: 'done', label: 'Done', dot: 'var(--green)' },
 ];
 
 const PRIORITY_COLORS = {
@@ -54,7 +54,7 @@ function formatFollowUpDate(value) {
 }
 
 function isOverdue(task) {
-  if (!task?.due_date || task.status === 'DONE') return false;
+  if (!task?.due_date || task.status === 'done') return false;
   const due = new Date(task.due_date);
   if (Number.isNaN(due.getTime())) return false;
   const today = new Date();
@@ -261,7 +261,7 @@ export default function Tasks() {
     [filteredTasks]
   );
 
-  const pendingCount = tasks.filter((task) => task.status !== 'DONE' && task.status !== 'CANCELLED').length;
+  const pendingCount = tasks.filter((task) => task.status !== 'done' && task.status !== 'cancelled').length;
 
   async function submitQuickAdd(status) {
     const nextTitle = quickAddValue.trim();
