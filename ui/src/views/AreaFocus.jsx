@@ -7,6 +7,7 @@ import NoteCard from '../components/notes/NoteCard';
 import NoteEditor from '../components/notes/NoteEditor';
 import TaskCheckboxRow from '../components/tasks/TaskCheckboxRow';
 import ConnectionsPanel from '../components/ConnectionsPanel/ConnectionsPanel';
+import LinkToEntity from '../components/LinkToEntity/LinkToEntity';
 import DeleteConfirmModal from '../components/DeleteConfirmModal';
 import styles from './ProjectFocus.module.css';
 
@@ -23,7 +24,7 @@ const STATUS_COLORS = {
 export default function AreaFocus() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { areas, notes, projects, tasks, updateArea, deleteArea, getDeletePreview, createProject, updateProject, updateNote, addToast } = useStore();
+  const { areas, notes, projects, tasks, updateArea, deleteArea, getDeletePreview, createProject, updateProject, updateNote, addToast, loading } = useStore();
   const [tab, setTab] = useState('notes');
   const [showNoteEditor, setShowNoteEditor] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -51,6 +52,9 @@ export default function AreaFocus() {
   // Inline project creation
   const [newProjectTitle, setNewProjectTitle] = useState('');
 
+  // Connections tab refresh
+  const [connRefreshKey, setConnRefreshKey] = useState(0);
+
   // Add-note modal state (existing notes)
   const [showAddNoteModal, setShowAddNoteModal] = useState(false);
   const [noteSearchQuery, setNoteSearchQuery] = useState('');
@@ -70,14 +74,23 @@ export default function AreaFocus() {
   }, [showStatusPicker]);
 
   const area = areas.find(a => a.id === id);
-  if (!area) return (
-    <div className={styles.page}>
-      <p>Area not found.</p>
-      <button className="btn btn-ghost" onClick={() => navigate('/areas')}>
-        <ArrowLeft size={14} /> Back to Areas
-      </button>
-    </div>
-  );
+  if (!area) {
+    if (loading) {
+      return (
+        <div className={styles.page}>
+          <Loader2 size={20} className="spin" style={{ display: 'block', margin: '40px auto', color: 'var(--text-muted)' }} />
+        </div>
+      );
+    }
+    return (
+      <div className={styles.page}>
+        <p>Area not found.</p>
+        <button className="btn btn-ghost" onClick={() => navigate('/areas')}>
+          <ArrowLeft size={14} /> Back to Areas
+        </button>
+      </div>
+    );
+  }
 
   const areaNotes = notes.filter(n => n.area_id === id);
   const areaProjects = projects.filter(p => p.area_id === id && !p.is_archived);
@@ -127,8 +140,8 @@ export default function AreaFocus() {
     } else {
       try {
         await updateArea(area.id, { status: newStatus });
-      } catch {
-        // Status change failed
+      } catch (e) {
+        useStore.getState().addToast({ type: 'error', message: e.message || 'Status change failed' });
       }
     }
   };
@@ -637,7 +650,8 @@ export default function AreaFocus() {
 
       {tab === 'connections' && (
         <div className={styles.content}>
-          <ConnectionsPanel entityId={id} />
+          <LinkToEntity entityId={id} entityType="area" onLinkCreated={() => setConnRefreshKey(k => k + 1)} />
+          <ConnectionsPanel entityId={id} refreshKey={connRefreshKey} />
         </div>
       )}
 

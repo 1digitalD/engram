@@ -23,6 +23,7 @@ CONFIDENCE_THRESHOLD = 0.85
 
 def extract_from_pdf(pdf_bytes: bytes) -> str:
     """Extract Markdown text from PDF bytes using pymupdf4llm."""
+    doc = None
     try:
         import pymupdf4llm
         import pymupdf
@@ -32,6 +33,9 @@ def extract_from_pdf(pdf_bytes: bytes) -> str:
     except Exception as e:
         logger.error(f"PDF extraction failed: {e}")
         return ""
+    finally:
+        if doc:
+            doc.close()
 
 
 def extract_from_url(url: str) -> str:

@@ -718,3 +718,105 @@
   color: var(--text);
   font-size: var(--text-sm);
 }
+
+/* ── Inline style migrations ────────────────── */
+
+.shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 224px;
+  gap: 24px;
+  align-items: start;
+}
+
+.sidebar {
+  width: 224px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sidebarCard {
+  background: var(--surface);
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sidebarTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0;
+}
+
+.actionButton {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-faint);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.metaRow {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.metaItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.metaLabel {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  min-width: 72px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: var(--radius-full);
+  background: var(--surface2);
+  border: 1px solid var(--border-faint);
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.entityLinkContent {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.tagChipList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chipEmpty {
+  margin: 0;
+  font-size: 11px;
+  color: var(--text-muted);
+}

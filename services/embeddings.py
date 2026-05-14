@@ -10,23 +10,12 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+from utils import get_openai_client
+
 EMBEDDING_MODEL = "text-embedding-3-small"
 EMBEDDING_DIMS = 1536
 CHUNK_SIZE = 400       # tokens (approx: 1 token ≈ 4 chars)
 CHUNK_OVERLAP = 64     # tokens overlap between windows
-
-_openai_client = None
-
-
-def _get_client():
-    global _openai_client
-    if _openai_client is None:
-        from openai import OpenAI
-        key = os.getenv("OPENAI_API_KEY")
-        if not key:
-            raise RuntimeError("OPENAI_API_KEY not set")
-        _openai_client = OpenAI(api_key=key)
-    return _openai_client
 
 
 # ── Chunking ─────────────────────────────────────────────────────────────────
@@ -85,7 +74,7 @@ def chunk_text(text, chunk_size=None, overlap=None):
 
 def _embed_texts(texts):
     """Call OpenAI embeddings API. Returns list of embedding vectors."""
-    client = _get_client()
+    client = get_openai_client()
     response = client.embeddings.create(
         model=EMBEDDING_MODEL,
         input=texts,
@@ -144,8 +133,8 @@ def embed_entity(entity_id, text):
         logger.error("embed_entity failed for %s: %s", entity_id, e)
         try:
             db.session.rollback()
-        except Exception:
-            pass
+        except Exception as rb_e:
+            logger.warning("Rollback failed after embed error: %s", rb_e)
 
 
 def embed_query(query):

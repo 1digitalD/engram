@@ -14,8 +14,6 @@ export default function CaptureModal({ onClose, onCreated }) {
   const [entityType, setEntityType] = useState('note');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const textareaRef = null;
-
   const handleSubmit = async (event) => {
     event.preventDefault();
     const body = content.trim();
@@ -52,6 +50,7 @@ export default function CaptureModal({ onClose, onCreated }) {
       });
     } catch (err) {
       setError(err.message || 'Capture failed');
+    } finally {
       setSubmitting(false);
     }
   };
@@ -67,9 +66,17 @@ export default function CaptureModal({ onClose, onCreated }) {
     }
   };
 
+  function isTypingElement(el) {
+    if (!el || !(el instanceof HTMLElement)) return false;
+    const tag = el.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+    if (el.closest('[contenteditable="true"]')) return true;
+    return false;
+  }
+
   useEffect(() => {
     const handleGlobalKey = (e) => {
-      if (e.key === 'Escape' && !submitting) {
+      if (e.key === 'Escape' && !submitting && !isTypingElement(/** @type {HTMLElement} */(e.target))) {
         onClose();
       }
     };

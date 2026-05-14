@@ -8,7 +8,7 @@ import styles from './NoteEditor.module.css';
 
 
 export default function NoteEditor({ onClose, onSaved, initialData }) {
-  const { createNote, updateNote, projects, areas, people } = useStore();
+  const { createNote, updateNote, projects, areas, people, addToast } = useStore();
   const [rawText, setRawText] = useState(initialData?.raw_text || '');
   const [selectedProjectIds, setSelectedProjectIds] = useState(() => {
     if (!initialData) return [];
@@ -76,6 +76,8 @@ export default function NoteEditor({ onClose, onSaved, initialData }) {
         await createNote(data);
       }
       onSaved?.();
+    } catch (e) {
+      addToast({ type: 'error', message: e.message || 'Failed to save note' });
     } finally {
       setSaving(false);
     }

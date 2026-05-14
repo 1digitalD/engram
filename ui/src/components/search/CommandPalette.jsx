@@ -10,7 +10,7 @@ import styles from './CommandPalette.module.css';
 
 const ICON_MAP = {
   note: FileText, project: FolderOpen, area: Map,
-  person: Users, task: CheckSquare, graph: Network, command: Plus,
+  person: Users, task: CheckSquare,   command: Plus,
 };
 
 const ENTITY_LABELS = {
@@ -99,12 +99,12 @@ export default function CommandPalette({ onClose }) {
       action: () => navigate('/tasks'),
     },
     {
-      id: 'view-graph',
-      label: 'View graph',
-      subtitle: 'Open the relationship graph',
-      keywords: ['graph', 'links', 'connections'],
-      icon: Network,
-      action: () => navigate('/graph'),
+      id: 'view-notes',
+      label: 'View notes',
+      subtitle: 'Browse all notes',
+      keywords: ['notes', 'all notes', 'list'],
+      icon: FileText,
+      action: () => navigate('/notes'),
     },
     {
       id: 'weekly-review',
@@ -198,7 +198,7 @@ export default function CommandPalette({ onClose }) {
       icon: LayoutDashboard,
       items: [
         { label: 'View tasks', action: () => navigate('/tasks'), icon: CheckSquare },
-        { label: 'View graph', action: () => navigate('/graph'), icon: Network },
+        { label: 'All notes', action: () => navigate('/notes'), icon: FileText },
         { label: 'Weekly review', action: () => navigate('/review'), icon: Calendar },
       ],
     },

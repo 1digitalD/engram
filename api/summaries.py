@@ -281,9 +281,9 @@ def patch_summary(summary_id):
 
 @api_bp.route("/summaries/<summary_id>", methods=["DELETE"])
 def delete_summary(summary_id):
+    from services.entity_service import delete_entity
     summary = db.session.get(Entity, summary_id)
     if not summary or summary.type != "summary":
         return jsonify({"error": "not found"}), 404
-    db.session.delete(summary)
-    db.session.commit()
+    delete_entity(summary_id, cascade_orphans=True)
     return jsonify({"ok": True})

@@ -13,24 +13,27 @@ The capture flow is async:
 """
 
 import logging
+import os
 import re
 from datetime import datetime, timezone
 
 from extensions import db
-from models import Entity, EntityChunk, EntityEvent, EntityTag, Job, Tag
+from models import Entity, EntityChunk, EntityTag, Job, Tag
+from services.embeddings import chunk_text
+from services.entity_service import _write_event
 
 logger = logging.getLogger(__name__)
 
 # ─── Configuration ───────────────────────────────────────────────────────────
 
 CLASSIFY_CONFIDENCE_THRESHOLD = float(
-    __import__("os").getenv("CLASSIFY_CONFIDENCE_THRESHOLD", "0.70")
+    os.getenv("CLASSIFY_CONFIDENCE_THRESHOLD", "0.70")
 )
 AUTOLINK_CONFIDENCE_THRESHOLD = float(
-    __import__("os").getenv("AUTOLINK_CONFIDENCE_THRESHOLD", "0.92")
+    os.getenv("AUTOLINK_CONFIDENCE_THRESHOLD", "0.92")
 )
-EMBED_MODEL = __import__("os").getenv("EMBED_MODEL", "text-embedding-3-small")
-EMBED_DIMS = int(__import__("os").getenv("EMBED_DIMS", "1536"))
+EMBED_MODEL = os.getenv("EMBED_MODEL", "text-embedding-3-small")
+EMBED_DIMS = int(os.getenv("EMBED_DIMS", "1536"))
 
 # Chunking defaults (token-aware: ~4 chars/token)
 DEFAULT_CHUNK_SIZE = 400  # tokens
@@ -139,73 +142,6 @@ def enqueue_autolink(entity_id):
     db.session.flush()
     logger.info("Enqueued autolink job for entity %s", eid)
     return job
-
-
-# ─── Text Chunking ───────────────────────────────────────────────────────────
-
-
-def chunk_text(text, chunk_size=None, overlap=None):
-    """Split text into overlapping chunks for embedding.
-
-    Uses a sliding window approach: chunks are split at word boundaries
-    with configurable overlap between consecutive chunks.
-
-    Args:
-        text: The text to chunk.
-        chunk_size: Target chunk size in tokens (~4 chars each). Defaults to 400.
-        overlap: Overlap between chunks in tokens. Defaults to 64.
-
-    Returns:
-        List of text chunks (strings). Empty list if text is empty/None.
-    """
-    if not text or not text.strip():
-        return []
-
-    chunk_size = chunk_size or DEFAULT_CHUNK_SIZE
-    overlap = overlap or DEFAULT_CHUNK_OVERLAP
-
-    # Convert token sizes to character sizes (rough approximation: 1 token ≈ 4 chars)
-    chunk_chars = chunk_size * 4
-    overlap_chars = overlap * 4
-
-    # If text is shorter than chunk size, return as single chunk
-    if len(text) <= chunk_chars:
-        return [text.strip()]
-
-    # Split into words to preserve word boundaries
-    words = text.split()
-    if not words:
-        return []
-
-    chunks = []
-    current_chunk = []
-    current_length = 0
-
-    for word in words:
-        word_len = len(word) + 1  # +1 for space
-
-        if current_length + word_len > chunk_chars and current_chunk:
-            # Save current chunk
-            chunks.append(" ".join(current_chunk))
-            # Keep overlap words for next chunk
-            overlap_words = []
-            overlap_len = 0
-            for w in reversed(current_chunk):
-                if overlap_len + len(w) + 1 > overlap_chars:
-                    break
-                overlap_words.append(w)
-                overlap_len += len(w) + 1
-            current_chunk = list(reversed(overlap_words))
-            current_length = overlap_len
-
-        current_chunk.append(word)
-        current_length += word_len
-
-    # Don't forget the last chunk
-    if current_chunk:
-        chunks.append(" ".join(current_chunk))
-
-    return chunks
 
 
 # ─── Job Handlers (registered with job_worker) ───────────────────────────────
@@ -555,8 +491,6 @@ def _generate_embedding(text):
     Returns:
         List of floats (embedding vector of EMBED_DIMS dimensions).
     """
-    import os
-
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         logger.warning("OPENAI_API_KEY not set — returning zero vector")
@@ -733,25 +667,7 @@ def _create_or_link_area(entity, area_name, confidence):
         db.session.add(link)
 
 
-def _write_event(entity_id, event_type, actor, old_value=None, new_value=None,
-                 confidence=None, reason=None):
-    """Write an entity_events record."""
-    event = EntityEvent(
-        entity_id=entity_id,
-        event_type=event_type,
-        actor=actor,
-        old_value=old_value,
-        new_value=new_value,
-        confidence=confidence,
-        reason=reason,
-    )
-    db.session.add(event)
-
-
 # ─── Handler Registration ────────────────────────────────────────────────────
-
-# Register handlers with the job worker system
-# These are imported when the app starts to wire up the pipeline
 
 def register_handlers():
     """Register all AI pipeline handlers with the job worker.
@@ -765,9 +681,3 @@ def register_handlers():
     register_handler("autolink")(run_autolink)
 
     logger.info("AI pipeline handlers registered")
-
-
-# ─── Auto-registration on import ─────────────────────────────────────────────
-# Handlers are registered when this module is first imported so that tests
-# and the app can use them without explicit setup.
-register_handlers()

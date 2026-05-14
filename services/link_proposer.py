@@ -121,11 +121,12 @@ def _vector_related_entity_ids(
 class _EntityContext:
     """Bulk-loaded context for a set of entities to avoid N+1 queries."""
 
-    def __init__(self, entity_ids: set[str]):
+    def __init__(self, entity_ids: set[str], entity_type_cache: dict[str, str] | None = None):
         self.tag_ids_by_entity: dict[str, set[str]] = defaultdict(set)
         self.area_ids_by_entity: dict[str, str | None] = {}
         self.project_ids_by_entity: dict[str, set[str]] = defaultdict(set)
         self.person_ids_by_entity: dict[str, str | None] = {}
+        type_cache = entity_type_cache or {}
 
         if not entity_ids:
             return
@@ -151,24 +152,21 @@ class _EntityContext:
             .all()
         )
 
-        # Collect all dst_ids that we need types for (not already cached)
-        needed_dst_ids = {link.dst_id for link in link_rows} - set(_entity_type_cache.keys())
+        # Collect all dst_ids that we need types for
+        needed_dst_ids = {link.dst_id for link in link_rows} - set(type_cache.keys())
         if needed_dst_ids:
             type_rows = Entity.query.with_entities(Entity.id, Entity.type).filter(Entity.id.in_(needed_dst_ids)).all()
             for row in type_rows:
-                _entity_type_cache[str(row.id)] = row.type
+                type_cache[str(row.id)] = row.type
 
         for link in link_rows:
-            dst_type = _entity_type_cache.get(str(link.dst_id))
+            dst_type = type_cache.get(str(link.dst_id))
             if dst_type == "area":
                 self.area_ids_by_entity[str(link.src_id)] = str(link.dst_id)
             elif dst_type == "project":
                 self.project_ids_by_entity[str(link.src_id)].add(str(link.dst_id))
             elif dst_type == "person":
                 self.person_ids_by_entity[str(link.src_id)] = str(link.dst_id)
-
-
-_entity_type_cache: dict[str, str] = {}
 
 
 def _build_entity_type_cache(entity_ids: set[str]) -> dict[str, str]:
@@ -178,9 +176,7 @@ def _build_entity_type_cache(entity_ids: set[str]) -> dict[str, str]:
     if not entity_ids:
         return {}
     rows = Entity.query.with_entities(Entity.id, Entity.type).filter(Entity.id.in_(entity_ids)).all()
-    cache = {str(row.id): row.type for row in rows}
-    _entity_type_cache.update(cache)
-    return cache
+    return {str(row.id): row.type for row in rows}
 
 
 def _collect_candidate_pairs(
@@ -293,8 +289,8 @@ def propose_links(
     if len(pool) < 2:
         return []
 
-    # Bulk-load entities with their types
-    _build_entity_type_cache(pool)
+    # Bulk-load entity types
+    entity_type_cache = _build_entity_type_cache(pool)
 
     entities = (
         Entity.query
@@ -308,7 +304,7 @@ def propose_links(
         return []
 
     # Bulk-load context (tags, area/project/person links) — no N+1
-    ctx = _EntityContext(pool)
+    ctx = _EntityContext(pool, entity_type_cache)
 
     # Bulk-load existing links
     linked_pairs: set[tuple[str, str]] = set()

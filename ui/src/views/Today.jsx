@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { CheckSquare, FileText, Folder, Circle, User, BookOpen, Plus } from 'lucide-react';
+import { CheckSquare, FileText, Folder, Circle, User, BookOpen, Plus, Loader2 } from 'lucide-react';
 import useStore from '../stores/useStore';
 import styles from './Today.module.css';
 
@@ -33,7 +33,7 @@ function formatDueTime(value) {
 }
 
 function isOverdue(task) {
-  if (!task?.due_date || task.status === 'DONE' || task.status === 'CANCELLED') return false;
+  if (!task?.due_date || task.status === 'done' || task.status === 'cancelled') return false;
   const due = new Date(task.due_date);
   if (Number.isNaN(due.getTime())) return false;
   const today = new Date();
@@ -42,7 +42,7 @@ function isOverdue(task) {
 }
 
 function isDueToday(task, dateStr) {
-  if (!task?.due_date || task.status === 'DONE' || task.status === 'CANCELLED') return false;
+  if (!task?.due_date || task.status === 'done' || task.status === 'cancelled') return false;
   return task.due_date.slice(0, 10) === dateStr;
 }
 
@@ -90,7 +90,7 @@ function Section({ section, items, projectsById }) {
 }
 
 export default function Today() {
-  const { tasks, notes, projects, createTask } = useStore();
+  const { tasks, notes, projects, createTask, addToast, loading } = useStore();
   const [quickAddValue, setQuickAddValue] = useState('');
   const dateStr = localDateISO();
 
@@ -122,8 +122,12 @@ export default function Today() {
   async function submitQuickAdd() {
     const title = quickAddValue.trim();
     if (!title) return;
-    await createTask({ title, due_date: `${dateStr}T09:00:00Z` });
-    setQuickAddValue('');
+    try {
+      await createTask({ title, due_date: `${dateStr}T09:00:00Z` });
+      setQuickAddValue('');
+    } catch (e) {
+      addToast({ type: 'error', message: e.message || 'Failed to create task' });
+    }
   }
 
   function handleKeyDown(e) {
@@ -161,21 +165,25 @@ export default function Today() {
         />
       </div>
 
-      <div className={styles.sections}>
-        {SECTIONS.map(section => {
-          const items = section.key === 'overdue' ? overdue
-            : section.key === 'dueToday' ? dueToday
-            : followUp;
-          return (
-            <Section
-              key={section.key}
-              section={section}
-              items={items}
-              projectsById={projectsById}
-            />
-          );
-        })}
-      </div>
+      {loading && tasks.length === 0 && notes.length === 0 ? (
+        <Loader2 size={20} className="spin" style={{ display: 'block', margin: '40px auto', color: 'var(--text-muted)' }} />
+      ) : (
+        <div className={styles.sections}>
+          {SECTIONS.map(section => {
+            const items = section.key === 'overdue' ? overdue
+              : section.key === 'dueToday' ? dueToday
+              : followUp;
+            return (
+              <Section
+                key={section.key}
+                section={section}
+                items={items}
+                projectsById={projectsById}
+              />
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

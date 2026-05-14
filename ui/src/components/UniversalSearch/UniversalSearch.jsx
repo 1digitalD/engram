@@ -182,11 +182,10 @@ export default function UniversalSearch({ onClose }) {
               const Icon = config.icon;
 
               let globalStartIndex = 0;
-              ENTITY_TYPES.forEach(t => {
-                if (t === type) return false;
+              for (const t of ENTITY_TYPES) {
+                if (t === type) break;
                 globalStartIndex += (groupedResults[t] || []).length;
-                return true;
-              });
+              }
 
               return (
                 <div key={type} className={styles.group} data-testid={`group-${type}`}>

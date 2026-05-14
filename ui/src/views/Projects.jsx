@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Search } from 'lucide-react';
+import { Plus, Search, Loader2 } from 'lucide-react';
 import Modal from '../components/ui/Modal';
 import useStore from '../stores/useStore';
 import EmptyState from '../components/ui/EmptyState';
 import styles from './Projects.module.css';
 
 export default function Projects() {
-  const { projects, notes, createProject } = useStore();
+  const { projects, notes, createProject, loading } = useStore();
   const [showModal, setShowModal] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -24,7 +24,7 @@ export default function Projects() {
   const handleCreate = async (e) => {
     e.preventDefault();
     if (!name.trim()) return;
-    await createProject({ name: name.trim(), description, status: 'active' });
+    await createProject({ title: name.trim(), description, status: 'active' });
     setName('');
     setDescription('');
     setShowModal(false);
@@ -42,7 +42,9 @@ export default function Projects() {
         </button>
       </div>
 
-      {active.length === 0 ? (
+      {loading && active.length === 0 ? (
+        <Loader2 size={20} className="spin" style={{ display: 'block', margin: '40px auto', color: 'var(--text-muted)' }} />
+      ) : active.length === 0 ? (
         <EmptyState
           type="projects"
           title="No projects yet"

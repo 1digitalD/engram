@@ -66,87 +66,7 @@ function formatDateTime(value) {
   });
 }
 
-const shellStyle = {
-  display: 'grid',
-  gridTemplateColumns: 'minmax(0, 1fr) 224px',
-  gap: '24px',
-  alignItems: 'start',
-};
 
-const sidebarStyle = {
-  width: '224px',
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '12px',
-};
-
-const sidebarCardStyle = {
-  background: 'var(--surface)',
-  border: '1px solid var(--border-faint)',
-  borderRadius: 'var(--radius-md)',
-  padding: '14px',
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '10px',
-};
-
-const sidebarTitleStyle = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: '8px',
-  fontSize: '12px',
-  fontWeight: 600,
-  color: 'var(--text)',
-  margin: 0,
-};
-
-const actionButtonStyle = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: '8px',
-  width: '100%',
-  padding: '9px 10px',
-  borderRadius: 'var(--radius-md)',
-  border: '1px solid var(--border-faint)',
-  background: 'var(--surface)',
-  color: 'var(--text)',
-  fontSize: '12px',
-  textAlign: 'left',
-  cursor: 'pointer',
-};
-
-const metaRowStyle = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '6px',
-};
-
-const metaItemStyle = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: '8px',
-  fontSize: '12px',
-  color: 'var(--text-secondary)',
-};
-
-const metaLabelStyle = {
-  fontSize: '11px',
-  color: 'var(--text-muted)',
-  textTransform: 'uppercase',
-  letterSpacing: '0.06em',
-  minWidth: '72px',
-};
-
-const chipStyle = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  padding: '4px 8px',
-  borderRadius: 'var(--radius-full)',
-  background: 'var(--surface2)',
-  border: '1px solid var(--border-faint)',
-  color: 'var(--text-secondary)',
-  fontSize: '11px',
-};
 
 export default function NoteDetailView() {
   const { id } = useParams();
@@ -165,6 +85,7 @@ export default function NoteDetailView() {
     updateTask,
     addToast,
     startAiStatusPoll,
+    loading,
   } = useStore();
   const [isEditing, setIsEditing] = useState(false);
   const [draftText, setDraftText] = useState('');
@@ -190,6 +111,7 @@ export default function NoteDetailView() {
     return note ? tasks.filter(t => t.note_id === note.id) : [];
   }, [tasks, note, linkedTasksKey]);
   const [classifying, setClassifying] = useState(false);
+  const [newTaskTitle, setNewTaskTitle] = useState('');
   const [followUpBusy, setFollowUpBusy] = useState(false);
   const [lifecycleBusy, setLifecycleBusy] = useState(false);
 
@@ -235,7 +157,10 @@ export default function NoteDetailView() {
     if (note?.ai_status === 'processing' && note?.id) {
       startAiStatusPoll(note.id, 'note');
     }
-  }, [note?.id, note?.ai_status, startAiStatusPoll]);
+    return () => {
+      if (note?.id) stopAiStatusPoll(note.id);
+    };
+  }, [note?.id, note?.ai_status, startAiStatusPoll, stopAiStatusPoll]);
 
   useEffect(() => {
     if (!isEditing) setDraftText(note?.raw_text || '');
@@ -249,7 +174,7 @@ export default function NoteDetailView() {
     const label = entity ? getEntityTitle(entity) : fallbackLabel;
 
     const content = (
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+      <span className={styles.entityLinkContent}>
         <EntityTypeIcon type={entity?.type} size={12} />
         <span>{label}</span>
       </span>
@@ -268,6 +193,13 @@ export default function NoteDetailView() {
     .slice(0, 80);
 
   if (!note) {
+    if (loading) {
+      return (
+        <div className={styles.page}>
+          <Loader2 size={20} className="spin" style={{ display: 'block', margin: '40px auto', color: 'var(--text-muted)' }} />
+        </div>
+      );
+    }
     return (
       <div className={styles.page}>
         <p className={styles.notFound}>Note not found.</p>
@@ -292,20 +224,32 @@ export default function NoteDetailView() {
   const handleRemoveProjectFromNote = async (projectId, e) => {
     e.preventDefault();
     e.stopPropagation();
-    const ids = noteProjectIds.filter(id => id !== projectId);
-    await updateNote(note.id, { project_ids: ids });
+    try {
+      const ids = noteProjectIds.filter(id => id !== projectId);
+      await updateNote(note.id, { project_ids: ids });
+    } catch (error) {
+      addToast({ type: 'error', message: error.message || 'Could not remove project' });
+    }
   };
 
   const handleRemoveAreaFromNote = async (e) => {
     e.preventDefault();
     e.stopPropagation();
-    await updateNote(note.id, { area_id: null });
+    try {
+      await updateNote(note.id, { area_id: null });
+    } catch (error) {
+      addToast({ type: 'error', message: error.message || 'Could not remove area' });
+    }
   };
 
   const handleRemovePersonFromNote = async (e) => {
     e.preventDefault();
     e.stopPropagation();
-    await updateNote(note.id, { person_id: null });
+    try {
+      await updateNote(note.id, { person_id: null });
+    } catch (error) {
+      addToast({ type: 'error', message: error.message || 'Could not remove person' });
+    }
   };
 
   const startEditing = () => {
@@ -436,17 +380,25 @@ export default function NoteDetailView() {
   };
 
   const toggleLinkedTask = async (t) => {
-    const next = t.status === 'DONE' ? 'PENDING' : 'DONE';
-    await updateTask(t.id, { status: next });
+    try {
+      const next = t.status === 'done' ? 'pending' : 'done';
+      await updateTask(t.id, { status: next });
+    } catch (error) {
+      addToast({ type: 'error', message: error.message || 'Could not update task' });
+    }
   };
 
   const handleAddNoteTask = async (e) => {
     e.preventDefault();
     const title = newTaskTitle.trim();
     if (!title) return;
-    await createTask({ title, note_id: note.id });
-    setNewTaskTitle('');
-    setLinkedTasksKey(k => k + 1);
+    try {
+      await createTask({ title, note_id: note.id });
+      setNewTaskTitle('');
+      setLinkedTasksKey(k => k + 1);
+    } catch (error) {
+      addToast({ type: 'error', message: error.message || 'Could not create task' });
+    }
   };
 
   const tagNames = note.tag_names || [];
@@ -474,7 +426,7 @@ export default function NoteDetailView() {
         <ArrowLeft size={14} /> Back
       </button>
 
-      <div style={shellStyle}>
+      <div className={styles.shell}>
         {/* Main content */}
         <div className={styles.mainContent}>
           {/* Header */}
@@ -617,31 +569,31 @@ export default function NoteDetailView() {
               <FileText size={14} /> Metadata
             </h2>
             <div className={styles.metadataGrid}>
-              <div style={metaRowStyle}>
-                <span style={metaLabelStyle}>Type</span>
-                <span style={metaItemStyle}>
+              <div className={styles.metaRow}>
+                <span className={styles.metaLabel}>Type</span>
+                <span className={styles.metaItem}>
                   <Diamond size={12} /> Note
                   {isMoc && <span className={styles.mocInline}>MOC</span>}
                 </span>
               </div>
-              <div style={metaRowStyle}>
-                <span style={metaLabelStyle}>Status</span>
-                <span style={metaItemStyle}>
+              <div className={styles.metaRow}>
+                <span className={styles.metaLabel}>Status</span>
+                <span className={styles.metaItem}>
                   <BucketBadge bucket={note.bucket || 'INBOX'} />
                 </span>
               </div>
-              <div style={metaRowStyle}>
-                <span style={metaLabelStyle}>Created</span>
-                <span style={metaItemStyle}>{formatDateTime(note.created_at)}</span>
+              <div className={styles.metaRow}>
+                <span className={styles.metaLabel}>Created</span>
+                <span className={styles.metaItem}>{formatDateTime(note.created_at)}</span>
               </div>
-              <div style={metaRowStyle}>
-                <span style={metaLabelStyle}>Modified</span>
-                <span style={metaItemStyle}>{formatDateTime(note.updated_at || note.created_at)}</span>
+              <div className={styles.metaRow}>
+                <span className={styles.metaLabel}>Modified</span>
+                <span className={styles.metaItem}>{formatDateTime(note.updated_at || note.created_at)}</span>
               </div>
               {note.follow_up_at && (
-                <div style={metaRowStyle}>
-                  <span style={metaLabelStyle}>Follow-up</span>
-                  <span style={{ ...metaItemStyle, color: 'var(--yellow)' }}>
+                <div className={styles.metaRow}>
+                  <span className={styles.metaLabel}>Follow-up</span>
+                  <span style={{ color: 'var(--yellow)' }} className={styles.metaItem}>
                     <Calendar size={12} /> {formatDate(note.follow_up_at)}
                   </span>
                 </div>
@@ -799,11 +751,11 @@ export default function NoteDetailView() {
                         type="button"
                         className={styles.taskCheck}
                         onClick={() => toggleLinkedTask(t)}
-                        aria-label={t.status === 'DONE' ? 'Mark pending' : 'Mark done'}
+                        aria-label={t.status === 'done' ? 'Mark pending' : 'Mark done'}
                       >
-                        {t.status === 'DONE' ? <CheckCircle size={16} /> : <Circle size={16} />}
+                        {t.status === 'done' ? <CheckCircle size={16} /> : <Circle size={16} />}
                       </button>
-                      <span className={t.status === 'DONE' ? styles.taskTitleDone : styles.taskTitle}>{t.title}</span>
+                      <span className={t.status === 'done' ? styles.taskTitleDone : styles.taskTitle}>{t.title}</span>
                     </li>
                   ))}
                 </ul>
@@ -824,31 +776,31 @@ export default function NoteDetailView() {
         </div>
 
         {/* AI Sidebar */}
-        <aside style={sidebarStyle}>
+        <aside className={styles.sidebar}>
           {/* Tags */}
-          <section style={sidebarCardStyle}>
-            <h2 style={sidebarTitleStyle}>
+          <section className={styles.sidebarCard}>
+            <h2 className={styles.sidebarTitle}>
               <Tag size={13} /> Tags
             </h2>
             {tagNames.length > 0 ? (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+              <div className={styles.tagChipList}>
                 {tagNames.map(tag => (
-                  <span key={tag} style={chipStyle}>{tag}</span>
+                  <span key={tag} className={styles.chip}>{tag}</span>
                 ))}
               </div>
             ) : (
-              <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)' }}>No tags yet.</p>
+              <p className={styles.chipEmpty}>No tags yet.</p>
             )}
           </section>
 
           {/* Quick actions */}
-          <section style={sidebarCardStyle}>
-            <h2 style={sidebarTitleStyle}>
+          <section className={styles.sidebarCard}>
+            <h2 className={styles.sidebarTitle}>
               <Sparkles size={13} /> Quick actions
             </h2>
             <button
               type="button"
-              style={actionButtonStyle}
+              className={styles.actionButton}
               onClick={handleClassify}
               disabled={classifying}
             >
@@ -857,7 +809,7 @@ export default function NoteDetailView() {
             </button>
             <button
               type="button"
-              style={actionButtonStyle}
+              className={styles.actionButton}
               onClick={() => {
                 if (linkedProjects.length > 0) {
                   navigate(`/projects/${linkedProjects[0].id}`);
@@ -872,7 +824,7 @@ export default function NoteDetailView() {
             </button>
             <button
               type="button"
-              style={actionButtonStyle}
+              className={styles.actionButton}
               onClick={() => navigate('/notes')}
             >
               <FileText size={13} /> All notes

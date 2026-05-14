@@ -15,6 +15,7 @@ function normalizeEntity(entity) {
   return {
     ...rest,
     title: name || rest.title,
+    status: (rest.status || 'active').toLowerCase(),
     ...(ai_meta !== undefined && { _ai_meta: ai_meta }),
   };
 }

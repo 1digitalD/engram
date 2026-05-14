@@ -24,4 +24,5 @@ from . import (
     resources,
     ai_selection,
     feedback,
+    search,
 )

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sparkles, Check } from 'lucide-react';
+import { Sparkles, Check, Loader2 } from 'lucide-react';
 import useStore from '../stores/useStore';
 import NoteCard from '../components/notes/NoteCard';
 import NoteEditor from '../components/notes/NoteEditor';
@@ -46,7 +46,7 @@ function AiSuggestionRow({ note, onAcceptProject, onAcceptArea }) {
 }
 
 export default function Inbox() {
-  const { notes, projects, areas, people, updateNote } = useStore();
+  const { notes, projects, areas, people, updateNote, loading } = useStore();
   const [editingNote, setEditingNote] = useState(null);
   const [showEditor, setShowEditor] = useState(false);
 
@@ -92,7 +92,9 @@ export default function Inbox() {
         </div>
       </div>
 
-      {sorted.length === 0 ? (
+      {loading && sorted.length === 0 ? (
+        <Loader2 size={20} className="spin" style={{ display: 'block', margin: '40px auto', color: 'var(--text-muted)' }} />
+      ) : sorted.length === 0 ? (
         <EmptyState
           type="notes"
           title="Inbox is clear"

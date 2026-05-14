@@ -76,14 +76,16 @@ def create_app(config_name=None):
         status = {"db": "ok", "ai": "unknown", "vec": "unknown"}
         try:
             db.session.execute(db.text("SELECT 1"))
-        except Exception:
+        except Exception as e:
             status["db"] = "error"
+            logger.error("Health check DB probe failed: %s", e)
 
         try:
             db.session.execute(db.text("SELECT * FROM entity_chunks LIMIT 1"))
             status["vec"] = "ok"
-        except Exception:
+        except Exception as e:
             status["vec"] = "unavailable"
+            logger.warning("Health check vector probe failed: %s", e)
 
         if os.getenv("OPENAI_API_KEY"):
             status["ai"] = "configured"

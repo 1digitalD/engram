@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Pencil, Trash2, Search } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, Loader2 } from 'lucide-react';
 import Modal from '../components/ui/Modal';
 import useStore from '../stores/useStore';
 import EmptyState from '../components/ui/EmptyState';
@@ -8,7 +8,7 @@ import DeleteConfirmModal from '../components/DeleteConfirmModal';
 import styles from './Areas.module.css';
 
 export default function Areas() {
-  const { areas, notes, createArea, updateArea, deleteArea, getDeletePreview } = useStore();
+  const { areas, notes, createArea, updateArea, deleteArea, getDeletePreview, loading } = useStore();
   const [showModal, setShowModal] = useState(false);
   const [editingArea, setEditingArea] = useState(null);
   const [name, setName] = useState('');
@@ -88,7 +88,9 @@ export default function Areas() {
         </button>
       </div>
 
-      {areas.length === 0 ? (
+      {loading && areas.length === 0 ? (
+        <Loader2 size={20} className="spin" style={{ display: 'block', margin: '40px auto', color: 'var(--text-muted)' }} />
+      ) : areas.length === 0 ? (
         <EmptyState
           type="projects"
           title="No areas yet"

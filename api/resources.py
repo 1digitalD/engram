@@ -4,7 +4,7 @@ from flask import request, jsonify
 from api import api_bp
 from extensions import db
 from models import Entity, EntityTag, Tag
-from services.entity_service import create_entity, update_entity
+from services.entity_service import create_entity, delete_entity, update_entity
 
 
 @api_bp.route("/resources", methods=["GET"])
@@ -137,6 +137,5 @@ def delete_resource(resource_id):
     resource = Entity.query.filter_by(id=resource_id, type="resource").first()
     if not resource:
         return jsonify({"error": "not found"}), 404
-    db.session.delete(resource)
-    db.session.commit()
+    delete_entity(resource_id, cascade_orphans=True)
     return jsonify({"success": True}), 200

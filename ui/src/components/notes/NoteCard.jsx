@@ -4,6 +4,7 @@ import remarkGfm from 'remark-gfm';
 import { Link, useNavigate } from 'react-router-dom';
 import { MoreHorizontal, Trash2, Edit2, Loader2, Sparkles, Calendar } from 'lucide-react';
 import useStore from '../../stores/useStore';
+import DeleteConfirmModal from '../DeleteConfirmModal';
 import styles from './NoteCard.module.css';
 
 const PREVIEW_LIMIT = 400;
@@ -57,9 +58,11 @@ function EntityChip({ to, children, emoji }) {
 }
 
 export default function NoteCard({ note, onEdit }) {
-  const { deleteNote, projects, areas, people } = useStore();
+  const { deleteNote, projects, areas, people, getDeletePreview } = useStore();
   const [menuOpen, setMenuOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletePreview, setDeletePreview] = useState(null);
   const navigate = useNavigate();
 
   const project = note.project_id
@@ -112,7 +115,16 @@ export default function NoteCard({ note, onEdit }) {
               </button>
               <button
                 className={styles.danger}
-                onClick={() => { deleteNote(note.id); setMenuOpen(false); }}
+                onClick={async () => {
+                  setMenuOpen(false);
+                  try {
+                    const preview = await getDeletePreview(note.id);
+                    setDeletePreview(preview);
+                    setShowDeleteModal(true);
+                  } catch (e) {
+                    // ignore — delete will proceed without preview
+                  }
+                }}
               >
                 <Trash2 size={13} /> Delete
               </button>
@@ -193,6 +205,19 @@ export default function NoteCard({ note, onEdit }) {
           )}
         </div>
       </div>
+
+      <DeleteConfirmModal
+        isOpen={showDeleteModal}
+        onClose={() => { setShowDeleteModal(false); setDeletePreview(null); }}
+        onConfirm={async (cascadeIds) => {
+          await deleteNote(note.id, cascadeIds);
+          setShowDeleteModal(false);
+          setDeletePreview(null);
+        }}
+        entityTitle={(note.raw_text || note.content || '').split('\n')[0].replace(/^#\s*/, '').trim() || 'Untitled'}
+        entityType="note"
+        preview={deletePreview}
+      />
     </div>
   );
 }

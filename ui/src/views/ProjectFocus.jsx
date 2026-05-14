@@ -14,6 +14,7 @@ import {
 import useStore from '../stores/useStore';
 import NoteEditor from '../components/notes/NoteEditor';
 import ConnectionsPanel from '../components/ConnectionsPanel/ConnectionsPanel';
+import LinkToEntity from '../components/LinkToEntity/LinkToEntity';
 import styles from './ProjectFocus.module.css';
 
 const TABS = [
@@ -104,7 +105,7 @@ function ProgressMetric({ label, value }) {
 export default function ProjectFocus() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { projects, notes, tasks, people, areas, updateProject, updateNote, createTask, updateTask, addToast } = useStore();
+  const { projects, notes, tasks, people, areas, updateProject, updateNote, createTask, updateTask, addToast, loading } = useStore();
   const [tab, setTab] = useState('notes');
   const [showNoteEditor, setShowNoteEditor] = useState(false);
   const [completionState, setCompletionState] = useState('idle');
@@ -122,6 +123,9 @@ export default function ProjectFocus() {
   const [personSearchQuery, setPersonSearchQuery] = useState('');
   const [personPick, setPersonPick] = useState('');
   const [personLinkBusy, setPersonLinkBusy] = useState(false);
+
+  // Connections tab refresh
+  const [connRefreshKey, setConnRefreshKey] = useState(0);
 
   // Inline task creation
   const [newTaskTitle, setNewTaskTitle] = useState('');
@@ -153,9 +157,11 @@ export default function ProjectFocus() {
   }, [people, projectNotes]);
 
   const taskCounts = useMemo(() => ({
-    DONE: projectTasks.filter((task) => task.status === 'DONE').length,
-    IN_PROGRESS: projectTasks.filter((task) => task.status === 'IN_PROGRESS').length,
-    PENDING: projectTasks.filter((task) => task.status === 'PENDING').length,
+    DONE: projectTasks.filter((task) => task.status === 'done').length,
+
+    IN_PROGRESS: projectTasks.filter((task) => task.status === 'in_progress').length,
+
+    PENDING: projectTasks.filter((task) => task.status === 'pending').length,
   }), [projectTasks]);
 
   const completionPercent = projectTasks.length
@@ -184,6 +190,13 @@ export default function ProjectFocus() {
     .slice(0, 80);
 
   if (!project) {
+    if (loading) {
+      return (
+        <div className={styles.page}>
+          <Loader2 size={20} className="spin" style={{ display: 'block', margin: '40px auto', color: 'var(--text-muted)' }} />
+        </div>
+      );
+    }
     return (
       <div className={styles.page}>
         <p>Project not found.</p>
@@ -199,14 +212,15 @@ export default function ProjectFocus() {
       try {
         await updateProject(id, { status: 'completed' });
         setCompletionState('completed');
-      } catch {
+      } catch (e) {
         setCompletionState('idle');
+        addToast({ type: 'error', message: e.message || 'Status change failed' });
       }
     } else {
       try {
         await updateProject(id, { status: newStatus });
-      } catch {
-        // Status change failed
+      } catch (e) {
+        addToast({ type: 'error', message: e.message || 'Status change failed' });
       }
     }
   }
@@ -935,7 +949,8 @@ export default function ProjectFocus() {
 
         {tab === 'connections' && (
           <section style={{ ...surfaceCardStyle, padding: '14px' }}>
-            <ConnectionsPanel entityId={id} />
+            <LinkToEntity entityId={id} entityType="project" onLinkCreated={() => setConnRefreshKey(k => k + 1)} />
+            <ConnectionsPanel entityId={id} refreshKey={connRefreshKey} />
           </section>
         )}
       </div>

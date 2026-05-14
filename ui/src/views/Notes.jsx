@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Plus, Search } from 'lucide-react';
+import { Plus, Search, Loader2 } from 'lucide-react';
 import useStore from '../stores/useStore';
 import NoteCard from '../components/notes/NoteCard';
 import NoteEditor from '../components/notes/NoteEditor';
@@ -18,7 +18,7 @@ const FILTER_TABS = [
 ];
 
 export default function Notes() {
-  const { notes, projects, areas, people } = useStore();
+  const { notes, projects, areas, people, loading } = useStore();
   const [searchParams, setSearchParams] = useSearchParams();
   const [filter, setFilter] = useState('all');
   const [editingNote, setEditingNote] = useState(null);
@@ -153,7 +153,9 @@ export default function Notes() {
       </div>
 
       {/* Note list */}
-      {sorted.length === 0 ? (
+      {loading && sorted.length === 0 ? (
+        <Loader2 size={20} className="spin" style={{ display: 'block', margin: '40px auto', color: 'var(--text-muted)' }} />
+      ) : sorted.length === 0 ? (
         <EmptyState
           type="notes"
           title={filter === 'all' ? 'No notes yet' : `No notes`}

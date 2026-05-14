@@ -42,6 +42,8 @@ export default function QuickCapture({ onRequestFullEditor }) {
       }
       setText('');
       closeCapture();
+    } catch (e) {
+      addToast({ type: 'error', message: e.message || 'Capture failed' });
     } finally {
       setSaving(false);
     }

@@ -14,16 +14,11 @@ collect_ignore = [
     "test_mcp_server.py",
     "test_models_legacy.py",
     "test_phase1_backend_foundation.py",
-    "test_api.py",  # v1 API tests — v2 schema has no notes/projects/areas/tasks/links tables
-    "test_rollup.py",  # Uses v1 Note/Project models, superseded by integration tests
-    "test_summaries_api.py",  # v1 summaries table not in v2 schema
-    "test_links_api.py",  # v1 links table not in v2 schema
-    "test_moc.py",  # v1 moc table not in v2 schema
-    "archive/test_api.py",
-    "archive/test_models_legacy.py",
-    "archive/test_phase1_backend_foundation.py",
-    "archive/test_rollup.py",
-    "archive/test_link_proposer.py",
+    "test_api.py",
+    "test_rollup.py",
+    "test_summaries_api.py",
+    "test_links_api.py",
+    "test_moc.py",
 ]
 
 SCHEMA_PATH = pathlib.Path(__file__).resolve().parents[1] / "docs" / "SCHEMA.sql"
@@ -134,7 +129,7 @@ def mock_openai():
         tags=["test"],
         reasoning="High confidence project note",
     )
-    with patch("services.extractor._get_client") as mock:
+    with patch("services.extractor.get_openai_client") as mock:
         mock_response = MagicMock()
         mock_response.choices[0].message.parsed = result
         mock.return_value.beta.chat.completions.parse.return_value = mock_response

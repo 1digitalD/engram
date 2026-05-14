@@ -2,9 +2,11 @@ import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   FileText, BookOpen, Link2, Video, ScrollText, Wrench, Bookmark, Star,
-  Loader2, Sparkles,
+  Loader2, Sparkles, Plus,
 } from 'lucide-react';
 import useStore from '../stores/useStore';
+import Modal from '../components/ui/Modal';
+import { resourcesAPI } from '../api/engram';
 import EmptyState from '../components/ui/EmptyState';
 import styles from './Resources.module.css';
 
@@ -50,9 +52,16 @@ function normalizeResource(resource) {
 }
 
 export default function Resources() {
-  const { resources } = useStore();
+  const { resources, areas, loadAll, addToast, loading } = useStore();
   const [titleQuery, setTitleQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState(null);
+  const [showModal, setShowModal] = useState(false);
+  const [formTitle, setFormTitle] = useState('');
+  const [formType, setFormType] = useState('ARTICLE');
+  const [formUrl, setFormUrl] = useState('');
+  const [formAuthor, setFormAuthor] = useState('');
+  const [formAreaId, setFormAreaId] = useState('');
+  const [formTags, setFormTags] = useState('');
 
   const filtered = useMemo(() => {
     const q = titleQuery.trim().toLowerCase();
@@ -62,6 +71,37 @@ export default function Resources() {
       return true;
     });
   }, [resources, titleQuery, typeFilter]);
+
+  const resetForm = () => {
+    setFormTitle('');
+    setFormType('ARTICLE');
+    setFormUrl('');
+    setFormAuthor('');
+    setFormAreaId('');
+    setFormTags('');
+  };
+
+  const handleCreate = async (e) => {
+    e.preventDefault();
+    if (!formTitle.trim()) return;
+    try {
+      await resourcesAPI.create({
+        title: formTitle.trim(),
+        resource_type: formType,
+        url: formUrl.trim() || undefined,
+        author: formAuthor.trim() || undefined,
+        area_id: formAreaId || undefined,
+        tags: formTags.trim() || undefined,
+        source: 'manual',
+      });
+      resetForm();
+      setShowModal(false);
+      loadAll();
+      addToast({ type: 'success', message: 'Resource created' });
+    } catch (e) {
+      addToast({ type: 'error', message: e.message });
+    }
+  };
 
   return (
     <div className={styles.page}>
@@ -73,6 +113,9 @@ export default function Resources() {
             Typed references — articles, books, links, and other materials. Filter by kind or search by title.
           </p>
         </div>
+        <button className="btn btn-primary" onClick={() => setShowModal(true)}>
+          <Plus size={15} /> New Resource
+        </button>
       </div>
 
       <div className={styles.toolbar}>
@@ -107,7 +150,9 @@ export default function Resources() {
         </div>
       </div>
 
-      {resources.length === 0 ? (
+      {loading && resources.length === 0 ? (
+        <Loader2 size={20} className="spin" style={{ display: 'block', margin: '40px auto', color: 'var(--text-muted)' }} />
+      ) : resources.length === 0 ? (
         <EmptyState
           type="notes"
           title="No resources yet"
@@ -151,6 +196,49 @@ export default function Resources() {
             </Link>
           ))}
         </div>
+      )}
+
+      {showModal && (
+        <Modal isOpen onClose={() => { resetForm(); setShowModal(false); }} title="New Resource" footer={
+          <><button className="btn btn-ghost" onClick={() => { resetForm(); setShowModal(false); }}>Cancel</button>
+          <button className="btn btn-primary" onClick={handleCreate} disabled={!formTitle.trim()}>Create</button></>
+        }>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+            <div>
+              <label className={styles.label}>Title</label>
+              <input value={formTitle} onChange={e => setFormTitle(e.target.value)} placeholder="Resource title" autoFocus />
+            </div>
+            <div>
+              <label className={styles.label}>Resource Type</label>
+              <select value={formType} onChange={e => setFormType(e.target.value)}>
+                {RESOURCE_TYPES.map(t => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={styles.label}>URL</label>
+              <input value={formUrl} onChange={e => setFormUrl(e.target.value)} placeholder="https://..." />
+            </div>
+            <div>
+              <label className={styles.label}>Author</label>
+              <input value={formAuthor} onChange={e => setFormAuthor(e.target.value)} placeholder="Author name" />
+            </div>
+            <div>
+              <label className={styles.label}>Area</label>
+              <select value={formAreaId} onChange={e => setFormAreaId(e.target.value)}>
+                <option value="">None</option>
+                {areas.map(a => (
+                  <option key={a.id} value={a.id}>{a.title}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={styles.label}>Tags</label>
+              <input value={formTags} onChange={e => setFormTags(e.target.value)} placeholder="Comma-separated tags" />
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );

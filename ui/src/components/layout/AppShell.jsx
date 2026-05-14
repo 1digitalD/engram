@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Inbox, FileText, FolderOpen, Library,
   Map, Layers, Users, CheckSquare, Network, Calendar, Sun,
-  Search, Plus, ChevronLeft, ChevronRight, Menu, Keyboard, Loader2, X,
+  Search, Plus, ChevronLeft, ChevronRight, Menu, Keyboard, Loader2, X, Tag,
 } from 'lucide-react';
 import styles from './AppShell.module.css';
 import CommandPalette from '../search/CommandPalette';
@@ -20,6 +20,7 @@ const NAV_ITEMS = [
   { to: '/projects', icon: FolderOpen,      label: 'Projects' },
   { to: '/areas',    icon: Map,             label: 'Areas' },
   { to: '/resources', icon: Library,        label: 'Resources' },
+  { to: '/tags',     icon: Tag,             label: 'Tags' },
   { to: '/people',   icon: Users,           label: 'People' },
   { to: '/tasks',    icon: CheckSquare,     label: 'Tasks' },
   { to: '/review',   icon: Calendar,        label: 'Review' },
@@ -79,7 +80,7 @@ function getCaptureRoute(entity, fallbackType = 'note') {
 }
 
 export default function AppShell({ children }) {
-  const { projects, notes, captureOpen, openCapture, closeCapture, addToast, startAiStatusPoll } = useStore();
+  const { projects, notes, captureOpen, openCapture, closeCapture, addToast, startAiStatusPoll, stopAiStatusPoll } = useStore();
   const location = useLocation();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
@@ -140,6 +141,7 @@ export default function AppShell({ children }) {
 
   const closeDrawer = () => setDrawerOpen(false);
   const navEndProps = isMobile ? { onClick: closeDrawer } : {};
+  const pollEntityRef = useRef(null);
   const handleCaptureCreated = ({ entity, aiStatus, selectedType }) => {
     closeCapture();
     addToast({
@@ -150,9 +152,18 @@ export default function AppShell({ children }) {
     });
     if (aiStatus === 'processing' && entity?.id) {
       startAiStatusPoll(entity.id, selectedType);
+      pollEntityRef.current = { id: entity.id, type: selectedType };
     }
     navigate(getCaptureRoute(entity, selectedType));
   };
+
+  useEffect(() => {
+    return () => {
+      if (pollEntityRef.current) {
+        stopAiStatusPoll(pollEntityRef.current.id);
+      }
+    };
+  }, [stopAiStatusPoll]);
 
   return (
     <div className={`${styles.shell} ${drawerOpen ? styles.drawerOpen : ''}`}>
@@ -316,7 +327,7 @@ export default function AppShell({ children }) {
                 );
               })}
               <NavLink
-                to="/moc"
+                to="/notes"
                 className={styles.projectItem}
                 onClick={closeDrawer}
               >

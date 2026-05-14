@@ -1,10 +1,14 @@
 """Projects API — Entity-based with backward-compat response shape."""
 
+import logging
+
 from flask import request, jsonify
 from api import api_bp
 from extensions import db
 from models import Entity
 from services.entity_service import create_entity, update_entity, transition_status, delete_entity
+
+logger = logging.getLogger(__name__)
 
 
 # Status normalization: map frontend status values to backend canonical values.
@@ -98,8 +102,8 @@ def update_project(project_id):
                             "summary_id": summary.id,
                             "summary_title": summary.title,
                         }
-                    except Exception:
-                        pass  # Rollup failed — project is still marked completed
+                    except Exception as e:
+                        logger.warning("Rollup failed for project %s: %s", project_id, e)
         except ValueError as e:
             return jsonify({"error": str(e)}), 400
 

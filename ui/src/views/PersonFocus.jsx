@@ -1,8 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, CheckSquare, FileText, FolderOpen, Sparkles, Tag, UserPlus, Plus, X, Loader2, CheckCircle } from 'lucide-react';
 import useStore from '../stores/useStore';
 import ConnectionsPanel from '../components/ConnectionsPanel/ConnectionsPanel';
+import LinkToEntity from '../components/LinkToEntity/LinkToEntity';
 import NoteEditor from '../components/notes/NoteEditor';
 import { getEntityTitle } from '../components/ConnectionsPanel/ConnectionsPanel';
 import projectStyles from './ProjectFocus.module.css';
@@ -214,7 +215,7 @@ const actionButtonStyle = {
 export default function PersonFocus() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { people, notes, tasks, projects, setActivePerson, createNote, updateNote, addToast } = useStore();
+  const { people, notes, tasks, projects, setActivePerson, createNote, updateNote, addToast, loading } = useStore();
   const [tab, setTab] = useState('notes');
 
   // Add-note modal state
@@ -223,14 +224,23 @@ export default function PersonFocus() {
   const [notePick, setNotePick] = useState('');
   const [noteLinkBusy, setNoteLinkBusy] = useState(false);
 
+  // Connections tab refresh
+  const [connRefreshKey, setConnRefreshKey] = useState(0);
+
   // Inline new-note creation
   const [showNewNoteEditor, setShowNewNoteEditor] = useState(false);
 
   const person = people.find((entry) => entry.id === id);
 
+  const personIdRef = useRef(null);
   useEffect(() => {
+    personIdRef.current = person?.id || null;
     setActivePerson(person || null);
-    return () => setActivePerson(null);
+    return () => {
+      if (personIdRef.current === person?.id) {
+        setActivePerson(null);
+      }
+    };
   }, [person, setActivePerson]);
 
   const personNotes = useMemo(
@@ -311,6 +321,13 @@ export default function PersonFocus() {
   }
 
   if (!person) {
+    if (loading) {
+      return (
+        <div className={projectStyles.page}>
+          <Loader2 size={20} className="spin" style={{ display: 'block', margin: '40px auto', color: 'var(--text-muted)' }} />
+        </div>
+      );
+    }
     return (
       <div className={projectStyles.page}>
         <p className={projectStyles.empty}>Person not found.</p>
@@ -544,7 +561,8 @@ export default function PersonFocus() {
 
           {tab === 'connections' && (
             <div className={projectStyles.content}>
-              <ConnectionsPanel entityId={id} />
+              <LinkToEntity entityId={id} entityType="person" onLinkCreated={() => setConnRefreshKey(k => k + 1)} />
+              <ConnectionsPanel entityId={id} refreshKey={connRefreshKey} />
             </div>
           )}
         </div>

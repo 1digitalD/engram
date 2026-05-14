@@ -18,7 +18,10 @@ logger = logging.getLogger(__name__)
 # Markdown checklist lines: '- [ ] title' / '- [x] title' (x/X = done)
 _CHECKBOX_LINE_RE = re.compile(r"^\s*-\s*\[\s*([ xX])\s*\]\s+(.+)$")
 
-_client = None
+from utils import get_openai_client
+
+
+# ── Inline markdown checkbox task extraction ─────────────────────────────────
 
 
 def normalize_inline_task_title(title: str) -> str:
@@ -30,15 +33,7 @@ def inline_task_title_hash(title: str) -> str:
     return hashlib.sha256(normalize_inline_task_title(title).encode("utf-8")).hexdigest()
 
 
-def parse_inline_checkbox_lines(raw_text: str) -> list[tuple[str, str, "TaskStatus"]]:
-    """
-    Parse '- [ ]' / '- [x]' lines. Returns deduped (title_hash, display_title, status) in first-seen order.
-    Later duplicate hashes (same normalized title) keep the last line's title text and checkbox state.
-    """
-    # TaskStatus values are now stored as strings in Entity.properties['status']
-    _STATUS_DONE = "DONE"
-    _STATUS_PENDING = "PENDING"
-
+def parse_inline_checkbox_lines(raw_text: str) -> list[tuple[str, str, str]]:
     ordered: dict[str, tuple[str, str, str]] = {}
     order: list[str] = []
     for line in (raw_text or "").splitlines():
@@ -53,29 +48,11 @@ def parse_inline_checkbox_lines(raw_text: str) -> list[tuple[str, str, "TaskStat
         if not normalized:
             continue
         h = hashlib.sha256(normalized.encode("utf-8")).hexdigest()
-        status = _STATUS_DONE if mark.strip().lower() == "x" else _STATUS_PENDING
+        status = "DONE" if mark.strip().lower() == "x" else "PENDING"
         if h not in ordered:
             order.append(h)
         ordered[h] = (h, title[:500], status)
     return [ordered[h] for h in order]
-
-
-def extract_inline_tasks(
-    note_id: str,
-    raw_text: str,
-    project_id: Optional[str] = None,
-    area_id: Optional[str] = None,
-) -> list[dict]:
-    """Deprecated: no-op. Use extract_and_create_inline_tasks instead."""
-    import warnings
-    warnings.warn(
-        "extract_inline_tasks is deprecated and returns an empty list. "
-        "Use extract_and_create_inline_tasks instead.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    logger.warning("extract_inline_tasks called — deprecated, returning []")
-    return []
 
 
 def extract_and_create_inline_tasks(
@@ -84,20 +61,6 @@ def extract_and_create_inline_tasks(
     project_id: Optional[str] = None,
     area_id: Optional[str] = None,
 ) -> list[dict]:
-    """Parse inline checkbox lines and create Entity(type='task') records.
-
-    For each parsed checkbox line, creates a task Entity via create_entity
-    and links it to the source entity via create_link.
-
-    Args:
-        source_entity_id: The entity this note/text belongs to.
-        raw_text: Text containing markdown checkbox lines (- [ ] / - [x]).
-        project_id: Optional project to associate tasks with.
-        area_id: Optional area to associate tasks with.
-
-    Returns:
-        List of created task entity dicts.
-    """
     from services.entity_service import create_entity
     from services.link_service import create_link
 
@@ -133,17 +96,6 @@ def extract_and_create_inline_tasks(
         results.append(task_entity.to_dict())
 
     return results
-
-
-def _get_client():
-    global _client
-    if _client is None:
-        from openai import OpenAI
-        key = os.getenv("OPENAI_API_KEY")
-        if not key:
-            raise RuntimeError("OPENAI_API_KEY not set")
-        _client = OpenAI(api_key=key)
-    return _client
 
 
 # ── Pydantic schemas for structured extraction ──────────────────────────────
@@ -244,7 +196,7 @@ def extract(content: str, projects: list = None, area_names: list = None) -> Ext
     areas_str = ", ".join(area_names) if area_names else "(none)"
 
     try:
-        client = _get_client()
+        client = get_openai_client()
         response = client.beta.chat.completions.parse(
             model="gpt-4o",
             messages=[
@@ -287,7 +239,7 @@ def describe_image(image_data: str, mime_type: str = "image/jpeg") -> str:
     if not os.getenv("OPENAI_API_KEY"):
         return ""
     try:
-        client = _get_client()
+        client = get_openai_client()
         response = client.chat.completions.create(
             model="gpt-4o",
             messages=[

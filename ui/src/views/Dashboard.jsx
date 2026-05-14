@@ -203,7 +203,7 @@ export default function Dashboard() {
                 {inbox.slice(0, 4).map(n => (
                   <Link key={n.id} to={`/notes/${n.id}`} className={styles.inboxItem}>
                     <span className={styles.inboxDot} />
-                    <span className={styles.inboxText}>{n.raw_text.slice(0, 80)}…</span>
+                    <span className={styles.inboxText}>{(n.raw_text || '').slice(0, 80)}…</span>
                   </Link>
                 ))}
               </div>

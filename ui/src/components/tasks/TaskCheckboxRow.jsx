@@ -4,11 +4,15 @@ import useStore from '../../stores/useStore';
 import styles from './TaskCheckboxRow.module.css';
 
 export default function TaskCheckboxRow({ task, className = '', children }) {
-  const { updateTask } = useStore();
+  const { updateTask, addToast } = useStore();
 
   const toggle = async () => {
-    const next = task.status === 'DONE' ? 'PENDING' : 'DONE';
-    await updateTask(task.id, { status: next });
+    try {
+      const next = task.status === 'done' ? 'pending' : 'done';
+      await updateTask(task.id, { status: next });
+    } catch (e) {
+      addToast({ type: 'error', message: e.message || 'Failed to update task' });
+    }
   };
 
   return (
@@ -21,11 +25,11 @@ export default function TaskCheckboxRow({ task, className = '', children }) {
           e.stopPropagation();
           toggle();
         }}
-        aria-label={task.status === 'DONE' ? 'Mark task pending' : 'Mark task done'}
+        aria-label={task.status === 'done' ? 'Mark task pending' : 'Mark task done'}
       >
-        {task.status === 'DONE' ? <CheckCircle size={16} /> : <Circle size={16} />}
+        {task.status === 'done' ? <CheckCircle size={16} /> : <Circle size={16} />}
       </button>
-      <span className={`${styles.title} ${task.status === 'DONE' ? styles.done : ''}`}>
+      <span className={`${styles.title} ${task.status === 'done' ? styles.done : ''}`}>
         {task.title}
       </span>
       {children}

@@ -6,7 +6,11 @@ Backward-compat aliases ensure legacy response shapes work.
 
 from datetime import datetime, timezone
 
+from collections import defaultdict
+
 from flask import request, jsonify
+from sqlalchemy.orm import subqueryload
+
 from api import api_bp
 from extensions import db
 from models import Entity, EntityTag, EntityLink, Tag
@@ -91,7 +95,9 @@ def list_notes():
     limit = request.args.get("limit", 50, type=int)
     offset = request.args.get("offset", 0, type=int)
 
-    q = Entity.query.filter_by(type="note")
+    q = Entity.query.filter_by(type="note").options(
+        subqueryload(Entity.entity_tags).subqueryload(EntityTag.tag)
+    )
     if not archived:
         q = q.filter(Entity.lifecycle != "archived")
     if bucket:
@@ -99,7 +105,6 @@ def list_notes():
     if area_id:
         q = q.filter(Entity.properties.contains({"area_id": area_id}))
     if project_id:
-        # Filter notes linked to this project
         note_ids_with_project = db.session.query(EntityLink.src_id).filter_by(
             dst_id=project_id, link_type="project"
         ).subquery()
@@ -110,6 +115,19 @@ def list_notes():
 
     total = q.count()
     notes = q.order_by(Entity.created_at.desc()).offset(offset).limit(limit).all()
+
+    # Batch-load project links to avoid N+1 in _entity_to_note_response
+    note_ids = [n.id for n in notes]
+    if note_ids:
+        project_links = EntityLink.query.filter(
+            EntityLink.src_id.in_(note_ids),
+            EntityLink.link_type == "project"
+        ).all()
+
+        # Batch-load linked project entities
+        project_ids = list(set(l.dst_id for l in project_links))
+        if project_ids:
+            Entity.query.filter(Entity.id.in_(project_ids)).all()
 
     return jsonify({
         "data": [_entity_to_note_response(n) for n in notes],

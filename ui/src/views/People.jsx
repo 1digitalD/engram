@@ -19,7 +19,7 @@ function getProp(person, key) {
 
 export default function People() {
   const navigate = useNavigate();
-  const { people, notes, createPerson, updatePerson, deletePerson, getDeletePreview, setActivePerson } = useStore();
+  const { people, notes, createPerson, updatePerson, deletePerson, getDeletePreview, setActivePerson, loading } = useStore();
   const [showModal, setShowModal] = useState(false);
   const [editingPerson, setEditingPerson] = useState(null);
   const [name, setName] = useState('');
@@ -139,7 +139,9 @@ export default function People() {
         />
       </div>
 
-      {people.length === 0 ? (
+      {loading && people.length === 0 ? (
+        <Loader2 size={20} className="spin" style={{ display: 'block', margin: '40px auto', color: 'var(--text-muted)' }} />
+      ) : people.length === 0 ? (
         <EmptyState
           type="notes"
           title="No people yet"

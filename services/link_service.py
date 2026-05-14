@@ -5,8 +5,8 @@ orphan detection, and delete cascade preview.
 """
 
 from extensions import db
-from models import Entity, EntityLink, EntityEvent
-from services.entity_service import _get_entity
+from models import Entity, EntityLink
+from services.entity_service import _get_entity, _write_event
 from sqlalchemy.exc import DataError
 
 
@@ -202,18 +202,3 @@ def delete_preview(entity_id):
 
 
 # ─── Internal helpers ────────────────────────────────────────────────────────
-
-
-def _write_event(entity_id, event_type, actor, old_value=None, new_value=None,
-                 confidence=None, reason=None):
-    """Write an entity_events record."""
-    event = EntityEvent(
-        entity_id=entity_id,
-        event_type=event_type,
-        actor=actor,
-        old_value=old_value,
-        new_value=new_value,
-        confidence=confidence,
-        reason=reason,
-    )
-    db.session.add(event)

@@ -4,10 +4,13 @@ All business logic for entity creation, updates, archival, and deletion.
 Writes entity_events for every mutation. Enqueues AI jobs on creation.
 """
 
+import logging
 from datetime import datetime, timezone
 
 from extensions import db
 from models import Entity, EntityEvent, EntityLink, Job
+
+logger = logging.getLogger(__name__)
 from sqlalchemy.exc import DataError
 
 # ─── Default initial status per entity type ──────────────────────────────────
@@ -107,8 +110,8 @@ def create_entity(entity_type, title=None, content=None, properties=None,
     try:
         _enqueue_classify(entity.id)
         _enqueue_embed(entity.id)
-    except Exception:
-        pass  # AI pipeline not yet initialized — entity still created
+    except Exception as e:
+        logger.warning("Failed to enqueue AI jobs for entity %s: %s", entity.id, e)
 
     db.session.commit()
     return entity

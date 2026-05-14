@@ -70,8 +70,13 @@ def _op_update_note(body: dict) -> dict:
         for tag in tags:
             db.session.add(EntityTag(entity_id=note.id, tag_id=tag.id))
     if text_changed:
-        from services.extractor import extract_inline_tasks
-        extract_inline_tasks(note.id, note.content, note.properties.get("project_id"), note.properties.get("area_id"))
+        from services.extractor import extract_and_create_inline_tasks
+        extract_and_create_inline_tasks(
+            note.id,
+            note.content,
+            note.properties.get("project_id"),
+            note.properties.get("area_id"),
+        )
     db.session.commit()
     return {"note": note.to_dict()}
 

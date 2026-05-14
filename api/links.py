@@ -1,7 +1,7 @@
 from flask import request, jsonify
 from api import api_bp, api_v2_bp
 from extensions import db
-from models import Entity, EntityLink
+from models import Entity, EntityLink, EntityEvent
 from services.link_service import (
     create_link as svc_create_link,
     delete_link as svc_delete_link,
@@ -148,15 +148,30 @@ def v2_get_entity_links(entity_id):
         .all()
     )
 
+    # Batch-load other entities to avoid N+1
+    other_ids = set()
+    for link in links:
+        if str(link.src_id) == entity_id:
+            other_ids.add(link.dst_id)
+        else:
+            other_ids.add(link.src_id)
+    if other_ids:
+        other_entities = {
+            e.id: e
+            for e in Entity.query.filter(Entity.id.in_(list(other_ids))).all()
+        }
+    else:
+        other_entities = {}
+
     result = []
     for link in links:
         d = link.to_dict()
         if str(link.src_id) == entity_id:
             d["direction"] = "outgoing"
-            other = db.session.get(Entity, link.dst_id)
+            other = other_entities.get(link.dst_id)
         else:
             d["direction"] = "incoming"
-            other = db.session.get(Entity, link.src_id)
+            other = other_entities.get(link.src_id)
 
         if other:
             d["other_entity"] = {
@@ -229,3 +244,24 @@ def v2_delete_preview(entity_id):
         })
     except ValueError:
         return jsonify({"error": "not found"}), 404
+
+
+@api_v2_bp.route("/entities/<entity_id>/events", methods=["GET"])
+def v2_entity_events(entity_id):
+    """Return event/audit history for an entity."""
+    entity = db.session.get(Entity, entity_id)
+    if not entity:
+        return jsonify({"error": "not found"}), 404
+
+    limit = request.args.get("limit", 50, type=int)
+    event_type = request.args.get("event_type")
+    actor = request.args.get("actor")
+
+    q = EntityEvent.query.filter_by(entity_id=entity_id)
+    if event_type:
+        q = q.filter(EntityEvent.event_type == event_type)
+    if actor:
+        q = q.filter(EntityEvent.actor == actor)
+
+    events = q.order_by(EntityEvent.created_at.desc()).limit(limit).all()
+    return jsonify({"data": [e.to_dict() for e in events]})

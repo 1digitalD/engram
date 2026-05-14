@@ -19,6 +19,7 @@ import {
   getEntityTitle,
   resolveEntity,
 } from '../components/ConnectionsPanel/ConnectionsPanel';
+import LinkToEntity from '../components/LinkToEntity/LinkToEntity';
 import { RESOURCE_TYPES, ResourceTypeIcon } from './Resources';
 import DeleteConfirmModal from '../components/DeleteConfirmModal';
 import styles from './ResourceDetail.module.css';
@@ -188,7 +189,6 @@ function mapConnectedEntities(response, store) {
 export default function ResourceDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const store = useStore();
   const {
     resources,
     notes,
@@ -199,7 +199,7 @@ export default function ResourceDetail() {
     deleteResource,
     getDeletePreview,
     upsertResource,
-  } = store;
+  } = useStore();
 
   const storeResource = useMemo(
     () => normalizeResource(resources.find((entry) => entry.id === id)),
@@ -212,6 +212,7 @@ export default function ResourceDetail() {
   const [saving, setSaving] = useState(false);
   const [tab, setTab] = useState('notes');
   const [linked, setLinked] = useState({ note: [], task: [], person: [] });
+  const [linkRefreshKey, setLinkRefreshKey] = useState(0);
 
   const [title, setTitle] = useState(storeResource?.title || '');
   const [resourceType, setResourceType] = useState(storeResource?.resource_type || 'OTHER');
@@ -295,7 +296,7 @@ export default function ResourceDetail() {
     return () => {
       ignore = true;
     };
-  }, [areas, id, notes, people, resources, tasks]);
+  }, [id, linkRefreshKey]);
 
   const handleSave = async (e) => {
     e.preventDefault();
@@ -469,6 +470,10 @@ export default function ResourceDetail() {
                 })}
               </div>
             )}
+          </section>
+
+          <section style={sectionCardStyle}>
+            <LinkToEntity entityId={id} entityType="resource" onLinkCreated={() => setLinkRefreshKey(k => k + 1)} />
           </section>
 
           <form className={styles.form} onSubmit={handleSave}>

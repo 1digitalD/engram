@@ -1,6 +1,8 @@
 import React, { useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import AppShell from './components/layout/AppShell';
+import ErrorBoundary from './components/ErrorBoundary';
+import styles from './App.module.css';
 import Dashboard from './views/Dashboard';
 import Today from './views/Today';
 import Inbox from './views/Inbox';
@@ -15,7 +17,9 @@ import ResourceDetail from './views/ResourceDetail';
 import People from './views/People';
 import PersonFocus from './views/PersonFocus';
 import Tasks from './views/Tasks';
+import TaskDetail from './views/TaskDetail';
 import Review from './views/Review';
+import Tags from './views/Tags';
 import Toast from './components/ui/Toast';
 import useStore from './stores/useStore';
 
@@ -27,7 +31,7 @@ export default function App() {
   }, []);
 
   return (
-    <>
+    <ErrorBoundary>
       <AppShell>
         <Routes>
           <Route path="/"                element={<Dashboard />} />
@@ -41,20 +45,22 @@ export default function App() {
           <Route path="/areas/:id"       element={<AreaFocus />} />
           <Route path="/resources"       element={<Resources />} />
           <Route path="/resources/:id"  element={<ResourceDetail />} />
+          <Route path="/tags"            element={<Tags />} />
           <Route path="/people"          element={<People />} />
           <Route path="/people/:id"      element={<PersonFocus />} />
           <Route path="/tasks"           element={<Tasks />} />
+          <Route path="/tasks/:id"      element={<TaskDetail />} />
           <Route path="/review"          element={<Review />} />
           <Route path="*"               element={<Navigate to="/" replace />} />
         </Routes>
       </AppShell>
 
       {/* Toast stack */}
-      <div style={{ position: 'fixed', bottom: 20, right: 20, zIndex: 9999, display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div className={styles.toastStack}>
         {toasts.map(t => (
           <Toast key={t.id} toast={t} onDismiss={() => removeToast(t.id)} />
         ))}
       </div>
-    </>
+    </ErrorBoundary>
   );
 }

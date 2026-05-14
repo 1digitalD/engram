@@ -297,7 +297,7 @@ function TaskColumn({
 }
 
 export default function Tasks() {
-  const { tasks, projects, notes, createTask, updateTask, deleteTask, getDeletePreview, addToast } = useStore();
+  const { tasks, projects, notes, createTask, updateTask, deleteTask, getDeletePreview, addToast, loading } = useStore();
   const [activeFilter, setActiveFilter] = useState(FILTERS.ALL);
   const [selectedProjectId, setSelectedProjectId] = useState(projects[0]?.id || '');
   const [quickAddStatus, setQuickAddStatus] = useState(null);
@@ -557,7 +557,9 @@ export default function Tasks() {
         </div>
       )}
 
-      {tasks.length === 0 ? (
+      {loading && tasks.length === 0 ? (
+        <Loader2 size={20} className="spin" style={{ display: 'block', margin: '40px auto', color: 'var(--text-muted)' }} />
+      ) : tasks.length === 0 ? (
         <EmptyState
           type="tasks"
           title="No tasks yet"

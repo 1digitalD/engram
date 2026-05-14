@@ -207,7 +207,7 @@ def _build_proposed_update(entity_data, text):
 
 def _handle_improve_writing(text, data):
     """Return improved version of the selected text."""
-    from services.extractor import _get_client
+    from utils import get_openai_client
     import os
 
     if not os.getenv("OPENAI_API_KEY"):
@@ -220,7 +220,7 @@ def _handle_improve_writing(text, data):
         }
 
     try:
-        client = _get_client()
+        client = get_openai_client()
         response = client.chat.completions.create(
             model="gpt-4o",
             messages=[
