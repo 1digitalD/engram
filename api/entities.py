@@ -182,8 +182,66 @@ def v2_get_entity_events(entity_id):
         .all()
 
     return jsonify({
-        "data": [e.to_dict() for e in events] if hasattr(events[0] if events else None, 'to_dict') else [
-            {"id": e.id, "event_type": e.event_type, "actor": e.actor, "confidence": e.confidence, "reason": e.reason, "created_at": e.created_at.isoformat() if e.created_at else None}
-            for e in events
-        ],
+        "data": [e.to_dict() for e in events],
+    })
+
+
+@api_v2_bp.route("/today/summary", methods=["GET"])
+def v2_today_summary():
+    """Get today-view summary: projects needing attention and people with blocked tasks.
+
+    Returns:
+      - projects_without_next_action: active projects with no pending/in_progress tasks
+      - waiting_on_people: people who have tasks assigned where status is 'waiting'/'blocked'
+    """
+    from models import EntityLink
+
+    project_ids_with_action = set()
+    task_links = EntityLink.query.filter(
+        EntityLink.link_type == "parent",
+        EntityLink.src_id.in_(
+            db.session.query(Entity.id).filter(Entity.type == "task", Entity.lifecycle == "active")
+        )
+    ).all()
+    for link in task_links:
+        project_ids_with_action.add(link.dst_id)
+
+    active_projects = Entity.query.filter(
+        Entity.type == "project",
+        Entity.lifecycle == "active"
+    ).all()
+    projects_without_next_action = [
+        p.to_dict() for p in active_projects if p.id not in project_ids_with_action
+    ]
+
+    person_ids_with_waiting = set()
+    assigned_links = EntityLink.query.filter_by(link_type="assigned_to").all()
+    for link in assigned_links:
+        task = db.session.get(Entity, link.src_id)
+        if task and task.type == "task" and task.lifecycle == "active" and task.status in ("waiting", "blocked"):
+            person_ids_with_waiting.add(link.dst_id)
+
+    waiting_people = []
+    for pid in person_ids_with_waiting:
+        person = db.session.get(Entity, pid)
+        if person and person.type == "person" and person.lifecycle == "active":
+            d = person.to_dict()
+            person_tasks = Entity.query.filter(
+                Entity.type == "task",
+                Entity.lifecycle == "active",
+                Entity.id.in_(
+                    db.session.query(EntityLink.src_id).filter(
+                        EntityLink.dst_id == pid,
+                        EntityLink.link_type == "assigned_to"
+                    )
+                )
+            ).all()
+            d["task_count"] = len(person_tasks)
+            waiting_people.append(d)
+
+    return jsonify({
+        "data": {
+            "projects_without_next_action": projects_without_next_action,
+            "waiting_on_people": waiting_people,
+        }
     })

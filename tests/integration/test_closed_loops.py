@@ -703,3 +703,56 @@ class TestExtractedEntitiesEndpoint:
         """Returns 404 for unknown entity."""
         resp = client.get("/api/v2/entities/nonexistent-id/extracted")
         assert resp.status_code == 404
+
+
+class TestTodaySummary:
+    """Test GET /api/v2/today/summary"""
+
+    def test_projects_without_next_action(self, client, app):
+        """Returns active projects with no pending/in_progress tasks."""
+        from services.entity_service import create_entity
+        from services.link_service import create_link
+
+        with app.app_context():
+            project_id = str(create_entity(entity_type="project", title="Orphan Project", actor="user").id)
+            db.session.commit()
+
+        resp = client.get("/api/v2/today/summary")
+        assert resp.status_code == 200
+        data = resp.get_json()["data"]
+        assert any(p["id"] == project_id for p in data["projects_without_next_action"])
+
+    def test_waiting_on_people(self, client, app):
+        """Returns people who have tasks assigned with waiting/blocked status."""
+        from services.entity_service import create_entity, update_entity
+        from services.link_service import create_link
+
+        with app.app_context():
+            person_id = str(create_entity(entity_type="person", title="Waiting Person", actor="user").id)
+            task = create_entity(entity_type="task", title="Waiting task", actor="user")
+            task_id = str(task.id)
+            update_entity(task_id, {"status": "waiting"}, actor="user")
+            create_link(src_id=task_id, dst_id=person_id, link_type="assigned_to", actor="user")
+            db.session.commit()
+
+        resp = client.get("/api/v2/today/summary")
+        assert resp.status_code == 200
+        data = resp.get_json()["data"]
+        assert any(p["id"] == person_id for p in data["waiting_on_people"])
+
+    def test_project_with_active_task_not_in_list(self, client, app):
+        """Project with a pending task is excluded from no-next-action list."""
+        from services.entity_service import create_entity
+        from services.link_service import create_link
+
+        with app.app_context():
+            project_id = str(create_entity(entity_type="project", title="Active Project", actor="user").id)
+            task = create_entity(entity_type="task", title="Active task", actor="user")
+            task_id = str(task.id)
+            create_link(src_id=task_id, dst_id=project_id, link_type="parent", actor="user")
+            db.session.commit()
+
+        resp = client.get("/api/v2/today/summary")
+        assert resp.status_code == 200
+        data = resp.get_json()["data"]
+        assert not any(p["id"] == project_id for p in data["projects_without_next_action"])

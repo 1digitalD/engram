@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { CheckSquare, FileText, Folder, Circle, User, BookOpen, Plus, Loader2 } from 'lucide-react';
 import useStore from '../stores/useStore';
 import styles from './Today.module.css';
@@ -16,6 +16,23 @@ const SECTIONS = [
   { key: 'overdue', label: 'Overdue', dot: 'var(--red)', emptyMsg: 'Nothing overdue. Great job staying on top of things!' },
   { key: 'dueToday', label: 'Due Today', dot: 'var(--yellow)', emptyMsg: 'No tasks due today. Enjoy the breathing room.' },
   { key: 'followUp', label: 'Follow-up', dot: 'var(--accent)', emptyMsg: 'No follow-ups scheduled. Set one from any entity.' },
+];
+
+const NEW_SECTIONS = [
+  {
+    key: 'projectsWithoutNextAction',
+    label: 'Projects with no next action',
+    dot: 'var(--orange)',
+    emptyMsg: 'All active projects have upcoming tasks.',
+    icon: Folder,
+  },
+  {
+    key: 'waitingOnPeople',
+    label: 'Waiting on people',
+    dot: 'var(--blue)',
+    emptyMsg: 'No tasks are blocked waiting on someone.',
+    icon: User,
+  },
 ];
 
 function localDateISO(d = new Date()) {
@@ -69,9 +86,11 @@ function EntityCard({ entity, projectsById }) {
 }
 
 function Section({ section, items, projectsById }) {
+  const Icon = section.icon;
   return (
     <div className={styles.section}>
       <div className={styles.sectionHeader}>
+        {Icon && <Icon size={12} style={{ opacity: 0.6 }} />}
         <span className={styles.sectionDot} style={{ background: section.dot }} />
         <span className={styles.sectionLabel}>{section.label}</span>
         <span className={styles.sectionCount}>{items.length}</span>
@@ -90,9 +109,20 @@ function Section({ section, items, projectsById }) {
 }
 
 export default function Today() {
-  const { tasks, notes, projects, createTask, addToast, loading } = useStore();
+  const { tasks, notes, projects, people, createTask, addToast, loading } = useStore();
   const [quickAddValue, setQuickAddValue] = useState('');
+  const [summary, setSummary] = useState(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
   const dateStr = localDateISO();
+
+  useEffect(() => {
+    setSummaryLoading(true);
+    fetch('/api/v2/today/summary')
+      .then(r => r.json())
+      .then(d => setSummary(d.data || { projects_without_next_action: [], waiting_on_people: [] }))
+      .catch(() => setSummary({ projects_without_next_action: [], waiting_on_people: [] }))
+      .finally(() => setSummaryLoading(false));
+  }, []);
 
   const projectsById = useMemo(
     () => Object.fromEntries(projects.map(p => [p.id, p])),
@@ -182,6 +212,29 @@ export default function Today() {
               />
             );
           })}
+
+          {summaryLoading ? (
+            <div className={styles.section}>
+              <div className={styles.sectionHeader}>
+                <Loader2 size={14} className="spin" />
+                <span className={styles.sectionLabel}>Loading attention items…</span>
+              </div>
+            </div>
+          ) : (
+            NEW_SECTIONS.map(section => {
+              const items = section.key === 'projectsWithoutNextAction'
+                ? (summary?.projects_without_next_action || []).map(p => ({ ...p, _entityType: 'project' }))
+                : (summary?.waiting_on_people || []).map(p => ({ ...p, _entityType: 'person' }));
+              return (
+                <Section
+                  key={section.key}
+                  section={section}
+                  items={items}
+                  projectsById={projectsById}
+                />
+              );
+            })
+          )}
         </div>
       )}
     </div>
