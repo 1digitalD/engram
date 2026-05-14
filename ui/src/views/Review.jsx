@@ -21,7 +21,7 @@ import {
   HeartPulse,
 } from 'lucide-react';
 import useStore from '../stores/useStore';
-import { summariesAPI, proposalsAPI, reviewAPI, metricsAPI } from '../api/engram';
+import { summariesAPI, proposalsAPI, reviewAPI, metricsAPI, suggestionsAPI } from '../api/engram';
 import NoteCard from '../components/notes/NoteCard';
 import styles from './Review.module.css';
 import {
@@ -352,6 +352,11 @@ export default function Review() {
   const [proposalBulkBusy, setProposalBulkBusy] = useState(false);
   const [proposalRowBusyId, setProposalRowBusyId] = useState(null);
 
+  const [aiSuggestions, setAiSuggestions] = useState([]);
+  const [aiSuggestionsLoading, setAiSuggestionsLoading] = useState(false);
+  const [aiSuggestionsError, setAiSuggestionsError] = useState(null);
+  const [aiSuggestionBusyId, setAiSuggestionBusyId] = useState(null);
+
   const [insightsTab, setInsightsTab] = useState('summary');
   const [healthHistory, setHealthHistory] = useState([]);
   const [healthHistoryLoading, setHealthHistoryLoading] = useState(false);
@@ -393,6 +398,24 @@ export default function Review() {
   useEffect(() => {
     loadLinkProposals();
   }, [loadLinkProposals]);
+
+  const loadAiSuggestions = useCallback(async () => {
+    setAiSuggestionsLoading(true);
+    setAiSuggestionsError(null);
+    try {
+      const res = await suggestionsAPI.list({ status: 'pending', limit: 500 });
+      setAiSuggestions(res.data || []);
+    } catch (e) {
+      setAiSuggestionsError(e.message || 'Failed to load AI suggestions');
+      setAiSuggestions([]);
+    } finally {
+      setAiSuggestionsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadAiSuggestions();
+  }, [loadAiSuggestions]);
 
   useEffect(() => {
     let cancelled = false;
@@ -780,6 +803,127 @@ export default function Review() {
           step={REVIEW_WORKFLOW_STEPS[1]}
           flow={reviewFlow}
           patchFlow={setReviewFlow}
+          badge={aiSuggestions.length}
+          eyebrow="Accept, edit, or dismiss"
+        >
+          <div className={styles.workflowEmbed}>
+            <section className={styles.proposalsSection} aria-label="AI Suggestions">
+              <div className={styles.proposalsHead}>
+                <div className={styles.proposalsTitleRow}>
+                  <Sparkles size={18} className={styles.proposalsIcon} aria-hidden />
+                  <h2>AI Suggestions</h2>
+                  <span className={styles.badge}>{aiSuggestions.length}</span>
+                  <button
+                    type="button"
+                    className={styles.retryBtn}
+                    disabled={aiSuggestionsLoading}
+                    onClick={() => loadAiSuggestions()}
+                  >
+                    Refresh
+                  </button>
+                </div>
+                <p className={styles.proposalsLead}>
+                  Tasks, projects, and links extracted from your captures. Accept to create, dismiss to ignore.
+                </p>
+              </div>
+
+              {aiSuggestionsError && (
+                <p className={styles.summaryError} role="alert">
+                  Could not load suggestions: {aiSuggestionsError}
+                </p>
+              )}
+
+              {aiSuggestionsLoading && !aiSuggestionsError && (
+                <p className={styles.summaryMuted}>
+                  <Loader2 size={14} className="spin" aria-hidden /> Loading suggestions…
+                </p>
+              )}
+
+              {!aiSuggestionsLoading && !aiSuggestionsError && aiSuggestions.length === 0 && (
+                <p className={styles.summaryMuted}>No pending suggestions. Captured items will appear here.</p>
+              )}
+
+              {!aiSuggestionsLoading && aiSuggestions.length > 0 && (
+                <ul className={styles.proposalList}>
+                  {aiSuggestions.map((s) => {
+                    const busy = aiSuggestionBusyId === s.id;
+                    return (
+                      <li key={s.id} className={styles.proposalRow}>
+                        <div className={styles.proposalMain}>
+                          <span style={{ fontWeight: 600, color: 'var(--text)' }}>
+                            {s.suggestion_type}
+                          </span>
+                          <span style={{ color: 'var(--text-muted)', fontSize: '11px', marginLeft: '6px' }}>
+                            {s.operation_type}
+                          </span>
+                          <span style={{
+                            fontSize: '10px',
+                            fontFamily: 'var(--font-mono, monospace)',
+                            color: s.confidence >= 0.92 ? 'var(--green)' : s.confidence >= 0.7 ? 'var(--yellow)' : 'var(--text-muted)',
+                          }}>
+                            {s.confidence != null ? Math.round(s.confidence * 100) + '%' : ''}
+                          </span>
+                          {s.reason && <p className={styles.proposalReason}>{s.reason}</p>}
+                        </div>
+                        <div className={styles.proposalActions}>
+                          <button
+                            type="button"
+                            className="btn btn-primary btn-sm"
+                            onClick={async () => {
+                              if (busy) return;
+                              setAiSuggestionBusyId(s.id);
+                              try {
+                                await suggestionsAPI.accept(s.id);
+                                await loadAiSuggestions();
+                                addToast({ type: 'success', message: 'Suggestion accepted' });
+                              } catch (e) {
+                                addToast({ type: 'error', message: e.message || 'Failed to accept suggestion' });
+                              } finally {
+                                setAiSuggestionBusyId(null);
+                              }
+                            }}
+                            disabled={busy}
+                            title="Accept suggestion"
+                          >
+                            {busy ? <Loader2 size={13} className="spin" /> : <CheckCircle size={13} />}
+                            Accept
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm"
+                            onClick={async () => {
+                              if (busy) return;
+                              setAiSuggestionBusyId(s.id);
+                              try {
+                                await suggestionsAPI.dismiss(s.id);
+                                await loadAiSuggestions();
+                                addToast({ type: 'success', message: 'Suggestion dismissed' });
+                              } catch (e) {
+                                addToast({ type: 'error', message: e.message || 'Failed to dismiss suggestion' });
+                              } finally {
+                                setAiSuggestionBusyId(null);
+                              }
+                            }}
+                            disabled={busy}
+                            title="Dismiss suggestion"
+                          >
+                            Dismiss
+                          </button>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </section>
+          </div>
+        </WorkflowStepPanel>
+
+        <WorkflowStepPanel
+          stepIndex={2}
+          step={REVIEW_WORKFLOW_STEPS[2]}
+          flow={reviewFlow}
+          patchFlow={setReviewFlow}
           badge={activeProjects.length}
         >
           <p className={styles.workflowLead}>Spend a pass on active projects.</p>
@@ -804,8 +948,8 @@ export default function Review() {
         </WorkflowStepPanel>
 
         <WorkflowStepPanel
-          stepIndex={2}
-          step={REVIEW_WORKFLOW_STEPS[2]}
+          stepIndex={3}
+          step={REVIEW_WORKFLOW_STEPS[3]}
           flow={reviewFlow}
           patchFlow={setReviewFlow}
           badge={activeAreas.length}
@@ -832,8 +976,8 @@ export default function Review() {
         </WorkflowStepPanel>
 
         <WorkflowStepPanel
-          stepIndex={3}
-          step={REVIEW_WORKFLOW_STEPS[3]}
+          stepIndex={4}
+          step={REVIEW_WORKFLOW_STEPS[4]}
           flow={reviewFlow}
           patchFlow={setReviewFlow}
           badge={orphanNotes.length}
@@ -946,8 +1090,8 @@ export default function Review() {
         </WorkflowStepPanel>
 
         <WorkflowStepPanel
-          stepIndex={4}
-          step={REVIEW_WORKFLOW_STEPS[4]}
+          stepIndex={5}
+          step={REVIEW_WORKFLOW_STEPS[5]}
           flow={reviewFlow}
           patchFlow={setReviewFlow}
           badge={linkProposals.length}
@@ -1144,11 +1288,13 @@ export default function Review() {
           </div>
         </WorkflowStepPanel>
 
-        <WorkflowStepPanel
-          stepIndex={5}
-          step={REVIEW_WORKFLOW_STEPS[5]}
+<WorkflowStepPanel
+          stepIndex={6}
+          step={REVIEW_WORKFLOW_STEPS[6]}
           flow={reviewFlow}
           patchFlow={setReviewFlow}
+          badge={summaries.length}
+          eyebrow="Health and insights"
         >
           {insightsTab === 'summary' ? (
             <p className={styles.workflowMeta}>
@@ -1411,7 +1557,7 @@ export default function Review() {
           </div>
         </WorkflowStepPanel>
 
-        <WorkflowStepPanel stepIndex={6} step={REVIEW_WORKFLOW_STEPS[6]} flow={reviewFlow} patchFlow={setReviewFlow}>
+        <WorkflowStepPanel stepIndex={7} step={REVIEW_WORKFLOW_STEPS[7]} flow={reviewFlow} patchFlow={setReviewFlow}>
           <p className={styles.workflowLead}>
             Lightweight forward look: dues, backlog, and trailing capture pulse for the coming week.
           </p>

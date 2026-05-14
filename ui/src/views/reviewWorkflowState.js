@@ -4,6 +4,7 @@ export const REVIEW_WORKFLOW_STORAGE_KEY = 'engram.reviewWorkflow.v1';
 
 export const REVIEW_WORKFLOW_STEPS = [
   { id: 'inbox', title: 'Clear Inbox', short: 'Inbox' },
+  { id: 'ai_suggestions', title: 'AI Suggestions', short: 'AI Suggestions' },
   { id: 'projects', title: 'Review Projects', short: 'Projects' },
   { id: 'areas', title: 'Review Areas', short: 'Areas' },
   { id: 'orphans', title: 'Orphan Notes', short: 'Orphans' },

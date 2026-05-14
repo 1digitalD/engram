@@ -293,4 +293,6 @@ If the session resets:
 
 - **2026-05-14** V3.5-AI-PRODUCTIVITY-OS.Iter1 → 407c802b: Iteration 1: Wired inline_extract → reconcile_all → apply_change_plan in _capture_as_note. Added inline_extract() to extractor.py (sync keyword-based checkbox task extraction with deadline/priority/project hints). Fixed _create_suggestion in ai_operation_applier.py to persist to AiSuggestion table (was returning dict only). All 209 tests pass.
 
-- **2026-05-14** V3.5-AI-PRODUCTIVITY-OS.Iter2 → (wip): Iteration 2: Fixed CaptureModal to call /api/v2/capture with correct `mode` param (was `entity_type`). Wired PostCaptureSummary into capture flow after successful submission. Added handleClose() helper to reset state between captures.
+- **2026-05-14** V3.5-AI-PRODUCTIVITY-OS.Iter2 → d046b6ce: Iteration 2: Fixed CaptureModal to call /api/v2/capture with correct `mode` param (was `entity_type`). Wired PostCaptureSummary into capture flow after successful submission. Added handleClose() helper to reset state between captures.
+
+- **2026-05-14** V3.5-AI-PRODUCTIVITY-OS.Iter3 → (wip): Iteration 3: Fixed suggestionsAPI to use /api/v2/suggestions (was pointing to deprecated /proposals). Added AI Suggestions step to Review workflow (stepIndex=1, between Inbox and Projects). Wired accept/dismiss actions that call suggestionsAPI.accept/dismiss and reload. Review button in PostCaptureSummary now navigates to /review. 209 tests pass, frontend builds clean.

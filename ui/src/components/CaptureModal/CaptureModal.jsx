@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { X, Loader2, FileText, CheckSquare, Library, Users } from 'lucide-react';
 import styles from './CaptureModal.module.css';
 import PostCaptureSummary from '../PostCaptureSummary/PostCaptureSummary';
@@ -16,6 +17,7 @@ export default function CaptureModal({ onClose, onCreated }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [captureResult, setCaptureResult] = useState(null);
+  const navigate = useNavigate();
   const handleSubmit = async (event) => {
     event.preventDefault();
     const body = content.trim();
@@ -206,7 +208,10 @@ export default function CaptureModal({ onClose, onCreated }) {
           appliedChanges={captureResult.appliedChanges}
           suggestions={captureResult.suggestions}
           onUndo={null}
-          onReview={null}
+          onReview={() => {
+            handleClose();
+            navigate('/review');
+          }}
         />
       )}
     </div>

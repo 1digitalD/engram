@@ -173,9 +173,16 @@ export const captureAPI = {
 
 // ── Suggestions API ────────────────────────
 export const suggestionsAPI = {
-  list:    (entityId) => fetch(`/api/v2/proposals?entity_id=${encodeURIComponent(entityId)}&limit=100`).then(r => r.json()),
-  accept:  (id, data) => apiRequest('POST', `/proposals/${id}/accept`),
-  dismiss: (id)       => apiRequest('POST', `/proposals/${id}/dismiss`),
+  list:    (params = {}) => {
+    const qs = new URLSearchParams();
+    if (params.entityId) qs.set('entity_id', params.entityId);
+    if (params.status) qs.set('status', params.status);
+    if (params.limit) qs.set('limit', params.limit);
+    const q = qs.toString();
+    return fetch(`/api/v2/suggestions${q ? '?' + q : ''}`).then(r => r.json());
+  },
+  accept:  (id) => fetch(`/api/v2/suggestions/${id}/accept`, { method: 'POST' }).then(r => r.json()),
+  dismiss: (id) => fetch(`/api/v2/suggestions/${id}/dismiss`, { method: 'POST' }).then(r => r.json()),
 };
 
 // ── Relationships API ─────────────────────
