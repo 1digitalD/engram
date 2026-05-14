@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   ArrowLeft, Edit2, Loader2, Trash2, Tag, User, FolderOpen, Map,
@@ -183,8 +183,11 @@ export default function NoteDetailView() {
   const [proposalsLoading, setProposalsLoading] = useState(false);
   const [proposalActionId, setProposalActionId] = useState(null);
 
-  const [newTaskTitle, setNewTaskTitle] = useState('');
-  const [linkedTasksRefresh, setLinkedTasksRefresh] = useState(0);
+  const [linkedTasksKey, setLinkedTasksKey] = useState(0);
+
+  const linkedTasks = useMemo(() => {
+    return note ? tasks.filter(t => t.note_id === note.id) : [];
+  }, [tasks, note, linkedTasksKey]);
   const [classifying, setClassifying] = useState(false);
   const [followUpBusy, setFollowUpBusy] = useState(false);
   const [lifecycleBusy, setLifecycleBusy] = useState(false);
@@ -259,8 +262,6 @@ export default function NoteDetailView() {
 
     return <Link to={route}>{content}</Link>;
   };
-
-  const linkedTasks = note ? tasks.filter(t => t.note_id === note.id) : [];
 
   const linkCandidates = notes
     .filter(n => n.id !== note?.id)
@@ -446,7 +447,7 @@ export default function NoteDetailView() {
     if (!title) return;
     await createTask({ title, note_id: note.id });
     setNewTaskTitle('');
-    setLinkedTasksRefresh(r => r + 1);
+    setLinkedTasksKey(k => k + 1);
   };
 
   const tagNames = note.tag_names || [];
