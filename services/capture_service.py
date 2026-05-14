@@ -47,6 +47,8 @@ def _build_change_plan(source_note_id, reconciled, content):
                     "confidence": confidence,
                     "reason": f"Task '{name}' matched existing",
                     "title": name,
+                    "type": "task",
+                    "label": "Linked existing",
                 }
             else:
                 change = {
@@ -56,6 +58,8 @@ def _build_change_plan(source_note_id, reconciled, content):
                     "confidence": confidence,
                     "reason": f"New task extracted from capture",
                     "priority": priority,
+                    "type": "task",
+                    "label": "Created",
                 }
                 if deadline_hint:
                     change["deadline_hint"] = deadline_hint

@@ -168,7 +168,7 @@ export default function PostCaptureSummary({
 }
 
 function ChangeRow({ change, isSuggestion }) {
-  const label = change.operation || change.action || '';
+  const label = change.label || change.operation || change.action || '';
   const entityName = change.title || change.name || '';
   const iconType = change.type || '';
 

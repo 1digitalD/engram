@@ -237,6 +237,8 @@ def run_classify(payload):
                                 "confidence": confidence,
                                 "reason": f"{etype.title()} '{name}' matched existing",
                                 "title": name,
+                                "type": etype,
+                                "label": "Linked existing",
                             })
                     else:
                         op = "create_project" if etype == "project" else "create_area"
@@ -245,6 +247,8 @@ def run_classify(payload):
                             "title": name,
                             "confidence": 0.85,
                             "reason": f"New {etype} from classification",
+                            "type": etype,
+                            "label": "Created",
                         })
 
                 if proposed_changes:
@@ -302,6 +306,8 @@ def run_classify(payload):
                             "confidence": confidence,
                             "reason": f"Person '{name}' matched existing",
                             "title": name,
+                            "type": "person",
+                            "label": "Linked existing",
                         })
                 else:
                     change = {
@@ -309,6 +315,8 @@ def run_classify(payload):
                         "name": name,
                         "confidence": 0.80,
                         "reason": f"New person extracted from capture",
+                        "type": "person",
+                        "label": "Created",
                     }
                     if email:
                         change["properties"] = {"email": email}
@@ -354,6 +362,8 @@ def run_classify(payload):
                             "confidence": confidence,
                             "reason": f"Task '{title}' matched existing",
                             "title": title,
+                            "type": "task",
+                            "label": "Linked existing",
                         })
                 else:
                     # Find the original task for priority/deadline
@@ -366,6 +376,8 @@ def run_classify(payload):
                         "confidence": 0.80,
                         "reason": f"New task extracted from capture",
                         "priority": original.priority if original else "MEDIUM",
+                        "type": "task",
+                        "label": "Created",
                     }
                     if original and original.due_date:
                         change["deadline_hint"] = original.due_date
