@@ -93,7 +93,7 @@
 
 ---
 
-## Iteration Plan (4 iterations remaining)
+## Iteration Plan (all complete — 18 iterations)
 
 | # | Name | Files | What |
 |---|---|---|---|
@@ -101,10 +101,10 @@
 | 12 | Universal entity search API | search API | `GET /api/v2/entities/search` grouped by type | ✓ DONE |
 | 13 | NoteDetailView — Extracted from this note | NoteDetailView, service | Show created entities, linked existing, suggestions from note | ✓ DONE |
 | 14 | Today — Projects with no next action + Waiting on people | Today.jsx, API | Add two new sections to Today | ✓ DONE |
-| 15 | Review — AI Suggestions tab | Review.jsx, store | Fetch and display pending AiSuggestions with accept/dismiss | pending |
-| 16 | AreaFocus — maintenance-oriented refactor | AreaFocus.jsx | Add area standard, maintenance tasks, needs-attention signals | pending |
-| 17 | PersonFocus — open loops + waiting on | PersonFocus.jsx | Add "What do I owe" + "Waiting on" sections | pending |
-| 18 | Fix assigned_to links in task creation + append_context for projects | applier, extractor | C1 + C2 above | pending |
+| 15 | Review — AI Suggestions tab | Review.jsx, store | Fetch and display pending AiSuggestions with accept/dismiss | ✓ DONE |
+| 16 | AreaFocus — maintenance-oriented refactor | AreaFocus.jsx | Add Overview tab, needs-attention signals, stats | ✓ DONE |
+| 17 | PersonFocus — open loops + waiting on | PersonFocus.jsx | Add Overview tab with stats and open loops | ✓ DONE |
+| 18 | Fix assigned_to links in task creation + append_context for projects | applier, extractor | `linked_people` in task creation, `batch_id` in `transition_status`, `person_id` in `reconcile_task` | ✓ DONE |
 
 ---
 
