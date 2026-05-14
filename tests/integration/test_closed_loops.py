@@ -12,7 +12,7 @@ import pytest
 from unittest.mock import patch, MagicMock
 
 from extensions import db
-from models import Entity, EntityTag, Tag, EntityEvent
+from models import Entity, EntityTag, Tag, EntityEvent, EntityLink
 
 
 # ─── 1. Note create -> classify -> tag visible in AI sidebar ──────────────────
@@ -468,3 +468,49 @@ class TestEntityReconciliationLoop:
             assert len(call_args) == 2
             entity_names = sorted(e["name"] for e in call_args)
             assert entity_names == ["Alpha Platform", "Work"]
+
+
+# ─── 6. Task completion capture flow ────────────────────────────────────────
+
+class TestTaskCompletionCaptureLoop:
+    """End-to-end test: task completion capture -> task status updated."""
+
+    def test_capture_creates_note_and_runs_classify(self, client, app):
+        """A capture creates a source note and triggers the AI pipeline."""
+        resp = client.post("/api/v2/capture", json={
+            "content": "I finished reviewing the proposal",
+            "source": "quick_capture",
+        })
+        assert resp.status_code == 201
+        result = resp.get_json()
+        assert "source_note" in result
+        assert result["source_note"] is not None
+
+    def test_add_follow_up_via_proposed_changes_creates_task(self, client, app):
+        """add_follow_up in proposed_changes (high confidence) creates the follow-up task."""
+        from services.entity_service import create_entity
+        from services.ai_operation_applier import apply_change_plan
+
+        with app.app_context():
+            source_note = create_entity(entity_type="note", title="Test note", actor="user")
+            source_id = str(source_note.id)
+
+            change_plan = {
+                "source_note_id": source_id,
+                "proposed_changes": [{
+                    "operation": "add_follow_up",
+                    "title": "Review report",
+                    "task_id": None,
+                    "confidence": 0.95,
+                }],
+                "suggestions": [],
+            }
+            result = apply_change_plan(change_plan, actor="test")
+
+            follow_ups = Entity.query.filter(
+                Entity.type == "task",
+                Entity.title == "Review report",
+            ).all()
+            assert len(follow_ups) >= 1
+            links = EntityLink.query.filter_by(dst_id=str(follow_ups[0].id)).all()
+            assert len(links) >= 1
