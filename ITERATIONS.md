@@ -23,7 +23,7 @@
 | 4 | Add missing operations | `done` | `501ea8cf` |
 | 5 | PostCaptureSummary shows match context | `done` | `2f18e81d` |
 | 6 | ProjectFocus next action + no-next-action warning | `done` | `bfa0f020` |
-| 7 | Backend integration tests for entity reconciliation | `pending` | — |
+| 7 | Backend integration tests for entity reconciliation | `done` | `0b9424d0` |
 | 8 | End-to-end test for task completion capture | `pending` | — |
 | 9 | Task completion interpretation in capture | `pending` | — |
 | 10 | Suggestion acceptance wires full change plan | `pending` | — |
