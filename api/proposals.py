@@ -187,7 +187,7 @@ def v2_list_suggestions():
 
 @api_v2_bp.route("/suggestions/<suggestion_id>/accept", methods=["POST"])
 def v2_accept_suggestion(suggestion_id):
-    """Accept an AI suggestion and apply its operation."""
+    """Accept an AI suggestion and apply its operation via apply_change_plan."""
     suggestion = db.session.get(AiSuggestion, suggestion_id)
     if not suggestion:
         return jsonify({"error": "Suggestion not found"}), 404
@@ -196,32 +196,25 @@ def v2_accept_suggestion(suggestion_id):
 
     payload = suggestion.payload or {}
     try:
-        if suggestion.suggestion_type == "link":
-            link = svc_create_link(
-                src_id=payload.get("src_id"),
-                dst_id=payload.get("dst_id"),
-                link_type=payload.get("link_type", "related"),
-                source="ai",
-                confidence=payload.get("confidence", suggestion.confidence),
-                evidence=payload.get("evidence", suggestion.reason),
-                actor="user",
-            )
-            suggestion.status = "accepted"
-            suggestion.resolved_at = datetime.now(timezone.utc)
-            db.session.commit()
-            return jsonify({"data": {"link": link.to_dict(), "suggestion": suggestion.to_dict()}}), 200
-        elif suggestion.suggestion_type == "create_task":
-            from services.ai_operation_applier import _apply_create_task
-            result = _apply_create_task(payload, payload.get("source_note_id"), "user")
-            suggestion.status = "accepted"
-            suggestion.resolved_at = datetime.now(timezone.utc)
-            db.session.commit()
-            return jsonify({"data": {"result": result, "suggestion": suggestion.to_dict()}}), 200
-        else:
-            suggestion.status = "accepted"
-            suggestion.resolved_at = datetime.now(timezone.utc)
-            db.session.commit()
-            return jsonify({"data": {"suggestion": suggestion.to_dict()}}), 200
+        from services.ai_operation_applier import apply_change_plan
+
+        change_plan = {
+            "source_note_id": suggestion.source_entity_id,
+            "proposed_changes": [{**payload, "confidence": suggestion.confidence}],
+            "suggestions": [],
+        }
+        result = apply_change_plan(change_plan, actor="user")
+
+        suggestion.status = "accepted"
+        suggestion.resolved_at = datetime.now(timezone.utc)
+        db.session.commit()
+
+        return jsonify({
+            "data": {
+                "applied_changes": result.get("applied_changes", []),
+                "suggestion": suggestion.to_dict(),
+            }
+        }), 200
     except Exception as e:
         logger.exception("Failed to accept suggestion %s", suggestion_id)
         return jsonify({"error": str(e)}), 500
