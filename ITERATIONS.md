@@ -8,10 +8,10 @@
 
 | Item | Value |
 |---|---|
-| Current iteration | **All 10 done** |
-| Iteration status | `pending` |
+| Current iteration | **11** |
+| Iteration status | `pending` (iter 12 next) |
 | Branch status | Clean — no uncommitted work |
-| Build status | ✓ Passing at base commit |
+| Build status | ✓ Passing — 401 tests |
 
 ## Iteration Status
 
@@ -27,6 +27,7 @@
 | 8 | End-to-end test for task completion capture | `done` | `f7739489` |
 | 9 | Task completion interpretation in capture | `done` | `1e45e7e8` |
 | 10 | Suggestion acceptance wires full change plan | `done` | `b17b9c67` |
+| 11 | change_batches table, batch_undo, undo API | `done` | `cf36fddc` |
 
 ## Iteration 1 — Wire Extracted People Through Reconciliation
 
