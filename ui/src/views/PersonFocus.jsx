@@ -211,6 +211,15 @@ const actionButtonStyle = {
   cursor: 'pointer',
 };
 
+const sectionHeaderStyle = {
+  fontSize: '10px',
+  fontWeight: 600,
+  textTransform: 'uppercase',
+  letterSpacing: '0.08em',
+  color: 'var(--text-muted)',
+  marginBottom: '8px',
+};
+
 export default function PersonFocus() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -364,6 +373,7 @@ export default function PersonFocus() {
 
           <div className={projectStyles.tabs}>
             {[
+              { key: 'overview', label: 'Overview' },
               { key: 'notes', label: `Notes (${personNotes.length})` },
               { key: 'tasks', label: `Tasks (${linkedTasks.length})` },
               { key: 'projects', label: `Projects (${linkedProjects.length})` },
@@ -379,6 +389,51 @@ export default function PersonFocus() {
               </button>
             ))}
           </div>
+
+          {tab === 'overview' && (
+            <div className={projectStyles.content}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+                  <div style={{ padding: '12px 14px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', textAlign: 'center' }}>
+                    <div style={{ fontSize: '20px', fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text)' }}>{personNotes.length}</div>
+                    <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: '2px' }}>Notes</div>
+                  </div>
+                  <div style={{ padding: '12px 14px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', textAlign: 'center' }}>
+                    <div style={{ fontSize: '20px', fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text)' }}>{linkedTasks.length}</div>
+                    <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: '2px' }}>Tasks</div>
+                  </div>
+                  <div style={{ padding: '12px 14px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', textAlign: 'center' }}>
+                    <div style={{ fontSize: '20px', fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text)' }}>{linkedProjects.length}</div>
+                    <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: '2px' }}>Projects</div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <span style={sectionHeaderStyle}>What I owe this person</span>
+                  {linkedTasks.length === 0 ? (
+                    <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>No tasks linked through notes or projects.</p>
+                  ) : (
+                    <div style={itemListStyle}>
+                      {linkedTasks.slice(0, 5).map((task) => (
+                        <div key={task.id} style={itemRowStyle}>
+                          <div style={itemCopyStyle}>
+                            <span style={{ ...itemTitleStyle, cursor: 'default' }}>{task.title || getEntityTitle(task)}</span>
+                            <span style={itemMetaStyle}>
+                              {task.status || 'pending'}
+                              {task.project_id ? ` · ${projects.find((project) => project.id === task.project_id)?.title || 'Project task'}` : ''}
+                            </span>
+                          </div>
+                          <span style={badgeStyle}>
+                            <CheckSquare size={12} /> Task
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           {tab === 'notes' && (
             <div className={projectStyles.content} style={tabBodyStyle}>
