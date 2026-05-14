@@ -569,6 +569,28 @@
   flex-direction: column;
   gap: var(--space-2);
 }
+.proposalRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--space-2);
+}
+.proposalMain {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+.proposalActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  flex-shrink: 0;
+}
 .proposalCard {
   display: flex;
   flex-wrap: wrap;
