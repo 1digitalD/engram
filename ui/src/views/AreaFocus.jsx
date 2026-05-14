@@ -20,6 +20,26 @@ const STATUS_COLORS = {
   archived: 'var(--text-muted)',
 };
 
+const signalStyle = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '8px',
+  padding: '10px 14px',
+  background: 'var(--surface)',
+  border: '1px solid var(--border)',
+  borderRadius: '8px',
+  fontSize: '12px',
+  color: 'var(--text-secondary)',
+};
+
+const signalDot = (color) => ({
+  width: '8px',
+  height: '8px',
+  borderRadius: '50%',
+  background: color,
+  flexShrink: 0,
+});
+
 export default function AreaFocus() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -53,6 +73,24 @@ export default function AreaFocus() {
 
   // Connections tab refresh
   const [connRefreshKey, setConnRefreshKey] = useState(0);
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const areaSignals = useMemo(() => {
+    const signals = [];
+    if (areaProjects.length === 0) {
+      signals.push({ label: 'No active projects', color: 'var(--yellow)', icon: '!' });
+    }
+    const overdueFollowups = areaNotes.filter(n => n.follow_up_at && new Date(n.follow_up_at) < today);
+    if (overdueFollowups.length > 0) {
+      signals.push({ label: `${overdueFollowups.length} overdue follow-up${overdueFollowups.length > 1 ? 's' : ''}`, color: 'var(--red)', icon: '!' });
+    }
+    if (areaNotes.length === 0) {
+      signals.push({ label: 'No notes captured yet', color: 'var(--text-muted)', icon: '?' });
+    }
+    return signals;
+  }, [areaProjects, areaNotes, today]);
 
   // Add-note modal state (existing notes)
   const [showAddNoteModal, setShowAddNoteModal] = useState(false);
@@ -334,6 +372,7 @@ export default function AreaFocus() {
 
       <div className={styles.tabs}>
         {[
+          { key: 'overview', label: 'Overview' },
           { key: 'notes', label: `Notes (${areaNotes.length})` },
           { key: 'projects', label: `Projects (${areaProjects.length})` },
           { key: 'tasks', label: `Tasks (${areaTasks.length})` },
@@ -349,6 +388,55 @@ export default function AreaFocus() {
           </button>
         ))}
       </div>
+
+      {tab === 'overview' && (
+        <div className={styles.content}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {area.description && (
+              <div style={{
+                padding: '14px 16px',
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                borderRadius: '8px',
+                fontSize: '12.5px',
+                color: 'var(--text-secondary)',
+                lineHeight: 1.6,
+              }}>
+                {area.description}
+              </div>
+            )}
+
+            {areaSignals.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <span style={{ fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)', marginBottom: '2px' }}>
+                  Needs attention
+                </span>
+                {areaSignals.map((signal, i) => (
+                  <div key={i} style={signalStyle}>
+                    <span style={signalDot(signal.color)}>{signal.icon}</span>
+                    <span>{signal.label}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+              <div style={{ padding: '12px 14px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', textAlign: 'center' }}>
+                <div style={{ fontSize: '20px', fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text)' }}>{areaProjects.length}</div>
+                <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: '2px' }}>Projects</div>
+              </div>
+              <div style={{ padding: '12px 14px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', textAlign: 'center' }}>
+                <div style={{ fontSize: '20px', fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text)' }}>{areaNotes.length}</div>
+                <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: '2px' }}>Notes</div>
+              </div>
+              <div style={{ padding: '12px 14px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', textAlign: 'center' }}>
+                <div style={{ fontSize: '20px', fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text)' }}>{areaTasks.length}</div>
+                <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: '2px' }}>Tasks</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {tab === 'notes' && (
         <div className={styles.content}>
