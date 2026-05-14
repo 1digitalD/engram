@@ -8,7 +8,7 @@
 
 | Item | Value |
 |---|---|
-| Current iteration | **Iteration 2** (next) |
+| Current iteration | **All 10 done** |
 | Iteration status | `pending` |
 | Branch status | Clean — no uncommitted work |
 | Build status | ✓ Passing at base commit |
@@ -26,7 +26,7 @@
 | 7 | Backend integration tests for entity reconciliation | `done` | `0b9424d0` |
 | 8 | End-to-end test for task completion capture | `done` | `f7739489` |
 | 9 | Task completion interpretation in capture | `done` | `1e45e7e8` |
-| 10 | Suggestion acceptance wires full change plan | `pending` | — |
+| 10 | Suggestion acceptance wires full change plan | `done` | `b17b9c67` |
 
 ## Iteration 1 — Wire Extracted People Through Reconciliation
 
