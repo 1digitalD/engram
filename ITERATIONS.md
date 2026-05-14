@@ -20,7 +20,7 @@
 | 1 | Wire extracted people through reconciliation | `done` | `742cd783` |
 | 2 | Wire extracted tasks through reconciliation | `done` | `e012fe49` |
 | 3 | Fix suggested_project/area to use full reconciliation | `done` | `c55c791b` |
-| 4 | Add missing operations | `pending` | — |
+| 4 | Add missing operations | `done` | `501ea8cf` |
 | 5 | PostCaptureSummary shows match context | `pending` | — |
 | 6 | ProjectFocus next action + no-next-action warning | `pending` | — |
 | 7 | Backend integration tests for entity reconciliation | `pending` | — |
