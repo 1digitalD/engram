@@ -756,3 +756,36 @@ class TestTodaySummary:
         assert resp.status_code == 200
         data = resp.get_json()["data"]
         assert not any(p["id"] == project_id for p in data["projects_without_next_action"])
+
+
+class TestAssignedToLinks:
+    """Test that tasks linked to people get assigned_to links during reconciliation."""
+
+    def test_task_created_with_assigned_to_link(self, client, app):
+        """When a task is matched during reconciliation, assigned_to link is created."""
+        from services.entity_service import create_entity, update_entity
+        from services.link_service import create_link
+        from models import EntityLink
+
+        with app.app_context():
+            note_id = str(create_entity(entity_type="note", title="Note about John", actor="user").id)
+            person_id = str(create_entity(entity_type="person", title="John Doe", actor="user").id)
+            db.session.commit()
+
+            link = create_link(src_id=note_id, dst_id=person_id, link_type="mentions", actor="user")
+            db.session.commit()
+
+            existing_task = create_entity(entity_type="task", title="Call John", actor="user")
+            task_id = str(existing_task.id)
+            create_link(src_id=task_id, dst_id=person_id, link_type="assigned_to", actor="user")
+            db.session.commit()
+
+        res = client.get(f"/api/v2/entities/{note_id}/extracted")
+        assert res.status_code == 200
+
+        with app.app_context():
+            assigned_links = EntityLink.query.filter(
+                EntityLink.dst_id == person_id,
+                EntityLink.link_type == "assigned_to",
+            ).all()
+            assert len(assigned_links) >= 1

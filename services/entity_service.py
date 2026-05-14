@@ -155,7 +155,7 @@ def update_entity(entity_id, fields, actor="user"):
     return entity
 
 
-def transition_status(entity_id, new_status, actor="user", reason=None):
+def transition_status(entity_id, new_status, actor="user", reason=None, batch_id=None):
     """Transition entity status, enforcing VALID_TRANSITIONS.
 
     Args:
@@ -163,6 +163,7 @@ def transition_status(entity_id, new_status, actor="user", reason=None):
         new_status: Target status value.
         actor: Who initiated the transition.
         reason: Optional reason for the change.
+        batch_id: Optional change batch ID for grouping related changes.
 
     Returns:
         The updated Entity instance.
@@ -196,7 +197,8 @@ def transition_status(entity_id, new_status, actor="user", reason=None):
     _write_event(entity.id, "status_changed", actor,
                  old_value={"status": old_status},
                  new_value={"status": new_status},
-                 reason=reason)
+                 reason=reason,
+                 batch_id=batch_id)
 
     db.session.commit()
     return entity

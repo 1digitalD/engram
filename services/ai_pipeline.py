@@ -354,7 +354,7 @@ def run_classify(payload):
                     matched = recon.get("matched_entity")
                     confidence = recon.get("confidence", 0.88)
                     if matched:
-                        proposed_changes.append({
+                        change = {
                             "operation": "link_entity",
                             "src_id": entity.id,
                             "dst_id": matched.id,
@@ -364,7 +364,10 @@ def run_classify(payload):
                             "title": title,
                             "type": "task",
                             "label": "Linked existing",
-                        })
+                        }
+                        if recon.get("person_id"):
+                            change["linked_people"] = [recon["person_id"]]
+                        proposed_changes.append(change)
                 else:
                     # Find the original task for priority/deadline
                     original = next(

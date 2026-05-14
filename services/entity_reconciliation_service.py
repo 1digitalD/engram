@@ -313,11 +313,14 @@ def reconcile_task(title, project_id=None, person_id=None):
         Entity.status.in_(["pending", "in_progress"]),
     ).first()
     if exact:
-        return {
+        result = {
             "matched_entity": exact,
             "confidence": 0.95,
             "match_type": "exact_title_pending",
         }
+        if person_id:
+            result["person_id"] = person_id
+        return result
 
     # Fuzzy match
     candidates = Entity.query.filter(
@@ -331,7 +334,6 @@ def reconcile_task(title, project_id=None, person_id=None):
         if not c.title:
             continue
         score = SequenceMatcher(None, title_lower, c.title.lower()).ratio()
-        # Boost if project matches
         if project_id:
             c_project_id = c.properties.get("project_id") if c.properties else None
             if c_project_id == project_id:
@@ -341,11 +343,14 @@ def reconcile_task(title, project_id=None, person_id=None):
             best = c
 
     if best and best_score >= FUZZY_MATCH_CONFIDENCE:
-        return {
+        result = {
             "matched_entity": best,
             "confidence": round(min(best_score, 0.99), 4),
             "match_type": "fuzzy_title",
         }
+        if person_id:
+            result["person_id"] = person_id
+        return result
 
     return None
 

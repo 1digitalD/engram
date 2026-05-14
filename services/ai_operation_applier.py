@@ -454,7 +454,7 @@ def _apply_complete_task(change, actor):
 
     from services.entity_service import transition_status
     try:
-        entity = transition_status(task_id, "done", actor=actor)
+        entity = transition_status(task_id, "done", actor=actor, batch_id=batch_id)
         return {
             "operation": "complete_task",
             "entity_id": task_id,
