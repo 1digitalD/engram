@@ -842,37 +842,6 @@ export default function NoteDetailView() {
             )}
           </section>
 
-          {/* Suggested links */}
-          <section style={sidebarCardStyle}>
-            <h2 style={sidebarTitleStyle}>
-              <Sparkles size={13} /> Suggested links
-            </h2>
-            {suggestedLinks.length > 0 ? (
-              suggestedLinks.map(entry => (
-                entry.route ? (
-                  <Link key={entry.id} to={entry.route} style={{
-                    color: 'var(--text-secondary)',
-                    textDecoration: 'none',
-                    fontSize: '12px',
-                    lineHeight: 1.4,
-                  }}>
-                    {entry.label}
-                  </Link>
-                ) : (
-                  <span key={entry.id} style={{
-                    color: 'var(--text-secondary)',
-                    fontSize: '12px',
-                    lineHeight: 1.4,
-                  }}>
-                    {entry.label}
-                  </span>
-                )
-              ))
-            ) : (
-              <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)' }}>No suggested links yet.</p>
-            )}
-          </section>
-
           {/* Quick actions */}
           <section style={sidebarCardStyle}>
             <h2 style={sidebarTitleStyle}>
@@ -909,85 +878,6 @@ export default function NoteDetailView() {
             >
               <FileText size={13} /> All notes
             </button>
-          </section>
-
-          {/* Metadata */}
-          <section style={sidebarCardStyle}>
-            <h2 style={sidebarTitleStyle}>
-              <FileText size={13} /> Metadata
-            </h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)', minWidth: '52px' }}>Type</span>
-                <span style={{ color: 'var(--text-secondary)' }}>
-                  <Diamond size={11} style={{ verticalAlign: 'middle', marginRight: '4px' }} />
-                  Note
-                </span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)', minWidth: '52px' }}>Status</span>
-                <select
-                  value={note.bucket || 'INBOX'}
-                  onChange={handleLifecycleChange}
-                  disabled={lifecycleBusy}
-                  style={{
-                    fontSize: '11px',
-                    fontFamily: 'var(--font-mono)',
-                    color: 'var(--text-secondary)',
-                    background: 'transparent',
-                    border: '1px solid var(--border-faint)',
-                    borderRadius: '4px',
-                    padding: '2px 4px',
-                    cursor: lifecycleBusy ? 'default' : 'pointer',
-                    opacity: lifecycleBusy ? 0.6 : 1,
-                  }}
-                >
-                  <option value="INBOX">INBOX</option>
-                  <option value="PROJECT">PROJECT</option>
-                  <option value="AREA">AREA</option>
-                  <option value="RESOURCE">RESOURCE</option>
-                  <option value="ARCHIVE">ARCHIVE</option>
-                </select>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)', minWidth: '52px' }}>Follow-up</span>
-                <input
-                  type="date"
-                  value={note.follow_up_at ? note.follow_up_at.slice(0, 10) : ''}
-                  onChange={handleFollowUpChange}
-                  disabled={followUpBusy}
-                  style={{
-                    fontSize: '11px',
-                    fontFamily: 'var(--font-mono)',
-                    color: note.follow_up_at ? 'var(--yellow)' : 'var(--text-secondary)',
-                    background: 'transparent',
-                    border: '1px solid var(--border-faint)',
-                    borderRadius: '4px',
-                    padding: '2px 4px',
-                    width: '120px',
-                  }}
-                />
-                {note.follow_up_at && (
-                  <button
-                    type="button"
-                    onClick={handleFollowUpClear}
-                    disabled={followUpBusy}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: 'var(--text-muted)',
-                      cursor: 'pointer',
-                      padding: '2px',
-                      display: 'flex',
-                      alignItems: 'center',
-                    }}
-                    title="Clear follow-up date"
-                  >
-                    <X size={10} />
-                  </button>
-                )}
-              </div>
-            </div>
           </section>
         </aside>
       </div>
