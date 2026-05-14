@@ -25,7 +25,7 @@
 | 6 | ProjectFocus next action + no-next-action warning | `done` | `bfa0f020` |
 | 7 | Backend integration tests for entity reconciliation | `done` | `0b9424d0` |
 | 8 | End-to-end test for task completion capture | `done` | `f7739489` |
-| 9 | Task completion interpretation in capture | `pending` | — |
+| 9 | Task completion interpretation in capture | `done` | `1e45e7e8` |
 | 10 | Suggestion acceptance wires full change plan | `pending` | — |
 
 ## Iteration 1 — Wire Extracted People Through Reconciliation
