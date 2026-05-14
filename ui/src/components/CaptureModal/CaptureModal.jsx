@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, Loader2, FileText, CheckSquare, Library, Users } from 'lucide-react';
 import styles from './CaptureModal.module.css';
+import PostCaptureSummary from '../PostCaptureSummary/PostCaptureSummary';
 
 const CAPTURE_TYPES = [
   { value: 'note', label: 'Note', icon: FileText },
@@ -14,6 +15,7 @@ export default function CaptureModal({ onClose, onCreated }) {
   const [entityType, setEntityType] = useState('note');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [captureResult, setCaptureResult] = useState(null);
   const handleSubmit = async (event) => {
     event.preventDefault();
     const body = content.trim();
@@ -28,7 +30,7 @@ export default function CaptureModal({ onClose, onCreated }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           content: body,
-          entity_type: entityType,
+          mode: entityType,
           source: 'ui',
         }),
       });
@@ -38,16 +40,26 @@ export default function CaptureModal({ onClose, onCreated }) {
         throw new Error(payload.error || payload.message || `HTTP ${response.status}`);
       }
 
-      const entity = payload.data || payload.entity || payload.note;
-      if (!entity?.id) {
-        throw new Error('Capture response did not include a created entity');
+      const sourceNote = payload.source_note || payload.data || payload.note;
+      if (!sourceNote?.id) {
+        throw new Error('Capture response did not include a created note');
       }
 
-      onCreated({
-        entity,
-        aiStatus: payload.ai_status || entity.ai_status || 'processing',
-        selectedType: entityType,
+      setCaptureResult({
+        sourceNote,
+        appliedChanges: payload.applied_changes || [],
+        suggestions: payload.suggestions || [],
+        warnings: payload.warnings || [],
+        entityType,
       });
+
+      if (onCreated) {
+        onCreated({
+          entity: sourceNote,
+          aiStatus: sourceNote.ai_status || 'done',
+          selectedType: entityType,
+        });
+      }
     } catch (err) {
       setError(err.message || 'Capture failed');
     } finally {
@@ -55,10 +67,17 @@ export default function CaptureModal({ onClose, onCreated }) {
     }
   };
 
+  const handleClose = () => {
+    setCaptureResult(null);
+    setContent('');
+    setError('');
+    onClose();
+  };
+
   const handleKeyDown = (event) => {
     if (event.key === 'Escape' && !submitting) {
       event.preventDefault();
-      onClose();
+      handleClose();
     }
     if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
       event.preventDefault();
@@ -77,19 +96,19 @@ export default function CaptureModal({ onClose, onCreated }) {
   useEffect(() => {
     const handleGlobalKey = (e) => {
       if (e.key === 'Escape' && !submitting && !isTypingElement(/** @type {HTMLElement} */(e.target))) {
-        onClose();
+        handleClose();
       }
     };
     document.addEventListener('keydown', handleGlobalKey);
     return () => document.removeEventListener('keydown', handleGlobalKey);
-  }, [onClose, submitting]);
+  }, [submitting]);
 
   return (
     <div
       role="presentation"
       className={styles.backdrop}
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget && !submitting) onClose();
+        if (event.target === event.currentTarget && !submitting) handleClose();
       }}
     >
       <div
@@ -161,7 +180,7 @@ export default function CaptureModal({ onClose, onCreated }) {
               <button
                 type="button"
                 className={styles.cancelBtn}
-                onClick={onClose}
+                onClick={handleClose}
                 disabled={submitting}
               >
                 Cancel
@@ -178,6 +197,18 @@ export default function CaptureModal({ onClose, onCreated }) {
           </div>
         </form>
       </div>
+
+      {captureResult && (
+        <PostCaptureSummary
+          open={true}
+          onClose={handleClose}
+          sourceNote={captureResult.sourceNote}
+          appliedChanges={captureResult.appliedChanges}
+          suggestions={captureResult.suggestions}
+          onUndo={null}
+          onReview={null}
+        />
+      )}
     </div>
   );
 }

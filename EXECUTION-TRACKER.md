@@ -291,4 +291,6 @@ If the session resets:
 
 - **2026-05-14 09:34** V3.5-AI-PRODUCTIVITY-OS.P3 → 1006b6b6: Phase 3: AiSuggestion model, SCHEMA.sql table, V2 Suggestions API (list/accept/dismiss/edit), tests. Also fixes Flask endpoint conflict (v2_get_entity_links duplicate on api_v2_bp). 417 passed, 1 skipped.
 
-- **2026-05-14** V3.5-AI-PRODUCTIVITY-OS.Iter1 → (wip): Iteration 1: Wired inline_extract → reconcile_all → apply_change_plan in _capture_as_note. Added inline_extract() to extractor.py (sync keyword-based checkbox task extraction with deadline/priority/project hints). Fixed _create_suggestion in ai_operation_applier.py to persist to AiSuggestion table (was returning dict only). All 209 tests pass.
+- **2026-05-14** V3.5-AI-PRODUCTIVITY-OS.Iter1 → 407c802b: Iteration 1: Wired inline_extract → reconcile_all → apply_change_plan in _capture_as_note. Added inline_extract() to extractor.py (sync keyword-based checkbox task extraction with deadline/priority/project hints). Fixed _create_suggestion in ai_operation_applier.py to persist to AiSuggestion table (was returning dict only). All 209 tests pass.
+
+- **2026-05-14** V3.5-AI-PRODUCTIVITY-OS.Iter2 → (wip): Iteration 2: Fixed CaptureModal to call /api/v2/capture with correct `mode` param (was `entity_type`). Wired PostCaptureSummary into capture flow after successful submission. Added handleClose() helper to reset state between captures.
