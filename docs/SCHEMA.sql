@@ -335,6 +335,25 @@ CREATE INDEX IF NOT EXISTS link_proposals_status_idx ON link_proposals (status);
 CREATE INDEX IF NOT EXISTS link_proposals_src_idx    ON link_proposals (src_id);
 CREATE INDEX IF NOT EXISTS link_proposals_dst_idx    ON link_proposals (dst_id);
 
+-- ─── AI Suggestions (review queue) ────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS ai_suggestions (
+    id                TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    source_entity_id  TEXT NOT NULL REFERENCES entities (id) ON DELETE CASCADE,
+    suggestion_type   TEXT NOT NULL,
+    operation_type    TEXT NOT NULL,
+    payload           JSONB NOT NULL DEFAULT '{}',
+    confidence        REAL,
+    reason            TEXT,
+    status            TEXT NOT NULL DEFAULT 'pending',
+    resolved_at       TIMESTAMPTZ,
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS ai_suggestions_status_idx ON ai_suggestions (status);
+CREATE INDEX IF NOT EXISTS ai_suggestions_source_idx ON ai_suggestions (source_entity_id);
+
 -- ─── Summaries (layered entity summaries) ─────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS summaries (
@@ -382,6 +401,7 @@ CREATE OR REPLACE FUNCTION truncate_all_tables()
 RETURNS VOID AS $$
 BEGIN
     TRUNCATE TABLE
+        ai_suggestions,
         summaries,
         link_proposals,
         entity_events,

@@ -504,3 +504,92 @@ class TestRepr:
         et = _make_entity_tag()
         r = repr(et)
         assert "EntityTag" in r
+
+    def test_ai_suggestion_repr(self):
+        from models import AiSuggestion
+        s = AiSuggestion(
+            id=str(uuid.uuid4()),
+            source_entity_id=str(uuid.uuid4()),
+            suggestion_type="link",
+            operation_type="create_new_entity",
+            status="pending",
+        )
+        r = repr(s)
+        assert "AiSuggestion" in r
+
+
+# ─── AiSuggestion ──────────────────────────────────────────────────────────────
+
+
+class TestAiSuggestionConstruction:
+    def test_minimal(self):
+        from models import AiSuggestion
+        s = AiSuggestion(
+            id=str(uuid.uuid4()),
+            source_entity_id=str(uuid.uuid4()),
+            suggestion_type="link",
+            operation_type="create_new_entity",
+            status="pending",
+        )
+        assert s.status == "pending"
+        assert s.confidence is None
+        assert s.reason is None
+        assert s.resolved_at is None
+
+    def test_with_all_fields(self):
+        from models import AiSuggestion
+        now = datetime.now(timezone.utc)
+        s = AiSuggestion(
+            id=str(uuid.uuid4()),
+            source_entity_id=str(uuid.uuid4()),
+            suggestion_type="create_task",
+            operation_type="create_new_entity",
+            payload={"title": "Fix login bug"},
+            confidence=0.85,
+            reason="High confidence task extraction",
+            status="accepted",
+            resolved_at=now,
+        )
+        assert s.suggestion_type == "create_task"
+        assert s.payload == {"title": "Fix login bug"}
+        assert s.confidence == 0.85
+        assert s.reason == "High confidence task extraction"
+        assert s.status == "accepted"
+        assert s.resolved_at == now
+
+
+class TestAiSuggestionToDict:
+    def test_minimal(self):
+        from models import AiSuggestion
+        s = AiSuggestion(
+            id=str(uuid.uuid4()),
+            source_entity_id=str(uuid.uuid4()),
+            suggestion_type="link",
+            operation_type="create_new_entity",
+            status="pending",
+        )
+        d = s.to_dict()
+        assert d["suggestion_type"] == "link"
+        assert d["operation_type"] == "create_new_entity"
+        assert d["status"] == "pending"
+        assert d["payload"] == {}
+        assert d["confidence"] is None
+        assert d["reason"] is None
+        assert d["resolved_at"] is None
+        assert "created_at" in d
+        assert "updated_at" in d
+
+    def test_with_resolved(self):
+        from models import AiSuggestion
+        now = datetime.now(timezone.utc)
+        s = AiSuggestion(
+            id=str(uuid.uuid4()),
+            source_entity_id=str(uuid.uuid4()),
+            suggestion_type="create_task",
+            operation_type="create_new_entity",
+            status="accepted",
+            resolved_at=now,
+        )
+        d = s.to_dict()
+        assert d["status"] == "accepted"
+        assert d["resolved_at"] == now.isoformat()

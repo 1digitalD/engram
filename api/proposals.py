@@ -1,14 +1,15 @@
-"""REST API for v2 link proposals stored in entity.ai_meta."""
+"""REST API for v2 link proposals stored in entity.ai_meta and ai_suggestions table."""
 
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timezone
 
 from flask import jsonify, request
 
 from api import api_bp, api_v2_bp
 from extensions import db
-from models import Entity, EntityLink
+from models import Entity, EntityLink, AiSuggestion
 from services.link_service import create_link as svc_create_link
 from sqlalchemy import or_
 
@@ -155,3 +156,110 @@ def accept_link_proposal(proposal_id):
 def dismiss_link_proposal(proposal_id):
     """Legacy v1 endpoint retained for old review flows."""
     return jsonify({"error": "deprecated: use v2 link suggestion via ai_pipeline"}), 410
+
+
+# ─── V2 Suggestions API (reads from AiSuggestion table + ai_meta) ────────────
+
+
+@api_v2_bp.route("/suggestions", methods=["GET"])
+def v2_list_suggestions():
+    """List AI suggestions for review.
+
+    Query params:
+      entity_id: optional filter by source entity
+      status: optional filter (pending, accepted, dismissed, edited, expired)
+      limit: max results (default 100)
+    """
+    entity_id = request.args.get("entity_id")
+    status = request.args.get("status")
+    limit = request.args.get("limit", DEFAULT_LIMIT, type=int)
+    limit = max(1, min(limit, MAX_LIMIT))
+
+    query = AiSuggestion.query
+    if entity_id:
+        query = query.filter(AiSuggestion.source_entity_id == entity_id)
+    if status:
+        query = query.filter(AiSuggestion.status == status)
+
+    suggestions = query.order_by(AiSuggestion.created_at.desc()).limit(limit).all()
+    return jsonify({"data": [s.to_dict() for s in suggestions]})
+
+
+@api_v2_bp.route("/suggestions/<suggestion_id>/accept", methods=["POST"])
+def v2_accept_suggestion(suggestion_id):
+    """Accept an AI suggestion and apply its operation."""
+    suggestion = db.session.get(AiSuggestion, suggestion_id)
+    if not suggestion:
+        return jsonify({"error": "Suggestion not found"}), 404
+    if suggestion.status != "pending":
+        return jsonify({"error": f"Suggestion already {suggestion.status}"}), 400
+
+    payload = suggestion.payload or {}
+    try:
+        if suggestion.suggestion_type == "link":
+            link = svc_create_link(
+                src_id=payload.get("src_id"),
+                dst_id=payload.get("dst_id"),
+                link_type=payload.get("link_type", "related"),
+                source="ai",
+                confidence=payload.get("confidence", suggestion.confidence),
+                evidence=payload.get("evidence", suggestion.reason),
+                actor="user",
+            )
+            suggestion.status = "accepted"
+            suggestion.resolved_at = datetime.now(timezone.utc)
+            db.session.commit()
+            return jsonify({"data": {"link": link.to_dict(), "suggestion": suggestion.to_dict()}}), 200
+        elif suggestion.suggestion_type == "create_task":
+            from services.ai_operation_applier import _apply_create_task
+            result = _apply_create_task(payload, payload.get("source_note_id"), "user")
+            suggestion.status = "accepted"
+            suggestion.resolved_at = datetime.now(timezone.utc)
+            db.session.commit()
+            return jsonify({"data": {"result": result, "suggestion": suggestion.to_dict()}}), 200
+        else:
+            suggestion.status = "accepted"
+            suggestion.resolved_at = datetime.now(timezone.utc)
+            db.session.commit()
+            return jsonify({"data": {"suggestion": suggestion.to_dict()}}), 200
+    except Exception as e:
+        logger.exception("Failed to accept suggestion %s", suggestion_id)
+        return jsonify({"error": str(e)}), 500
+
+
+@api_v2_bp.route("/suggestions/<suggestion_id>/dismiss", methods=["POST"])
+def v2_dismiss_suggestion(suggestion_id):
+    """Dismiss an AI suggestion."""
+    suggestion = db.session.get(AiSuggestion, suggestion_id)
+    if not suggestion:
+        return jsonify({"error": "Suggestion not found"}), 404
+    if suggestion.status != "pending":
+        return jsonify({"error": f"Suggestion already {suggestion.status}"}), 400
+
+    suggestion.status = "dismissed"
+    suggestion.resolved_at = datetime.now(timezone.utc)
+    db.session.commit()
+
+    return jsonify({"data": suggestion.to_dict()}), 200
+
+
+@api_v2_bp.route("/suggestions/<suggestion_id>/edit", methods=["POST"])
+def v2_edit_suggestion(suggestion_id):
+    """Edit an AI suggestion (modify the payload before accepting)."""
+    suggestion = db.session.get(AiSuggestion, suggestion_id)
+    if not suggestion:
+        return jsonify({"error": "Suggestion not found"}), 404
+    if suggestion.status != "pending":
+        return jsonify({"error": f"Suggestion already {suggestion.status}"}), 400
+
+    data = request.get_json(silent=True) or {}
+    if "payload" in data:
+        suggestion.payload = data["payload"]
+    if "operation_type" in data:
+        suggestion.operation_type = data["operation_type"]
+
+    suggestion.status = "edited"
+    suggestion.resolved_at = datetime.now(timezone.utc)
+    db.session.commit()
+
+    return jsonify({"data": suggestion.to_dict()}), 200

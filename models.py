@@ -435,6 +435,65 @@ class Job(BaseModel):
         return f"<Job {self.id[:8]} type={self.job_type!r} status={self.status!r}>"
 
 
+# ─── AiSuggestion ────────────────────────────────────────────────────────────
+
+
+class AiSuggestion(BaseModel):
+    """AI-generated suggestions that need user review.
+
+    Table: ai_suggestions
+
+    Statuses: pending, accepted, dismissed, edited, expired
+    """
+
+    __tablename__ = "ai_suggestions"
+
+    source_entity_id = Column(
+        String(36), ForeignKey("entities.id", ondelete="CASCADE"), nullable=False
+    )
+    suggestion_type = Column(Text, nullable=False)  # link, create_task, create_project, etc.
+    operation_type = Column(Text, nullable=False)    # create_new_entity, link_existing, etc.
+    payload = Column(JSON, nullable=False, default=dict)
+    confidence = Column(Float, nullable=True)
+    reason = Column(Text, nullable=True)
+    status = Column(
+        Text,
+        nullable=False,
+        default="pending",
+    )  # pending, accepted, dismissed, edited, expired
+    resolved_at = Column(DateTime, nullable=True)
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+    source_entity = relationship("Entity", foreign_keys=[source_entity_id])
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "source_entity_id": self.source_entity_id,
+            "suggestion_type": self.suggestion_type,
+            "operation_type": self.operation_type,
+            "payload": self.payload or {},
+            "confidence": self.confidence,
+            "reason": self.reason,
+            "status": self.status,
+            "resolved_at": _iso(self.resolved_at),
+            "created_at": _iso(self.created_at),
+            "updated_at": _iso(self.updated_at),
+        }
+
+    def __repr__(self):
+        return (
+            f"<AiSuggestion {self.id[:8] if self.id else '(unsaved)'} "
+            f"type={self.suggestion_type!r} op={self.operation_type!r} "
+            f"status={self.status!r} conf={self.confidence}>"
+        )
+
+
 # ─── Helpers ─────────────────────────────────────────────────────────────────
 
 

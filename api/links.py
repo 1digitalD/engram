@@ -123,7 +123,7 @@ def delete_link(link_id):
 
 
 @api_v2_bp.route("/links/<entity_id>", methods=["GET"])
-def v2_get_entity_links(entity_id):
+def v2_get_links_for_entity(entity_id):
     """Get all links (src and dst) for an entity, direction-agnostic."""
     entity = db.session.get(Entity, entity_id)
     if not entity:

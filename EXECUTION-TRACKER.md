@@ -288,3 +288,5 @@ If the session resets:
 - **2026-05-13 16:17** BUG-3 → 92261377: BUG-3: completed, merged from opencode worktree
 
 - **2026-05-13 18:45** CLEANUP → 64678d72: CLEANUP: completed, merged from opencode worktree. Backend consolidation (utils.py, deduplicate _write_event, remove classifier.py). New views (TaskDetail, Tags, ErrorBoundary, LinkToEntity, search API). Delete all archive migrations, archived tests, skipped v1 tests. Clean up silent exception handlers.
+
+- **2026-05-14 09:34** V3.5-AI-PRODUCTIVITY-OS.P3 → 1006b6b6: Phase 3: AiSuggestion model, SCHEMA.sql table, V2 Suggestions API (list/accept/dismiss/edit), tests. Also fixes Flask endpoint conflict (v2_get_entity_links duplicate on api_v2_bp). 417 passed, 1 skipped.
