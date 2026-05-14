@@ -636,3 +636,70 @@ class TestChangeBatchUndo:
         resp2 = client.post(f"/api/v2/change-batches/{batch_id}/undo")
         assert resp2.status_code == 400
         assert "already undone" in resp2.get_json().get("error", "")
+
+
+class TestExtractedEntitiesEndpoint:
+    """Test GET /api/v2/entities/:id/extracted"""
+
+    def test_extracted_returns_derived_entities(self, client, app):
+        """derived_from links return created entities."""
+        from services.entity_service import create_entity
+        from services.link_service import create_link
+
+        with app.app_context():
+            note_id = str(create_entity(entity_type="note", title="Test note", actor="user").id)
+            task_id = str(create_entity(entity_type="task", title="Extracted task", actor="user").id)
+            create_link(src_id=note_id, dst_id=task_id, link_type="derived_from", actor="user")
+            db.session.commit()
+
+        resp = client.get(f"/api/v2/entities/{note_id}/extracted")
+        assert resp.status_code == 200
+        data = resp.get_json()["data"]
+        assert len(data["derived"]) == 1
+        assert data["derived"][0]["id"] == task_id
+
+    def test_extracted_returns_linked_existing(self, client, app):
+        """related links to project/area are returned as linked_existing."""
+        from services.entity_service import create_entity
+        from services.link_service import create_link
+
+        with app.app_context():
+            note_id = str(create_entity(entity_type="note", title="Test note", actor="user").id)
+            project_id = str(create_entity(entity_type="project", title="Linked project", actor="user").id)
+            create_link(src_id=note_id, dst_id=project_id, link_type="related", actor="user")
+            db.session.commit()
+
+        resp = client.get(f"/api/v2/entities/{note_id}/extracted")
+        assert resp.status_code == 200
+        data = resp.get_json()["data"]
+        assert len(data["linked_existing"]) == 1
+        assert data["linked_existing"][0]["id"] == project_id
+
+    def test_extracted_returns_pending_suggestions(self, client, app):
+        """Pending AiSuggestions for the note are returned."""
+        from services.entity_service import create_entity
+        from models import AiSuggestion
+
+        with app.app_context():
+            note_id = str(create_entity(entity_type="note", title="Test note", actor="user").id)
+            suggestion = AiSuggestion(
+                source_entity_id=note_id,
+                suggestion_type="create_task",
+                operation_type="create_new_entity",
+                payload={"title": "Suggested task"},
+                confidence=0.85,
+                reason="Test",
+                status="pending",
+            )
+            db.session.add(suggestion)
+            db.session.commit()
+
+        resp = client.get(f"/api/v2/entities/{note_id}/extracted")
+        assert resp.status_code == 200
+        data = resp.get_json()["data"]
+        assert len(data["suggestions"]) == 1
+
+    def test_extracted_not_found_for_unknown_entity(self, client, app):
+        """Returns 404 for unknown entity."""
+        resp = client.get("/api/v2/entities/nonexistent-id/extracted")
+        assert resp.status_code == 404

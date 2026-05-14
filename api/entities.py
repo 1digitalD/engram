@@ -93,6 +93,52 @@ def v2_get_entity_links(entity_id):
 from services.search import grouped_search
 
 
+@api_v2_bp.route("/entities/<entity_id>/extracted", methods=["GET"])
+def v2_get_extracted_entities(entity_id):
+    """Get entities extracted from a note plus pending suggestions.
+
+    Returns:
+      - derived: entities created from this note (derived_from links)
+      - linked_existing: projects/areas matched and linked (related links)
+      - suggestions: pending AiSuggestions for this note
+    """
+    entity = db.session.get(Entity, entity_id)
+    if not entity:
+        return jsonify({"error": "Entity not found"}), 404
+
+    outgoing = EntityLink.query.filter_by(src_id=entity_id).all()
+    incoming = EntityLink.query.filter_by(dst_id=entity_id).all()
+
+    derived = []
+    linked_existing = []
+    for link in outgoing:
+        other = db.session.get(Entity, link.dst_id)
+        if not other:
+            continue
+        d = other.to_dict()
+        d["link_type"] = link.link_type
+        d["link_id"] = link.id
+        if link.link_type == "derived_from":
+            derived.append(d)
+        elif link.link_type in ("related", "references", "parent"):
+            if other.type in ("project", "area"):
+                linked_existing.append(d)
+
+    from models import AiSuggestion
+    suggestions = AiSuggestion.query.filter_by(
+        source_entity_id=entity_id,
+        status="pending"
+    ).order_by(AiSuggestion.created_at.desc()).limit(50).all()
+
+    return jsonify({
+        "data": {
+            "derived": derived,
+            "linked_existing": linked_existing,
+            "suggestions": [s.to_dict() for s in suggestions],
+        }
+    })
+
+
 @api_v2_bp.route("/entities/search", methods=["GET"])
 def v2_search_entities():
     """Universal search grouped by entity type.

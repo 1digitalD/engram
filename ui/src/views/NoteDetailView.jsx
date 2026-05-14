@@ -115,6 +115,8 @@ export default function NoteDetailView() {
   const [proposalsLoading, setProposalsLoading] = useState(false);
   const [proposalActionId, setProposalActionId] = useState(null);
   const [linkedTasksKey, setLinkedTasksKey] = useState(0);
+  const [extractedData, setExtractedData] = useState(null);
+  const [extractedLoading, setExtractedLoading] = useState(false);
 
   const note = notes.find(n => n.id === id);
 
@@ -156,6 +158,19 @@ export default function NoteDetailView() {
     }
   }, [note?.id, addToast]);
 
+  const loadExtracted = useCallback(async () => {
+    if (!note?.id) return;
+    setExtractedLoading(true);
+    try {
+      const res = await fetchJson(`/api/v2/entities/${encodeURIComponent(note.id)}/extracted`);
+      setExtractedData(res.data || { derived: [], linked_existing: [], suggestions: [] });
+    } catch (e) {
+      setExtractedData({ derived: [], linked_existing: [], suggestions: [] });
+    } finally {
+      setExtractedLoading(false);
+    }
+  }, [note?.id, addToast]);
+
   useEffect(() => {
     loadLinks();
   }, [loadLinks]);
@@ -163,6 +178,10 @@ export default function NoteDetailView() {
   useEffect(() => {
     loadProposals();
   }, [loadProposals]);
+
+  useEffect(() => {
+    loadExtracted();
+  }, [loadExtracted]);
 
   useEffect(() => {
     if (note?.ai_status === 'processing' && note?.id) {
@@ -778,6 +797,110 @@ export default function NoteDetailView() {
                   Add
                 </button>
               </form>
+            </section>
+
+            {/* Extracted from this note */}
+            <section className={styles.panel}>
+              <h2 className={styles.panelTitle}>
+                <Sparkles size={14} /> Extracted from this note
+              </h2>
+              {extractedLoading ? (
+                <p className={styles.panelMuted}>
+                  <Loader2 size={14} className="spin" aria-hidden /> Loading…
+                </p>
+              ) : (
+                <>
+                  {/* Derived entities (created from this note) */}
+                  {extractedData?.derived?.length > 0 && (
+                    <div className={styles.extractedGroup}>
+                      <span className={styles.linkHeading}>Created</span>
+                      <ul className={styles.extractedList}>
+                        {extractedData.derived.map(e => (
+                          <li key={e.id} className={styles.extractedItem}>
+                            {renderEntityLink(e.id, getEntityTitle(e) || e.title, e)}
+                            <span className={styles.entityTypeTag}>{e.type}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Linked existing projects/areas */}
+                  {extractedData?.linked_existing?.length > 0 && (
+                    <div className={styles.extractedGroup}>
+                      <span className={styles.linkHeading}>Linked existing</span>
+                      <ul className={styles.extractedList}>
+                        {extractedData.linked_existing.map(e => (
+                          <li key={e.id} className={styles.extractedItem}>
+                            {renderEntityLink(e.id, getEntityTitle(e) || e.title, e)}
+                            <span className={styles.entityTypeTag}>{e.type}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Pending AI suggestions */}
+                  {extractedData?.suggestions?.length > 0 && (
+                    <div className={styles.extractedGroup}>
+                      <span className={styles.linkHeading}>Suggestions</span>
+                      <ul className={styles.extractedList}>
+                        {extractedData.suggestions.map(s => (
+                          <li key={s.id} className={styles.extractedItem}>
+                            <span className={styles.suggestionOp}>{s.suggestion_type}</span>
+                            <span className={styles.suggestionConf}>
+                              {Math.round((s.confidence || 0) * 100)}%
+                            </span>
+                            {s.reason && <span className={styles.proposalReason}>{s.reason}</span>}
+                            <div className={styles.suggestionActions}>
+                              <button
+                                type="button"
+                                className="btn btn-primary btn-xs"
+                                onClick={async () => {
+                                  setProposalActionId(s.id);
+                                  try {
+                                    await suggestionsAPI.accept(s.id);
+                                    loadExtracted();
+                                  } catch (e) {
+                                    addToast({ type: 'error', message: 'Failed to accept suggestion' });
+                                  } finally {
+                                    setProposalActionId(null);
+                                  }
+                                }}
+                                disabled={proposalActionId === s.id}
+                              >
+                                Accept
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-ghost btn-xs"
+                                onClick={async () => {
+                                  setProposalActionId(s.id);
+                                  try {
+                                    await suggestionsAPI.dismiss(s.id);
+                                    loadExtracted();
+                                  } catch (e) {
+                                    addToast({ type: 'error', message: 'Failed to dismiss suggestion' });
+                                  } finally {
+                                    setProposalActionId(null);
+                                  }
+                                }}
+                                disabled={proposalActionId === s.id}
+                              >
+                                Dismiss
+                              </button>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {((!extractedData?.derived?.length) && (!extractedData?.linked_existing?.length) && (!extractedData?.suggestions?.length)) && (
+                    <p className={styles.panelMuted}>Nothing extracted yet. Classify this note to extract entities.</p>
+                  )}
+                </>
+              )}
             </section>
           </div>
         </div>
