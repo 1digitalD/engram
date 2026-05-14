@@ -163,6 +163,8 @@ export default function ProjectFocus() {
     PENDING: projectTasks.filter((task) => task.status === 'pending').length,
   }), [projectTasks]);
 
+  const nextAction = tasksByColumn['pending']?.[0] || tasksByColumn['in_progress']?.[0] || null;
+
   const completionPercent = projectTasks.length
     ? Math.round((taskCounts.DONE / projectTasks.length) * 100)
     : 0;
@@ -512,6 +514,23 @@ export default function ProjectFocus() {
                 }}
               />
             </div>
+            {nextAction ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', borderRadius: '8px', background: 'color-mix(in srgb, var(--accent) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--accent) 25%, var(--border))' }}>
+                <span style={{ fontSize: '10px', color: 'var(--accent)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Next Action</span>
+                <span style={{ fontSize: '12px', color: 'var(--text)', fontWeight: 600, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {nextAction.title}
+                </span>
+                {nextAction.due_date && (
+                  <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono, monospace)' }}>
+                    Due {formatDate(nextAction.due_date)}
+                  </span>
+                )}
+              </div>
+            ) : projectTasks.length > 0 ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', borderRadius: '8px', background: 'color-mix(in srgb, var(--yellow) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--yellow) 25%, var(--border))' }}>
+                <span style={{ fontSize: '11px', color: 'var(--yellow)', fontWeight: 600 }}>No next action set — add a pending task to define one</span>
+              </div>
+            ) : null}
           </div>
         </section>
 
