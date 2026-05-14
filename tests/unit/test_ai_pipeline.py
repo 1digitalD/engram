@@ -347,6 +347,60 @@ class TestRunClassify:
             db.session.refresh(entity)
             assert "person_reconciliation" in (entity.ai_meta or {})
 
+    @patch("services.ai_pipeline.reconcile_all")
+    @patch("services.ai_pipeline.apply_change_plan")
+    @patch("services.extractor.extract")
+    def test_classify_reconciles_extracted_tasks(self, mock_extract, mock_apply, mock_reconcile, app):
+        from services.ai_pipeline import run_classify
+        from services.extractor import ExtractionResult, ExtractedTask
+
+        mock_extract.return_value = ExtractionResult(
+            summary="Action items",
+            para_bucket="INBOX",
+            confidence=0.85,
+            reasoning="Extracted tasks from note",
+            tags=[],
+            people=[],
+            tasks=[
+                ExtractedTask(title="Review proposal", priority="HIGH", project_hint="Alpha"),
+                ExtractedTask(title="Send follow-up email", priority="LOW", due_date="2025-06-01"),
+            ],
+        )
+
+        mock_reconcile.return_value = [
+            {"detected": {"type": "task", "name": "Review proposal"}, "reconciliation": None},
+            {"detected": {"type": "task", "name": "Send follow-up email"}, "reconciliation": None},
+        ]
+
+        mock_apply.return_value = {
+            "applied_changes": [],
+            "suggestions": [
+                {"operation": "create_task", "title": "Review proposal", "priority": "HIGH"},
+                {"operation": "create_task", "title": "Send follow-up email", "priority": "LOW"},
+            ],
+        }
+
+        with app.app_context():
+            entity = _create_entity(content="Need to review the proposal and send a follow-up email")
+
+            run_classify({"entity_id": entity.id})
+
+            mock_reconcile.assert_called_once()
+            call_args = mock_reconcile.call_args[0][0]
+            assert len(call_args) == 2
+
+            entity_tasks = [t["name"] for t in call_args]
+            assert "Review proposal" in entity_tasks
+            assert "Send follow-up email" in entity_tasks
+
+            mock_apply.assert_called_once()
+            plan = mock_apply.call_args[0][0]
+            assert plan["source_note_id"] == entity.id
+            assert len(plan["suggestions"]) == 2
+
+            db.session.refresh(entity)
+            assert "task_reconciliation" in (entity.ai_meta or {})
+
 
 # ─── run_embed Handler ───────────────────────────────────────────────────────
 

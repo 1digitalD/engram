@@ -287,6 +287,65 @@ def run_classify(payload):
                     "suggested": [s.get("name") for s in result.get("suggestions", [])],
                 }
 
+        # Reconcile extracted tasks through the entity reconciliation service
+        if extraction.tasks:
+            detected_tasks = []
+            for t in extraction.tasks:
+                task_dict = {"type": "task", "name": t.title}
+                if t.project_hint:
+                    task_dict["project_hint"] = t.project_hint
+                detected_tasks.append(task_dict)
+
+            reconciled = reconcile_all(detected_tasks)
+
+            proposed_changes = []
+            suggestions = []
+            for r in reconciled:
+                detected = r.get("detected", {})
+                recon = r.get("reconciliation")
+                title = detected.get("name", "")
+
+                if recon:
+                    matched = recon.get("matched_entity")
+                    confidence = recon.get("confidence", 0.88)
+                    if matched:
+                        proposed_changes.append({
+                            "operation": "link_entity",
+                            "src_id": entity.id,
+                            "dst_id": matched.id,
+                            "link_type": "related",
+                            "confidence": confidence,
+                            "reason": f"Task '{title}' matched existing",
+                            "title": title,
+                        })
+                else:
+                    # Find the original task for priority/deadline
+                    original = next(
+                        (t for t in extraction.tasks if t.title == title), None
+                    )
+                    change = {
+                        "operation": "create_task",
+                        "title": title,
+                        "confidence": 0.80,
+                        "reason": f"New task extracted from capture",
+                        "priority": original.priority if original else "MEDIUM",
+                    }
+                    if original and original.due_date:
+                        change["deadline_hint"] = original.due_date
+                    if original and original.project_hint:
+                        change["project_hint"] = original.project_hint
+                    suggestions.append(change)
+
+            if proposed_changes or suggestions:
+                result = apply_change_plan(
+                    {"source_note_id": entity.id, "proposed_changes": proposed_changes, "suggestions": suggestions},
+                    actor="agent:classify",
+                )
+                ai_meta["task_reconciliation"] = {
+                    "applied": [c.get("title") for c in result.get("applied_changes", [])],
+                    "suggested": [s.get("title") for s in result.get("suggestions", [])],
+                }
+
         entity.ai_meta = ai_meta
         _upsert_extracted_tags(entity, extraction.tags)
         if extraction.para_bucket:
