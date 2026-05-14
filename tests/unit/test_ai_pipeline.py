@@ -293,6 +293,60 @@ class TestRunClassify:
             assert len(entity_tags) == 1
             assert entity_tags[0].tag_id == existing.id
 
+    @patch("services.ai_pipeline.reconcile_all")
+    @patch("services.ai_pipeline.apply_change_plan")
+    @patch("services.extractor.extract")
+    def test_classify_reconciles_extracted_people(self, mock_extract, mock_apply, mock_reconcile, app):
+        from services.ai_pipeline import run_classify
+        from services.extractor import ExtractionResult, ExtractedPerson
+
+        mock_extract.return_value = ExtractionResult(
+            summary="Meeting note",
+            para_bucket="INBOX",
+            confidence=0.85,
+            reasoning="Extracted people from note",
+            tags=[],
+            tasks=[],
+            people=[
+                ExtractedPerson(name="Alice Smith", email="alice@example.com", context="meeting organizer"),
+                ExtractedPerson(name="Bob Jones", email=None, context="attendee"),
+            ],
+        )
+
+        mock_reconcile.return_value = [
+            {"detected": {"type": "person", "name": "Alice Smith", "email": "alice@example.com"}, "reconciliation": None},
+            {"detected": {"type": "person", "name": "Bob Jones"}, "reconciliation": None},
+        ]
+
+        mock_apply.return_value = {
+            "applied_changes": [],
+            "suggestions": [
+                {"operation": "create_person", "name": "Alice Smith", "properties": {"email": "alice@example.com"}},
+                {"operation": "create_person", "name": "Bob Jones"},
+            ],
+        }
+
+        with app.app_context():
+            entity = _create_entity(content="Met with Alice Smith and Bob Jones")
+
+            run_classify({"entity_id": entity.id})
+
+            mock_reconcile.assert_called_once()
+            call_args = mock_reconcile.call_args[0][0]
+            assert len(call_args) == 2
+
+            entity_people = [p["name"] for p in call_args]
+            assert "Alice Smith" in entity_people
+            assert "Bob Jones" in entity_people
+
+            mock_apply.assert_called_once()
+            plan = mock_apply.call_args[0][0]
+            assert plan["source_note_id"] == entity.id
+            assert len(plan["suggestions"]) == 2
+
+            db.session.refresh(entity)
+            assert "person_reconciliation" in (entity.ai_meta or {})
+
 
 # ─── run_embed Handler ───────────────────────────────────────────────────────
 

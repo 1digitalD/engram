@@ -21,6 +21,8 @@ from extensions import db
 from models import Entity, EntityChunk, EntityTag, Job, Tag
 from services.embeddings import chunk_text
 from services.entity_service import _write_event
+from services.entity_reconciliation_service import reconcile_all
+from services.ai_operation_applier import apply_change_plan
 
 logger = logging.getLogger(__name__)
 
@@ -231,6 +233,59 @@ def run_classify(payload):
             ai_meta["extracted_people"] = [p.model_dump() for p in extraction.people]
         if extraction.tags:
             ai_meta["extracted_tags"] = extraction.tags[:6]
+
+        # Reconcile extracted people through the entity reconciliation service
+        if extraction.people:
+            detected_people = []
+            for p in extraction.people:
+                person_dict = {"type": "person", "name": p.name}
+                if p.email:
+                    person_dict["email"] = p.email
+                detected_people.append(person_dict)
+
+            reconciled = reconcile_all(detected_people)
+
+            proposed_changes = []
+            suggestions = []
+            for r in reconciled:
+                detected = r.get("detected", {})
+                recon = r.get("reconciliation")
+                name = detected.get("name", "")
+                email = detected.get("email")
+
+                if recon:
+                    matched = recon.get("matched_entity")
+                    confidence = recon.get("confidence", 0.88)
+                    if matched:
+                        proposed_changes.append({
+                            "operation": "link_entity",
+                            "src_id": entity.id,
+                            "dst_id": matched.id,
+                            "link_type": "related",
+                            "confidence": confidence,
+                            "reason": f"Person '{name}' matched existing",
+                            "title": name,
+                        })
+                else:
+                    change = {
+                        "operation": "create_person",
+                        "name": name,
+                        "confidence": 0.80,
+                        "reason": f"New person extracted from capture",
+                    }
+                    if email:
+                        change["properties"] = {"email": email}
+                    suggestions.append(change)
+
+            if proposed_changes or suggestions:
+                result = apply_change_plan(
+                    {"source_note_id": entity.id, "proposed_changes": proposed_changes, "suggestions": suggestions},
+                    actor="agent:classify",
+                )
+                ai_meta["person_reconciliation"] = {
+                    "applied": [c.get("title") for c in result.get("applied_changes", [])],
+                    "suggested": [s.get("name") for s in result.get("suggestions", [])],
+                }
 
         entity.ai_meta = ai_meta
         _upsert_extracted_tags(entity, extraction.tags)
