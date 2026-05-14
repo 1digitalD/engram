@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Edit2, Trash2, Loader2, CheckCircle, Circle, Calendar, FolderOpen, FileText } from 'lucide-react';
 import useStore from '../stores/useStore';
-import ConnectionsPanel from '../components/ConnectionsPanel/ConnectionsPanel';
 import DeleteConfirmModal from '../components/DeleteConfirmModal';
 import styles from './TaskDetail.module.css';
 
@@ -271,9 +270,7 @@ export default function TaskDetail() {
             </div>
           </section>
 
-          <section className={styles.connectionsSection}>
-            <ConnectionsPanel entityId={id} />
-          </section>
+
         </div>
       </div>
 

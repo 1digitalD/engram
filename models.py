@@ -131,6 +131,7 @@ class EntityLink(BaseModel):
     src_id = Column(String(36), ForeignKey("entities.id", ondelete="CASCADE"), nullable=False)
     dst_id = Column(String(36), ForeignKey("entities.id", ondelete="CASCADE"), nullable=False)
     link_type = Column(Text, nullable=False, default="related")
+    inverse = Column(Text, nullable=True)
     weight = Column(Float, nullable=False, default=1.0)
     source = Column(Text, nullable=False, default="manual")
     confidence = Column(Float, nullable=True)
@@ -145,6 +146,7 @@ class EntityLink(BaseModel):
             "src_id": self.src_id,
             "dst_id": self.dst_id,
             "link_type": self.link_type,
+            "inverse": self.inverse,
             "weight": self.weight,
             "source": self.source,
             "confidence": self.confidence,
@@ -218,6 +220,58 @@ class EntityEvent(BaseModel):
 
     def __repr__(self):
         return f"<EntityEvent {self.id[:8]} type={self.event_type!r} actor={self.actor!r}>"
+
+
+# ─── Link Type Allowlist (relationship matrix) ──────────────────────────────
+
+
+class LinkTypeAllowlist(BaseModel):
+    """Defines allowed (src_type, dst_type, link_type) triplets with their inverses."""
+
+    __tablename__ = "link_type_allowlist"
+    __table_args__ = (
+        UniqueConstraint("src_type", "dst_type", "link_type", name="uq_link_type_allowlist"),
+    )
+
+    src_type = Column(Text, nullable=False)
+    dst_type = Column(Text, nullable=False)
+    link_type = Column(Text, nullable=False)
+    inverse = Column(Text, nullable=False)
+
+    @staticmethod
+    def is_allowed(src_type, dst_type, link_type):
+        return db.session.query(
+            db.session.query(LinkTypeAllowlist).filter_by(
+                src_type=src_type, dst_type=dst_type, link_type=link_type
+            ).exists()
+        ).scalar()
+
+    @staticmethod
+    def get_inverse(src_type, dst_type, link_type):
+        row = LinkTypeAllowlist.query.filter_by(
+            src_type=src_type, dst_type=dst_type, link_type=link_type
+        ).first()
+        return row.inverse if row else None
+
+    @staticmethod
+    def get_allowed_types(src_type, dst_type):
+        rows = LinkTypeAllowlist.query.filter_by(
+            src_type=src_type, dst_type=dst_type
+        ).all()
+        return [{"link_type": r.link_type, "inverse": r.inverse} for r in rows]
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "src_type": self.src_type,
+            "dst_type": self.dst_type,
+            "link_type": self.link_type,
+            "inverse": self.inverse,
+            "created_at": _iso(self.created_at),
+        }
+
+    def __repr__(self):
+        return f"<LinkTypeAllowlist {self.src_type}→{self.dst_type} type={self.link_type!r}>"
 
 
 # ─── Entity (single-table inheritance) ───────────────────────────────────────
@@ -307,6 +361,7 @@ class Entity(BaseModel):
             "content": self.content,
             "status": self.status,
             "lifecycle": self.lifecycle,
+            "bucket": (self.properties or {}).get("bucket"),
             "follow_up_at": _iso(self.follow_up_at),
             "source": self.source,
             "reference_url": self.reference_url,

@@ -13,7 +13,6 @@ import {
 } from 'lucide-react';
 import useStore from '../stores/useStore';
 import NoteEditor from '../components/notes/NoteEditor';
-import ConnectionsPanel from '../components/ConnectionsPanel/ConnectionsPanel';
 import LinkToEntity from '../components/LinkToEntity/LinkToEntity';
 import styles from './ProjectFocus.module.css';
 
@@ -25,9 +24,9 @@ const TABS = [
 ];
 
 const TASK_COLUMNS = [
-  { key: 'DONE', label: 'Done' },
-  { key: 'IN_PROGRESS', label: 'In Progress' },
-  { key: 'PENDING', label: 'Pending' },
+  { key: 'done', label: 'Done' },
+  { key: 'in_progress', label: 'In Progress' },
+  { key: 'pending', label: 'Pending' },
 ];
 
 const PROJECT_STATUSES = [
@@ -761,7 +760,7 @@ export default function ProjectFocus() {
                   ))
                 )}
                 {/* Quick-add task form for PENDING column */}
-                {column.key === 'PENDING' && (
+                {column.key === 'pending' && (
                   <form onSubmit={handleCreateTask} style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
                     <input
                       type="text"
@@ -950,7 +949,6 @@ export default function ProjectFocus() {
         {tab === 'connections' && (
           <section style={{ ...surfaceCardStyle, padding: '14px' }}>
             <LinkToEntity entityId={id} entityType="project" onLinkCreated={() => setConnRefreshKey(k => k + 1)} />
-            <ConnectionsPanel entityId={id} refreshKey={connRefreshKey} />
           </section>
         )}
       </div>

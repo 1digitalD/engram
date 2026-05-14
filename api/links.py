@@ -1,7 +1,7 @@
 from flask import request, jsonify
 from api import api_bp, api_v2_bp
 from extensions import db
-from models import Entity, EntityLink, EntityEvent
+from models import Entity, EntityLink, EntityEvent, LinkTypeAllowlist
 from services.link_service import (
     create_link as svc_create_link,
     delete_link as svc_delete_link,
@@ -189,6 +189,22 @@ def v2_get_entity_links(entity_id):
     })
 
 
+@api_v2_bp.route("/link-types/<src_type>/<dst_type>", methods=["GET"])
+def v2_get_allowed_link_types(src_type, dst_type):
+    """Return allowed link types between two entity types."""
+    allowed = LinkTypeAllowlist.get_allowed_types(src_type, dst_type)
+    return jsonify({"data": allowed})
+
+
+@api_v2_bp.route("/link-types", methods=["GET"])
+def v2_list_all_link_types():
+    """Return all allowed link types (full matrix)."""
+    rows = LinkTypeAllowlist.query.order_by(
+        LinkTypeAllowlist.src_type, LinkTypeAllowlist.dst_type
+    ).all()
+    return jsonify({"data": [r.to_dict() for r in rows]})
+
+
 @api_v2_bp.route("/entity-links", methods=["POST"])
 def v2_create_entity_link():
     """Create a link between two entities."""
@@ -211,6 +227,37 @@ def v2_create_entity_link():
             actor="user",
         )
         return jsonify({"data": link.to_dict()}), 201
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@api_v2_bp.route("/entity-links/<link_id>", methods=["PATCH"])
+def v2_update_entity_link(link_id):
+    """Update a link's link_type (re-validates against allowlist)."""
+    data = request.get_json(silent=True) or {}
+    new_link_type = data.get("link_type")
+    if not new_link_type:
+        return jsonify({"error": "link_type is required"}), 400
+
+    link = db.session.get(EntityLink, link_id)
+    if not link:
+        return jsonify({"error": "not found"}), 404
+
+    src = db.session.get(Entity, link.src_id)
+    dst = db.session.get(Entity, link.dst_id)
+    if not src or not dst:
+        return jsonify({"error": "linked entities not found"}), 500
+
+    if not LinkTypeAllowlist.is_allowed(src.type, dst.type, new_link_type):
+        return jsonify({
+            "error": f"link type {new_link_type!r} not allowed between "
+                     f"{src.type!r} and {dst.type!r}"
+        }), 422
+
+    from services.link_service import update_link as svc_update_link
+    try:
+        updated = svc_update_link(link_id, new_link_type, actor="user")
+        return jsonify({"data": updated.to_dict()}), 200
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
 

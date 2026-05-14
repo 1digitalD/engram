@@ -14,7 +14,7 @@ import {
   getEntityRoute,
   getEntityTitle,
   resolveEntity,
-} from '../components/ConnectionsPanel/ConnectionsPanel';
+} from '../utils/entity';
 import DeleteConfirmModal from '../components/DeleteConfirmModal';
 import styles from './NoteDetailView.module.css';
 
@@ -85,6 +85,7 @@ export default function NoteDetailView() {
     updateTask,
     addToast,
     startAiStatusPoll,
+    stopAiStatusPoll,
     loading,
   } = useStore();
   const [isEditing, setIsEditing] = useState(false);

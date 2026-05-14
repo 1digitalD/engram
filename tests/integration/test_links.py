@@ -428,3 +428,182 @@ class TestV2DeleteEntityLink:
         assert res.status_code == 404
         data = json.loads(res.data)
         assert "error" in data
+
+
+# ─── Allowlist validation ────────────────────────────────────────────────────
+
+
+class TestLinkTypeAllowlist:
+    def test_disallowed_link_type_raises_error(self, app):
+        with app.app_context():
+            area = create_entity(entity_type="area", title="Area", actor="user")
+            person = create_entity(entity_type="person", title="Person", actor="user")
+            # blocks is not allowed between area and person
+            with pytest.raises(ValueError, match="not allowed between"):
+                create_link(area.id, person.id, link_type="blocks", actor="user")
+
+    def test_allowed_link_creates_with_inverse(self, app):
+        with app.app_context():
+            note = create_entity(entity_type="note", title="Note", actor="user")
+            proj = create_entity(entity_type="project", title="Project", actor="user")
+            link = create_link(note.id, proj.id, link_type="parent", actor="user")
+            assert link.inverse == "child"
+            assert link.link_type == "parent"
+
+    def test_related_link_sets_inverse(self, app):
+        with app.app_context():
+            a = create_entity(entity_type="note", title="A", actor="user")
+            b = create_entity(entity_type="note", title="B", actor="user")
+            link = create_link(a.id, b.id, link_type="related", actor="user")
+            assert link.inverse == "related"
+
+    def test_references_between_task_note_sets_inverse(self, app):
+        with app.app_context():
+            task = create_entity(entity_type="task", title="Task", actor="user")
+            note = create_entity(entity_type="note", title="Note", actor="user")
+            link = create_link(task.id, note.id, link_type="references", actor="user")
+            assert link.inverse == "referenced_by"
+
+    def test_api_returns_inverse_field(self, client, app):
+        with app.app_context():
+            src_id = str(create_entity(entity_type="note", title="Src", actor="user").id)
+            dst_id = str(create_entity(entity_type="note", title="Dst", actor="user").id)
+            create_link(src_id, dst_id, actor="user")
+            db.session.commit()
+
+        res = client.get(f"/api/v2/links/{src_id}")
+        assert res.status_code == 200
+        data = json.loads(res.data)
+        assert data["data"][0]["inverse"] == "related"
+
+
+# ─── API: PATCH /api/v2/entity-links/:id ────────────────────────────────────
+
+
+class TestV2UpdateEntityLink:
+    def _create_entity(self, **kwargs):
+        entity = create_entity(
+            entity_type=kwargs.pop("entity_type", "note"),
+            title=kwargs.pop("title", "Test"),
+            actor="user",
+            **kwargs,
+        )
+        db.session.commit()
+        return str(entity.id)
+
+    def test_update_link_type_success(self, client, app):
+        with app.app_context():
+            note_id = self._create_entity(title="Note")
+            proj_id = self._create_entity(title="Project", entity_type="project")
+            link = create_link(note_id, proj_id, link_type="parent", actor="user")
+            link_id = str(link.id)
+            db.session.commit()
+
+        res = client.patch(f"/api/v2/entity-links/{link_id}", json={
+            "link_type": "related",
+        })
+        assert res.status_code == 200
+        data = json.loads(res.data)
+        assert data["data"]["link_type"] == "related"
+        assert data["data"]["inverse"] == "related"
+
+    def test_update_link_type_not_found(self, client):
+        res = client.patch(
+            "/api/v2/entity-links/00000000-0000-0000-0000-000000000000",
+            json={"link_type": "related"},
+        )
+        assert res.status_code == 404
+
+    def test_update_link_type_missing_field(self, client, app):
+        with app.app_context():
+            note_id = self._create_entity(title="Note")
+            proj_id = self._create_entity(title="Project", entity_type="project")
+            link = create_link(note_id, proj_id, actor="user")
+            link_id = str(link.id)
+
+        res = client.patch(f"/api/v2/entity-links/{link_id}", json={})
+        assert res.status_code == 400
+
+    def test_update_link_type_disallowed(self, client, app):
+        with app.app_context():
+            note_id = self._create_entity(title="Note")
+            proj_id = self._create_entity(title="Project", entity_type="project")
+            link = create_link(note_id, proj_id, link_type="parent", actor="user")
+            link_id = str(link.id)
+
+        # blocks is not allowed between note and project
+        res = client.patch(f"/api/v2/entity-links/{link_id}", json={
+            "link_type": "blocks",
+        })
+        assert res.status_code == 422
+        data = json.loads(res.data)
+        assert "not allowed" in data["error"]
+
+
+# ─── API: GET /api/v2/link-types ─────────────────────────────────────────────
+
+
+class TestV2LinkTypes:
+    def test_get_allowed_types_between_note_project(self, client):
+        res = client.get("/api/v2/link-types/note/project")
+        assert res.status_code == 200
+        data = json.loads(res.data)
+        types = {t["link_type"] for t in data["data"]}
+        assert "parent" in types
+        assert "related" in types
+
+    def test_list_all_link_types(self, client):
+        res = client.get("/api/v2/link-types")
+        assert res.status_code == 200
+        data = json.loads(res.data)
+        assert len(data["data"]) > 0
+
+    def test_no_types_between_invalid_pair(self, client):
+        # No entries for this exact pair in the matrix
+        res = client.get("/api/v2/link-types/area/area")
+        assert res.status_code == 200
+        data = json.loads(res.data)
+        assert data["data"] == []
+
+
+# ─── V2 API: POST /api/v2/entity-links (allowlist validation) ────────────────
+
+
+class TestV2CreateEntityLinkAllowlist:
+    def _create_entity(self, **kwargs):
+        entity = create_entity(
+            entity_type=kwargs.pop("entity_type", "note"),
+            title=kwargs.pop("title", "Test"),
+            actor="user",
+            **kwargs,
+        )
+        db.session.commit()
+        return str(entity.id)
+
+    def test_create_disallowed_link_returns_422(self, client, app):
+        with app.app_context():
+            area_id = self._create_entity(title="Area", entity_type="area")
+            person_id = self._create_entity(title="Person", entity_type="person")
+
+        res = client.post("/api/v2/entity-links", json={
+            "src_id": area_id,
+            "dst_id": person_id,
+            "link_type": "blocks",
+        })
+        assert res.status_code == 400
+        data = json.loads(res.data)
+        assert "not allowed" in data["error"]
+
+    def test_create_allowed_link_v2_sets_inverse(self, client, app):
+        with app.app_context():
+            task_id = self._create_entity(title="Task", entity_type="task")
+            person_id = self._create_entity(title="Person", entity_type="person")
+
+        res = client.post("/api/v2/entity-links", json={
+            "src_id": task_id,
+            "dst_id": person_id,
+            "link_type": "assigned_to",
+        })
+        assert res.status_code == 201
+        data = json.loads(res.data)
+        assert data["data"]["inverse"] == "assigned_by"

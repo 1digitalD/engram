@@ -113,6 +113,10 @@ CREATE TABLE IF NOT EXISTS entity_links (
     -- 'derived_from' | 'assigned_to'
     link_type   TEXT NOT NULL DEFAULT 'related',
 
+    -- Inverse link type for directional display
+    -- e.g. link_type='parent' → inverse='child'
+    inverse     TEXT,
+
     weight      FLOAT NOT NULL DEFAULT 1.0,
     source      TEXT  NOT NULL DEFAULT 'manual',
     -- 'manual' | 'ai' | 'system' | 'embedding'
@@ -131,6 +135,99 @@ CREATE INDEX IF NOT EXISTS entity_links_dst_idx  ON entity_links (dst_id);
 CREATE INDEX IF NOT EXISTS entity_links_type_idx ON entity_links (link_type);
 CREATE INDEX IF NOT EXISTS entity_links_ai_idx   ON entity_links (source, confidence)
     WHERE source IN ('ai', 'embedding');
+
+-- ─── Link Type Allowlist (relationship matrix) ─────────────────────────────
+
+-- Defines which link_type values are allowed between each (src_type, dst_type) pair.
+-- Only these combinations may be created; all others are rejected at the API layer.
+-- See docs/PRD.md for the canonical relationship matrix.
+
+CREATE TABLE IF NOT EXISTS link_type_allowlist (
+    id         TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    src_type   TEXT NOT NULL,
+    dst_type   TEXT NOT NULL,
+    link_type  TEXT NOT NULL,
+    inverse    TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (src_type, dst_type, link_type)
+);
+
+-- Seed all allowed relationship pairs
+INSERT INTO link_type_allowlist (src_type, dst_type, link_type, inverse) VALUES
+    -- ── Area ──
+    ('area', 'project', 'parent', 'child'),
+    ('area', 'project', 'related', 'related'),
+    ('area', 'task', 'parent', 'child'),
+    ('area', 'task', 'related', 'related'),
+    ('area', 'note', 'parent', 'child'),
+    ('area', 'note', 'related', 'related'),
+    ('area', 'resource', 'parent', 'child'),
+    ('area', 'resource', 'related', 'related'),
+    ('area', 'person', 'related', 'related'),
+    -- ── Project ──
+    ('project', 'task', 'parent', 'child'),
+    ('project', 'task', 'related', 'related'),
+    ('project', 'task', 'references', 'referenced_by'),
+    ('project', 'note', 'parent', 'child'),
+    ('project', 'note', 'related', 'related'),
+    ('project', 'note', 'references', 'referenced_by'),
+    ('project', 'resource', 'parent', 'child'),
+    ('project', 'resource', 'related', 'related'),
+    ('project', 'person', 'related', 'related'),
+    ('project', 'area', 'related', 'related'),
+    ('project', 'project', 'related', 'related'),
+    -- ── Task ──
+    ('task', 'project', 'parent', 'child'),
+    ('task', 'project', 'related', 'related'),
+    ('task', 'note', 'references', 'referenced_by'),
+    ('task', 'note', 'derived_from', 'derived'),
+    ('task', 'note', 'related', 'related'),
+    ('task', 'note', 'parent', 'child'),
+    ('task', 'resource', 'references', 'referenced_by'),
+    ('task', 'resource', 'related', 'related'),
+    ('task', 'person', 'assigned_to', 'assigned_by'),
+    ('task', 'person', 'related', 'related'),
+    ('task', 'area', 'related', 'related'),
+    ('task', 'task', 'blocks', 'blocked_by'),
+    ('task', 'task', 'related', 'related'),
+    ('task', 'task', 'derived_from', 'derived'),
+    -- ── Note ──
+    ('note', 'project', 'parent', 'child'),
+    ('note', 'project', 'related', 'related'),
+    ('note', 'task', 'references', 'referenced_by'),
+    ('note', 'task', 'derived_from', 'derived'),
+    ('note', 'task', 'related', 'related'),
+    ('note', 'note', 'parent', 'child'),
+    ('note', 'note', 'related', 'related'),
+    ('note', 'note', 'references', 'referenced_by'),
+    ('note', 'note', 'derived_from', 'derived'),
+    ('note', 'resource', 'references', 'referenced_by'),
+    ('note', 'resource', 'related', 'related'),
+    ('note', 'person', 'mentions', 'mentioned_in'),
+    ('note', 'person', 'related', 'related'),
+    ('note', 'area', 'parent', 'child'),
+    ('note', 'area', 'related', 'related'),
+    -- ── Resource ──
+    ('resource', 'note', 'references', 'referenced_by'),
+    ('resource', 'note', 'related', 'related'),
+    ('resource', 'task', 'references', 'referenced_by'),
+    ('resource', 'task', 'related', 'related'),
+    ('resource', 'project', 'related', 'related'),
+    ('resource', 'area', 'related', 'related'),
+    ('resource', 'person', 'mentions', 'mentioned_in'),
+    ('resource', 'person', 'related', 'related'),
+    ('resource', 'resource', 'related', 'related'),
+    -- ── Person ──
+    ('person', 'task', 'assigned_to', 'assigned_by'),
+    ('person', 'task', 'related', 'related'),
+    ('person', 'note', 'mentions', 'mentioned_in'),
+    ('person', 'note', 'related', 'related'),
+    ('person', 'resource', 'mentions', 'mentioned_in'),
+    ('person', 'resource', 'related', 'related'),
+    ('person', 'project', 'related', 'related'),
+    ('person', 'area', 'related', 'related'),
+    ('person', 'person', 'related', 'related')
+ON CONFLICT DO NOTHING;
 
 -- ─── Entity Chunks (embeddings for any entity) ────────────────────────────────
 
@@ -290,10 +387,82 @@ BEGIN
         entity_events,
         entity_chunks,
         entity_links,
+        link_type_allowlist,
         entity_tags,
         jobs,
         entities,
         tags
     RESTART IDENTITY CASCADE;
+
+    -- Re-seed link_type_allowlist (truncated above)
+    INSERT INTO link_type_allowlist (src_type, dst_type, link_type, inverse) VALUES
+        ('area', 'project', 'parent', 'child'),
+        ('area', 'project', 'related', 'related'),
+        ('area', 'task', 'parent', 'child'),
+        ('area', 'task', 'related', 'related'),
+        ('area', 'note', 'parent', 'child'),
+        ('area', 'note', 'related', 'related'),
+        ('area', 'resource', 'parent', 'child'),
+        ('area', 'resource', 'related', 'related'),
+        ('area', 'person', 'related', 'related'),
+        ('project', 'task', 'parent', 'child'),
+        ('project', 'task', 'related', 'related'),
+        ('project', 'task', 'references', 'referenced_by'),
+        ('project', 'note', 'parent', 'child'),
+        ('project', 'note', 'related', 'related'),
+        ('project', 'note', 'references', 'referenced_by'),
+        ('project', 'resource', 'parent', 'child'),
+        ('project', 'resource', 'related', 'related'),
+        ('project', 'person', 'related', 'related'),
+        ('project', 'area', 'related', 'related'),
+        ('project', 'project', 'related', 'related'),
+        ('task', 'project', 'parent', 'child'),
+        ('task', 'project', 'related', 'related'),
+        ('task', 'note', 'references', 'referenced_by'),
+        ('task', 'note', 'derived_from', 'derived'),
+        ('task', 'note', 'related', 'related'),
+        ('task', 'note', 'parent', 'child'),
+        ('task', 'resource', 'references', 'referenced_by'),
+        ('task', 'resource', 'related', 'related'),
+        ('task', 'person', 'assigned_to', 'assigned_by'),
+        ('task', 'person', 'related', 'related'),
+        ('task', 'area', 'related', 'related'),
+        ('task', 'task', 'blocks', 'blocked_by'),
+        ('task', 'task', 'related', 'related'),
+        ('task', 'task', 'derived_from', 'derived'),
+        ('note', 'project', 'parent', 'child'),
+        ('note', 'project', 'related', 'related'),
+        ('note', 'task', 'references', 'referenced_by'),
+        ('note', 'task', 'derived_from', 'derived'),
+        ('note', 'task', 'related', 'related'),
+        ('note', 'note', 'parent', 'child'),
+        ('note', 'note', 'related', 'related'),
+        ('note', 'note', 'references', 'referenced_by'),
+        ('note', 'note', 'derived_from', 'derived'),
+        ('note', 'resource', 'references', 'referenced_by'),
+        ('note', 'resource', 'related', 'related'),
+        ('note', 'person', 'mentions', 'mentioned_in'),
+        ('note', 'person', 'related', 'related'),
+        ('note', 'area', 'parent', 'child'),
+        ('note', 'area', 'related', 'related'),
+        ('resource', 'note', 'references', 'referenced_by'),
+        ('resource', 'note', 'related', 'related'),
+        ('resource', 'task', 'references', 'referenced_by'),
+        ('resource', 'task', 'related', 'related'),
+        ('resource', 'project', 'related', 'related'),
+        ('resource', 'area', 'related', 'related'),
+        ('resource', 'person', 'mentions', 'mentioned_in'),
+        ('resource', 'person', 'related', 'related'),
+        ('resource', 'resource', 'related', 'related'),
+        ('person', 'task', 'assigned_to', 'assigned_by'),
+        ('person', 'task', 'related', 'related'),
+        ('person', 'note', 'mentions', 'mentioned_in'),
+        ('person', 'note', 'related', 'related'),
+        ('person', 'resource', 'mentions', 'mentioned_in'),
+        ('person', 'resource', 'related', 'related'),
+        ('person', 'project', 'related', 'related'),
+        ('person', 'area', 'related', 'related'),
+        ('person', 'person', 'related', 'related')
+    ON CONFLICT DO NOTHING;
 END;
 $$ LANGUAGE plpgsql;

@@ -5,7 +5,7 @@ orphan detection, and delete cascade preview.
 """
 
 from extensions import db
-from models import Entity, EntityLink
+from models import Entity, EntityLink, LinkTypeAllowlist
 from services.entity_service import _get_entity, _write_event
 from sqlalchemy.exc import DataError
 
@@ -16,6 +16,22 @@ def _get_link(link_id):
         return db.session.get(EntityLink, link_id)
     except DataError:
         return None
+
+
+def _set_inverse(link):
+    """Look up and set the inverse link type from the allowlist.
+
+    Call this after creating an EntityLink outside of create_link()
+    (e.g. in AI pipeline, ingestion, or migration code).
+    Does nothing if src or dst entity is not found.
+    """
+    if link.inverse:
+        return
+    from models import LinkTypeAllowlist
+    src = _get_entity(link.src_id)
+    dst = _get_entity(link.dst_id)
+    if src and dst:
+        link.inverse = LinkTypeAllowlist.get_inverse(src.type, dst.type, link.link_type)
 
 
 # ─── Link CRUD ───────────────────────────────────────────────────────────────
@@ -51,6 +67,16 @@ def create_link(src_id, dst_id, link_type="related", source="manual",
     if src_id == dst_id:
         raise ValueError("cannot link entity to itself")
 
+    # Validate against relationship matrix (link_type_allowlist)
+    if not LinkTypeAllowlist.is_allowed(src.type, dst.type, link_type):
+        raise ValueError(
+            f"link type {link_type!r} not allowed between "
+            f"{src.type!r} and {dst.type!r}"
+        )
+
+    # Look up inverse link type
+    inverse = LinkTypeAllowlist.get_inverse(src.type, dst.type, link_type)
+
     # Enforce parent cardinality: one parent max per entity
     if link_type == "parent":
         existing = EntityLink.query.filter_by(
@@ -75,6 +101,7 @@ def create_link(src_id, dst_id, link_type="related", source="manual",
         src_id=src_id,
         dst_id=dst_id,
         link_type=link_type,
+        inverse=inverse,
         source=source,
         confidence=confidence,
         evidence=evidence,
@@ -91,6 +118,39 @@ def create_link(src_id, dst_id, link_type="related", source="manual",
                  new_value={"link_id": str(link.id), "src_id": str(src_id),
                             "link_type": link_type},
                  reason=evidence)
+
+    db.session.commit()
+    return link
+
+
+def update_link(link_id, new_link_type, actor="user"):
+    """Update a link's link_type. Re-validates against allowlist."""
+    link = _get_link(link_id)
+    if link is None:
+        raise ValueError(f"link {link_id} not found")
+
+    src = _get_entity(link.src_id)
+    dst = _get_entity(link.dst_id)
+    if src is None or dst is None:
+        raise ValueError("linked entities not found")
+
+    if not LinkTypeAllowlist.is_allowed(src.type, dst.type, new_link_type):
+        raise ValueError(
+            f"link type {new_link_type!r} not allowed between "
+            f"{src.type!r} and {dst.type!r}"
+        )
+
+    old_link_type = link.link_type
+    link.link_type = new_link_type
+    link.inverse = LinkTypeAllowlist.get_inverse(src.type, dst.type, new_link_type)
+    db.session.flush()
+
+    _write_event(link.src_id, "field_updated", actor,
+                 old_value={"link_type": old_link_type},
+                 new_value={"link_type": new_link_type, "link_id": str(link_id)})
+    _write_event(link.dst_id, "field_updated", actor,
+                 old_value={"link_type": old_link_type},
+                 new_value={"link_type": new_link_type, "link_id": str(link_id)})
 
     db.session.commit()
     return link

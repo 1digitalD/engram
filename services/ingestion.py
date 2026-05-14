@@ -310,6 +310,7 @@ def run_ingestion(
             src_id=entity.id,
             dst_id=resolved_project.id,
             link_type="related",
+            inverse="related",
             source="ingestion",
             confidence=extraction.confidence,
         )
@@ -320,6 +321,7 @@ def run_ingestion(
             src_id=entity.id,
             dst_id=resolved_area.id,
             link_type="related",
+            inverse="related",
             source="ingestion",
             confidence=extraction.confidence,
         )
@@ -353,6 +355,7 @@ def run_ingestion(
                 src_id=task.id,
                 dst_id=entity.id,
                 link_type="related",
+                inverse="related",
                 source="ingestion",
             )
             db.session.add(task_link)
@@ -369,6 +372,7 @@ def run_ingestion(
                     src_id=task.id,
                     dst_id=task_project_id,
                     link_type="related",
+                    inverse="related",
                     source="ingestion",
                 )
                 db.session.add(proj_link)

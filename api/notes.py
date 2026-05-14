@@ -15,6 +15,7 @@ from api import api_bp
 from extensions import db
 from models import Entity, EntityTag, EntityLink, Tag
 from services.entity_service import create_entity, update_entity, archive_entity, delete_entity
+from services.link_service import _set_inverse
 
 
 def _resolve_or_create_tags(tag_names):
@@ -57,13 +58,18 @@ def _apply_project_links(entity, data):
         project_ids = [pid] if pid else []
 
     if project_ids is not None:
-        # Remove existing project links
-        EntityLink.query.filter_by(src_id=entity.id, link_type="project").delete()
+        # Remove existing project links (legacy v1 type, then v2 parent type)
+        EntityLink.query.filter(
+            EntityLink.src_id == entity.id,
+            EntityLink.link_type.in_(["project", "parent"])
+        ).delete(synchronize_session=False)
         for pid in project_ids:
             if pid and db.session.get(Entity, pid):
-                db.session.add(EntityLink(
-                    src_id=entity.id, dst_id=pid, link_type="project", source="manual"
-                ))
+                link = EntityLink(
+                    src_id=entity.id, dst_id=pid, link_type="parent", source="manual"
+                )
+                link.inverse = "child"
+                db.session.add(link)
 
 
 def _entity_to_note_response(entity):
@@ -74,7 +80,10 @@ def _entity_to_note_response(entity):
         d["tag_ids"] = [et.tag_id for et in entity.entity_tags]
     # Ensure project_ids are populated from EntityLink relationship
     if not d.get("project_ids"):
-        project_links = EntityLink.query.filter_by(src_id=entity.id, link_type="project").all()
+        project_links = EntityLink.query.filter(
+            EntityLink.src_id == entity.id,
+            EntityLink.link_type.in_(["parent", "project"])
+        ).all()
         d["project_ids"] = [link.dst_id for link in project_links]
         d["project_id"] = d["project_ids"][0] if d["project_ids"] else None
         d["projects"] = []
@@ -105,8 +114,9 @@ def list_notes():
     if area_id:
         q = q.filter(Entity.properties.contains({"area_id": area_id}))
     if project_id:
-        note_ids_with_project = db.session.query(EntityLink.src_id).filter_by(
-            dst_id=project_id, link_type="project"
+        note_ids_with_project = db.session.query(EntityLink.src_id).filter(
+            EntityLink.dst_id == project_id,
+            EntityLink.link_type.in_(["parent", "project"])
         ).subquery()
         q = q.filter(Entity.id.in_(note_ids_with_project))
     if tag_id:
@@ -121,7 +131,7 @@ def list_notes():
     if note_ids:
         project_links = EntityLink.query.filter(
             EntityLink.src_id.in_(note_ids),
-            EntityLink.link_type == "project"
+            EntityLink.link_type.in_(["parent", "project"])
         ).all()
 
         # Batch-load linked project entities

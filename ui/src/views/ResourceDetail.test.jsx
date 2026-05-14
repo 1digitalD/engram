@@ -9,14 +9,6 @@ import { connectionsAPI, resourcesAPI } from '../api/engram';
 
 const mockNavigate = vi.fn();
 
-vi.mock('../components/ConnectionsPanel/ConnectionsPanel', async () => {
-  const actual = await vi.importActual('../components/ConnectionsPanel/ConnectionsPanel');
-  return {
-    ...actual,
-    default: () => <div data-testid="connections-panel">Connections panel</div>,
-  };
-});
-
 vi.mock('../stores/useStore');
 vi.mock('../api/engram', async () => {
   const actual = await vi.importActual('../api/engram');
@@ -114,7 +106,7 @@ describe('ResourceDetail', () => {
       outgoing: [
         { id: 'l1', src_id: 'r1', dst_id: 'n1', dst_entity: { id: 'n1', type: 'note', raw_text: '# Reading note' } },
         { id: 'l2', src_id: 'r1', dst_id: 't1', dst_entity: { id: 't1', type: 'task', title: 'Draft summary', status: 'in_progress' } },
-        { id: 'l3', src_id: 'r1', dst_id: 'person-1', dst_entity: { id: 'person-1', type: 'person', name: 'Ada Lovelace', role: 'Researcher' } },
+        { id: 'l3', src_id: 'r1', dst_id: 'person-1', dst_entity: { id: 'person-1', type: 'person', title: 'Ada Lovelace', role: 'Researcher' } },
       ],
       incoming: [],
     });
@@ -130,7 +122,7 @@ describe('ResourceDetail', () => {
       }],
       notes: [{ id: 'n1', raw_text: '# Reading note', type: 'note' }],
       tasks: [{ id: 't1', title: 'Draft summary', status: 'in_progress', type: 'task' }],
-      people: [{ id: 'person-1', name: 'Ada Lovelace', role: 'Researcher', type: 'person' }],
+      people: [{ id: 'person-1', title: 'Ada Lovelace', role: 'Researcher', type: 'person' }],
     });
 
     expect(await screen.findByRole('heading', { name: 'Thinking in Systems' })).toBeInTheDocument();

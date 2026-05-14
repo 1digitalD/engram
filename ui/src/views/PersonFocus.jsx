@@ -2,10 +2,9 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, CheckSquare, FileText, FolderOpen, Sparkles, Tag, UserPlus, Plus, X, Loader2, CheckCircle } from 'lucide-react';
 import useStore from '../stores/useStore';
-import ConnectionsPanel from '../components/ConnectionsPanel/ConnectionsPanel';
 import LinkToEntity from '../components/LinkToEntity/LinkToEntity';
 import NoteEditor from '../components/notes/NoteEditor';
-import { getEntityTitle } from '../components/ConnectionsPanel/ConnectionsPanel';
+import { getEntityTitle } from '../utils/entity';
 import projectStyles from './ProjectFocus.module.css';
 
 function getInitials(name) {
@@ -562,7 +561,6 @@ export default function PersonFocus() {
           {tab === 'connections' && (
             <div className={projectStyles.content}>
               <LinkToEntity entityId={id} entityType="person" onLinkCreated={() => setConnRefreshKey(k => k + 1)} />
-              <ConnectionsPanel entityId={id} refreshKey={connRefreshKey} />
             </div>
           )}
         </div>

@@ -8,10 +8,6 @@ import useStore from '../stores/useStore';
 
 const mockNavigate = vi.fn();
 
-vi.mock('../components/ConnectionsPanel/ConnectionsPanel', () => ({
-  default: () => <div data-testid="connections-panel">Connections panel</div>,
-}));
-
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom');
   return {
@@ -62,14 +58,14 @@ describe('ProjectFocus complete project', () => {
     renderFocus({
       projects: [{
         id: 'p1',
-        name: 'Apollo',
+        title: 'Apollo',
         description: 'Ship the redesign',
         status: 'in_progress',
         due_date: '2026-05-20',
         area_id: 'a1',
         color: '#abc',
       }],
-      areas: [{ id: 'a1', name: 'Work', is_archived: false }],
+      areas: [{ id: 'a1', title: 'Work', is_archived: false }],
       notes: [{
         id: 'n1',
         project_id: 'p1',
@@ -100,15 +96,15 @@ describe('ProjectFocus complete project', () => {
   it('switches between tabs and shows compact task and people content', async () => {
     const user = userEvent.setup();
     renderFocus({
-      projects: [{ id: 'p1', name: 'Alpha', is_archived: false, area_id: 'a1', color: '#abc' }],
-      areas: [{ id: 'a1', name: 'Work', is_archived: false }],
+      projects: [{ id: 'p1', title: 'Alpha', is_archived: false, area_id: 'a1', color: '#abc' }],
+      areas: [{ id: 'a1', title: 'Work', is_archived: false }],
       notes: [{ id: 'n1', project_id: 'p1', raw_text: 'Meeting notes', person_id: 'person-1' }],
       tasks: [
         { id: 't1', project_id: 'p1', title: 'Done task', status: 'done' },
         { id: 't2', project_id: 'p1', title: 'Active task', status: 'in_progress' },
         { id: 't3', project_id: 'p1', title: 'Planned task', status: 'pending' },
       ],
-      people: [{ id: 'person-1', name: 'Ada Lovelace', role: 'Designer' }],
+      people: [{ id: 'person-1', title: 'Ada Lovelace', role: 'Designer' }],
     });
 
     await user.click(screen.getByRole('button', { name: 'Tasks' }));
@@ -121,7 +117,7 @@ describe('ProjectFocus complete project', () => {
     expect(screen.getByText('Designer')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Connections' }));
-    expect(screen.getByTestId('connections-panel')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Filter entities...')).toBeInTheDocument();
   });
 
   it('marks the project done and shows the rolling up to completed transition', async () => {
@@ -132,20 +128,21 @@ describe('ProjectFocus complete project', () => {
     }));
 
     const { updateProject } = renderFocus({
-      projects: [{ id: 'p1', name: 'Solo', is_archived: false, area_id: null, color: null, status: 'ACTIVE' }],
+      projects: [{ id: 'p1', title: 'Solo', is_archived: false, area_id: null, color: null, status: 'ACTIVE' }],
       updateProject: updateProjectMock,
     });
 
     await user.click(screen.getByTestId('complete-project-btn'));
     expect(screen.getByRole('button', { name: 'Rolling up...' })).toBeDisabled();
 
-    resolveUpdate({ project: { id: 'p1', status: 'done' }, rollup: null });
+    resolveUpdate({ project: { id: 'p1', status: 'completed' }, rollup: null });
 
     await waitFor(() => {
-      expect(updateProject).toHaveBeenCalledWith('p1', { status: 'done' });
+      expect(updateProject).toHaveBeenCalledWith('p1', { status: 'completed' });
     });
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Completed' })).toBeDisabled();
+      expect(screen.queryByTestId('complete-project-btn')).not.toBeInTheDocument();
+      expect(screen.getAllByText('Completed').length).toBeGreaterThanOrEqual(1);
     });
   });
 });

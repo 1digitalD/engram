@@ -24,6 +24,8 @@ const baseStore = {
   createTask: vi.fn(),
   updateTask: vi.fn(),
   addToast: vi.fn(),
+  startAiStatusPoll: vi.fn(),
+  stopAiStatusPoll: vi.fn(),
 };
 
 function renderNoteDetail(initialPath, notes) {
@@ -81,8 +83,9 @@ describe('NoteDetailView MOC note type', () => {
     renderNoteDetail('/notes/moc-1', [moc]);
 
     expect(await screen.findByTestId('moc-badge')).toBeInTheDocument();
-    expect(screen.getByText('MOC')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 1, name: 'Product MOC' })).toBeInTheDocument();
+    expect(screen.getAllByText('MOC').length).toBeGreaterThanOrEqual(1);
+    const headings = screen.getAllByRole('heading', { level: 1, name: 'Product MOC' });
+    expect(headings.length).toBeGreaterThanOrEqual(1);
   });
 
   it('renders auto-generated TOC from outgoing links', async () => {

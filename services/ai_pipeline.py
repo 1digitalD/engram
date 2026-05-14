@@ -234,6 +234,10 @@ def run_classify(payload):
 
         entity.ai_meta = ai_meta
         _upsert_extracted_tags(entity, extraction.tags)
+        if extraction.para_bucket:
+            props = entity.properties or {}
+            props["bucket"] = extraction.para_bucket.upper()
+            entity.properties = props
         entity.ai_status = "done"
 
         # Write classification event
@@ -427,6 +431,7 @@ def run_autolink(payload):
                 src_id=entity.id,
                 dst_id=similar_entity_id,
                 link_type="related",
+                inverse="related",
                 source="embedding",
                 confidence=similarity,
             )
@@ -569,6 +574,7 @@ def _create_or_link_project(entity, project_name, confidence):
             src_id=entity.id,
             dst_id=existing.id,
             link_type="related",
+            inverse="related",
             source="ai",
             confidence=confidence,
         )
@@ -603,6 +609,7 @@ def _create_or_link_project(entity, project_name, confidence):
             src_id=entity.id,
             dst_id=project.id,
             link_type="related",
+            inverse="related",
             source="ai",
             confidence=confidence,
         )
@@ -641,6 +648,7 @@ def _create_or_link_area(entity, area_name, confidence):
             src_id=entity.id,
             dst_id=existing.id,
             link_type="related",
+            inverse="related",
             source="ai",
             confidence=confidence,
         )
@@ -661,6 +669,7 @@ def _create_or_link_area(entity, area_name, confidence):
             src_id=entity.id,
             dst_id=area.id,
             link_type="related",
+            inverse="related",
             source="ai",
             confidence=confidence,
         )

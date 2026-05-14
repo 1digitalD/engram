@@ -18,7 +18,7 @@ import {
   getEntityRoute,
   getEntityTitle,
   resolveEntity,
-} from '../components/ConnectionsPanel/ConnectionsPanel';
+} from '../utils/entity';
 import LinkToEntity from '../components/LinkToEntity/LinkToEntity';
 import { RESOURCE_TYPES, ResourceTypeIcon } from './Resources';
 import DeleteConfirmModal from '../components/DeleteConfirmModal';

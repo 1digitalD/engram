@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { AlertTriangle, Check, X, Loader2 } from 'lucide-react';
 import Modal from '../ui/Modal';
-import { EntityTypeIcon } from '../ConnectionsPanel/ConnectionsPanel';
+import { EntityTypeIcon } from '../../utils/entity';
 import styles from './DeleteConfirmModal.module.css';
 
 const ENTITY_TYPE_LABELS = {

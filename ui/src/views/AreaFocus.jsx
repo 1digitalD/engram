@@ -6,7 +6,6 @@ import useStore from '../stores/useStore';
 import NoteCard from '../components/notes/NoteCard';
 import NoteEditor from '../components/notes/NoteEditor';
 import TaskCheckboxRow from '../components/tasks/TaskCheckboxRow';
-import ConnectionsPanel from '../components/ConnectionsPanel/ConnectionsPanel';
 import LinkToEntity from '../components/LinkToEntity/LinkToEntity';
 import DeleteConfirmModal from '../components/DeleteConfirmModal';
 import styles from './ProjectFocus.module.css';
@@ -651,7 +650,6 @@ export default function AreaFocus() {
       {tab === 'connections' && (
         <div className={styles.content}>
           <LinkToEntity entityId={id} entityType="area" onLinkCreated={() => setConnRefreshKey(k => k + 1)} />
-          <ConnectionsPanel entityId={id} refreshKey={connRefreshKey} />
         </div>
       )}
 

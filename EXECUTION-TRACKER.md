@@ -286,3 +286,5 @@ If the session resets:
 - **2026-05-13 16:12** BUG-2 → 156f853a: BUG-2: completed, merged from opencode worktree
 
 - **2026-05-13 16:17** BUG-3 → 92261377: BUG-3: completed, merged from opencode worktree
+
+- **2026-05-13 18:45** CLEANUP → 64678d72: CLEANUP: completed, merged from opencode worktree. Backend consolidation (utils.py, deduplicate _write_event, remove classifier.py). New views (TaskDetail, Tags, ErrorBoundary, LinkToEntity, search API). Delete all archive migrations, archived tests, skipped v1 tests. Clean up silent exception handlers.

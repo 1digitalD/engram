@@ -321,36 +321,47 @@ export default function AiSelectionPopover({
 export function useTextSelection(containerRef) {
   const [selection, setSelection] = useState({ text: '', position: { x: 0, y: 0 }, visible: false });
 
-  const handleSelectionChange = useCallback(() => {
-    const sel = window.getSelection();
-    if (!sel || sel.isCollapsed || !sel.toString().trim()) {
-      setSelection(s => s.visible ? { ...s, visible: false } : s);
-      return;
-    }
-
-    const text = sel.toString().trim();
-    const range = sel.getRangeAt(0);
-    const rect = range.getBoundingClientRect();
-
-    if (containerRef?.current && !containerRef.current.contains(range.commonAncestorContainer)) {
-      setSelection(s => s.visible ? { ...s, visible: false } : s);
-      return;
-    }
-
-    setSelection({
-      text,
-      position: {
-        x: rect.left + rect.width / 2 + window.scrollX,
-        y: rect.top + window.scrollY,
-      },
-      visible: true,
-    });
-  }, [containerRef]);
-
   useEffect(() => {
-    document.addEventListener('selectionchange', handleSelectionChange);
-    return () => document.removeEventListener('selectionchange', handleSelectionChange);
-  }, [handleSelectionChange]);
+    let pending = null;
+
+    const handler = () => {
+      const sel = window.getSelection();
+      const isCollapsed = !sel || sel.isCollapsed || !sel.toString().trim();
+      const text = isCollapsed ? '' : sel.toString().trim();
+      const range = isCollapsed || !sel.rangeCount ? null : sel.getRangeAt(0);
+      const rect = range ? range.getBoundingClientRect() : null;
+      const inContainer = containerRef?.current && range
+        ? containerRef.current.contains(range.commonAncestorContainer)
+        : false;
+
+      const next = isCollapsed || (containerRef?.current && !inContainer)
+        ? null
+        : {
+            text,
+            position: {
+              x: rect.left + rect.width / 2 + window.scrollX,
+              y: rect.top + window.scrollY,
+            },
+            visible: true,
+          };
+
+      if (pending) clearTimeout(pending);
+      pending = setTimeout(() => {
+        pending = null;
+        if (next) {
+          setSelection(next);
+        } else {
+          setSelection(s => s.visible ? { ...s, visible: false } : s);
+        }
+      }, 0);
+    };
+
+    document.addEventListener('selectionchange', handler);
+    return () => {
+      document.removeEventListener('selectionchange', handler);
+      if (pending) clearTimeout(pending);
+    };
+  }, [containerRef]);
 
   const hide = useCallback(() => {
     setSelection(s => ({ ...s, visible: false }));

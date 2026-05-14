@@ -1,18 +1,19 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Link2, Loader2 } from 'lucide-react';
-import { linksAPI } from '../../api/engram';
+import { linksAPI, linkTypesAPI } from '../../api/engram';
 import useStore from '../../stores/useStore';
-import { getEntityTitle } from '../ConnectionsPanel/ConnectionsPanel';
+import { getEntityTitle } from '../../utils/entity';
 import styles from './LinkToEntity.module.css';
 
-const LINK_TYPES = [
-  { value: 'related', label: 'Related' },
-  { value: 'references', label: 'References' },
-  { value: 'blocks', label: 'Blocks' },
-  { value: 'mentions', label: 'Mentions' },
-  { value: 'derived_from', label: 'Derived From' },
-  { value: 'assigned_to', label: 'Assigned To' },
-];
+const LINK_TYPE_LABELS = {
+  related: 'Related',
+  parent: 'Parent',
+  references: 'References',
+  blocks: 'Blocks',
+  mentions: 'Mentions',
+  derived_from: 'Derived From',
+  assigned_to: 'Assigned To',
+};
 
 const ENTITY_GROUPS = [
   { key: 'notes', label: 'Notes', type: 'note' },
@@ -29,6 +30,7 @@ export default function LinkToEntity({ entityId, entityType, onLinkCreated }) {
   const [pick, setPick] = useState('');
   const [linkType, setLinkType] = useState('related');
   const [busy, setBusy] = useState(false);
+  const [allowedTypes, setAllowedTypes] = useState(null);
 
   const allEntities = useMemo(() => {
     const results = [];
@@ -60,6 +62,28 @@ export default function LinkToEntity({ entityId, entityType, onLinkCreated }) {
     return map;
   }, [filtered]);
 
+  const selectedTarget = useMemo(() => {
+    return allEntities.find(e => e.id === pick) || null;
+  }, [allEntities, pick]);
+
+  useEffect(() => {
+    if (!selectedTarget || !entityType) {
+      setAllowedTypes(null);
+      return;
+    }
+    let cancelled = false;
+    linkTypesAPI.forPair(entityType, selectedTarget.type).then(res => {
+      if (cancelled) return;
+      setAllowedTypes(res.data || []);
+      if (res.data?.length > 0) {
+        setLinkType(res.data[0].link_type);
+      }
+    }).catch(() => {
+      if (!cancelled) setAllowedTypes([]);
+    });
+    return () => { cancelled = true; };
+  }, [pick, entityType, selectedTarget?.type]);
+
   const handleSubmit = async () => {
     if (!pick || busy) return;
     setBusy(true);
@@ -69,6 +93,7 @@ export default function LinkToEntity({ entityId, entityType, onLinkCreated }) {
       setPick('');
       setQuery('');
       setLinkType('related');
+      setAllowedTypes(null);
       onLinkCreated?.();
     } catch (e) {
       store.addToast({ type: 'error', message: e.message || 'Could not create link' });
@@ -80,6 +105,7 @@ export default function LinkToEntity({ entityId, entityType, onLinkCreated }) {
   const handleSearchChange = (e) => {
     setQuery(e.target.value);
     setPick('');
+    setAllowedTypes(null);
   };
 
   return (
@@ -121,16 +147,27 @@ export default function LinkToEntity({ entityId, entityType, onLinkCreated }) {
           className={styles.linkType}
           value={linkType}
           onChange={e => setLinkType(e.target.value)}
+          disabled={!selectedTarget || allowedTypes === null}
         >
-          {LINK_TYPES.map(lt => (
-            <option key={lt.value} value={lt.value}>{lt.label}</option>
-          ))}
+          {!selectedTarget ? (
+            <option value="">Select target first</option>
+          ) : allowedTypes === null ? (
+            <option value="">Loading...</option>
+          ) : allowedTypes.length === 0 ? (
+            <option value="" disabled>No allowed link types</option>
+          ) : (
+            allowedTypes.map(t => (
+              <option key={t.link_type} value={t.link_type}>
+                {LINK_TYPE_LABELS[t.link_type] || t.link_type}
+              </option>
+            ))
+          )}
         </select>
         <button
           type="button"
           className="btn btn-primary btn-sm"
           onClick={handleSubmit}
-          disabled={!pick || busy}
+          disabled={!pick || busy || !allowedTypes || allowedTypes.length === 0}
         >
           {busy ? <Loader2 size={13} className="spin" /> : 'Link'}
         </button>

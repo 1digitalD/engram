@@ -151,6 +151,16 @@ export const connectionsAPI = {
   forEntity: (id) => apiRequest('GET', `/entities/${id}/links`),
 };
 
+// ── V2 Links API ───────────────────────────
+export const linkTypesAPI = {
+  forPair: async (srcType, dstType) => {
+    const res = await fetch(`/api/v2/link-types/${srcType}/${dstType}`);
+    if (!res.ok) throw new Error(`Failed to fetch link types: ${res.status}`);
+    return res.json();
+  },
+};
+
+
 // ── Health ───────────────────────────────────
 export const healthAPI = {
   check: () => apiRequest('GET', '/health'.replace('/api/v1', '')),
