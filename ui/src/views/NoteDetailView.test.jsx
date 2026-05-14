@@ -5,12 +5,16 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import NoteDetailView from './NoteDetailView';
 import useStore from '../stores/useStore';
-import { linksAPI, proposalsAPI } from '../api/engram';
+import { linksAPI, proposalsAPI, relationshipsAPI } from '../api/engram';
 
 vi.mock('../stores/useStore');
 vi.mock('../api/engram', () => ({
   linksAPI: { forNote: vi.fn(), create: vi.fn() },
   proposalsAPI: { list: vi.fn() },
+  relationshipsAPI: { list: vi.fn(), create: vi.fn(), delete: vi.fn(), linkTypes: vi.fn(), deletePreview: vi.fn() },
+  entitiesAPI: { get: vi.fn(), update: vi.fn(), delete: vi.fn(), search: vi.fn(), links: vi.fn(), events: vi.fn() },
+  captureAPI: { capture: vi.fn() },
+  suggestionsAPI: { list: vi.fn(), accept: vi.fn(), dismiss: vi.fn() },
 }));
 
 const baseStore = {
@@ -52,7 +56,7 @@ describe('NoteDetailView MOC note type', () => {
   });
 
   it('shows MOC badge in meta bar when note_type is MOC', async () => {
-    vi.mocked(linksAPI.forNote).mockResolvedValue({ outgoing: [], incoming: [] });
+    vi.mocked(relationshipsAPI.list).mockResolvedValue({ outgoing: [], incoming: [] });
     const moc = {
       id: 'moc-badge-1',
       raw_text: '# Badge MOC\n',
@@ -70,7 +74,7 @@ describe('NoteDetailView MOC note type', () => {
   });
 
   it('renders MOC header when note_type is MOC', async () => {
-    vi.mocked(linksAPI.forNote).mockResolvedValue({ outgoing: [], incoming: [] });
+    vi.mocked(relationshipsAPI.list).mockResolvedValue({ outgoing: [], incoming: [] });
     const moc = {
       id: 'moc-1',
       raw_text: '# Product MOC\n\nIndex body.',
@@ -89,7 +93,7 @@ describe('NoteDetailView MOC note type', () => {
   });
 
   it('renders auto-generated TOC from outgoing links', async () => {
-    vi.mocked(linksAPI.forNote).mockResolvedValue({
+    vi.mocked(relationshipsAPI.list).mockResolvedValue({
       outgoing: [
         { id: 'l1', src_id: 'moc-1', dst_id: 'child-a', link_type: 'related', weight: 1 },
       ],
@@ -124,7 +128,7 @@ describe('NoteDetailView MOC note type', () => {
   });
 
   it('does not render MOC chrome for standard notes', async () => {
-    vi.mocked(linksAPI.forNote).mockResolvedValue({ outgoing: [], incoming: [] });
+    vi.mocked(relationshipsAPI.list).mockResolvedValue({ outgoing: [], incoming: [] });
     const plain = {
       id: 'n-plain',
       raw_text: '# Regular',
@@ -137,7 +141,7 @@ describe('NoteDetailView MOC note type', () => {
     renderNoteDetail('/notes/n-plain', [plain]);
 
     await waitFor(() => {
-      expect(linksAPI.forNote).toHaveBeenCalled();
+      expect(relationshipsAPI.list).toHaveBeenCalled();
     });
     expect(screen.queryByTestId('moc-header')).not.toBeInTheDocument();
     expect(screen.queryByTestId('moc-toc')).not.toBeInTheDocument();
@@ -145,7 +149,7 @@ describe('NoteDetailView MOC note type', () => {
   });
 
   it('renders stored HTML content and strips unsafe attributes', async () => {
-    vi.mocked(linksAPI.forNote).mockResolvedValue({ outgoing: [], incoming: [] });
+    vi.mocked(relationshipsAPI.list).mockResolvedValue({ outgoing: [], incoming: [] });
     const note = {
       id: 'html-note',
       raw_text: '<h1>Safe title</h1><p><img src="x" onerror="alert(1)" />Body copy</p>',
@@ -166,7 +170,7 @@ describe('NoteDetailView MOC note type', () => {
   });
 
   it('saves edited note HTML through the content field', async () => {
-    vi.mocked(linksAPI.forNote).mockResolvedValue({ outgoing: [], incoming: [] });
+    vi.mocked(relationshipsAPI.list).mockResolvedValue({ outgoing: [], incoming: [] });
     const note = {
       id: 'editable-note',
       raw_text: '# Editable note',
@@ -188,7 +192,8 @@ describe('NoteDetailView MOC note type', () => {
   });
 
   it('resolves typed links from the store and routes them by entity type', async () => {
-    vi.mocked(linksAPI.forNote).mockResolvedValue({
+    vi.mocked(relationshipsAPI.list).mockResolvedValue({
+      data: [],
       outgoing: [
         { id: 'link-task', src_id: 'note-1', dst_id: 'task-1', link_type: 'related' },
         { id: 'link-project', src_id: 'note-1', dst_id: 'project-1', link_type: 'supports' },
@@ -232,7 +237,7 @@ describe('NoteDetailView MOC note type', () => {
   });
 
   it('renders suggested link proposals and supports accept and dismiss', async () => {
-    vi.mocked(linksAPI.forNote).mockResolvedValue({ outgoing: [], incoming: [] });
+    vi.mocked(relationshipsAPI.list).mockResolvedValue({ data: [], outgoing: [], incoming: [] });
     const user = userEvent.setup();
 
     global.fetch = vi.fn((input, init) => {

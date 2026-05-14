@@ -146,6 +146,47 @@ export const batchAPI = {
     apiRequest('POST', '/batch', { operations, atomic }),
 };
 
+// ── Universal entity API ────────────────────
+export const entitiesAPI = {
+  get:     (id)       => apiRequest('GET',    `/entities/${id}`),
+  update:  (id, data) => apiRequest('PATCH',  `/entities/${id}`, data),
+  delete:  (id, cascade) => apiRequest('DELETE', `/entities/${id}`, null, { cascade: cascade ? 'true' : 'false' }),
+  search:  (q)        => apiRequest('GET',    '/search', null, { q }),
+  links:   (id)       => apiRequest('GET',    `/entities/${id}/links`),
+  events:  (id)       => apiRequest('GET',    `/entities/${id}/events`),
+};
+
+// ── Capture API ────────────────────────────
+export const captureAPI = {
+  capture: (data) => fetch('/api/v2/capture', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  }).then(async res => {
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || err.message || `HTTP ${res.status}`);
+    }
+    return res.json();
+  }),
+};
+
+// ── Suggestions API ────────────────────────
+export const suggestionsAPI = {
+  list:    (entityId) => fetch(`/api/v2/proposals?entity_id=${encodeURIComponent(entityId)}&limit=100`).then(r => r.json()),
+  accept:  (id, data) => apiRequest('POST', `/proposals/${id}/accept`),
+  dismiss: (id)       => apiRequest('POST', `/proposals/${id}/dismiss`),
+};
+
+// ── Relationships API ─────────────────────
+export const relationshipsAPI = {
+  list:        (entityId)     => fetch(`/api/v2/links/${encodeURIComponent(entityId)}`).then(r => r.json()),
+  create:      (data)         => apiRequest('POST',   '/links', data),
+  delete:      (linkId)       => apiRequest('DELETE', `/links/${linkId}`),
+  linkTypes:   (srcType, dstType) => linkTypesAPI.forPair(srcType, dstType),
+  deletePreview: (entityId)   => apiRequest('GET',    `/entities/${entityId}/delete-preview`),
+};
+
 // ── Connections (universal entity links) ──────
 export const connectionsAPI = {
   forEntity: (id) => apiRequest('GET', `/entities/${id}/links`),

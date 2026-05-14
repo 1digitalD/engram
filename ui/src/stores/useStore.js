@@ -616,6 +616,56 @@ const useStore = create((set, get) => ({
       return [];
     }
   },
+
+  // ── Universal entity helpers ──────────────
+
+  /** Find any entity by ID across all collections. */
+  getEntityById: (id) => {
+    if (!id) return null;
+    const state = get();
+    for (const key of ['notes', 'tasks', 'projects', 'areas', 'people', 'resources']) {
+      const found = state[key]?.find(e => e.id === id);
+      if (found) return found;
+    }
+    return null;
+  },
+
+  /** Get all entities of a given type. */
+  getEntitiesByType: (type) => {
+    const map = { note: 'notes', task: 'tasks', project: 'projects', area: 'areas', person: 'people', resource: 'resources' };
+    const key = map[type];
+    return key ? (get()[key] || []) : [];
+  },
+
+  /** Upsert any entity into the correct collection. */
+  upsertEntity: (entity) => {
+    if (!entity?.id || !entity?.type) return;
+    const map = { note: 'notes', task: 'tasks', project: 'projects', area: 'areas', person: 'people', resource: 'resources' };
+    const key = map[entity.type];
+    if (!key) return;
+    const normalized = normalizeEntity(entity);
+    set(s => {
+      const idx = s[key].findIndex(e => e.id === normalized.id);
+      if (idx === -1) return { [key]: [normalized, ...s[key]] };
+      const next = [...s[key]];
+      next[idx] = normalized;
+      return { [key]: next };
+    });
+  },
+
+  /** Remove any entity by ID from its collection. */
+  removeEntity: (id) => {
+    if (!id) return;
+    set(s => {
+      const updates = {};
+      for (const key of ['notes', 'tasks', 'projects', 'areas', 'people', 'resources']) {
+        if (s[key].some(e => e.id === id)) {
+          updates[key] = s[key].filter(e => e.id !== id);
+        }
+      }
+      return updates;
+    });
+  },
 }));
 
 export default useStore;

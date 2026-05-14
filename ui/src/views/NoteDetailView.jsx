@@ -6,7 +6,7 @@ import {
   FileText,
 } from 'lucide-react';
 import useStore from '../stores/useStore';
-import { linksAPI } from '../api/engram';
+import { linksAPI, relationshipsAPI } from '../api/engram';
 import { BucketBadge, TagBadge } from '../components/ui/Badge';
 import TipTapEditor, { renderStoredContent } from '../components/Editor/TipTapEditor';
 import {
@@ -15,12 +15,13 @@ import {
   getEntityTitle,
   resolveEntity,
 } from '../utils/entity';
+import LinkedContextPanel from '../components/LinkedContextPanel/LinkedContextPanel';
 import DeleteConfirmModal from '../components/DeleteConfirmModal';
 import styles from './NoteDetailView.module.css';
 
 function notePreviewLine(n) {
   if (!n) return '';
-  const line = (n.raw_text || '').split('\n')[0].replace(/^#\s*/, '').trim();
+  const line = (n.content || n.raw_text || '').split('\n')[0].replace(/^#\s*/, '').trim();
   return (line || 'Untitled').slice(0, 72);
 }
 
@@ -67,6 +68,15 @@ function formatDateTime(value) {
 }
 
 
+
+const ENTITY_GROUPS = [
+  { key: 'notes', label: 'Notes', type: 'note' },
+  { key: 'tasks', label: 'Tasks', type: 'task' },
+  { key: 'projects', label: 'Projects', type: 'project' },
+  { key: 'areas', label: 'Areas', type: 'area' },
+  { key: 'people', label: 'People', type: 'person' },
+  { key: 'resources', label: 'Resources', type: 'resource' },
+];
 
 export default function NoteDetailView() {
   const { id } = useParams();
@@ -120,7 +130,7 @@ export default function NoteDetailView() {
     if (!note?.id) return;
     setLinksLoading(true);
     try {
-      const res = await linksAPI.forNote(note.id);
+      const res = await relationshipsAPI.list(note.id);
       setLinksOut(res.outgoing || []);
       setLinksIn(res.incoming || []);
     } catch (e) {
@@ -188,10 +198,31 @@ export default function NoteDetailView() {
     return <Link to={route}>{content}</Link>;
   };
 
-  const linkCandidates = notes
-    .filter(n => n.id !== note?.id)
-    .filter(n => notePreviewLine(n).toLowerCase().includes(linkQuery.trim().toLowerCase()))
-    .slice(0, 80);
+  const linkCandidates = useMemo(() => {
+    const allEntities = [
+      ...notes.map(e => ({ ...e, _type: 'note', _label: notePreviewLine(e) })),
+      ...tasks.map(e => ({ ...e, _type: 'task', _label: e.title })),
+      ...projects.map(e => ({ ...e, _type: 'project', _label: e.title })),
+      ...areas.map(e => ({ ...e, _type: 'area', _label: e.title })),
+      ...people.map(e => ({ ...e, _type: 'person', _label: e.title })),
+      ...resources.map(e => ({ ...e, _type: 'resource', _label: e.title })),
+    ];
+    const q = linkQuery.trim().toLowerCase();
+    return allEntities
+      .filter(e => e.id !== note?.id)
+      .filter(e => !q || e._label.toLowerCase().includes(q))
+      .slice(0, 80);
+  }, [notes, tasks, projects, areas, people, resources, linkQuery, note?.id]);
+
+  const linkCandidatesGrouped = useMemo(() => {
+    const groups = {};
+    for (const e of linkCandidates) {
+      const t = e._type;
+      if (!groups[t]) groups[t] = [];
+      groups[t].push(e);
+    }
+    return groups;
+  }, [linkCandidates]);
 
   if (!note) {
     if (loading) {
@@ -606,20 +637,16 @@ export default function NoteDetailView() {
           <div className={styles.panels}>
             <section className={styles.panel}>
               <h2 className={styles.panelTitle}>
-                <Link2 size={14} /> Links &amp; backlinks
+                <Link2 size={14} /> Linked Context
               </h2>
-              <div className={styles.proposedSection}>
-                <span className={styles.linkHeading}>
-                  <Sparkles size={12} aria-hidden />
-                  Suggested Links
-                </span>
-                {proposalsLoading ? (
-                  <p className={styles.panelMuted}>
-                    <Loader2 size={14} className="spin" /> Loading suggestions…
-                  </p>
-                ) : proposals.length === 0 ? (
-                  <p className={styles.panelMuted}>No pending suggestions for this note.</p>
-                ) : (
+
+              {/* AI Suggestions */}
+              {proposals.length > 0 && (
+                <div className={styles.proposedSection}>
+                  <span className={styles.linkHeading}>
+                    <Sparkles size={12} aria-hidden />
+                    Suggested Links
+                  </span>
                   <ul className={styles.proposalList}>
                     {proposals.map((p) => {
                       const otherId = p.other_entity?.id || (p.src_id === note.id ? p.dst_id : p.src_id);
@@ -665,79 +692,58 @@ export default function NoteDetailView() {
                       );
                     })}
                   </ul>
-                )}
-              </div>
-              {linksLoading ? (
-                <p className={styles.panelMuted}>
-                  <Loader2 size={14} className="spin" /> Loading confirmed links…
-                </p>
-              ) : (
-                <>
-                  <div className={styles.linkSection}>
-                    <span className={styles.linkHeading}>From this note</span>
-                    {linksOut.length === 0 ? (
-                      <p className={styles.panelMuted}>No outgoing links.</p>
-                    ) : (
-                      <ul className={styles.linkList}>
-                        {linksOut.map(l => {
-                          const other = getResolvedEntity(l.dst_id);
-                          return (
-                            <li key={l.id}>
-                              {renderEntityLink(l.dst_id, other ? getEntityTitle(other) : `Entity ${l.dst_id.slice(0, 8)}…`)}
-                              <span className={styles.linkMeta}>{l.link_type}</span>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    )}
-                  </div>
-                  <div className={styles.linkSection}>
-                    <span className={styles.linkHeading}>Backlinks</span>
-                    {linksIn.length === 0 ? (
-                      <p className={styles.panelMuted}>No notes link here yet.</p>
-                    ) : (
-                      <ul className={styles.linkList}>
-                        {linksIn.map(l => {
-                          const other = getResolvedEntity(l.src_id);
-                          return (
-                            <li key={l.id}>
-                              {renderEntityLink(l.src_id, other ? getEntityTitle(other) : `Entity ${l.src_id.slice(0, 8)}…`)}
-                              <span className={styles.linkMeta}>{l.link_type}</span>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    )}
-                  </div>
-                  <div className={styles.linkAdd}>
-                    <input
-                      type="search"
-                      className={styles.linkFilter}
-                      placeholder="Filter notes…"
-                      value={linkQuery}
-                      onChange={e => setLinkQuery(e.target.value)}
-                    />
-                    <select
-                      className={styles.linkSelect}
-                      value={linkPick}
-                      onChange={e => setLinkPick(e.target.value)}
-                    >
-                      <option value="">Link to note…</option>
-                      {linkCandidates.map(n => (
-                        <option key={n.id} value={n.id}>{notePreviewLine(n)}</option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      className="btn btn-secondary btn-sm"
-                      onClick={handleAddLink}
-                      disabled={!linkPick || linkBusy}
-                    >
-                      {linkBusy ? <Loader2 size={13} className="spin" /> : 'Add link'}
-                    </button>
-                  </div>
-                </>
+                </div>
               )}
+
+              {/* Linked Context Panel */}
+              <LinkedContextPanel
+                entityId={note.id}
+                linksOut={linksOut}
+                linksIn={linksIn}
+                loading={linksLoading}
+              />
+
+              <div className={styles.linkAdd}>
+                <input
+                  type="search"
+                  className={styles.linkFilter}
+                  placeholder="Filter entities…"
+                  value={linkQuery}
+                  onChange={e => setLinkQuery(e.target.value)}
+                />
+                <select
+                  className={styles.linkSelect}
+                  value={linkPick}
+                  onChange={e => setLinkPick(e.target.value)}
+                >
+                  <option value="">Link to entity…</option>
+                  {ENTITY_GROUPS.map(group => {
+                    const items = linkCandidatesGrouped[group.type];
+                    if (!items?.length) return null;
+                    return (
+                      <optgroup key={group.type} label={group.label}>
+                        {items.map(e => (
+                          <option key={e.id} value={e.id}>{e._label}</option>
+                        ))}
+                      </optgroup>
+                    );
+                  })}
+                  {!linkQuery && Object.keys(linkCandidatesGrouped).length === 0 && (
+                    <option value="" disabled>Type to search</option>
+                  )}
+                  {linkQuery && Object.keys(linkCandidatesGrouped).length === 0 && (
+                    <option value="" disabled>No matches</option>
+                  )}
+                </select>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={handleAddLink}
+                  disabled={!linkPick || linkBusy}
+                >
+                  {linkBusy ? <Loader2 size={13} className="spin" /> : 'Add link'}
+                </button>
+              </div>
             </section>
 
             <section className={styles.panel}>

@@ -25,4 +25,6 @@ from . import (
     ai_selection,
     feedback,
     search,
+    capture,
+    entities,
 )

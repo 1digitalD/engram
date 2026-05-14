@@ -1,0 +1,245 @@
+"""Capture service — processes natural-language captures through the AI pipeline.
+
+Produces structured change plans linking everything back to the source note.
+"""
+
+import logging
+
+from extensions import db
+from models import Entity
+from services.entity_service import create_entity, _write_event
+from services.ai_pipeline import enqueue_classify, enqueue_embed
+from services.entity_reconciliation_service import reconcile_all
+from services.ai_operation_applier import apply_change_plan
+
+logger = logging.getLogger(__name__)
+
+
+def process_capture(content, mode="auto", source="quick_capture"):
+    """Process a natural-language capture through the AI pipeline.
+
+    Args:
+        content: Raw natural-language text.
+        mode: capture mode (auto, note, task, resource, person).
+        source: Origin identifier.
+
+    Returns:
+        dict with source_note, applied_changes, suggestions, warnings.
+    """
+    if mode in ("auto", "note"):
+        return _capture_as_note(content, source)
+    elif mode == "task":
+        return _capture_as_task(content, source)
+    elif mode == "resource":
+        return _capture_as_resource(content, source)
+    elif mode == "person":
+        return _capture_as_person(content, source)
+    else:
+        return _capture_as_note(content, source)
+
+
+def _capture_as_note(content, source):
+    """Save as source note, trigger AI pipeline, return structured result."""
+    note = _create_source_note(content, source)
+
+    applied_changes = [{
+        "operation": "create_entity",
+        "type": "note",
+        "entity_id": note.id,
+        "title": _first_line(content),
+        "confidence": 1.0,
+    }]
+
+    # AI pipeline will handle classification, extraction, and linking async
+    enqueue_classify(note.id)
+    enqueue_embed(note.id)
+    db.session.commit()
+
+    return {
+        "source_note": _safe_to_dict(note),
+        "applied_changes": applied_changes,
+        "suggestions": [],
+        "warnings": [],
+    }
+
+
+def _capture_as_task(content, source):
+    """Create task directly, with entity reconciliation."""
+    title = _first_line(content) or content[:80]
+
+    # Check for existing task
+    from services.entity_reconciliation_service import reconcile_task
+    existing = reconcile_task(title)
+    if existing and existing.get("confidence", 0) >= 0.88:
+        return {
+            "source_note": None,
+            "applied_changes": [{
+                "operation": "link_existing_entity",
+                "type": "task",
+                "entity_id": existing["matched_entity"].id,
+                "title": existing["matched_entity"].title,
+                "confidence": existing["confidence"],
+            }],
+            "suggestions": [],
+            "warnings": [],
+        }
+
+    task = create_entity(
+        entity_type="task",
+        title=title,
+        content=content,
+        source=source,
+        actor="user",
+        properties={},
+    )
+    db.session.commit()
+
+    return {
+        "source_note": None,
+        "applied_changes": [{
+            "operation": "create_entity",
+            "type": "task",
+            "entity_id": task.id,
+            "title": title,
+            "confidence": 1.0,
+        }],
+        "suggestions": [],
+        "warnings": [],
+    }
+
+
+def _capture_as_resource(content, source):
+    """Create resource directly, with URL deduplication."""
+    title = _first_line(content) or "Untitled resource"
+
+    # Check for existing resource by URL in content
+    import re
+    urls = re.findall(r'https?://[^\s]+', content)
+    if urls:
+        from services.entity_reconciliation_service import reconcile_resource
+        existing = reconcile_resource(url=urls[0])
+        if existing:
+            return {
+                "source_note": None,
+                "applied_changes": [{
+                    "operation": "link_existing_entity",
+                    "type": "resource",
+                    "entity_id": existing["matched_entity"].id,
+                    "title": existing["matched_entity"].title,
+                    "confidence": existing["confidence"],
+                }],
+                "suggestions": [],
+                "warnings": [],
+            }
+
+    resource = create_entity(
+        entity_type="resource",
+        title=title,
+        content=content,
+        source=source,
+        actor="user",
+        properties={},
+    )
+
+    # Store URL in reference_url if found
+    if urls:
+        from services.entity_service import update_entity
+        update_entity(resource.id, {"reference_url": urls[0]}, actor="user")
+
+    db.session.commit()
+
+    return {
+        "source_note": None,
+        "applied_changes": [{
+            "operation": "create_entity",
+            "type": "resource",
+            "entity_id": resource.id,
+            "title": title,
+            "confidence": 1.0,
+        }],
+        "suggestions": [],
+        "warnings": [],
+    }
+
+
+def _capture_as_person(content, source):
+    """Create person directly, with deduplication."""
+    title = _first_line(content) or content[:80]
+
+    from services.entity_reconciliation_service import reconcile_person
+    existing = reconcile_person(title)
+    if existing and existing.get("confidence", 0) >= 0.88:
+        return {
+            "source_note": None,
+            "applied_changes": [{
+                "operation": "link_existing_entity",
+                "type": "person",
+                "entity_id": existing["matched_entity"].id,
+                "title": existing["matched_entity"].title,
+                "confidence": existing["confidence"],
+            }],
+            "suggestions": [],
+            "warnings": [],
+        }
+
+    person = create_entity(
+        entity_type="person",
+        title=title,
+        source=source,
+        actor="user",
+        properties={},
+    )
+    db.session.commit()
+
+    return {
+        "source_note": None,
+        "applied_changes": [{
+            "operation": "create_entity",
+            "type": "person",
+            "entity_id": person.id,
+            "title": title,
+            "confidence": 1.0,
+        }],
+        "suggestions": [],
+        "warnings": [],
+    }
+
+
+def _create_source_note(content, source):
+    """Create a source note and record the capture event."""
+    note = create_entity(
+        entity_type="note",
+        title=_first_line(content),
+        content=content,
+        source=source,
+        actor="user",
+        properties={},
+    )
+    _write_event(
+        entity_id=note.id,
+        event_type="ai_interpreted",
+        actor="user",
+        new_value={"source": source, "mode": "capture"},
+        confidence=1.0,
+        reason="Original capture saved",
+    )
+    return note
+
+
+def _first_line(text):
+    """Extract first meaningful line from text."""
+    if not text:
+        return "Untitled"
+    for line in text.strip().split("\n"):
+        line = line.strip().strip("#").strip()
+        if line:
+            return line[:120]
+    return "Untitled"
+
+
+def _safe_to_dict(entity):
+    """Safely convert entity to dict, handling detached state."""
+    try:
+        return entity.to_dict()
+    except Exception:
+        return {"id": str(entity.id), "title": entity.title, "type": entity.type}
