@@ -8,10 +8,10 @@
 
 | Item | Value |
 |---|---|
-| Current iteration | **13** |
-| Iteration status | `pending` (iter 14 next) |
+| Current iteration | **14** |
+| Iteration status | `pending` (iter 15 next) |
 | Branch status | Clean — no uncommitted work |
-| Build status | ✓ Passing — 410 tests |
+| Build status | ✓ Passing — 413 tests |
 
 ## Iteration Status
 
@@ -30,6 +30,7 @@
 | 11 | change_batches table, batch_undo, undo API | `done` | `cf36fddc` |
 | 12 | Grouped universal search API (GET /api/v2/entities/search) | `done` | `2d1ea8e9` |
 | 13 | NoteDetailView extracted-from-note + /extracted endpoint | `done` | `c470b359` |
+| 14 | Today summary API + no-next-action + waiting-on-people | `done` | `ad4e98ab` |
 
 ## Iteration 1 — Wire Extracted People Through Reconciliation
 

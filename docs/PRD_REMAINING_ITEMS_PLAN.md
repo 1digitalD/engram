@@ -93,14 +93,14 @@
 
 ---
 
-## Iteration Plan (5 iterations remaining)
+## Iteration Plan (4 iterations remaining)
 
 | # | Name | Files | What |
 |---|---|---|---|
 | 11 | `change_batches` table + undo API | schema, applier, API | Add table, wire batch_id, implement undo endpoint | ✓ DONE |
 | 12 | Universal entity search API | search API | `GET /api/v2/entities/search` grouped by type | ✓ DONE |
 | 13 | NoteDetailView — Extracted from this note | NoteDetailView, service | Show created entities, linked existing, suggestions from note | ✓ DONE |
-| 14 | Today — Projects with no next action + Waiting on people | Today.jsx | Add two new sections to Today | pending |
+| 14 | Today — Projects with no next action + Waiting on people | Today.jsx, API | Add two new sections to Today | ✓ DONE |
 | 15 | Review — AI Suggestions tab | Review.jsx, store | Fetch and display pending AiSuggestions with accept/dismiss | pending |
 | 16 | AreaFocus — maintenance-oriented refactor | AreaFocus.jsx | Add area standard, maintenance tasks, needs-attention signals | pending |
 | 17 | PersonFocus — open loops + waiting on | PersonFocus.jsx | Add "What do I owe" + "Waiting on" sections | pending |
