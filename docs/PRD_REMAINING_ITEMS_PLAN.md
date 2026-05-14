@@ -6,7 +6,7 @@
 
 ---
 
-## What's Done (Iterations 1–10)
+## What's Done (Iterations 1–11)
 
 | # | What | Commit |
 |---|---|---|
@@ -20,8 +20,9 @@
 | 8 | End-to-end test for task completion capture flow | `f7739489` |
 | 9 | Task completion detection in capture_service._capture_as_note | `1e45e7e8` |
 | 10 | Suggestion acceptance wires through apply_change_plan | `b17b9c67` |
+| 11 | change_batches table, batch_undo, undo API | `cf36fddc` |
 
-**Test suite:** 378 passed, 2 skipped, all clean
+**Test suite:** 401 passed, 2 skipped, all clean
 
 ---
 
@@ -29,11 +30,9 @@
 
 ### Phase A — Backend Infrastructure (enabling features)
 
-**A1: `change_batches` table + undo API** *(Section 10.6 / 13.5)*
-- Add `change_batches` table
-- Wire `change_batch_id` into `apply_change_plan` results
-- Add `POST /api/v2/change-batches/:id/undo` endpoint
-- `batch_undo` function exists but is stub — implement properly
+**A1: `change_batches` table + undo API** *(Section 10.6 / 13.5)* — **DONE (iter 11)**
+
+### Phase B — UI Enhancements
 
 **A2: Universal search API** *(Section 10.3)*
 - `GET /api/v1/entities/search?q=` — cross-entity search
@@ -94,25 +93,24 @@
 
 ---
 
-## Iteration Plan (8 iterations)
+## Iteration Plan (7 iterations remaining)
 
 | # | Name | Files | What |
 |---|---|---|---|
-| 11 | `change_batches` table + undo API | schema, applier, API | Add table, wire batch_id, implement undo endpoint |
-| 12 | Universal entity search API | search API | `GET /api/v1/entities/search` grouped by type |
-| 13 | NoteDetailView — Extracted from this note | NoteDetailView, service | Show created entities, linked existing, suggestions from note |
-| 14 | Today — Projects with no next action + Waiting on people | Today.jsx | Add two new sections to Today |
-| 15 | Review — AI Suggestions tab | Review.jsx, store | Fetch and display pending AiSuggestions with accept/dismiss |
-| 16 | AreaFocus — maintenance-oriented refactor | AreaFocus.jsx | Add area standard, maintenance tasks, needs-attention signals |
-| 17 | PersonFocus — open loops + waiting on | PersonFocus.jsx | Add "What do I owe" + "Waiting on" sections |
-| 18 | Fix assigned_to links in task creation + append_context for projects | applier, extractor | C1 + C2 above |
+| 11 | `change_batches` table + undo API | schema, applier, API | Add table, wire batch_id, implement undo endpoint | ✓ DONE |
+| 12 | Universal entity search API | search API | `GET /api/v1/entities/search` grouped by type | pending |
+| 13 | NoteDetailView — Extracted from this note | NoteDetailView, service | Show created entities, linked existing, suggestions from note | pending |
+| 14 | Today — Projects with no next action + Waiting on people | Today.jsx | Add two new sections to Today | pending |
+| 15 | Review — AI Suggestions tab | Review.jsx, store | Fetch and display pending AiSuggestions with accept/dismiss | pending |
+| 16 | AreaFocus — maintenance-oriented refactor | AreaFocus.jsx | Add area standard, maintenance tasks, needs-attention signals | pending |
+| 17 | PersonFocus — open loops + waiting on | PersonFocus.jsx | Add "What do I owe" + "Waiting on" sections | pending |
+| 18 | Fix assigned_to links in task creation + append_context for projects | applier, extractor | C1 + C2 above | pending |
 
 ---
 
 ## Files to Modify
 
 ### Backend
-- `docs/SCHEMA.sql` — add `change_batches` table
 - `services/ai_operation_applier.py` — wire batch_id, implement batch_undo properly
 - `api/proposals.py` or new `api/change_batches.py` — undo endpoint
 - `api/entities.py` — universal search endpoint
