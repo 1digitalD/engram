@@ -11,8 +11,67 @@ from services.entity_service import create_entity, _write_event
 from services.ai_pipeline import enqueue_classify, enqueue_embed
 from services.entity_reconciliation_service import reconcile_all
 from services.ai_operation_applier import apply_change_plan
+from services.extractor import inline_extract
 
 logger = logging.getLogger(__name__)
+
+
+def _build_change_plan(source_note_id, reconciled, content):
+    """Build a change plan from reconciliation results."""
+    proposed_changes = []
+    suggestions = []
+
+    for r in reconciled:
+        detected = r.get("detected", {})
+        recon = r.get("reconciliation")
+
+        if detected.get("type") == "task":
+            name = detected.get("name", "")
+            priority = detected.get("priority", "MEDIUM")
+            deadline_hint = detected.get("deadline_hint")
+            project_hint = detected.get("project_hint")
+
+            if recon:
+                confidence = recon.get("confidence", 0.88)
+                matched = recon.get("matched_entity")
+            else:
+                confidence = 0.75
+                matched = None
+
+            if matched:
+                change = {
+                    "operation": "link_entity",
+                    "src_id": source_note_id,
+                    "dst_id": matched.id,
+                    "link_type": "related",
+                    "confidence": confidence,
+                    "reason": f"Task '{name}' matched existing",
+                    "title": name,
+                }
+            else:
+                change = {
+                    "operation": "create_task",
+                    "title": name,
+                    "content": None,
+                    "confidence": confidence,
+                    "reason": f"New task extracted from capture",
+                    "priority": priority,
+                }
+                if deadline_hint:
+                    change["deadline_hint"] = deadline_hint
+                if project_hint:
+                    change["project_hint"] = project_hint
+
+            if confidence >= 0.92:
+                proposed_changes.append(change)
+            else:
+                suggestions.append(change)
+
+    return {
+        "source_note_id": source_note_id,
+        "proposed_changes": proposed_changes,
+        "suggestions": suggestions,
+    }
 
 
 def process_capture(content, mode="auto", source="quick_capture"):
@@ -50,7 +109,14 @@ def _capture_as_note(content, source):
         "confidence": 1.0,
     }]
 
-    # AI pipeline will handle classification, extraction, and linking async
+    detected = inline_extract(content)
+    if detected:
+        reconciled = reconcile_all(detected)
+        change_plan = _build_change_plan(note.id, reconciled, content)
+        if change_plan["proposed_changes"] or change_plan["suggestions"]:
+            result = apply_change_plan(change_plan, actor="agent:capture")
+            applied_changes.extend(result["applied_changes"])
+
     enqueue_classify(note.id)
     enqueue_embed(note.id)
     db.session.commit()

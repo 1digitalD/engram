@@ -13,7 +13,7 @@ import logging
 from datetime import datetime, timezone
 
 from extensions import db
-from models import Entity, EntityLink, EntityEvent
+from models import Entity, EntityLink, EntityEvent, AiSuggestion
 from services.entity_service import create_entity, _write_event
 from services.link_service import create_link
 
@@ -299,16 +299,43 @@ def _apply_complete_task(change, actor):
 
 
 def _create_suggestion(change, source_note_id):
-    """Store a medium-confidence change as a suggestion."""
+    """Store a medium-confidence change as a suggestion in the AiSuggestion table."""
+    suggestion_type = change.get("operation", "unknown")
+    operation_type = _infer_operation_type(change.get("operation"))
+
+    suggestion = AiSuggestion(
+        source_entity_id=source_note_id,
+        suggestion_type=suggestion_type,
+        operation_type=operation_type,
+        payload=change,
+        confidence=change.get("confidence"),
+        reason=change.get("reason", "Confidence below auto-apply threshold"),
+        status="pending",
+    )
+    db.session.add(suggestion)
+    db.session.flush()
     return {
-        "id": f"sug_{abs(hash(str(change))) % 10**8}",
+        "id": suggestion.id,
         "source_note_id": source_note_id,
-        "operation": change.get("operation"),
-        "payload": change,
+        "suggestion_type": suggestion_type,
+        "operation_type": operation_type,
         "confidence": change.get("confidence"),
-        "reason": change.get("reason", "Confidence below auto-apply threshold"),
         "status": "pending",
     }
+
+
+def _infer_operation_type(operation):
+    """Map operation string to operation_type enum value."""
+    mapping = {
+        "create_task": "create_new_entity",
+        "create_project": "create_new_entity",
+        "create_person": "create_new_entity",
+        "create_resource": "create_new_entity",
+        "link_entity": "link_existing",
+        "append_context": "link_existing",
+        "complete_task": "update_entity",
+    }
+    return mapping.get(operation, "create_new_entity")
 
 
 def batch_undo(change_batch_id, actor="user"):

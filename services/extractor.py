@@ -55,6 +55,62 @@ def parse_inline_checkbox_lines(raw_text: str) -> list[tuple[str, str, str]]:
     return [ordered[h] for h in order]
 
 
+def inline_extract(content: str) -> list[dict]:
+    """Extract checkbox tasks from content text without creating entities.
+
+    Returns a list of detected entity dicts suitable for reconcile_all.
+    """
+    import re
+
+    results = []
+    deadline_pattern = re.compile(
+        r'\b(by|for|due|before|this week|this month|next week|tomorrow|today)\b',
+        re.IGNORECASE,
+    )
+    priority_re = re.compile(
+        r'\b(P1|urgent|P2|high priority|P3|medium|P4|low| ASAP)\b',
+        re.IGNORECASE,
+    )
+    project_hint_re = re.compile(
+        r'\b(for|in)\s+([A-Z][A-Za-z0-9 ]{1,50})',
+    )
+
+    parsed = parse_inline_checkbox_lines(content)
+    for h, title, status in parsed:
+        if status == "DONE":
+            continue
+
+        detected = {
+            "type": "task",
+            "name": title,
+            "hash": h,
+        }
+
+        deadline_m = deadline_pattern.search(title)
+        if deadline_m:
+            detected["deadline_hint"] = deadline_m.group(1).lower()
+
+        priority_m = priority_re.search(title)
+        if priority_m:
+            p = priority_m.group(1).lower()
+            if p in ("p1", "urgent", "asap"):
+                detected["priority"] = "URGENT"
+            elif p in ("p2", "high priority"):
+                detected["priority"] = "HIGH"
+            elif p in ("p3", "medium"):
+                detected["priority"] = "MEDIUM"
+            else:
+                detected["priority"] = "LOW"
+
+        project_m = project_hint_re.search(title)
+        if project_m:
+            detected["project_hint"] = project_m.group(2).strip()
+
+        results.append(detected)
+
+    return results
+
+
 def extract_and_create_inline_tasks(
     source_entity_id: str,
     raw_text: str,
