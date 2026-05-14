@@ -218,9 +218,11 @@ class TestRunClassify:
             db.session.refresh(entity)
             assert entity.ai_status == "failed"
 
+    @patch("services.ai_pipeline.reconcile_all")
+    @patch("services.ai_pipeline.apply_change_plan")
     @patch("services.extractor.extract")
-    def test_classify_high_confidence_auto_creates_project(self, mock_extract, app):
-        """Confidence >= 0.92 with suggested_project should auto-create entity."""
+    def test_classify_high_confidence_auto_creates_project(self, mock_extract, mock_apply, mock_reconcile, app):
+        """Confidence >= 0.92 with suggested_project should reconcile and create entity."""
         from services.ai_pipeline import run_classify
         from services.extractor import ExtractionResult
 
@@ -230,15 +232,37 @@ class TestRunClassify:
             confidence=0.95,
             suggested_project="Auto Project",
             reasoning="Clear project mention",
+            tags=[],
+            people=[],
+            tasks=[],
         )
+
+        mock_reconcile.return_value = [
+            {"detected": {"type": "project", "name": "Auto Project"}, "reconciliation": None},
+        ]
+
+        mock_apply.return_value = {
+            "applied_changes": [{"operation": "create_project", "title": "Auto Project", "entity_id": "fake-id"}],
+            "suggestions": [],
+        }
 
         with app.app_context():
             entity = _create_entity(content="Working on Auto Project")
             run_classify({"entity_id": entity.id})
 
-            # Should have created a project entity
-            projects = Entity.query.filter_by(type="project", title="Auto Project").all()
-            assert len(projects) >= 1
+            mock_reconcile.assert_called_once()
+            call_args = mock_reconcile.call_args[0][0]
+            assert len(call_args) == 1
+            assert call_args[0]["type"] == "project"
+            assert call_args[0]["name"] == "Auto Project"
+
+            mock_apply.assert_called_once()
+            plan = mock_apply.call_args[0][0]
+            assert plan["source_note_id"] == entity.id
+            assert len(plan["proposed_changes"]) == 1
+
+            db.session.refresh(entity)
+            assert "project_area_reconciliation" in (entity.ai_meta or {})
 
     @patch("services.extractor.extract")
     def test_classify_persists_extracted_tags_as_entity_tags(self, mock_extract, app):
@@ -400,6 +424,58 @@ class TestRunClassify:
 
             db.session.refresh(entity)
             assert "task_reconciliation" in (entity.ai_meta or {})
+
+    @patch("services.ai_pipeline.reconcile_all")
+    @patch("services.ai_pipeline.apply_change_plan")
+    @patch("services.extractor.extract")
+    def test_classify_reconciles_suggested_project_and_area(self, mock_extract, mock_apply, mock_reconcile, app):
+        from services.ai_pipeline import run_classify
+        from services.extractor import ExtractionResult
+
+        mock_extract.return_value = ExtractionResult(
+            summary="Project note",
+            para_bucket="PROJECTS",
+            confidence=0.95,
+            suggested_project="Alpha Platform",
+            suggested_area="Work",
+            reasoning="High confidence",
+            tags=[],
+            people=[],
+            tasks=[],
+        )
+
+        mock_reconcile.return_value = [
+            {"detected": {"type": "project", "name": "Alpha Platform"}, "reconciliation": None},
+            {"detected": {"type": "area", "name": "Work"}, "reconciliation": None},
+        ]
+
+        mock_apply.return_value = {
+            "applied_changes": [
+                {"operation": "create_project", "title": "Alpha Platform"},
+                {"operation": "create_area", "title": "Work"},
+            ],
+            "suggestions": [],
+        }
+
+        with app.app_context():
+            entity = _create_entity(content="Working on the Alpha Platform project in Work area")
+
+            run_classify({"entity_id": entity.id})
+
+            mock_reconcile.assert_called_once()
+            call_args = mock_reconcile.call_args[0][0]
+            assert len(call_args) == 2
+            entity_names = [e["name"] for e in call_args]
+            assert "Alpha Platform" in entity_names
+            assert "Work" in entity_names
+
+            mock_apply.assert_called_once()
+            plan = mock_apply.call_args[0][0]
+            assert plan["source_note_id"] == entity.id
+            assert len(plan["proposed_changes"]) == 2
+
+            db.session.refresh(entity)
+            assert "project_area_reconciliation" in (entity.ai_meta or {})
 
 
 # ─── run_embed Handler ───────────────────────────────────────────────────────

@@ -209,15 +209,52 @@ def run_classify(payload):
         }
 
         if extraction.confidence >= AUTOLINK_CONFIDENCE_THRESHOLD:
-            # High confidence: auto-create suggested entities
+            # High confidence: reconcile project and area through entity service
+            detected_entities = []
             if extraction.suggested_project:
-                _create_or_link_project(
-                    entity, extraction.suggested_project, extraction.confidence
-                )
+                detected_entities.append({"type": "project", "name": extraction.suggested_project})
             if extraction.suggested_area:
-                _create_or_link_area(
-                    entity, extraction.suggested_area, extraction.confidence
-                )
+                detected_entities.append({"type": "area", "name": extraction.suggested_area})
+
+            if detected_entities:
+                reconciled = reconcile_all(detected_entities)
+                proposed_changes = []
+                for r in reconciled:
+                    detected = r.get("detected", {})
+                    recon = r.get("reconciliation")
+                    name = detected.get("name", "")
+                    etype = detected.get("type", "")
+
+                    if recon:
+                        matched = recon.get("matched_entity")
+                        confidence = recon.get("confidence", 0.88)
+                        if matched:
+                            proposed_changes.append({
+                                "operation": "link_entity",
+                                "src_id": entity.id,
+                                "dst_id": matched.id,
+                                "link_type": "related",
+                                "confidence": confidence,
+                                "reason": f"{etype.title()} '{name}' matched existing",
+                                "title": name,
+                            })
+                    else:
+                        op = "create_project" if etype == "project" else "create_area"
+                        proposed_changes.append({
+                            "operation": op,
+                            "title": name,
+                            "confidence": 0.85,
+                            "reason": f"New {etype} from classification",
+                        })
+
+                if proposed_changes:
+                    result = apply_change_plan(
+                        {"source_note_id": entity.id, "proposed_changes": proposed_changes, "suggestions": []},
+                        actor="agent:classify",
+                    )
+                    ai_meta["project_area_reconciliation"] = {
+                        "applied": [c.get("title") for c in result.get("applied_changes", [])],
+                    }
         else:
             # Lower confidence: store suggestions only
             ai_meta["suggestions"] = {
