@@ -486,3 +486,19 @@ BEGIN
     ON CONFLICT DO NOTHING;
 END;
 $$ LANGUAGE plpgsql;
+
+-- ─── Change batches (for undo/audit) ───────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS change_batches (
+    id            TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    source_note_id TEXT REFERENCES entities(id) ON DELETE SET NULL,
+    actor         TEXT NOT NULL,
+    source        TEXT NOT NULL DEFAULT 'ai',
+    summary       TEXT,
+    applied_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    undone_at     TIMESTAMPTZ,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS change_batches_source_note_idx ON change_batches (source_note_id);
+CREATE INDEX IF NOT EXISTS change_batches_applied_at_idx  ON change_batches (applied_at DESC);

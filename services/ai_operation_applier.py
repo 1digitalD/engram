@@ -22,6 +22,15 @@ logger = logging.getLogger(__name__)
 # Confidence thresholds
 AUTO_APPLY_THRESHOLD = 0.92
 SUGGESTION_THRESHOLD_MIN = 0.70
+
+
+def _build_batch_summary(proposed_changes, suggestions):
+    ops = [c.get("operation") for c in proposed_changes] + [s.get("operation") for s in suggestions]
+    op_counts = {}
+    for op in ops:
+        op_counts[op] = op_counts.get(op, 0) + 1
+    parts = [f"{v} {k}" for k, v in op_counts.items()]
+    return "; ".join(parts) if parts else "no changes"
 SUGGESTION_THRESHOLD_MAX = 0.91
 
 
@@ -33,7 +42,7 @@ def apply_change_plan(change_plan, actor="agent:capture"):
         actor: Actor identifier for events.
 
     Returns:
-        dict with applied_changes and suggestions.
+        dict with applied_changes, suggestions, and change_batch_id.
     """
     source_note_id = change_plan.get("source_note_id")
     proposed_changes = change_plan.get("proposed_changes", [])
@@ -42,6 +51,18 @@ def apply_change_plan(change_plan, actor="agent:capture"):
     applied_changes = []
     new_suggestions = []
 
+    batch = None
+    if proposed_changes or plan_suggestions:
+        from models import ChangeBatch
+        batch = ChangeBatch(
+            source_note_id=source_note_id,
+            actor=actor,
+            source="ai",
+            summary=_build_batch_summary(proposed_changes, plan_suggestions),
+        )
+        db.session.add(batch)
+        db.session.flush()
+
     for change in proposed_changes:
         confidence = change.get("confidence", 0.0)
         operation = change.get("operation")
@@ -49,9 +70,10 @@ def apply_change_plan(change_plan, actor="agent:capture"):
         if confidence >= AUTO_APPLY_THRESHOLD:
             result = _apply_operation(change, source_note_id, actor)
             if result:
+                result["change_batch_id"] = batch.id if batch else None
                 applied_changes.append(result)
         elif confidence >= SUGGESTION_THRESHOLD_MIN:
-            suggestion = _create_suggestion(change, source_note_id)
+            suggestion = _create_suggestion(change, source_note_id, batch_id=batch.id if batch else None)
             if suggestion:
                 new_suggestions.append(suggestion)
         else:
@@ -63,11 +85,13 @@ def apply_change_plan(change_plan, actor="agent:capture"):
 
     # Add pre-defined suggestions from the change plan
     for s in plan_suggestions:
+        s["change_batch_id"] = batch.id if batch else None
         new_suggestions.append(s)
 
     return {
         "applied_changes": applied_changes,
         "suggestions": new_suggestions,
+        "change_batch_id": batch.id if batch else None,
     }
 
 
@@ -419,7 +443,7 @@ def _apply_complete_task(change, actor):
         return None
 
 
-def _create_suggestion(change, source_note_id):
+def _create_suggestion(change, source_note_id, batch_id=None):
     """Store a medium-confidence change as a suggestion in the AiSuggestion table."""
     suggestion_type = change.get("operation", "unknown")
     operation_type = _infer_operation_type(change.get("operation"))
@@ -428,7 +452,7 @@ def _create_suggestion(change, source_note_id):
         source_entity_id=source_note_id,
         suggestion_type=suggestion_type,
         operation_type=operation_type,
-        payload=change,
+        payload={**change, "change_batch_id": batch_id},
         confidence=change.get("confidence"),
         reason=change.get("reason", "Confidence below auto-apply threshold"),
         status="pending",
@@ -442,6 +466,7 @@ def _create_suggestion(change, source_note_id):
         "operation_type": operation_type,
         "confidence": change.get("confidence"),
         "status": "pending",
+        "change_batch_id": batch_id,
     }
 
 
@@ -460,18 +485,114 @@ def _infer_operation_type(operation):
 
 
 def batch_undo(change_batch_id, actor="user"):
-    """Undo a batch of changes by reversing operations.
+    """Undo a batch of changes by reversing operations tracked in entity_events.
 
-    This is a simplified undo that reverses individual operations.
-    For production, use the change_batches table for full tracking.
+    Reversal strategy:
+    - create_* → delete the created entity (if still exists)
+    - link_entity → delete the entity_link
+    - complete_task → reopen the task
+    - add_follow_up → delete the follow-up task
+    - change_status → revert status (using old_value from event)
     """
     from services.entity_service import _write_event as write_event
+    from models import Entity, EntityLink, EntityEvent
 
-    _write_event(
-        entity_id=change_batch_id or "system",
+    batch = db.session.get(ChangeBatch, change_batch_id)
+    if not batch:
+        return None
+
+    if batch.undone_at:
+        logger.warning("ChangeBatch %s already undone", change_batch_id)
+        return {"error": "already undone", "change_batch_id": change_batch_id}
+
+    undone_entities = []
+    undone_links = []
+
+    events = EntityEvent.query.filter(
+        EntityEvent.reason.like(f"%change_batch_id={change_batch_id}%")
+    ).all()
+
+    if not events:
+        events = EntityEvent.query.filter(
+            EntityEvent.actor == batch.actor,
+            EntityEvent.created_at >= batch.applied_at,
+            EntityEvent.created_at <= batch.applied_at,
+        ).all()
+
+    for event in events:
+        if event.event_type == "entity_created":
+            entity_id = event.new_value.get("entity_id") if event.new_value else None
+            if entity_id:
+                entity = db.session.get(Entity, entity_id)
+                if entity and entity.lifecycle == "active":
+                    entity.lifecycle = "deleted"
+                    undone_entities.append(entity_id)
+                    write_event(
+                        entity_id=entity_id,
+                        event_type="entity_deleted",
+                        actor=actor,
+                        old_value={"id": entity_id},
+                        new_value=None,
+                        confidence=1.0,
+                        reason=f"undo batch {change_batch_id}",
+                    )
+        elif event.event_type == "link_added":
+            src_id = event.new_value.get("src_entity_id") if event.new_value else None
+            dst_id = event.new_value.get("dst_entity_id") if event.new_value else None
+            link_type = event.new_value.get("link_type") if event.new_value else None
+            if src_id and dst_id:
+                link = EntityLink.query.filter_by(
+                    src_id=src_id, dst_id=dst_id, link_type=link_type
+                ).first()
+                if link:
+                    db.session.delete(link)
+                    undone_links.append({"src_id": src_id, "dst_id": dst_id})
+                    write_event(
+                        entity_id=src_id,
+                        event_type="link_removed",
+                        actor=actor,
+                        old_value={"src": src_id, "dst": dst_id, "type": link_type},
+                        new_value=None,
+                        confidence=1.0,
+                        reason=f"undo batch {change_batch_id}",
+                    )
+        elif event.event_type == "status_changed" and event.old_value:
+            entity_id = event.entity_id
+            old_status = event.old_value.get("status") or event.old_value.get("new")
+            if old_status and entity_id:
+                entity = db.session.get(Entity, entity_id)
+                if entity:
+                    entity.status = old_status
+                    undone_entities.append(entity_id)
+                    write_event(
+                        entity_id=entity_id,
+                        event_type="status_changed",
+                        actor=actor,
+                        old_value={"status": entity.status},
+                        new_value={"status": old_status},
+                        confidence=1.0,
+                        reason=f"undo batch {change_batch_id}",
+                    )
+
+    batch.undone_at = datetime.now(timezone.utc)
+    db.session.commit()
+
+    write_event(
+        entity_id=change_batch_id,
         event_type="batch_undone",
         actor=actor,
-        new_value={"change_batch_id": change_batch_id},
+        new_value={
+            "change_batch_id": change_batch_id,
+            "undone_entities": undone_entities,
+            "undone_links": undone_links,
+        },
         confidence=1.0,
         reason="User requested undo",
     )
+
+    return {
+        "change_batch_id": change_batch_id,
+        "undone": True,
+        "undone_entities": undone_entities,
+        "undone_links": undone_links,
+    }

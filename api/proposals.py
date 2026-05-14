@@ -256,3 +256,23 @@ def v2_edit_suggestion(suggestion_id):
     db.session.commit()
 
     return jsonify({"data": suggestion.to_dict()}), 200
+
+
+@api_v2_bp.route("/change-batches/<batch_id>/undo", methods=["POST"])
+def v2_undo_change_batch(batch_id):
+    """Undo all changes in a batch."""
+    batch = db.session.get(ChangeBatch, batch_id)
+    if not batch:
+        return jsonify({"error": "Change batch not found"}), 404
+    if batch.undone_at:
+        return jsonify({"error": f"Batch already undone at {batch.undone_at}"}), 400
+
+    try:
+        from services.ai_operation_applier import batch_undo
+        result = batch_undo(batch_id, actor="user")
+        if result and result.get("error"):
+            return jsonify({"error": result["error"]}), 400
+        return jsonify({"data": result}), 200
+    except Exception as e:
+        logger.exception("Failed to undo change batch %s", batch_id)
+        return jsonify({"error": str(e)}), 500

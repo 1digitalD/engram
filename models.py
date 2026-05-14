@@ -494,6 +494,41 @@ class AiSuggestion(BaseModel):
         )
 
 
+# ─── ChangeBatch ─────────────────────────────────────────────────────────────
+
+
+class ChangeBatch(BaseModel):
+    """A batch of AI-applied changes, supporting undo.
+
+    Table: change_batches
+    """
+
+    __tablename__ = "change_batches"
+
+    source_note_id = Column(String(36), ForeignKey("entities.id", ondelete="SET NULL"), nullable=True)
+    actor = Column(Text, nullable=False)
+    source = Column(Text, nullable=False, default="ai")
+    summary = Column(Text, nullable=True)
+    applied_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    undone_at = Column(DateTime, nullable=True)
+
+    source_note = relationship("Entity", foreign_keys=[source_note_id])
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "source_note_id": self.source_note_id,
+            "actor": self.actor,
+            "source": self.source,
+            "summary": self.summary,
+            "applied_at": _iso(self.applied_at),
+            "undone_at": _iso(self.undone_at),
+        }
+
+    def __repr__(self):
+        return f"<ChangeBatch {self.id[:8]} actor={self.actor!r}>"
+
+
 # ─── Helpers ─────────────────────────────────────────────────────────────────
 
 

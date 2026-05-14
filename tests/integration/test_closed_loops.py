@@ -12,7 +12,7 @@ import pytest
 from unittest.mock import patch, MagicMock
 
 from extensions import db
-from models import Entity, EntityTag, Tag, EntityEvent, EntityLink
+from models import Entity, EntityTag, Tag, EntityEvent, EntityLink, ChangeBatch
 
 
 # ─── 1. Note create -> classify -> tag visible in AI sidebar ──────────────────
@@ -514,3 +514,125 @@ class TestTaskCompletionCaptureLoop:
             assert len(follow_ups) >= 1
             links = EntityLink.query.filter_by(dst_id=str(follow_ups[0].id)).all()
             assert len(links) >= 1
+
+
+# ─── 7. Change batches + undo ────────────────────────────────────────────────
+
+class TestChangeBatchUndo:
+    """Test change batch creation and undo."""
+
+    def test_apply_change_plan_creates_change_batch(self, client, app):
+        """apply_change_plan with proposed changes creates a ChangeBatch."""
+        from services.entity_service import create_entity
+        from services.ai_operation_applier import apply_change_plan
+
+        with app.app_context():
+            note = create_entity(entity_type="note", title="Test note", actor="user")
+            source_id = str(note.id)
+
+            change_plan = {
+                "source_note_id": source_id,
+                "proposed_changes": [{
+                    "operation": "create_task",
+                    "title": "Test undo task",
+                    "confidence": 0.95,
+                    "reason": "test batch creation",
+                }],
+                "suggestions": [],
+            }
+            result = apply_change_plan(change_plan, actor="test")
+
+            assert result.get("change_batch_id") is not None
+
+            batch = db.session.get(ChangeBatch, result["change_batch_id"])
+            assert batch is not None
+            assert batch.source_note_id == source_id
+            assert batch.actor == "test"
+
+    def test_undo_change_batch_reverts_created_entity(self, client, app):
+        """Undoing a batch marks created entities as deleted."""
+        from services.entity_service import create_entity
+        from services.ai_operation_applier import apply_change_plan, batch_undo
+
+        with app.app_context():
+            note = create_entity(entity_type="note", title="Test note", actor="user")
+            source_id = str(note.id)
+
+            change_plan = {
+                "source_note_id": source_id,
+                "proposed_changes": [{
+                    "operation": "create_task",
+                    "title": "Task to undo",
+                    "confidence": 0.95,
+                }],
+                "suggestions": [],
+            }
+            result = apply_change_plan(change_plan, actor="test")
+            batch_id = result["change_batch_id"]
+
+            applied = result["applied_changes"]
+            assert len(applied) == 1
+            task_id = applied[0].get("entity_id")
+
+            undo_result = batch_undo(batch_id, actor="test")
+
+            assert undo_result["undone"] is True
+            assert task_id in undo_result.get("undone_entities", [])
+
+            db.session.expire_all()
+            task = db.session.get(Entity, task_id)
+            assert task.lifecycle == "deleted"
+
+    def test_undo_api_endpoint(self, client, app):
+        """POST /api/v2/change-batches/:id/undo works."""
+        from services.entity_service import create_entity
+        from services.ai_operation_applier import apply_change_plan
+
+        with app.app_context():
+            note = create_entity(entity_type="note", title="Test note", actor="user")
+            source_id = str(note.id)
+
+            change_plan = {
+                "source_note_id": source_id,
+                "proposed_changes": [{
+                    "operation": "create_task",
+                    "title": "API undo test task",
+                    "confidence": 0.95,
+                }],
+                "suggestions": [],
+            }
+            result = apply_change_plan(change_plan, actor="test")
+            batch_id = result["change_batch_id"]
+
+        resp = client.post(f"/api/v2/change-batches/{batch_id}/undo")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["data"]["undone"] is True
+
+    def test_undo_twice_returns_error(self, client, app):
+        """Undoing the same batch twice returns an error."""
+        from services.entity_service import create_entity
+        from services.ai_operation_applier import apply_change_plan
+
+        with app.app_context():
+            note = create_entity(entity_type="note", title="Test note", actor="user")
+            source_id = str(note.id)
+
+            change_plan = {
+                "source_note_id": source_id,
+                "proposed_changes": [{
+                    "operation": "create_task",
+                    "title": "Double undo task",
+                    "confidence": 0.95,
+                }],
+                "suggestions": [],
+            }
+            result = apply_change_plan(change_plan, actor="test")
+            batch_id = result["change_batch_id"]
+
+        resp = client.post(f"/api/v2/change-batches/{batch_id}/undo")
+        assert resp.status_code == 200
+
+        resp2 = client.post(f"/api/v2/change-batches/{batch_id}/undo")
+        assert resp2.status_code == 400
+        assert "already undone" in resp2.get_json().get("error", "")
