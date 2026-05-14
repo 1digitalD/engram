@@ -317,3 +317,154 @@ class TestDeletePreviewCascadeLoop:
 
         with app.app_context():
             assert db.session.get(Entity, entity_id) is not None
+
+
+# ─── 5. Entity reconciliation in run_classify ────────────────────────────────
+
+class TestEntityReconciliationLoop:
+    """Full loop: classify extracts people/tasks, reconcile_all routes them correctly."""
+
+    @patch("services.ai_pipeline.reconcile_all")
+    @patch("services.ai_pipeline.apply_change_plan")
+    @patch("services.extractor.extract")
+    def test_classify_reconciles_people_via_reconcile_all(self, mock_extract, mock_apply, mock_reconcile, client, app):
+        """After classify, extracted people are routed through reconcile_all."""
+        from services.extractor import ExtractionResult, ExtractedPerson
+
+        mock_extract.return_value = ExtractionResult(
+            summary="Meeting note",
+            para_bucket="INBOX",
+            confidence=0.85,
+            reasoning="Extracted people",
+            tags=[],
+            tasks=[],
+            people=[
+                ExtractedPerson(name="Alice Smith", email=None),
+            ],
+        )
+
+        mock_reconcile.return_value = [
+            {"detected": {"type": "person", "name": "Alice Smith"}, "reconciliation": None},
+        ]
+
+        mock_apply.return_value = {
+            "applied_changes": [],
+            "suggestions": [
+                {"operation": "create_person", "name": "Alice Smith"},
+            ],
+        }
+
+        resp = client.post("/api/v1/notes", json={
+            "raw_text": "Met with Alice Smith today",
+            "classify": True,
+        })
+        assert resp.status_code == 201
+        note_id = resp.get_json()["data"]["id"]
+
+        with app.app_context():
+            from services.ai_pipeline import run_classify
+            run_classify({"entity_id": note_id})
+
+            mock_reconcile.assert_called_once()
+            call_args = mock_reconcile.call_args[0][0]
+            assert len(call_args) == 1
+            assert call_args[0]["type"] == "person"
+            assert call_args[0]["name"] == "Alice Smith"
+
+            mock_apply.assert_called_once()
+
+    @patch("services.ai_pipeline.reconcile_all")
+    @patch("services.ai_pipeline.apply_change_plan")
+    @patch("services.extractor.extract")
+    def test_classify_reconciles_tasks_via_reconcile_all(self, mock_extract, mock_apply, mock_reconcile, client, app):
+        """After classify, extracted tasks are routed through reconcile_all."""
+        from services.extractor import ExtractionResult, ExtractedTask
+
+        mock_extract.return_value = ExtractionResult(
+            summary="Action items",
+            para_bucket="INBOX",
+            confidence=0.85,
+            reasoning="Extracted tasks",
+            tags=[],
+            people=[],
+            tasks=[
+                ExtractedTask(title="Review proposal", priority="HIGH"),
+            ],
+        )
+
+        mock_reconcile.return_value = [
+            {"detected": {"type": "task", "name": "Review proposal"}, "reconciliation": None},
+        ]
+
+        mock_apply.return_value = {
+            "applied_changes": [],
+            "suggestions": [
+                {"operation": "create_task", "title": "Review proposal", "priority": "HIGH"},
+            ],
+        }
+
+        resp = client.post("/api/v1/notes", json={
+            "raw_text": "Need to review the proposal",
+            "classify": True,
+        })
+        assert resp.status_code == 201
+        note_id = resp.get_json()["data"]["id"]
+
+        with app.app_context():
+            from services.ai_pipeline import run_classify
+            run_classify({"entity_id": note_id})
+
+            mock_reconcile.assert_called_once()
+            call_args = mock_reconcile.call_args[0][0]
+            assert len(call_args) == 1
+            assert call_args[0]["type"] == "task"
+            assert call_args[0]["name"] == "Review proposal"
+
+    @patch("services.ai_pipeline.reconcile_all")
+    @patch("services.ai_pipeline.apply_change_plan")
+    @patch("services.extractor.extract")
+    def test_classify_reconciles_project_and_area_via_reconcile_all(self, mock_extract, mock_apply, mock_reconcile, client, app):
+        """High-confidence classification reconciles both project and area."""
+        from services.extractor import ExtractionResult
+
+        mock_extract.return_value = ExtractionResult(
+            summary="Project note",
+            para_bucket="PROJECTS",
+            confidence=0.95,
+            suggested_project="Alpha Platform",
+            suggested_area="Work",
+            reasoning="Clear project and area",
+            tags=[],
+            people=[],
+            tasks=[],
+        )
+
+        mock_reconcile.return_value = [
+            {"detected": {"type": "project", "name": "Alpha Platform"}, "reconciliation": None},
+            {"detected": {"type": "area", "name": "Work"}, "reconciliation": None},
+        ]
+
+        mock_apply.return_value = {
+            "applied_changes": [
+                {"operation": "create_project", "title": "Alpha Platform"},
+                {"operation": "create_area", "title": "Work"},
+            ],
+            "suggestions": [],
+        }
+
+        resp = client.post("/api/v1/notes", json={
+            "raw_text": "Working on Alpha Platform in Work area",
+            "classify": True,
+        })
+        assert resp.status_code == 201
+        note_id = resp.get_json()["data"]["id"]
+
+        with app.app_context():
+            from services.ai_pipeline import run_classify
+            run_classify({"entity_id": note_id})
+
+            mock_reconcile.assert_called_once()
+            call_args = mock_reconcile.call_args[0][0]
+            assert len(call_args) == 2
+            entity_names = sorted(e["name"] for e in call_args)
+            assert entity_names == ["Alpha Platform", "Work"]
