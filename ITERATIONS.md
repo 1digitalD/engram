@@ -1,0 +1,70 @@
+# Iteration Tracker — AI Productivity OS Entity Reconciliation
+
+**Last updated:** 2026-05-14
+**Branch:** `v3.5-ai-productivity-os`
+**Base commit:** `99f47707` (docs: add AI Productivity OS PRD and implementation plan)
+
+## Current State
+
+| Item | Value |
+|---|---|
+| Current iteration | **Iteration 1** (not started) |
+| Iteration status | `pending` |
+| Branch status | Clean — no uncommitted work |
+| Build status | ✓ Passing at base commit |
+
+## Iteration Status
+
+| # | Name | Status | Commit |
+|---|---|---|---|
+| 1 | Wire extracted people through reconciliation | `pending` | — |
+| 2 | Wire extracted tasks through reconciliation | `pending` | — |
+| 3 | Fix suggested_project/area to use full reconciliation | `pending` | — |
+| 4 | Add missing operations | `pending` | — |
+| 5 | PostCaptureSummary shows match context | `pending` | — |
+| 6 | ProjectFocus next action + no-next-action warning | `pending` | — |
+| 7 | Backend integration tests for entity reconciliation | `pending` | — |
+| 8 | End-to-end test for task completion capture | `pending` | — |
+| 9 | Task completion interpretation in capture | `pending` | — |
+| 10 | Suggestion acceptance wires full change plan | `pending` | — |
+
+## Iteration 1 — Wire Extracted People Through Reconciliation
+
+**Files to modify:**
+- `services/ai_pipeline.py`
+- `tests/unit/test_ai_pipeline.py`
+
+**What to do:**
+In `run_classify`: after `extract()` returns `extracted_people`, call `reconcile_person()` for each person. For matched person: use `apply_change_plan` with `link_entity` operation. For new person: use `apply_change_plan` with `create_person` operation. Remove the `extracted_people` → `ai_meta` store path.
+
+**Validation:**
+```bash
+PYTHONPATH=. python3 -m pytest tests/unit/test_ai_pipeline.py -q
+cd ui && npm run build
+```
+
+## If Session Resets
+
+1. Read this file
+2. Find current iteration (first `pending` row)
+3. Read `docs/PRD_IMPLEMENTATION_PLAN.md` for iteration detail
+4. Run `git status` to confirm clean state
+5. Start the iteration
+
+## Commit Protocol
+
+After each sub-step (even if tests not yet passing):
+```bash
+git add <changed_file>
+git commit -m "iter-N: <what was done>"
+git push
+```
+
+Always update this file after each commit:
+```
+| 1 | Wire extracted people... | in_progress | <commit-hash> |
+```
+
+## Full Plan
+
+See `docs/PRD_IMPLEMENTATION_PLAN.md` for the complete 10-iteration plan.

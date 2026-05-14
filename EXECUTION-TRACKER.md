@@ -296,3 +296,45 @@ If the session resets:
 - **2026-05-14** V3.5-AI-PRODUCTIVITY-OS.Iter2 → d046b6ce: Iteration 2: Fixed CaptureModal to call /api/v2/capture with correct `mode` param (was `entity_type`). Wired PostCaptureSummary into capture flow after successful submission. Added handleClose() helper to reset state between captures.
 
 - **2026-05-14** V3.5-AI-PRODUCTIVITY-OS.Iter3 → (wip): Iteration 3: Fixed suggestionsAPI to use /api/v2/suggestions (was pointing to deprecated /proposals). Added AI Suggestions step to Review workflow (stepIndex=1, between Inbox and Projects). Wired accept/dismiss actions that call suggestionsAPI.accept/dismiss and reload. Review button in PostCaptureSummary now navigates to /review. 209 tests pass, frontend builds clean.
+
+## V3.5 AI-PRODUCTIVITY-OS — Entity Reconciliation Phase
+
+> Implementation plan: `docs/PRD_IMPLEMENTATION_PLAN.md`
+> PRD: `docs/PRD_AI_ASSISTED_PRODUCTIVITY_SYSTEM.md`
+> Iterations tracker: `ITERATIONS.md`
+
+**Core gap:** `run_classify` stores extracted people/tasks in `ai_meta` instead of routing through `entity_reconciliation_service`. The infrastructure exists; the wiring is missing.
+
+| Iteration | Description | Status |
+|---|---|---|
+| 1 | Wire extracted people through reconciliation | pending |
+| 2 | Wire extracted tasks through reconciliation | pending |
+| 3 | Fix suggested_project/area to use full reconciliation | pending |
+| 4 | Add missing operations (reopen_task, add_follow_up, change_status) | pending |
+| 5 | PostCaptureSummary shows match context | pending |
+| 6 | ProjectFocus next action + no-next-action warning | pending |
+| 7 | Backend integration tests for entity reconciliation | pending |
+| 8 | End-to-end test for task completion capture | pending |
+| 9 | Task completion interpretation in capture | pending |
+| 10 | Suggestion acceptance wires full change plan | pending |
+
+## Recovery notes
+
+If the session resets:
+1. Re-read `ITERATIONS.md` for current iteration and status
+2. Read `docs/PRD_IMPLEMENTATION_PLAN.md` for the full plan
+3. Read `docs/PRD_AI_ASSISTED_PRODUCTIVITY_SYSTEM.md` for the PRD requirements
+4. Run `git log --oneline -5` to find the latest commit
+5. Run `git status` to check for uncommitted work
+6. Resume the first `pending` iteration in the table above
+7. Run validation commands before continuing
+
+**Validation commands per iteration:**
+```bash
+PYTHONPATH=. python3 -m pytest tests/unit/test_ai_pipeline.py -q
+PYTHONPATH=. python3 -m pytest tests/integration/test_closed_loops.py -q
+PYTHONPATH=. python3 -m pytest -q --cov=. --cov-report=term-missing 2>&1 | tail -5
+cd ui && npm run build
+```
+
+Each iteration must pass all validation before committing and moving to the next.
