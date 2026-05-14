@@ -18,7 +18,7 @@
 | # | Name | Status | Commit |
 |---|---|---|---|
 | 1 | Wire extracted people through reconciliation | `done` | `742cd783` |
-| 2 | Wire extracted tasks through reconciliation | `pending` | — |
+| 2 | Wire extracted tasks through reconciliation | `done` | `e012fe49` |
 | 3 | Fix suggested_project/area to use full reconciliation | `pending` | — |
 | 4 | Add missing operations | `pending` | — |
 | 5 | PostCaptureSummary shows match context | `pending` | — |
