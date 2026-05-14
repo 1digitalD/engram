@@ -4,12 +4,13 @@ Produces structured change plans linking everything back to the source note.
 """
 
 import logging
+import re
 
 from extensions import db
 from models import Entity
 from services.entity_service import create_entity, _write_event
 from services.ai_pipeline import enqueue_classify, enqueue_embed
-from services.entity_reconciliation_service import reconcile_all
+from services.entity_reconciliation_service import reconcile_all, reconcile_task
 from services.ai_operation_applier import apply_change_plan
 from services.extractor import inline_extract
 
@@ -120,6 +121,37 @@ def _capture_as_note(content, source):
         if change_plan["proposed_changes"] or change_plan["suggestions"]:
             result = apply_change_plan(change_plan, actor="agent:capture")
             applied_changes.extend(result["applied_changes"])
+
+    # Detect task completion in content
+    completion_keywords = [
+        r"(?i)\bfinished\b", r"(?i)\bcompleted\b", r"(?i)\bdone\b",
+        r"(?i)\bfinished with\b", r"(?i)\bwrapped up\b",
+    ]
+    content_lower = content.lower()
+    has_completion = any(re.search(kw, content_lower) for kw in completion_keywords)
+
+    if has_completion:
+        for match in re.finditer(r"(?i)\b(?:finished|completed|done|wrapped up)\s+(?:with\s+)?(?:the\s+)?(.+?)(?:\s|$|\n|\.)", content):
+            task_title = match.group(1).strip()
+            if len(task_title) < 3:
+                continue
+            reconciled = reconcile_task(task_title)
+            if reconciled and reconciled.get("matched_entity"):
+                task_entity = reconciled["matched_entity"]
+                confidence = reconciled.get("confidence", 0.85)
+                complete_plan = {
+                    "source_note_id": note.id,
+                    "proposed_changes": [{
+                        "operation": "complete_task",
+                        "entity_id": task_entity.id,
+                        "confidence": confidence,
+                        "reason": f"Task '{task_title}' completed via capture",
+                    }],
+                    "suggestions": [],
+                }
+                result = apply_change_plan(complete_plan, actor="agent:capture")
+                applied_changes.extend(result["applied_changes"])
+                logger.info("Completed task '%s' via capture", task_title)
 
     enqueue_classify(note.id)
     enqueue_embed(note.id)
