@@ -73,7 +73,7 @@ def _get_entity(entity_id):
 
 
 def create_entity(entity_type, title=None, content=None, properties=None,
-                  source="manual", actor="user", **extra_fields):
+                  source="manual", actor="user", batch_id=None, **extra_fields):
     """Create a new entity, write a 'created' event, enqueue AI jobs.
 
     Args:
@@ -104,7 +104,8 @@ def create_entity(entity_type, title=None, content=None, properties=None,
     db.session.flush()
 
     _write_event(entity.id, "created", actor,
-                 new_value={"type": entity_type, "title": title})
+                 new_value={"type": entity_type, "title": title},
+                 batch_id=batch_id)
 
     # Enqueue AI jobs (skip if job infrastructure not available)
     try:
@@ -343,8 +344,11 @@ def delete_entity(entity_id, cascade_orphans=False):
 
 
 def _write_event(entity_id, event_type, actor, old_value=None, new_value=None,
-                 confidence=None, reason=None):
+                 confidence=None, reason=None, batch_id=None):
     """Write an entity_events record."""
+    event_reason = reason
+    if batch_id:
+        event_reason = (event_reason + f" change_batch_id={batch_id}") if event_reason else f"change_batch_id={batch_id}"
     event = EntityEvent(
         entity_id=entity_id,
         event_type=event_type,
@@ -352,7 +356,7 @@ def _write_event(entity_id, event_type, actor, old_value=None, new_value=None,
         old_value=old_value,
         new_value=new_value,
         confidence=confidence,
-        reason=reason,
+        reason=event_reason,
     )
     db.session.add(event)
 

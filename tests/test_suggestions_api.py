@@ -110,17 +110,17 @@ class TestSuggestionsAcceptAPI:
                     "src_id": src_id,
                     "dst_id": dst_id,
                     "link_type": "related",
-                    "confidence": 0.88,
+                    "confidence": 0.95,
                     "evidence": "Test suggestion",
                 },
+                confidence=0.95,
             )
 
         res = client.post(f"/api/v2/suggestions/{sid}/accept")
         assert res.status_code == 200
         data = json.loads(res.data)["data"]
-        assert "link" in data
-        assert data["link"]["src_id"] == src_id
-        assert data["link"]["dst_id"] == dst_id
+        assert len(data["applied_changes"]) == 1
+        assert data["applied_changes"][0]["operation"] == "link_entity"
 
         res2 = client.post(f"/api/v2/suggestions/{sid}/accept")
         assert res2.status_code == 400
@@ -163,6 +163,7 @@ class TestSuggestionsAcceptAPI:
                 src_id,
                 suggestion_type="create_task",
                 payload={"title": "Test task from suggestion", "source_note_id": src_id},
+                confidence=0.95,
             )
 
         res = client.post(f"/api/v2/suggestions/{sid}/accept")

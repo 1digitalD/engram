@@ -62,15 +62,18 @@ def apply_change_plan(change_plan, actor="agent:capture"):
         )
         db.session.add(batch)
         db.session.flush()
+        batch.applied_at = datetime.now(timezone.utc)
+        db.session.flush()
 
     for change in proposed_changes:
         confidence = change.get("confidence", 0.0)
         operation = change.get("operation")
+        current_batch_id = batch.id if batch else None
 
         if confidence >= AUTO_APPLY_THRESHOLD:
-            result = _apply_operation(change, source_note_id, actor)
+            result = _apply_operation(change, source_note_id, actor, batch_id=current_batch_id)
             if result:
-                result["change_batch_id"] = batch.id if batch else None
+                result["change_batch_id"] = current_batch_id
                 applied_changes.append(result)
         elif confidence >= SUGGESTION_THRESHOLD_MIN:
             suggestion = _create_suggestion(change, source_note_id, batch_id=batch.id if batch else None)
@@ -95,33 +98,33 @@ def apply_change_plan(change_plan, actor="agent:capture"):
     }
 
 
-def _apply_operation(change, source_note_id, actor):
+def _apply_operation(change, source_note_id, actor, batch_id=None):
     """Apply a single approved operation."""
     operation = change.get("operation")
 
     try:
         if operation == "link_entity":
-            return _apply_link_entity(change, source_note_id, actor)
+            return _apply_link_entity(change, source_note_id, actor, batch_id=batch_id)
         elif operation == "create_task":
-            return _apply_create_task(change, source_note_id, actor)
+            return _apply_create_task(change, source_note_id, actor, batch_id=batch_id)
         elif operation == "create_person":
-            return _apply_create_person(change, source_note_id, actor)
+            return _apply_create_person(change, source_note_id, actor, batch_id=batch_id)
         elif operation == "create_project":
-            return _apply_create_project(change, source_note_id, actor)
+            return _apply_create_project(change, source_note_id, actor, batch_id=batch_id)
         elif operation == "create_area":
-            return _apply_create_area(change, source_note_id, actor)
+            return _apply_create_area(change, source_note_id, actor, batch_id=batch_id)
         elif operation == "create_resource":
-            return _apply_create_resource(change, source_note_id, actor)
+            return _apply_create_resource(change, source_note_id, actor, batch_id=batch_id)
         elif operation == "append_context":
-            return _apply_append_context(change, source_note_id, actor)
+            return _apply_append_context(change, source_note_id, actor, batch_id=batch_id)
         elif operation == "complete_task":
-            return _apply_complete_task(change, actor)
+            return _apply_complete_task(change, actor, batch_id=batch_id)
         elif operation == "reopen_task":
-            return _apply_reopen_task(change, actor)
+            return _apply_reopen_task(change, actor, batch_id=batch_id)
         elif operation == "add_follow_up":
-            return _apply_add_follow_up(change, source_note_id, actor)
+            return _apply_add_follow_up(change, source_note_id, actor, batch_id=batch_id)
         elif operation == "change_status":
-            return _apply_change_status(change, source_note_id, actor)
+            return _apply_change_status(change, source_note_id, actor, batch_id=batch_id)
         else:
             logger.warning("Unknown operation: %s", operation)
             return None
@@ -130,7 +133,7 @@ def _apply_operation(change, source_note_id, actor):
         return None
 
 
-def _apply_link_entity(change, source_note_id, actor):
+def _apply_link_entity(change, source_note_id, actor, batch_id=None):
     link = create_link(
         src_id=change["src_id"],
         dst_id=change["dst_id"],
@@ -139,6 +142,7 @@ def _apply_link_entity(change, source_note_id, actor):
         confidence=change.get("confidence"),
         evidence=change.get("evidence"),
         actor=actor,
+        batch_id=batch_id,
     )
     return {
         "operation": "link_entity",
@@ -150,7 +154,7 @@ def _apply_link_entity(change, source_note_id, actor):
     }
 
 
-def _apply_create_task(change, source_note_id, actor):
+def _apply_create_task(change, source_note_id, actor, batch_id=None):
     task = create_entity(
         entity_type="task",
         title=change["title"],
@@ -158,6 +162,7 @@ def _apply_create_task(change, source_note_id, actor):
         source="ai",
         actor=actor,
         properties={},
+        batch_id=batch_id,
     )
 
     if source_note_id:
@@ -168,6 +173,7 @@ def _apply_create_task(change, source_note_id, actor):
             source="ai",
             confidence=change.get("confidence"),
             actor=actor,
+            batch_id=batch_id,
         )
 
     # Link to project if specified
@@ -180,6 +186,7 @@ def _apply_create_task(change, source_note_id, actor):
             source="ai",
             confidence=change.get("confidence"),
             actor=actor,
+            batch_id=batch_id,
         )
 
     # Link to people if specified
@@ -191,6 +198,7 @@ def _apply_create_task(change, source_note_id, actor):
             source="ai",
             confidence=change.get("confidence"),
             actor=actor,
+            batch_id=batch_id,
         )
 
     return {
@@ -201,13 +209,14 @@ def _apply_create_task(change, source_note_id, actor):
     }
 
 
-def _apply_create_person(change, source_note_id, actor):
+def _apply_create_person(change, source_note_id, actor, batch_id=None):
     person = create_entity(
         entity_type="person",
         title=change["name"],
         source="ai",
         actor=actor,
         properties={},
+        batch_id=batch_id,
     )
 
     if source_note_id:
@@ -218,6 +227,7 @@ def _apply_create_person(change, source_note_id, actor):
             source="ai",
             confidence=change.get("confidence"),
             actor=actor,
+            batch_id=batch_id,
         )
 
     return {
@@ -228,7 +238,7 @@ def _apply_create_person(change, source_note_id, actor):
     }
 
 
-def _apply_create_project(change, source_note_id, actor):
+def _apply_create_project(change, source_note_id, actor, batch_id=None):
     project = create_entity(
         entity_type="project",
         title=change["title"],
@@ -236,6 +246,7 @@ def _apply_create_project(change, source_note_id, actor):
         source="ai",
         actor=actor,
         properties={},
+        batch_id=batch_id,
     )
 
     if source_note_id:
@@ -246,6 +257,7 @@ def _apply_create_project(change, source_note_id, actor):
             source="ai",
             confidence=change.get("confidence"),
             actor=actor,
+            batch_id=batch_id,
         )
 
     return {
@@ -256,13 +268,14 @@ def _apply_create_project(change, source_note_id, actor):
     }
 
 
-def _apply_create_area(change, source_note_id, actor):
+def _apply_create_area(change, source_note_id, actor, batch_id=None):
     area = create_entity(
         entity_type="area",
         title=change["title"],
         source="ai",
         actor=actor,
         properties={},
+        batch_id=batch_id,
     )
 
     if source_note_id:
@@ -273,6 +286,7 @@ def _apply_create_area(change, source_note_id, actor):
             source="ai",
             confidence=change.get("confidence"),
             actor=actor,
+            batch_id=batch_id,
         )
 
     return {
@@ -283,7 +297,7 @@ def _apply_create_area(change, source_note_id, actor):
     }
 
 
-def _apply_reopen_task(change, actor):
+def _apply_reopen_task(change, actor, batch_id=None):
     task_id = change.get("entity_id")
     if not task_id:
         return None
@@ -297,6 +311,7 @@ def _apply_reopen_task(change, actor):
         actor=actor,
         new_value={"status": "pending", "reason": change.get("reason", "Reopened by AI")},
         confidence=change.get("confidence"),
+        batch_id=batch_id,
     )
     return {
         "operation": "reopen_task",
@@ -305,7 +320,7 @@ def _apply_reopen_task(change, actor):
     }
 
 
-def _apply_add_follow_up(change, source_note_id, actor):
+def _apply_add_follow_up(change, source_note_id, actor, batch_id=None):
     title = change.get("title", "Follow-up")
     follow_up = create_entity(
         entity_type="task",
@@ -313,6 +328,7 @@ def _apply_add_follow_up(change, source_note_id, actor):
         source="ai",
         actor=actor,
         properties={"follow_up_of": change.get("task_id")},
+        batch_id=batch_id,
     )
 
     if source_note_id:
@@ -323,6 +339,7 @@ def _apply_add_follow_up(change, source_note_id, actor):
             source="ai",
             confidence=change.get("confidence"),
             actor=actor,
+            batch_id=batch_id,
         )
 
     if change.get("task_id"):
@@ -333,6 +350,7 @@ def _apply_add_follow_up(change, source_note_id, actor):
             source="ai",
             confidence=change.get("confidence"),
             actor=actor,
+            batch_id=batch_id,
         )
 
     return {
@@ -343,7 +361,7 @@ def _apply_add_follow_up(change, source_note_id, actor):
     }
 
 
-def _apply_change_status(change, source_note_id, actor):
+def _apply_change_status(change, source_note_id, actor, batch_id=None):
     entity_id = change.get("entity_id")
     new_status = change.get("status")
     if not entity_id or not new_status:
@@ -359,6 +377,7 @@ def _apply_change_status(change, source_note_id, actor):
         actor=actor,
         new_value={"old": old_status, "new": new_status, "reason": change.get("reason")},
         confidence=change.get("confidence"),
+        batch_id=batch_id,
     )
     return {
         "operation": "change_status",
@@ -369,7 +388,7 @@ def _apply_change_status(change, source_note_id, actor):
     }
 
 
-def _apply_create_resource(change, source_note_id, actor):
+def _apply_create_resource(change, source_note_id, actor, batch_id=None):
     resource = create_entity(
         entity_type="resource",
         title=change["title"],
@@ -379,6 +398,7 @@ def _apply_create_resource(change, source_note_id, actor):
         properties={
             "reference_url": change.get("url"),
         },
+        batch_id=batch_id,
     )
 
     if source_note_id:
@@ -389,6 +409,7 @@ def _apply_create_resource(change, source_note_id, actor):
             source="ai",
             confidence=change.get("confidence"),
             actor=actor,
+            batch_id=batch_id,
         )
 
     return {
@@ -399,7 +420,7 @@ def _apply_create_resource(change, source_note_id, actor):
     }
 
 
-def _apply_append_context(change, source_note_id, actor):
+def _apply_append_context(change, source_note_id, actor, batch_id=None):
     target_id = change.get("target_entity_id")
     if not target_id:
         return None
@@ -495,7 +516,7 @@ def batch_undo(change_batch_id, actor="user"):
     - change_status → revert status (using old_value from event)
     """
     from services.entity_service import _write_event as write_event
-    from models import Entity, EntityLink, EntityEvent
+    from models import ChangeBatch, Entity, EntityLink, EntityEvent
 
     batch = db.session.get(ChangeBatch, change_batch_id)
     if not batch:
@@ -520,8 +541,8 @@ def batch_undo(change_batch_id, actor="user"):
         ).all()
 
     for event in events:
-        if event.event_type == "entity_created":
-            entity_id = event.new_value.get("entity_id") if event.new_value else None
+        if event.event_type == "created":
+            entity_id = event.entity_id
             if entity_id:
                 entity = db.session.get(Entity, entity_id)
                 if entity and entity.lifecycle == "active":
@@ -537,8 +558,8 @@ def batch_undo(change_batch_id, actor="user"):
                         reason=f"undo batch {change_batch_id}",
                     )
         elif event.event_type == "link_added":
-            src_id = event.new_value.get("src_entity_id") if event.new_value else None
-            dst_id = event.new_value.get("dst_entity_id") if event.new_value else None
+            src_id = event.new_value.get("src_id") if event.new_value else None
+            dst_id = event.new_value.get("dst_id") if event.new_value else None
             link_type = event.new_value.get("link_type") if event.new_value else None
             if src_id and dst_id:
                 link = EntityLink.query.filter_by(
@@ -576,19 +597,6 @@ def batch_undo(change_batch_id, actor="user"):
 
     batch.undone_at = datetime.now(timezone.utc)
     db.session.commit()
-
-    write_event(
-        entity_id=change_batch_id,
-        event_type="batch_undone",
-        actor=actor,
-        new_value={
-            "change_batch_id": change_batch_id,
-            "undone_entities": undone_entities,
-            "undone_links": undone_links,
-        },
-        confidence=1.0,
-        reason="User requested undo",
-    )
 
     return {
         "change_batch_id": change_batch_id,

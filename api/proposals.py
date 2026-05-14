@@ -9,7 +9,7 @@ from flask import jsonify, request
 
 from api import api_bp, api_v2_bp
 from extensions import db
-from models import Entity, EntityLink, AiSuggestion
+from models import ChangeBatch, Entity, EntityLink, AiSuggestion
 from services.link_service import create_link as svc_create_link
 from sqlalchemy import or_
 
@@ -194,13 +194,31 @@ def v2_accept_suggestion(suggestion_id):
     if suggestion.status != "pending":
         return jsonify({"error": f"Suggestion already {suggestion.status}"}), 400
 
+    OPERATION_MAP = {
+        "link": "link_entity",
+        "create_task": "create_task",
+        "create_project": "create_project",
+        "create_person": "create_person",
+        "create_resource": "create_resource",
+        "append_context": "append_context",
+        "complete_task": "complete_task",
+        "add_follow_up": "add_follow_up",
+    }
+
     payload = suggestion.payload or {}
     try:
         from services.ai_operation_applier import apply_change_plan
 
+        change_payload = {**payload, "confidence": suggestion.confidence}
+        op = suggestion.suggestion_type
+        if op in OPERATION_MAP:
+            op = OPERATION_MAP[op]
+        if not change_payload.get("operation"):
+            change_payload["operation"] = op
+
         change_plan = {
             "source_note_id": suggestion.source_entity_id,
-            "proposed_changes": [{**payload, "confidence": suggestion.confidence}],
+            "proposed_changes": [change_payload],
             "suggestions": [],
         }
         result = apply_change_plan(change_plan, actor="user")

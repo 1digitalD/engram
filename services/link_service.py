@@ -38,7 +38,7 @@ def _set_inverse(link):
 
 
 def create_link(src_id, dst_id, link_type="related", source="manual",
-                confidence=None, evidence=None, actor="user"):
+                confidence=None, evidence=None, actor="user", batch_id=None):
     """Create a link between two entities.
 
     Args:
@@ -113,11 +113,11 @@ def create_link(src_id, dst_id, link_type="related", source="manual",
     _write_event(src_id, "link_added", actor,
                  new_value={"link_id": str(link.id), "dst_id": str(dst_id),
                             "link_type": link_type},
-                 reason=evidence)
+                 reason=evidence, batch_id=batch_id)
     _write_event(dst_id, "link_added", actor,
                  new_value={"link_id": str(link.id), "src_id": str(src_id),
                             "link_type": link_type},
-                 reason=evidence)
+                 reason=evidence, batch_id=batch_id)
 
     db.session.commit()
     return link
