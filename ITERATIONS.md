@@ -8,10 +8,10 @@
 
 | Item | Value |
 |---|---|
-| Current iteration | **11** |
-| Iteration status | `pending` (iter 12 next) |
+| Current iteration | **12** |
+| Iteration status | `pending` (iter 13 next) |
 | Branch status | Clean — no uncommitted work |
-| Build status | ✓ Passing — 401 tests |
+| Build status | ✓ Passing — 406 tests |
 
 ## Iteration Status
 
@@ -28,6 +28,7 @@
 | 9 | Task completion interpretation in capture | `done` | `1e45e7e8` |
 | 10 | Suggestion acceptance wires full change plan | `done` | `b17b9c67` |
 | 11 | change_batches table, batch_undo, undo API | `done` | `cf36fddc` |
+| 12 | Grouped universal search API (GET /api/v2/entities/search) | `done` | `2d1ea8e9` |
 
 ## Iteration 1 — Wire Extracted People Through Reconciliation
 
