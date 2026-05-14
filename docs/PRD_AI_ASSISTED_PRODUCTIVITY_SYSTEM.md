@@ -758,7 +758,7 @@ Auto
 | Resource | Create resource directly, optionally summarize/link |
 | Person   | Create person directly                              |
 | Project  | Create project directly, if added later             |
-| Area     | Create area directly, if added later                |
+| Area     | Create area directly, if added later               |
 
 ## 6.4 Capture should not become a form
 
@@ -2164,9 +2164,15 @@ Note shows linked context.
 Existing people are reused.
 Existing projects are reused.
 Existing resources are reused by URL.
-Existing tasks can be completed/updated rather than duplicated.
+Existing task can be completed/updated rather than duplicated.
 Ambiguous matches become suggestions.
-Duplicates are minimized.
+Low-confidence match does not mutate data.
+Created task links back to source note with derived_from.
+Universal links endpoint returns incoming and outgoing links.
+Duplicate links are rejected.
+Self-links are rejected.
+Delete preview works.
+AI events are logged.
 ```
 
 ## 16.4 Relationships
