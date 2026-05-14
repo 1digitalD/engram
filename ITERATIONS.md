@@ -8,7 +8,7 @@
 
 | Item | Value |
 |---|---|
-| Current iteration | **Iteration 1** (not started) |
+| Current iteration | **Iteration 2** (next) |
 | Iteration status | `pending` |
 | Branch status | Clean — no uncommitted work |
 | Build status | ✓ Passing at base commit |
@@ -17,7 +17,7 @@
 
 | # | Name | Status | Commit |
 |---|---|---|---|
-| 1 | Wire extracted people through reconciliation | `pending` | — |
+| 1 | Wire extracted people through reconciliation | `done` | `742cd783` |
 | 2 | Wire extracted tasks through reconciliation | `pending` | — |
 | 3 | Fix suggested_project/area to use full reconciliation | `pending` | — |
 | 4 | Add missing operations | `pending` | — |
