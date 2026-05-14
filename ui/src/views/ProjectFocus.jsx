@@ -13,7 +13,8 @@ import {
 } from 'lucide-react';
 import useStore from '../stores/useStore';
 import NoteEditor from '../components/notes/NoteEditor';
-import LinkToEntity from '../components/LinkToEntity/LinkToEntity';
+import { linksAPI, relationshipsAPI } from '../api/engram';
+import LinkedContextPanel from '../components/LinkedContextPanel/LinkedContextPanel';
 import styles from './ProjectFocus.module.css';
 
 const TABS = [
@@ -128,6 +129,28 @@ export default function ProjectFocus() {
 
   // Inline task creation
   const [newTaskTitle, setNewTaskTitle] = useState('');
+
+  // Linked context
+  const [linksOut, setLinksOut] = useState([]);
+  const [linksIn, setLinksIn] = useState([]);
+  const [linksLoading, setLinksLoading] = useState(false);
+
+  const loadLinks = useCallback(async () => {
+    if (!id) return;
+    setLinksLoading(true);
+    try {
+      const res = await relationshipsAPI.list(id);
+      setLinksOut(res.outgoing || []);
+      setLinksIn(res.incoming || []);
+    } catch {
+      setLinksOut([]);
+      setLinksIn([]);
+    } finally {
+      setLinksLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => { loadLinks(); }, [loadLinks]);
 
   useEffect(() => {
     function handleClickOutside(e) {
@@ -966,8 +989,21 @@ export default function ProjectFocus() {
         )}
 
         {tab === 'connections' && (
-          <section style={{ ...surfaceCardStyle, padding: '14px' }}>
-            <LinkToEntity entityId={id} entityType="project" onLinkCreated={() => setConnRefreshKey(k => k + 1)} />
+          <section style={{ display: 'grid', gap: '10px' }}>
+            <section style={{ ...surfaceCardStyle, padding: '14px' }}>
+              <LinkToEntity entityId={id} entityType="project" onLinkCreated={() => setConnRefreshKey(k => k + 1)} />
+            </section>
+            <section style={{ ...surfaceCardStyle, padding: '14px' }}>
+              <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                Linked Context
+              </div>
+              <LinkedContextPanel
+                entityId={id}
+                linksOut={linksOut}
+                linksIn={linksIn}
+                loading={linksLoading}
+              />
+            </section>
           </section>
         )}
       </div>

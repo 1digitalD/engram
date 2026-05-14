@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Edit2, Trash2, Loader2, CheckCircle, Circle, Calendar, FolderOpen, FileText } from 'lucide-react';
 import useStore from '../stores/useStore';
+import { relationshipsAPI } from '../api/engram';
+import LinkedContextPanel from '../components/LinkedContextPanel/LinkedContextPanel';
 import DeleteConfirmModal from '../components/DeleteConfirmModal';
 import styles from './TaskDetail.module.css';
 
@@ -55,6 +57,28 @@ export default function TaskDetail() {
   const [saving, setSaving] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deletePreview, setDeletePreview] = useState(null);
+
+  // Linked context
+  const [linksOut, setLinksOut] = useState([]);
+  const [linksIn, setLinksIn] = useState([]);
+  const [linksLoading, setLinksLoading] = useState(false);
+
+  const loadLinks = useCallback(async () => {
+    if (!id) return;
+    setLinksLoading(true);
+    try {
+      const res = await relationshipsAPI.list(id);
+      setLinksOut(res.outgoing || []);
+      setLinksIn(res.incoming || []);
+    } catch {
+      setLinksOut([]);
+      setLinksIn([]);
+    } finally {
+      setLinksLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => { loadLinks(); }, [loadLinks]);
 
   const task = tasks.find(t => t.id === id);
   const project = task?.project_id ? projects.find(p => p.id === task.project_id) : null;
@@ -270,6 +294,17 @@ export default function TaskDetail() {
             </div>
           </section>
 
+          <section className={styles.metadataSection}>
+            <h2 className={styles.sectionTitle}>
+              <FileText size={14} /> Linked Context
+            </h2>
+            <LinkedContextPanel
+              entityId={id}
+              linksOut={linksOut}
+              linksIn={linksIn}
+              loading={linksLoading}
+            />
+          </section>
 
         </div>
       </div>

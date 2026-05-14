@@ -11,7 +11,7 @@ import {
   Trash2,
   User,
 } from 'lucide-react';
-import { connectionsAPI, resourcesAPI, deletePreviewAPI } from '../api/engram';
+import { connectionsAPI, resourcesAPI, relationshipsAPI, deletePreviewAPI } from '../api/engram';
 import useStore from '../stores/useStore';
 import {
   EntityTypeIcon,
@@ -20,6 +20,7 @@ import {
   resolveEntity,
 } from '../utils/entity';
 import LinkToEntity from '../components/LinkToEntity/LinkToEntity';
+import LinkedContextPanel from '../components/LinkedContextPanel/LinkedContextPanel';
 import { RESOURCE_TYPES, ResourceTypeIcon } from './Resources';
 import DeleteConfirmModal from '../components/DeleteConfirmModal';
 import styles from './ResourceDetail.module.css';
@@ -213,6 +214,28 @@ export default function ResourceDetail() {
   const [tab, setTab] = useState('notes');
   const [linked, setLinked] = useState({ note: [], task: [], person: [] });
   const [linkRefreshKey, setLinkRefreshKey] = useState(0);
+
+  // Linked context
+  const [linksOut, setLinksOut] = useState([]);
+  const [linksIn, setLinksIn] = useState([]);
+  const [linksLoading, setLinksLoading] = useState(false);
+
+  const loadLinks = useCallback(async () => {
+    if (!id) return;
+    setLinksLoading(true);
+    try {
+      const res = await relationshipsAPI.list(id);
+      setLinksOut(res.outgoing || []);
+      setLinksIn(res.incoming || []);
+    } catch {
+      setLinksOut([]);
+      setLinksIn([]);
+    } finally {
+      setLinksLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => { loadLinks(); }, [loadLinks]);
 
   const [title, setTitle] = useState(storeResource?.title || '');
   const [resourceType, setResourceType] = useState(storeResource?.resource_type || 'OTHER');
@@ -413,6 +436,17 @@ export default function ResourceDetail() {
             </div>
           </section>
 
+          {myNotes && (
+            <section style={{ ...cardStyle, padding: '16px 18px' }}>
+              <h2 style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                My Notes
+              </h2>
+              <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-primary)', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+                {myNotes}
+              </p>
+            </section>
+          )}
+
           <section style={sectionCardStyle}>
             <div className={projectStyles.tabs} style={{ marginBottom: 0 }}>
               {TABS.map((entry) => (
@@ -474,6 +508,18 @@ export default function ResourceDetail() {
 
           <section style={sectionCardStyle}>
             <LinkToEntity entityId={id} entityType="resource" onLinkCreated={() => setLinkRefreshKey(k => k + 1)} />
+          </section>
+
+          <section style={sectionCardStyle}>
+            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              Linked Context
+            </div>
+            <LinkedContextPanel
+              entityId={id}
+              linksOut={linksOut}
+              linksIn={linksIn}
+              loading={linksLoading}
+            />
           </section>
 
           <form className={styles.form} onSubmit={handleSave}>

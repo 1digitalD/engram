@@ -1,8 +1,9 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, CheckSquare, FileText, FolderOpen, Sparkles, Tag, UserPlus, Plus, X, Loader2, CheckCircle } from 'lucide-react';
 import useStore from '../stores/useStore';
-import LinkToEntity from '../components/LinkToEntity/LinkToEntity';
+import { relationshipsAPI } from '../api/engram';
+import LinkedContextPanel from '../components/LinkedContextPanel/LinkedContextPanel';
 import NoteEditor from '../components/notes/NoteEditor';
 import { getEntityTitle } from '../utils/entity';
 import projectStyles from './ProjectFocus.module.css';
@@ -234,6 +235,28 @@ export default function PersonFocus() {
 
   // Connections tab refresh
   const [connRefreshKey, setConnRefreshKey] = useState(0);
+
+  // Linked context
+  const [linksOut, setLinksOut] = useState([]);
+  const [linksIn, setLinksIn] = useState([]);
+  const [linksLoading, setLinksLoading] = useState(false);
+
+  const loadLinks = useCallback(async () => {
+    if (!id) return;
+    setLinksLoading(true);
+    try {
+      const res = await relationshipsAPI.list(id);
+      setLinksOut(res.outgoing || []);
+      setLinksIn(res.incoming || []);
+    } catch {
+      setLinksOut([]);
+      setLinksIn([]);
+    } finally {
+      setLinksLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => { loadLinks(); }, [loadLinks]);
 
   // Inline new-note creation
   const [showNewNoteEditor, setShowNewNoteEditor] = useState(false);
@@ -614,8 +637,19 @@ export default function PersonFocus() {
           )}
 
           {tab === 'connections' && (
-            <div className={projectStyles.content}>
+            <div style={{ display: 'grid', gap: '10px' }}>
               <LinkToEntity entityId={id} entityType="person" onLinkCreated={() => setConnRefreshKey(k => k + 1)} />
+              <div style={{ ...sidebarCardStyle, padding: '14px' }}>
+                <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                  Linked Context
+                </div>
+                <LinkedContextPanel
+                  entityId={id}
+                  linksOut={linksOut}
+                  linksIn={linksIn}
+                  loading={linksLoading}
+                />
+              </div>
             </div>
           )}
         </div>

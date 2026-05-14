@@ -55,3 +55,16 @@ export function PriorityBadge({ priority }) {
     : styles.priorityMed;
   return <span className={`${styles.priorityBadge} ${cls}`}>{priority || 'MEDIUM'}</span>;
 }
+
+const LIFECYCLE_MAP = {
+  active:     { label: 'Active',     cls: styles.lifecycleActive },
+  in_progress: { label: 'Active',    cls: styles.lifecycleInProgress },
+  waiting:    { label: 'Waiting',   cls: styles.lifecycleWaiting },
+  done:       { label: 'Done',      cls: styles.lifecycleDone },
+  archived:   { label: 'Archived', cls: styles.lifecycleArchived },
+};
+
+export function LifecycleBadge({ lifecycle }) {
+  const s = LIFECYCLE_MAP[lifecycle] || { label: lifecycle, cls: styles.default };
+  return <span className={`${styles.lifecycle} ${s.cls}`}>{s.label}</span>;
+}
