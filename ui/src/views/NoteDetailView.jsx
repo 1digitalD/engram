@@ -182,8 +182,9 @@ export default function NoteDetailView() {
   const [proposals, setProposals] = useState([]);
   const [proposalsLoading, setProposalsLoading] = useState(false);
   const [proposalActionId, setProposalActionId] = useState(null);
-
   const [linkedTasksKey, setLinkedTasksKey] = useState(0);
+
+  const note = notes.find(n => n.id === id);
 
   const linkedTasks = useMemo(() => {
     return note ? tasks.filter(t => t.note_id === note.id) : [];
@@ -191,8 +192,6 @@ export default function NoteDetailView() {
   const [classifying, setClassifying] = useState(false);
   const [followUpBusy, setFollowUpBusy] = useState(false);
   const [lifecycleBusy, setLifecycleBusy] = useState(false);
-
-  const note = notes.find(n => n.id === id);
 
   const loadLinks = useCallback(async () => {
     if (!note?.id) return;
