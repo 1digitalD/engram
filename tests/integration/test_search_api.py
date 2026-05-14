@@ -488,3 +488,61 @@ class TestSemanticSearchRanking:
             assert len(results) == 1
             # Score should reflect the best (most similar) chunk
             assert results[0]["_score"] > 0.9
+
+
+class TestGroupedSearch:
+    """Grouped search returns results organized by entity type."""
+
+    def test_grouped_search_returns_all_type_keys(self, client, app):
+        """API endpoint returns all 6 entity type keys."""
+        with app.app_context():
+            for etype in ["project", "area", "task", "note", "resource", "person"]:
+                e = Entity(type=etype, title=f"Test {etype}", properties={}, ai_meta={})
+                db.session.add(e)
+            db.session.commit()
+
+        res = client.get("/api/v2/entities/search?q=test&limit=5")
+        assert res.status_code == 200
+        data = res.get_json()
+        assert set(data["data"].keys()) == {"project", "area", "task", "note", "resource", "person"}
+
+    def test_grouped_search_empty_query_returns_error(self, client, app):
+        """Empty q parameter returns 400."""
+        res = client.get("/api/v2/entities/search?q=")
+        assert res.status_code == 400
+
+    def test_grouped_search_filters_by_mode(self, client, app):
+        """Mode parameter is passed through."""
+        with app.app_context():
+            e = Entity(type="note", title="Test Note", properties={}, ai_meta={})
+            db.session.add(e)
+            db.session.commit()
+
+        res = client.get("/api/v2/entities/search?q=Test Note&mode=fts")
+        assert res.status_code == 200
+        assert res.get_json()["mode"] == "fts"
+
+    def test_grouped_search_respects_limit_per_type(self, client, app):
+        """limit parameter controls max per type."""
+        with app.app_context():
+            for i in range(5):
+                e = Entity(type="note", title=f"Note {i}", properties={}, ai_meta={})
+                db.session.add(e)
+            db.session.commit()
+
+        res = client.get("/api/v2/entities/search?q=note&limit=2")
+        assert res.status_code == 200
+        assert len(res.get_json()["data"]["note"]) == 2
+
+    def test_grouped_search_total_count(self, client, app):
+        """total field reflects sum of all results."""
+        with app.app_context():
+            for i in range(3):
+                e = Entity(type="note", title=f"Alpha {i}", properties={}, ai_meta={})
+                db.session.add(e)
+            db.session.commit()
+
+        res = client.get("/api/v2/entities/search?q=alpha&limit=10")
+        assert res.status_code == 200
+        data = res.get_json()
+        assert data["total"] == sum(len(v) for v in data["data"].values())

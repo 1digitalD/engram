@@ -90,6 +90,39 @@ def v2_get_entity_links(entity_id):
     })
 
 
+from services.search import grouped_search
+
+
+@api_v2_bp.route("/entities/search", methods=["GET"])
+def v2_search_entities():
+    """Universal search grouped by entity type.
+
+    Query params:
+      q: search query (required)
+      limit: max results per type (default 10, max 50)
+      mode: 'hybrid' | 'fts' | 'semantic' (default 'hybrid')
+    """
+    q = request.args.get("q", "").strip()
+    if not q:
+        return jsonify({"error": "q parameter is required"}), 400
+
+    limit = request.args.get("limit", 10, type=int)
+    limit = max(1, min(limit, 50))
+    mode = request.args.get("mode", "hybrid")
+    if mode not in ("hybrid", "fts", "semantic"):
+        mode = "hybrid"
+
+    result = grouped_search(q, limit_per_type=limit, mode=mode)
+    total = sum(len(v) for v in result.values())
+
+    return jsonify({
+        "data": result,
+        "query": q,
+        "total": total,
+        "mode": mode,
+    })
+
+
 @api_v2_bp.route("/entities/<entity_id>/events", methods=["GET"])
 def v2_get_entity_events(entity_id):
     """Get events for an entity."""

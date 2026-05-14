@@ -217,3 +217,30 @@ def search_notes(query, limit=20, mode="hybrid", bucket=None, project_id=None, a
     if bucket:
         filters["type"] = "note"
     return search(query, limit=limit, mode=mode, filters=filters)
+
+
+ENTITY_TYPES = ["project", "area", "task", "note", "resource", "person"]
+
+
+def grouped_search(query, limit_per_type=10, mode="hybrid"):
+    """Universal search grouped by entity type.
+
+    Returns dict with keys: project, area, task, note, resource, person.
+    Each value is a list of entity dicts up to limit_per_type each.
+
+    Args:
+        query: search string
+        limit_per_type: max results per entity type (default 10)
+        mode: 'hybrid' | 'fts' | 'semantic'
+    """
+    if not query or not query.strip():
+        return {t: [] for t in ENTITY_TYPES}
+
+    result = {t: [] for t in ENTITY_TYPES}
+
+    for entity_type in ENTITY_TYPES:
+        filters = {"type": entity_type}
+        results = search(query, limit=limit_per_type, mode=mode, filters=filters)
+        result[entity_type] = results if isinstance(results, list) else []
+
+    return result
