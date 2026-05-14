@@ -84,12 +84,20 @@ def _apply_operation(change, source_note_id, actor):
             return _apply_create_person(change, source_note_id, actor)
         elif operation == "create_project":
             return _apply_create_project(change, source_note_id, actor)
+        elif operation == "create_area":
+            return _apply_create_area(change, source_note_id, actor)
         elif operation == "create_resource":
             return _apply_create_resource(change, source_note_id, actor)
         elif operation == "append_context":
             return _apply_append_context(change, source_note_id, actor)
         elif operation == "complete_task":
             return _apply_complete_task(change, actor)
+        elif operation == "reopen_task":
+            return _apply_reopen_task(change, actor)
+        elif operation == "add_follow_up":
+            return _apply_add_follow_up(change, source_note_id, actor)
+        elif operation == "change_status":
+            return _apply_change_status(change, source_note_id, actor)
         else:
             logger.warning("Unknown operation: %s", operation)
             return None
@@ -220,6 +228,119 @@ def _apply_create_project(change, source_note_id, actor):
         "operation": "create_project",
         "entity_id": project.id,
         "title": change["title"],
+        "confidence": change.get("confidence"),
+    }
+
+
+def _apply_create_area(change, source_note_id, actor):
+    area = create_entity(
+        entity_type="area",
+        title=change["title"],
+        source="ai",
+        actor=actor,
+        properties={},
+    )
+
+    if source_note_id:
+        create_link(
+            src_id=source_note_id,
+            dst_id=area.id,
+            link_type="related",
+            source="ai",
+            confidence=change.get("confidence"),
+            actor=actor,
+        )
+
+    return {
+        "operation": "create_area",
+        "entity_id": area.id,
+        "title": change["title"],
+        "confidence": change.get("confidence"),
+    }
+
+
+def _apply_reopen_task(change, actor):
+    task_id = change.get("entity_id")
+    if not task_id:
+        return None
+    task = db.session.get(Entity, task_id)
+    if not task or task.type != "task":
+        return None
+    task.status = "pending"
+    _write_event(
+        entity_id=task.id,
+        event_type="status_changed",
+        actor=actor,
+        new_value={"status": "pending", "reason": change.get("reason", "Reopened by AI")},
+        confidence=change.get("confidence"),
+    )
+    return {
+        "operation": "reopen_task",
+        "entity_id": task.id,
+        "confidence": change.get("confidence"),
+    }
+
+
+def _apply_add_follow_up(change, source_note_id, actor):
+    title = change.get("title", "Follow-up")
+    follow_up = create_entity(
+        entity_type="task",
+        title=title,
+        source="ai",
+        actor=actor,
+        properties={"follow_up_of": change.get("task_id")},
+    )
+
+    if source_note_id:
+        create_link(
+            src_id=source_note_id,
+            dst_id=follow_up.id,
+            link_type="related",
+            source="ai",
+            confidence=change.get("confidence"),
+            actor=actor,
+        )
+
+    if change.get("task_id"):
+        create_link(
+            src_id=change["task_id"],
+            dst_id=follow_up.id,
+            link_type="subtask",
+            source="ai",
+            confidence=change.get("confidence"),
+            actor=actor,
+        )
+
+    return {
+        "operation": "add_follow_up",
+        "entity_id": follow_up.id,
+        "title": title,
+        "confidence": change.get("confidence"),
+    }
+
+
+def _apply_change_status(change, source_note_id, actor):
+    entity_id = change.get("entity_id")
+    new_status = change.get("status")
+    if not entity_id or not new_status:
+        return None
+    entity = db.session.get(Entity, entity_id)
+    if not entity:
+        return None
+    old_status = entity.status
+    entity.status = new_status
+    _write_event(
+        entity_id=entity.id,
+        event_type="status_changed",
+        actor=actor,
+        new_value={"old": old_status, "new": new_status, "reason": change.get("reason")},
+        confidence=change.get("confidence"),
+    )
+    return {
+        "operation": "change_status",
+        "entity_id": entity.id,
+        "old_status": old_status,
+        "new_status": new_status,
         "confidence": change.get("confidence"),
     }
 
