@@ -240,13 +240,21 @@ export default function NoteDetailView() {
   }, [loadExtracted]);
 
   useEffect(() => {
-    if (note?.ai_status === 'processing' && note?.id) {
+    if ((note?.ai_status === 'processing' || note?.ai_status === 'pending') && note?.id) {
       startAiStatusPoll(note.id, 'note');
     }
     return () => {
       if (note?.id) stopAiStatusPoll(note.id);
     };
   }, [note?.id, note?.ai_status, startAiStatusPoll, stopAiStatusPoll]);
+
+  useEffect(() => {
+    if (note?.id && note?.ai_status === 'done') {
+      loadExtracted();
+      loadProposals();
+      loadLinks();
+    }
+  }, [note?.id, note?.ai_status, loadExtracted, loadProposals, loadLinks]);
 
   useEffect(() => {
     if (!isEditing) setDraftText(note?.raw_text || '');
@@ -391,6 +399,7 @@ export default function NoteDetailView() {
     setClassifying(true);
     try {
       await updateNote(note.id, { classify: true });
+      startAiStatusPoll(note.id, 'note');
       addToast({ type: 'success', message: 'AI re-classified this note' });
     } catch (e) {
       addToast({ type: 'error', message: 'Classification failed' });
@@ -522,18 +531,9 @@ export default function NoteDetailView() {
     }).filter(Boolean),
   ];
 
-  const availableProjectCandidates = useMemo(
-    () => projects.filter((p) => !noteProjectIds.includes(p.id)),
-    [projects, noteProjectIds],
-  );
-  const availableAreaCandidates = useMemo(
-    () => areas.filter((a) => a.id !== note.area_id),
-    [areas, note.area_id],
-  );
-  const availablePersonCandidates = useMemo(
-    () => people.filter((p) => p.id !== note.person_id),
-    [people, note.person_id],
-  );
+  const availableProjectCandidates = projects.filter((p) => !noteProjectIds.includes(p.id));
+  const availableAreaCandidates = areas.filter((a) => a.id !== note.area_id);
+  const availablePersonCandidates = people.filter((p) => p.id !== note.person_id);
 
   const handleAddProjectToNote = async () => {
     if (!projectPick || assocBusy) return;
