@@ -159,3 +159,41 @@ class TestSemanticSearch:
                 MockEntity.query.filter.return_value.all.return_value = [mock_e]
                 results = _semantic_only("test", limit=5)
                 assert len(results) >= 0
+
+    @patch("services.search.db")
+    @patch("services.embeddings.embed_query")
+    def test_semantic_only_accepts_none_filters(self, mock_embed, mock_db, app):
+        mock_embed.return_value = [0.1] * 1536
+        mock_result = MagicMock()
+        mock_result.fetchall.return_value = []
+        mock_db.session.execute.return_value = mock_result
+        mock_db.text = lambda q: q
+
+        from services.search import _semantic_only
+        with app.app_context():
+            results = _semantic_only("test", limit=5, filters=None)
+            assert results == []
+
+    @patch("services.search.db")
+    def test_fts_only_rolls_back_on_error(self, mock_db, app):
+        mock_db.session.execute.side_effect = Exception("boom")
+        mock_db.text = lambda q: q
+
+        from services.search import _fts_only
+        with app.app_context():
+            results = _fts_only("test", limit=5)
+            assert results == []
+            mock_db.session.rollback.assert_called_once()
+
+    @patch("services.search.db")
+    @patch("services.embeddings.embed_query")
+    def test_semantic_only_rolls_back_on_error(self, mock_embed, mock_db, app):
+        mock_embed.return_value = [0.1] * 1536
+        mock_db.session.execute.side_effect = Exception("boom")
+        mock_db.text = lambda q: q
+
+        from services.search import _semantic_only
+        with app.app_context():
+            results = _semantic_only("test", limit=5)
+            assert results == []
+            mock_db.session.rollback.assert_called_once()

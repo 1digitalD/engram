@@ -64,6 +64,7 @@ def _fts_only(query, limit, filters=None):
         entities_map = {e.id: e for e in entities}
         return [entities_map[eid].to_dict() for eid in entity_ids if eid in entities_map]
     except Exception as e:
+        db.session.rollback()
         logger.error("FTS search error: %s", e)
         return []
 
@@ -71,6 +72,7 @@ def _fts_only(query, limit, filters=None):
 def _semantic_only(query, limit, filters=None):
     """Semantic search via pgvector cosine similarity on entity_chunks."""
     from services.embeddings import embed_query
+    filters = filters or {}
 
     vector = embed_query(query)
     if vector is None:
@@ -111,6 +113,7 @@ def _semantic_only(query, limit, filters=None):
                 results.append(d)
         return results
     except Exception as e:
+        db.session.rollback()
         logger.error("Semantic search error: %s", e)
         return []
 
