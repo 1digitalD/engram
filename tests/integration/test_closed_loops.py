@@ -688,6 +688,22 @@ class TestExtractedEntitiesEndpoint:
         assert len(data["derived"]) == 1
         assert data["derived"][0]["id"] == task_id
 
+    def test_extracted_returns_derived_entities_when_link_points_to_note(self, client, app):
+        """derived_from links are detected when direction is task -> note."""
+        from services.entity_service import create_entity
+        from services.link_service import create_link
+
+        with app.app_context():
+            note_id = str(create_entity(entity_type="note", title="Source note", actor="user").id)
+            task_id = str(create_entity(entity_type="task", title="Derived task", actor="user").id)
+            create_link(src_id=task_id, dst_id=note_id, link_type="derived_from", actor="user")
+            db.session.commit()
+
+        resp = client.get(f"/api/v2/entities/{note_id}/extracted")
+        assert resp.status_code == 200
+        data = resp.get_json()["data"]
+        assert any(e["id"] == task_id for e in data["derived"])
+
     def test_extracted_returns_linked_existing(self, client, app):
         """related links to project/area are returned as linked_existing."""
         from services.entity_service import create_entity

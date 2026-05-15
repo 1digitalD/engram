@@ -110,6 +110,7 @@ def v2_get_extracted_entities(entity_id):
     incoming = EntityLink.query.filter_by(dst_id=entity_id).all()
 
     derived = []
+    seen_derived_ids = set()
     linked_existing = []
     for link in outgoing:
         other = db.session.get(Entity, link.dst_id)
@@ -119,10 +120,26 @@ def v2_get_extracted_entities(entity_id):
         d["link_type"] = link.link_type
         d["link_id"] = link.id
         if link.link_type == "derived_from":
-            derived.append(d)
+            if other.id not in seen_derived_ids:
+                derived.append(d)
+                seen_derived_ids.add(other.id)
         elif link.link_type in ("related", "references", "parent"):
             if other.type in ("project", "area"):
                 linked_existing.append(d)
+
+    # Also include entities that were created from this note in the common
+    # task/resource -> note derived_from direction.
+    for link in incoming:
+        if link.link_type != "derived_from":
+            continue
+        other = db.session.get(Entity, link.src_id)
+        if not other or other.id in seen_derived_ids:
+            continue
+        d = other.to_dict()
+        d["link_type"] = link.link_type
+        d["link_id"] = link.id
+        derived.append(d)
+        seen_derived_ids.add(other.id)
 
     from models import AiSuggestion
     suggestions = AiSuggestion.query.filter_by(
