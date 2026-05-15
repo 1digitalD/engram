@@ -4,7 +4,7 @@
  */
 
 import { create } from 'zustand';
-import { notesAPI, projectsAPI, areasAPI, peopleAPI, tasksAPI, ingestAPI, tagsAPI, resourcesAPI, deletePreviewAPI } from '../api/engram';
+import { notesAPI, projectsAPI, areasAPI, peopleAPI, tasksAPI, ingestAPI, captureAPI, tagsAPI, resourcesAPI, deletePreviewAPI } from '../api/engram';
 
 const AI_STATUS_POLL_INTERVAL = 2000;
 const AI_STATUS_POLL_MAX = 30;
@@ -107,11 +107,22 @@ const useStore = create((set, get) => ({
         return true;
       };
 
-      // Run through the full AI ingestion pipeline (classification, task
-      // extraction, entity resolution, embeddings) — not a plain DB insert.
-      // Note: ingest returns { note, tasks, project, area, people, ... }
-      // while the REST notes API returns { data: note }.
-      const res = await ingestAPI.capture({ content, source: 'ui' });
+      // Prefer normalized capture endpoint contract, fallback to ingest for compatibility.
+      let res;
+      try {
+        const captureRes = await captureAPI.capture({ content, mode: 'auto', source: 'ui' });
+        res = {
+          note: captureRes.source_note || captureRes.note || captureRes.data,
+          tasks: captureRes.tasks || [],
+          project: captureRes.project || null,
+          area: captureRes.area || null,
+          people: captureRes.people || [],
+          extraction: captureRes.extraction || null,
+          confident: captureRes.confident,
+        };
+      } catch {
+        res = await ingestAPI.capture({ content, source: 'ui' });
+      }
       let note = res.note || res.data;
 
       const existingProjectIds = note.project_ids?.length

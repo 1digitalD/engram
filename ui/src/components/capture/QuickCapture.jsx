@@ -4,13 +4,13 @@ import useStore from '../../stores/useStore';
 import { resourcesAPI } from '../../api/engram';
 import styles from './QuickCapture.module.css';
 
-const TYPES = ['note', 'task', 'resource', 'person'];
+const TYPES = ['auto', 'note', 'task', 'resource', 'person'];
 
 export default function QuickCapture({ onRequestFullEditor }) {
   const { createNote, createTask, createPerson, closeCapture, addToast, upsertResource } = useStore();
   const [text, setText] = useState('');
   const [saving, setSaving] = useState(false);
-  const [selectedType, setSelectedType] = useState('note');
+  const [selectedType, setSelectedType] = useState('auto');
   const taRef = useRef(null);
 
   useEffect(() => {
@@ -38,6 +38,7 @@ export default function QuickCapture({ onRequestFullEditor }) {
         upsertResource(normalized);
         addToast({ type: 'success', message: 'Saved as reference' });
       } else {
+        // auto + note both preserve source note and run AI interpretation.
         await createNote({ content: raw, bucket: 'INBOX' });
       }
       setText('');
@@ -89,7 +90,8 @@ export default function QuickCapture({ onRequestFullEditor }) {
               </div>
             </div>
             <p className={styles.hint}>
-              {selectedType === 'note' && 'Saves to inbox · AI classifies on save · '}
+              {selectedType === 'auto' && 'Preserve source note · AI interprets and links · '}
+              {selectedType === 'note' && 'Save as note and run AI interpretation · '}
               {selectedType === 'task' && 'Creates a task directly · '}
               {selectedType === 'resource' && 'Saves as a reference · '}
               {selectedType === 'person' && 'Adds a person · '}

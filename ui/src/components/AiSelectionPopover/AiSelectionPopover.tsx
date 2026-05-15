@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import { Loader2, X } from 'lucide-react';
 
 export const AI_ACTIONS = [
@@ -40,6 +40,8 @@ export default function AiSelectionPopover({
   const [closeHovered, setCloseHovered] = useState(false);
   const [dismissedCandidateIds, setDismissedCandidateIds] = useState([]);
   const [applyingCandidateIds, setApplyingCandidateIds] = useState([]);
+  const [clampedX, setClampedX] = useState(position.x);
+  const [resolvedTop, setResolvedTop] = useState(position.y);
 
   useEffect(() => {
     setDismissedCandidateIds([]);
@@ -57,6 +59,38 @@ export default function AiSelectionPopover({
     return () => document.removeEventListener('mousedown', handler);
   }, [visible, onClose]);
 
+  useLayoutEffect(() => {
+    if (!visible) return;
+    const width = popoverRef.current?.offsetWidth || 0;
+    const height = popoverRef.current?.offsetHeight || 0;
+    const viewportWidth = window.innerWidth || 0;
+    const viewportHeight = window.innerHeight || 0;
+    if (width <= 0 || viewportWidth <= 0 || viewportHeight <= 0) {
+      setClampedX(position.x);
+      setResolvedTop(position.y);
+      return;
+    }
+    const gutter = 12;
+    const anchorGap = 10;
+    const minCenter = gutter + width / 2;
+    const maxCenter = Math.max(minCenter, viewportWidth - gutter - width / 2);
+    const next = Math.min(Math.max(position.x, minCenter), maxCenter);
+    setClampedX(next);
+
+    const aboveTop = position.y - height - anchorGap;
+    const belowTop = position.y + anchorGap;
+    const fitsAbove = aboveTop >= gutter;
+    const fitsBelow = belowTop + height <= viewportHeight - gutter;
+
+    if (fitsAbove) {
+      setResolvedTop(aboveTop);
+    } else if (fitsBelow) {
+      setResolvedTop(belowTop);
+    } else {
+      setResolvedTop(Math.max(gutter, Math.min(belowTop, viewportHeight - height - gutter)));
+    }
+  }, [visible, position.x, position.y, result, selectedText]);
+
   useEffect(() => {
     if (!visible) return;
     const handler = (e) => {
@@ -68,14 +102,12 @@ export default function AiSelectionPopover({
     return () => document.removeEventListener('keydown', handler);
   }, [visible, onClose]);
 
-  if (!visible || !selectedText) return null;
-
   const popoverStyle = {
-    position: 'absolute',
+    position: 'fixed',
     zIndex: 100,
-    left: position.x,
-    top: position.y,
-    transform: 'translate(-50%, calc(-100% - 8px))',
+    left: clampedX,
+    top: resolvedTop,
+    transform: 'translateX(-50%)',
     display: 'flex',
     flexDirection: 'column',
     gap: '8px',
@@ -212,6 +244,8 @@ export default function AiSelectionPopover({
     setDismissedCandidateIds((current) => current.concat(candidateId));
   }, []);
 
+  if (!visible || !selectedText) return null;
+
   const renderResult = () => {
     if (!result) return null;
 
@@ -339,8 +373,8 @@ export function useTextSelection(containerRef) {
         : {
             text,
             position: {
-              x: rect.left + rect.width / 2 + window.scrollX,
-              y: rect.top + window.scrollY,
+              x: rect.left + rect.width / 2,
+              y: rect.top,
             },
             visible: true,
           };

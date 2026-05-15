@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -15,6 +15,7 @@ import useStore from '../stores/useStore';
 import NoteEditor from '../components/notes/NoteEditor';
 import { linksAPI, relationshipsAPI } from '../api/engram';
 import LinkedContextPanel from '../components/LinkedContextPanel/LinkedContextPanel';
+import LinkToEntity from '../components/LinkToEntity/LinkToEntity';
 import styles from './ProjectFocus.module.css';
 
 const TABS = [
@@ -186,18 +187,18 @@ export default function ProjectFocus() {
     PENDING: projectTasks.filter((task) => task.status === 'pending').length,
   }), [projectTasks]);
 
-  const nextAction = tasksByColumn['pending']?.[0] || tasksByColumn['in_progress']?.[0] || null;
-
-  const completionPercent = projectTasks.length
-    ? Math.round((taskCounts.DONE / projectTasks.length) * 100)
-    : 0;
-
   const tasksByColumn = useMemo(() => (
     TASK_COLUMNS.reduce((acc, column) => {
       acc[column.key] = projectTasks.filter((task) => task.status === column.key);
       return acc;
     }, {})
   ), [projectTasks]);
+
+  const nextAction = tasksByColumn['pending']?.[0] || tasksByColumn['in_progress']?.[0] || null;
+
+  const completionPercent = projectTasks.length
+    ? Math.round((taskCounts.DONE / projectTasks.length) * 100)
+    : 0;
 
   // Note candidates: notes not already linked to this project
   const alreadyLinkedNoteIds = new Set(projectNotes.map(n => n.id));

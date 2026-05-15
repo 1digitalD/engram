@@ -9,6 +9,9 @@ export default function PostCaptureSummary({
   sourceNote,
   appliedChanges,
   suggestions,
+  proposedChanges,
+  captureSummary,
+  detectedEntities,
   onUndo,
   onReview,
 }) {
@@ -16,6 +19,8 @@ export default function PostCaptureSummary({
 
   const changes = appliedChanges || [];
   const suggested = suggestions || [];
+  const proposed = proposedChanges || [];
+  const detected = detectedEntities || [];
 
   return (
     <div style={{
@@ -66,6 +71,40 @@ export default function PostCaptureSummary({
           <ExternalLink size={12} />
           View source note
         </Link>
+      )}
+
+      {captureSummary && (
+        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+          <strong style={{ color: 'var(--text)' }}>Summary:</strong> {captureSummary}
+        </div>
+      )}
+
+      {detected.length > 0 && (
+        <div>
+          <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px' }}>
+            Detected
+          </div>
+          <div style={{ display: 'grid', gap: '4px' }}>
+            {detected.slice(0, 6).map((d, i) => (
+              <div key={`${d.type}-${d.name}-${i}`} style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                {d.type}: {d.name} {d.match_confidence != null ? `(${Math.round(d.match_confidence * 100)}%)` : ''}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {proposed.length > 0 && (
+        <div>
+          <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px' }}>
+            Proposed
+          </div>
+          <div style={{ display: 'grid', gap: '4px' }}>
+            {proposed.slice(0, 6).map((change, i) => (
+              <ChangeRow key={`proposed-${i}`} change={change} />
+            ))}
+          </div>
+        </div>
       )}
 
       {/* Applied changes */}

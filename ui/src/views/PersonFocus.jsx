@@ -4,6 +4,7 @@ import { ArrowLeft, CheckSquare, FileText, FolderOpen, Sparkles, Tag, UserPlus, 
 import useStore from '../stores/useStore';
 import { relationshipsAPI } from '../api/engram';
 import LinkedContextPanel from '../components/LinkedContextPanel/LinkedContextPanel';
+import LinkToEntity from '../components/LinkToEntity/LinkToEntity';
 import NoteEditor from '../components/notes/NoteEditor';
 import { getEntityTitle } from '../utils/entity';
 import projectStyles from './ProjectFocus.module.css';

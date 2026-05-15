@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { X, Loader2, FileText, CheckSquare, Library, Users } from 'lucide-react';
+import { captureAPI, changeBatchesAPI } from '../../api/engram';
 import styles from './CaptureModal.module.css';
 import PostCaptureSummary from '../PostCaptureSummary/PostCaptureSummary';
 
 const CAPTURE_TYPES = [
+  { value: 'auto', label: 'Auto', icon: FileText },
   { value: 'note', label: 'Note', icon: FileText },
   { value: 'task', label: 'Task', icon: CheckSquare },
   { value: 'resource', label: 'Resource', icon: Library },
@@ -13,7 +15,7 @@ const CAPTURE_TYPES = [
 
 export default function CaptureModal({ onClose, onCreated }) {
   const [content, setContent] = useState('');
-  const [entityType, setEntityType] = useState('note');
+  const [entityType, setEntityType] = useState('auto');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [captureResult, setCaptureResult] = useState(null);
@@ -27,20 +29,11 @@ export default function CaptureModal({ onClose, onCreated }) {
     setError('');
 
     try {
-      const response = await fetch('/api/v2/capture', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          content: body,
-          mode: entityType,
-          source: 'ui',
-        }),
+      const payload = await captureAPI.capture({
+        content: body,
+        mode: entityType,
+        source: 'ui',
       });
-
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(payload.error || payload.message || `HTTP ${response.status}`);
-      }
 
       const sourceNote = payload.source_note || payload.data || payload.note;
       if (!sourceNote?.id) {
@@ -51,6 +44,10 @@ export default function CaptureModal({ onClose, onCreated }) {
         sourceNote,
         appliedChanges: payload.applied_changes || [],
         suggestions: payload.suggestions || [],
+        proposedChanges: payload.proposed_changes || [],
+        captureSummary: payload.capture_summary || '',
+        detectedEntities: payload.detected_entities || [],
+        changeBatchId: payload.change_batch_id || null,
         warnings: payload.warnings || [],
         entityType,
       });
@@ -207,7 +204,12 @@ export default function CaptureModal({ onClose, onCreated }) {
           sourceNote={captureResult.sourceNote}
           appliedChanges={captureResult.appliedChanges}
           suggestions={captureResult.suggestions}
-          onUndo={null}
+          proposedChanges={captureResult.proposedChanges}
+          captureSummary={captureResult.captureSummary}
+          detectedEntities={captureResult.detectedEntities}
+          onUndo={captureResult.changeBatchId ? async () => {
+            await changeBatchesAPI.undo(captureResult.changeBatchId);
+          } : null}
           onReview={() => {
             handleClose();
             navigate('/review');

@@ -8,6 +8,7 @@ import NoteEditor from '../components/notes/NoteEditor';
 import TaskCheckboxRow from '../components/tasks/TaskCheckboxRow';
 import { relationshipsAPI } from '../api/engram';
 import LinkedContextPanel from '../components/LinkedContextPanel/LinkedContextPanel';
+import LinkToEntity from '../components/LinkToEntity/LinkToEntity';
 import DeleteConfirmModal from '../components/DeleteConfirmModal';
 import styles from './ProjectFocus.module.css';
 
@@ -97,6 +98,11 @@ export default function AreaFocus() {
 
   useEffect(() => { loadLinks(); }, [loadLinks]);
 
+  const area = areas.find(a => a.id === id);
+  const areaNotes = area ? notes.filter((n) => n.area_id === id) : [];
+  const areaProjects = area ? projects.filter((p) => p.area_id === id && !p.is_archived) : [];
+  const areaTasks = area ? tasks.filter((t) => t.area_id === id) : [];
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -133,7 +139,6 @@ export default function AreaFocus() {
     }
   }, [showStatusPicker]);
 
-  const area = areas.find(a => a.id === id);
   if (!area) {
     if (loading) {
       return (
@@ -151,10 +156,6 @@ export default function AreaFocus() {
       </div>
     );
   }
-
-  const areaNotes = notes.filter(n => n.area_id === id);
-  const areaProjects = projects.filter(p => p.area_id === id && !p.is_archived);
-  const areaTasks = tasks.filter(t => t.area_id === id);
 
   const openEdit = () => {
     setName(area.title || '');

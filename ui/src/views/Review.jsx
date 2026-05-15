@@ -21,7 +21,7 @@ import {
   HeartPulse,
 } from 'lucide-react';
 import useStore from '../stores/useStore';
-import { summariesAPI, proposalsAPI, reviewAPI, metricsAPI, suggestionsAPI } from '../api/engram';
+import { summariesAPI, proposalsAPI, reviewAPI, metricsAPI, suggestionsAPI, changeBatchesAPI } from '../api/engram';
 import NoteCard from '../components/notes/NoteCard';
 import styles from './Review.module.css';
 import {
@@ -356,6 +356,11 @@ export default function Review() {
   const [aiSuggestionsLoading, setAiSuggestionsLoading] = useState(false);
   const [aiSuggestionsError, setAiSuggestionsError] = useState(null);
   const [aiSuggestionBusyId, setAiSuggestionBusyId] = useState(null);
+  const [editingSuggestionId, setEditingSuggestionId] = useState(null);
+  const [editingOperationType, setEditingOperationType] = useState('');
+  const [editingReason, setEditingReason] = useState('');
+  const [changeBatches, setChangeBatches] = useState([]);
+  const [changeBatchesLoading, setChangeBatchesLoading] = useState(false);
 
   const [insightsTab, setInsightsTab] = useState('summary');
   const [healthHistory, setHealthHistory] = useState([]);
@@ -416,6 +421,22 @@ export default function Review() {
   useEffect(() => {
     loadAiSuggestions();
   }, [loadAiSuggestions]);
+
+  const loadChangeBatches = useCallback(async () => {
+    setChangeBatchesLoading(true);
+    try {
+      const res = await changeBatchesAPI.list({ limit: 10 });
+      setChangeBatches(res.data || []);
+    } catch {
+      setChangeBatches([]);
+    } finally {
+      setChangeBatchesLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadChangeBatches();
+  }, [loadChangeBatches]);
 
   useEffect(() => {
     let cancelled = false;
@@ -891,6 +912,20 @@ export default function Review() {
                           <button
                             type="button"
                             className="btn btn-ghost btn-sm"
+                            onClick={() => {
+                              if (busy) return;
+                              setEditingSuggestionId(s.id);
+                              setEditingOperationType(s.operation_type || '');
+                              setEditingReason(s.reason || '');
+                            }}
+                            disabled={busy}
+                            title="Edit suggestion"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm"
                             onClick={async () => {
                               if (busy) return;
                               setAiSuggestionBusyId(s.id);
@@ -910,11 +945,102 @@ export default function Review() {
                             Dismiss
                           </button>
                         </div>
+                        {editingSuggestionId === s.id && (
+                          <div style={{ width: '100%', display: 'grid', gap: '6px', marginTop: '8px' }}>
+                            <input
+                              value={editingOperationType}
+                              onChange={(e) => setEditingOperationType(e.target.value)}
+                              placeholder="operation_type"
+                              style={{ padding: '6px 8px', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--surface)' }}
+                            />
+                            <textarea
+                              value={editingReason}
+                              onChange={(e) => setEditingReason(e.target.value)}
+                              placeholder="reason"
+                              rows={2}
+                              style={{ padding: '6px 8px', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--surface)' }}
+                            />
+                            <div style={{ display: 'flex', gap: '6px' }}>
+                              <button
+                                type="button"
+                                className="btn btn-primary btn-sm"
+                                onClick={async () => {
+                                  setAiSuggestionBusyId(s.id);
+                                  try {
+                                    await suggestionsAPI.edit(s.id, {
+                                      operation_type: editingOperationType.trim() || s.operation_type,
+                                      reason: editingReason.trim(),
+                                    });
+                                    await loadAiSuggestions();
+                                    addToast({ type: 'success', message: 'Suggestion updated' });
+                                    setEditingSuggestionId(null);
+                                  } catch (e) {
+                                    addToast({ type: 'error', message: e.message || 'Failed to edit suggestion' });
+                                  } finally {
+                                    setAiSuggestionBusyId(null);
+                                  }
+                                }}
+                                disabled={busy}
+                              >
+                                Save
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-ghost btn-sm"
+                                onClick={() => setEditingSuggestionId(null)}
+                                disabled={busy}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </li>
                     );
                   })}
                 </ul>
               )}
+
+              <div style={{ marginTop: '12px' }}>
+                <div className={styles.proposalsLead} style={{ marginBottom: '8px' }}>
+                  Recent AI change batches
+                </div>
+                {changeBatchesLoading ? (
+                  <p className={styles.summaryMuted}>Loading batches…</p>
+                ) : changeBatches.length === 0 ? (
+                  <p className={styles.summaryMuted}>No recent batches.</p>
+                ) : (
+                  <ul className={styles.proposalList}>
+                    {changeBatches.map((b) => (
+                      <li key={b.id} className={styles.proposalRow}>
+                        <div className={styles.proposalMain}>
+                          <span style={{ fontWeight: 600, color: 'var(--text)' }}>{b.summary || 'AI changes'}</span>
+                          <p className={styles.proposalReason}>{b.applied_at}</p>
+                        </div>
+                        <div className={styles.proposalActions}>
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm"
+                            disabled={!!b.undone_at}
+                            onClick={async () => {
+                              try {
+                                await changeBatchesAPI.undo(b.id);
+                                addToast({ type: 'success', message: 'Batch undone' });
+                                await loadChangeBatches();
+                                await loadAiSuggestions();
+                              } catch (e) {
+                                addToast({ type: 'error', message: e.message || 'Failed to undo batch' });
+                              }
+                            }}
+                          >
+                            Undo
+                          </button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </section>
           </div>
         </WorkflowStepPanel>

@@ -213,7 +213,7 @@ class TestSuggestionsEditAPI:
         )
         assert res.status_code == 200
         data = json.loads(res.data)["data"]
-        assert data["status"] == "edited"
+        assert data["status"] == "pending"
         assert data["payload"]["dst_id"] == "new-target"
 
     def test_edit_nonexistent(self, client, app):
@@ -240,3 +240,16 @@ class TestSuggestionsEditAPI:
         assert res.status_code == 200
         data = json.loads(res.data)["data"]
         assert data["operation_type"] == "link_existing"
+
+    def test_edit_updates_reason(self, client, app):
+        with app.app_context():
+            eid = _create_entity(title="Source")
+            sid = _create_suggestion(eid, reason="Old reason")
+
+        res = client.post(
+            f"/api/v2/suggestions/{sid}/edit",
+            json={"reason": "New reason"},
+        )
+        assert res.status_code == 200
+        data = json.loads(res.data)["data"]
+        assert data["reason"] == "New reason"

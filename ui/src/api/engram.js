@@ -158,31 +158,79 @@ export const entitiesAPI = {
 
 // ── Capture API ────────────────────────────
 export const captureAPI = {
-  capture: (data) => fetch('/api/v2/capture', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  }).then(async res => {
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ error: res.statusText }));
-      throw new Error(err.error || err.message || `HTTP ${res.status}`);
+  capture: async (data) => {
+    // Prefer canonical v1 endpoint, fallback to current v2 route in mixed deployments.
+    try {
+      return await apiRequest('POST', '/capture', data);
+    } catch (e) {
+      const res = await fetch('/api/v2/capture', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: res.statusText }));
+        throw new Error(err.error || err.message || `HTTP ${res.status}`);
+      }
+      return res.json();
     }
-    return res.json();
-  }),
+  },
 };
 
 // ── Suggestions API ────────────────────────
 export const suggestionsAPI = {
-  list:    (params = {}) => {
+  list:    async (params = {}) => {
     const qs = new URLSearchParams();
     if (params.entityId) qs.set('entity_id', params.entityId);
     if (params.status) qs.set('status', params.status);
     if (params.limit) qs.set('limit', params.limit);
     const q = qs.toString();
-    return fetch(`/api/v2/suggestions${q ? '?' + q : ''}`).then(r => r.json());
+    const res = await fetch(`/api/v2/suggestions${q ? '?' + q : ''}`);
+    if (!res.ok) throw new Error(`Failed to load suggestions: ${res.status}`);
+    return res.json();
   },
-  accept:  (id) => fetch(`/api/v2/suggestions/${id}/accept`, { method: 'POST' }).then(r => r.json()),
-  dismiss: (id) => fetch(`/api/v2/suggestions/${id}/dismiss`, { method: 'POST' }).then(r => r.json()),
+  accept: async (id) => {
+    const res = await fetch(`/api/v2/suggestions/${id}/accept`, { method: 'POST' });
+    if (!res.ok) throw new Error(`Failed to accept suggestion: ${res.status}`);
+    return res.json();
+  },
+  dismiss: async (id) => {
+    const res = await fetch(`/api/v2/suggestions/${id}/dismiss`, { method: 'POST' });
+    if (!res.ok) throw new Error(`Failed to dismiss suggestion: ${res.status}`);
+    return res.json();
+  },
+  edit: async (id, payload) => {
+    const res = await fetch(`/api/v2/suggestions/${id}/edit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || err.message || `Failed to edit suggestion: ${res.status}`);
+    }
+    return res.json();
+  },
+};
+
+export const changeBatchesAPI = {
+  list: async (params = {}) => {
+    const qs = new URLSearchParams();
+    if (params.limit) qs.set('limit', params.limit);
+    if (params.sourceNoteId) qs.set('source_note_id', params.sourceNoteId);
+    const q = qs.toString();
+    const res = await fetch(`/api/v2/change-batches${q ? '?' + q : ''}`);
+    if (!res.ok) throw new Error(`Failed to load change batches: ${res.status}`);
+    return res.json();
+  },
+  undo: async (id) => {
+    const res = await fetch(`/api/v2/change-batches/${id}/undo`, { method: 'POST' });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || err.message || `Failed to undo batch: ${res.status}`);
+    }
+    return res.json();
+  },
 };
 
 // ── Relationships API ─────────────────────

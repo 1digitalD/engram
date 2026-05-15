@@ -11,6 +11,7 @@ from api import api_bp, api_v2_bp
 from extensions import db
 from models import ChangeBatch, Entity, EntityLink, AiSuggestion
 from services.link_service import create_link as svc_create_link
+from services.entity_service import _write_event
 from sqlalchemy import or_
 
 logger = logging.getLogger(__name__)
@@ -264,13 +265,39 @@ def v2_edit_suggestion(suggestion_id):
         return jsonify({"error": f"Suggestion already {suggestion.status}"}), 400
 
     data = request.get_json(silent=True) or {}
-    if "payload" in data:
-        suggestion.payload = data["payload"]
-    if "operation_type" in data:
-        suggestion.operation_type = data["operation_type"]
+    old_payload = suggestion.payload or {}
+    old_operation_type = suggestion.operation_type
+    old_reason = suggestion.reason
 
-    suggestion.status = "edited"
-    suggestion.resolved_at = datetime.now(timezone.utc)
+    if "payload" in data and isinstance(data["payload"], dict):
+        suggestion.payload = data["payload"]
+    if "operation_type" in data and data["operation_type"]:
+        suggestion.operation_type = str(data["operation_type"]).strip()
+    if "reason" in data and data["reason"] is not None:
+        suggestion.reason = str(data["reason"]).strip()
+
+    # Keep edited suggestions reviewable.
+    suggestion.status = "pending"
+    suggestion.resolved_at = None
+
+    _write_event(
+        entity_id=suggestion.source_entity_id,
+        event_type="ai_correction",
+        actor="user",
+        old_value={
+            "suggestion_id": suggestion.id,
+            "payload": old_payload,
+            "operation_type": old_operation_type,
+            "reason": old_reason,
+        },
+        new_value={
+            "suggestion_id": suggestion.id,
+            "payload": suggestion.payload,
+            "operation_type": suggestion.operation_type,
+            "reason": suggestion.reason,
+        },
+        reason="user edited AI suggestion",
+    )
     db.session.commit()
 
     return jsonify({"data": suggestion.to_dict()}), 200
@@ -294,3 +321,18 @@ def v2_undo_change_batch(batch_id):
     except Exception as e:
         logger.exception("Failed to undo change batch %s", batch_id)
         return jsonify({"error": str(e)}), 500
+
+
+@api_v2_bp.route("/change-batches", methods=["GET"])
+def v2_list_change_batches():
+    """List recent change batches (latest first)."""
+    limit = request.args.get("limit", DEFAULT_LIMIT, type=int)
+    limit = max(1, min(limit, MAX_LIMIT))
+    source_note_id = request.args.get("source_note_id")
+
+    query = ChangeBatch.query
+    if source_note_id:
+        query = query.filter(ChangeBatch.source_note_id == source_note_id)
+
+    rows = query.order_by(ChangeBatch.applied_at.desc()).limit(limit).all()
+    return jsonify({"data": [row.to_dict() for row in rows]})

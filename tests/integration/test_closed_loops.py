@@ -485,6 +485,21 @@ class TestTaskCompletionCaptureLoop:
         result = resp.get_json()
         assert "source_note" in result
         assert result["source_note"] is not None
+        assert "capture_summary" in result
+        assert "detected_entities" in result
+        assert "proposed_changes" in result
+
+    def test_capture_v1_endpoint_works_with_same_contract(self, client, app):
+        resp = client.post("/api/v1/capture", json={
+            "content": "Captured from v1 endpoint",
+            "source": "quick_capture",
+        })
+        assert resp.status_code == 201
+        result = resp.get_json()
+        assert "source_note" in result
+        assert "applied_changes" in result
+        assert "suggestions" in result
+        assert "warnings" in result
 
     def test_add_follow_up_via_proposed_changes_creates_task(self, client, app):
         """add_follow_up in proposed_changes (high confidence) creates the follow-up task."""

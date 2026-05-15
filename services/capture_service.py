@@ -102,6 +102,28 @@ def process_capture(content, mode="auto", source="quick_capture"):
         return _capture_as_note(content, source)
 
 
+def _capture_result(
+    source_note,
+    applied_changes,
+    suggestions=None,
+    warnings=None,
+    change_batch_id=None,
+    capture_summary=None,
+    detected_entities=None,
+    proposed_changes=None,
+):
+    return {
+        "source_note": source_note,
+        "applied_changes": applied_changes or [],
+        "suggestions": suggestions or [],
+        "warnings": warnings or [],
+        "change_batch_id": change_batch_id,
+        "capture_summary": capture_summary or "",
+        "detected_entities": detected_entities or [],
+        "proposed_changes": proposed_changes or [],
+    }
+
+
 def _capture_as_note(content, source):
     """Save as source note, trigger AI pipeline, return structured result."""
     note = _create_source_note(content, source)
@@ -115,12 +137,30 @@ def _capture_as_note(content, source):
     }]
 
     detected = inline_extract(content)
+    suggestions = []
+    change_batch_id = None
+    proposed_changes = []
+    detected_entities = []
     if detected:
         reconciled = reconcile_all(detected)
         change_plan = _build_change_plan(note.id, reconciled, content)
+        proposed_changes = change_plan.get("proposed_changes", [])
+        for r in reconciled:
+            d = r.get("detected") or {}
+            rec = r.get("reconciliation") or {}
+            matched = rec.get("matched_entity")
+            detected_entities.append({
+                "type": d.get("type"),
+                "name": d.get("name"),
+                "match_confidence": rec.get("confidence"),
+                "matched_entity_id": str(matched.id) if matched else None,
+                "operation": "link_existing_entity" if matched else "create_new_entity",
+            })
         if change_plan["proposed_changes"] or change_plan["suggestions"]:
             result = apply_change_plan(change_plan, actor="agent:capture")
             applied_changes.extend(result["applied_changes"])
+            suggestions.extend(result.get("suggestions", []))
+            change_batch_id = result.get("change_batch_id")
 
     # Detect task completion in content
     completion_keywords = [
@@ -151,18 +191,24 @@ def _capture_as_note(content, source):
                 }
                 result = apply_change_plan(complete_plan, actor="agent:capture")
                 applied_changes.extend(result["applied_changes"])
+                if result.get("change_batch_id"):
+                    change_batch_id = result["change_batch_id"]
                 logger.info("Completed task '%s' via capture", task_title)
 
     enqueue_classify(note.id)
     enqueue_embed(note.id)
     db.session.commit()
 
-    return {
-        "source_note": _safe_to_dict(note),
-        "applied_changes": applied_changes,
-        "suggestions": [],
-        "warnings": [],
-    }
+    return _capture_result(
+        source_note=_safe_to_dict(note),
+        applied_changes=applied_changes,
+        suggestions=suggestions,
+        warnings=[],
+        change_batch_id=change_batch_id,
+        capture_summary=_first_line(content),
+        detected_entities=detected_entities,
+        proposed_changes=proposed_changes,
+    )
 
 
 def _capture_as_task(content, source):
@@ -173,18 +219,16 @@ def _capture_as_task(content, source):
     from services.entity_reconciliation_service import reconcile_task
     existing = reconcile_task(title)
     if existing and existing.get("confidence", 0) >= 0.88:
-        return {
-            "source_note": None,
-            "applied_changes": [{
+        return _capture_result(
+            source_note=None,
+            applied_changes=[{
                 "operation": "link_existing_entity",
                 "type": "task",
                 "entity_id": existing["matched_entity"].id,
                 "title": existing["matched_entity"].title,
                 "confidence": existing["confidence"],
             }],
-            "suggestions": [],
-            "warnings": [],
-        }
+        )
 
     task = create_entity(
         entity_type="task",
@@ -196,18 +240,16 @@ def _capture_as_task(content, source):
     )
     db.session.commit()
 
-    return {
-        "source_note": None,
-        "applied_changes": [{
+    return _capture_result(
+        source_note=None,
+        applied_changes=[{
             "operation": "create_entity",
             "type": "task",
             "entity_id": task.id,
             "title": title,
             "confidence": 1.0,
         }],
-        "suggestions": [],
-        "warnings": [],
-    }
+    )
 
 
 def _capture_as_resource(content, source):
@@ -221,18 +263,16 @@ def _capture_as_resource(content, source):
         from services.entity_reconciliation_service import reconcile_resource
         existing = reconcile_resource(url=urls[0])
         if existing:
-            return {
-                "source_note": None,
-                "applied_changes": [{
+            return _capture_result(
+                source_note=None,
+                applied_changes=[{
                     "operation": "link_existing_entity",
                     "type": "resource",
                     "entity_id": existing["matched_entity"].id,
                     "title": existing["matched_entity"].title,
                     "confidence": existing["confidence"],
                 }],
-                "suggestions": [],
-                "warnings": [],
-            }
+            )
 
     resource = create_entity(
         entity_type="resource",
@@ -250,18 +290,16 @@ def _capture_as_resource(content, source):
 
     db.session.commit()
 
-    return {
-        "source_note": None,
-        "applied_changes": [{
+    return _capture_result(
+        source_note=None,
+        applied_changes=[{
             "operation": "create_entity",
             "type": "resource",
             "entity_id": resource.id,
             "title": title,
             "confidence": 1.0,
         }],
-        "suggestions": [],
-        "warnings": [],
-    }
+    )
 
 
 def _capture_as_person(content, source):
@@ -271,18 +309,16 @@ def _capture_as_person(content, source):
     from services.entity_reconciliation_service import reconcile_person
     existing = reconcile_person(title)
     if existing and existing.get("confidence", 0) >= 0.88:
-        return {
-            "source_note": None,
-            "applied_changes": [{
+        return _capture_result(
+            source_note=None,
+            applied_changes=[{
                 "operation": "link_existing_entity",
                 "type": "person",
                 "entity_id": existing["matched_entity"].id,
                 "title": existing["matched_entity"].title,
                 "confidence": existing["confidence"],
             }],
-            "suggestions": [],
-            "warnings": [],
-        }
+        )
 
     person = create_entity(
         entity_type="person",
@@ -293,18 +329,16 @@ def _capture_as_person(content, source):
     )
     db.session.commit()
 
-    return {
-        "source_note": None,
-        "applied_changes": [{
+    return _capture_result(
+        source_note=None,
+        applied_changes=[{
             "operation": "create_entity",
             "type": "person",
             "entity_id": person.id,
             "title": title,
             "confidence": 1.0,
         }],
-        "suggestions": [],
-        "warnings": [],
-    }
+    )
 
 
 def _create_source_note(content, source):

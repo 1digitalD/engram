@@ -61,8 +61,8 @@
 /* ── Header ─────────────────────────────────── */
 
 .header {
-  padding-bottom: var(--space-5);
-  margin-bottom: var(--space-5);
+  padding-bottom: var(--space-4);
+  margin-bottom: var(--space-4);
   border-bottom: 1px solid var(--border-faint);
 }
 
@@ -154,6 +154,41 @@
   margin-left: auto;
   display: flex;
   gap: var(--space-1);
+}
+
+.inlineMetaSection {
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-md);
+  background: var(--surface2);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-2) var(--space-3);
+}
+
+.inlineMetaItem {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+.inlineMetaKey {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.inlineMetaValue {
+  font-size: 12px;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ── Main content ───────────────────────────── */
@@ -423,16 +458,16 @@
 /* ── AI info ────────────────────────────────── */
 
 .aiInfo {
-  padding: var(--space-3) var(--space-4);
+  padding: 8px 12px;
   background: var(--accent-dim);
   border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--border-faint));
   border-radius: var(--radius-md);
-  font-size: var(--text-sm);
+  font-size: 12px;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2);
-  margin-bottom: var(--space-4);
+  gap: 8px;
+  margin-bottom: var(--space-3);
 }
 
 .aiLabel {
@@ -447,20 +482,21 @@
 
 .aiReason {
   width: 100%;
-  margin-top: var(--space-1);
+  margin-top: 2px;
   color: var(--text-secondary);
-  font-size: var(--text-xs);
+  font-size: 11px;
   font-style: italic;
+  line-height: 1.35;
 }
 
 /* ── Metadata section ───────────────────────── */
 
 .metadataSection {
-  padding: var(--space-4);
+  padding: var(--space-3);
   background: var(--surface);
   border: 1px solid var(--border-faint);
   border-radius: var(--radius-md);
-  margin-bottom: var(--space-5);
+  margin-bottom: var(--space-4);
 }
 
 .sectionTitle {
@@ -479,13 +515,37 @@
   gap: var(--space-3);
 }
 
+.assocBlock {
+  display: grid;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.assocChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.assocAddRow {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.convertGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
 /* ── Panels ─────────────────────────────────── */
 
 .panels {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: var(--space-4);
-  margin-top: var(--space-5);
+  margin-top: var(--space-4);
 }
 
 .panel {

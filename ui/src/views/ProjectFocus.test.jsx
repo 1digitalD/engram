@@ -110,7 +110,7 @@ describe('ProjectFocus complete project', () => {
     await user.click(screen.getByRole('button', { name: 'Tasks' }));
     expect(screen.getByText('Done task')).toBeInTheDocument();
     expect(screen.getByText('Active task')).toBeInTheDocument();
-    expect(screen.getByText('Planned task')).toBeInTheDocument();
+    expect(screen.getAllByText('Planned task').length).toBeGreaterThan(0);
 
     await user.click(screen.getByRole('button', { name: 'People' }));
     expect(screen.getByText('Ada Lovelace')).toBeInTheDocument();

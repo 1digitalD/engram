@@ -6,7 +6,7 @@ import {
   FileText,
 } from 'lucide-react';
 import useStore from '../stores/useStore';
-import { linksAPI, relationshipsAPI } from '../api/engram';
+import { linksAPI, relationshipsAPI, resourcesAPI } from '../api/engram';
 import { BucketBadge, TagBadge } from '../components/ui/Badge';
 import TipTapEditor, { renderStoredContent } from '../components/Editor/TipTapEditor';
 import {
@@ -67,6 +67,53 @@ function formatDateTime(value) {
   });
 }
 
+const STRUCTURED_META_KEYS = ['due', 'priority', 'status', 'linked', 'source'];
+
+function extractStructuredMetadata(rawText) {
+  const text = String(rawText || '');
+  const lines = text.split('\n');
+  const metadata = [];
+  let idx = 0;
+
+  while (idx < lines.length && !lines[idx].trim()) idx += 1;
+
+  // Optional first line title (e.g., "Task: ...") before metadata block.
+  // If followed by at least one known metadata row, skip it from body render.
+  const startIdx = idx;
+  if (idx + 1 < lines.length) {
+    const next = lines[idx + 1].trim();
+    const nextMatch = next.match(/^([A-Za-z][A-Za-z _-]*):\s*(.+)$/);
+    if (nextMatch && STRUCTURED_META_KEYS.includes(nextMatch[1].trim().toLowerCase())) {
+      idx += 1;
+    }
+  }
+
+  for (; idx < lines.length; idx += 1) {
+    const line = lines[idx].trim();
+    if (!line) {
+      idx += 1;
+      break;
+    }
+    const match = line.match(/^([A-Za-z][A-Za-z _-]*):\s*(.+)$/);
+    if (!match) break;
+    const key = match[1].trim();
+    const value = match[2].trim();
+    if (!STRUCTURED_META_KEYS.includes(key.toLowerCase())) break;
+    metadata.push({ key, value });
+  }
+
+  if (metadata.length === 0) {
+    return { metadata: [], body: text };
+  }
+
+  return {
+    metadata,
+    body: lines.slice(idx).join('\n').trimStart(),
+    // Used only to avoid duplicate title/meta blocks in the rendered article.
+    _strippedFrom: startIdx,
+  };
+}
+
 
 
 const ENTITY_GROUPS = [
@@ -88,6 +135,10 @@ export default function NoteDetailView() {
     people,
     tasks,
     resources,
+    createProject,
+    createArea,
+    createPerson,
+    upsertResource,
     updateNote,
     deleteNote,
     getDeletePreview,
@@ -127,6 +178,11 @@ export default function NoteDetailView() {
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [followUpBusy, setFollowUpBusy] = useState(false);
   const [lifecycleBusy, setLifecycleBusy] = useState(false);
+  const [projectPick, setProjectPick] = useState('');
+  const [areaPick, setAreaPick] = useState('');
+  const [personPick, setPersonPick] = useState('');
+  const [assocBusy, setAssocBusy] = useState(false);
+  const [convertBusy, setConvertBusy] = useState('');
 
   const loadLinks = useCallback(async () => {
     if (!note?.id) return;
@@ -453,6 +509,7 @@ export default function NoteDetailView() {
   };
 
   const tagNames = note.tag_names || [];
+  const structuredMeta = extractStructuredMetadata(note.raw_text || '');
   const suggestedLinks = [
     ...linkedProjects.slice(0, 2).map(p => ({ id: p.id, label: p.title, route: `/projects/${p.id}` })),
     ...linksOut.slice(0, 2).map(l => {
@@ -464,6 +521,148 @@ export default function NoteDetailView() {
       };
     }).filter(Boolean),
   ];
+
+  const availableProjectCandidates = useMemo(
+    () => projects.filter((p) => !noteProjectIds.includes(p.id)),
+    [projects, noteProjectIds],
+  );
+  const availableAreaCandidates = useMemo(
+    () => areas.filter((a) => a.id !== note.area_id),
+    [areas, note.area_id],
+  );
+  const availablePersonCandidates = useMemo(
+    () => people.filter((p) => p.id !== note.person_id),
+    [people, note.person_id],
+  );
+
+  const handleAddProjectToNote = async () => {
+    if (!projectPick || assocBusy) return;
+    setAssocBusy(true);
+    try {
+      await updateNote(note.id, { project_ids: [...noteProjectIds, projectPick] });
+      setProjectPick('');
+    } catch (e) {
+      addToast({ type: 'error', message: e.message || 'Could not add project' });
+    } finally {
+      setAssocBusy(false);
+    }
+  };
+
+  const handleSetAreaForNote = async () => {
+    if (!areaPick || assocBusy) return;
+    setAssocBusy(true);
+    try {
+      await updateNote(note.id, { area_id: areaPick });
+      setAreaPick('');
+    } catch (e) {
+      addToast({ type: 'error', message: e.message || 'Could not set area' });
+    } finally {
+      setAssocBusy(false);
+    }
+  };
+
+  const handleSetPersonForNote = async () => {
+    if (!personPick || assocBusy) return;
+    setAssocBusy(true);
+    try {
+      await updateNote(note.id, { person_id: personPick });
+      setPersonPick('');
+    } catch (e) {
+      addToast({ type: 'error', message: e.message || 'Could not set person' });
+    } finally {
+      setAssocBusy(false);
+    }
+  };
+
+  const convertToTask = async () => {
+    if (convertBusy) return;
+    setConvertBusy('task');
+    try {
+      await createTask({
+        title: notePreviewLine(note),
+        note_id: note.id,
+        project_id: noteProjectIds[0] || null,
+        area_id: note.area_id || null,
+      });
+      addToast({ type: 'success', message: 'Task created from note' });
+    } catch (e) {
+      addToast({ type: 'error', message: e.message || 'Could not create task' });
+    } finally {
+      setConvertBusy('');
+    }
+  };
+
+  const convertToProject = async () => {
+    if (convertBusy) return;
+    setConvertBusy('project');
+    try {
+      const project = await createProject({
+        title: notePreviewLine(note),
+        description: (structuredMeta.body || '').slice(0, 1000) || null,
+        area_id: note.area_id || null,
+      });
+      await updateNote(note.id, { project_ids: [...noteProjectIds, project.id] });
+      addToast({ type: 'success', message: 'Project created and linked to note' });
+    } catch (e) {
+      addToast({ type: 'error', message: e.message || 'Could not create project' });
+    } finally {
+      setConvertBusy('');
+    }
+  };
+
+  const convertToArea = async () => {
+    if (convertBusy) return;
+    setConvertBusy('area');
+    try {
+      const areaEntity = await createArea({
+        title: notePreviewLine(note),
+        description: (structuredMeta.body || '').slice(0, 500) || null,
+      });
+      await updateNote(note.id, { area_id: areaEntity.id });
+      addToast({ type: 'success', message: 'Area created and linked to note' });
+    } catch (e) {
+      addToast({ type: 'error', message: e.message || 'Could not create area' });
+    } finally {
+      setConvertBusy('');
+    }
+  };
+
+  const convertToPerson = async () => {
+    if (convertBusy) return;
+    setConvertBusy('person');
+    try {
+      const personEntity = await createPerson({
+        title: notePreviewLine(note).replace(/^Task:\s*/i, '').trim(),
+      });
+      await updateNote(note.id, { person_id: personEntity.id });
+      addToast({ type: 'success', message: 'Person created and linked to note' });
+    } catch (e) {
+      addToast({ type: 'error', message: e.message || 'Could not create person' });
+    } finally {
+      setConvertBusy('');
+    }
+  };
+
+  const convertToResource = async () => {
+    if (convertBusy) return;
+    setConvertBusy('resource');
+    try {
+      const created = await resourcesAPI.create({
+        title: notePreviewLine(note),
+        description: (structuredMeta.body || '').slice(0, 2000) || null,
+      });
+      const resourceEntity = created?.data;
+      if (resourceEntity?.id) {
+        upsertResource(resourceEntity);
+        await linksAPI.create({ src_id: note.id, dst_id: resourceEntity.id, link_type: 'references' });
+      }
+      addToast({ type: 'success', message: 'Resource created from note' });
+    } catch (e) {
+      addToast({ type: 'error', message: e.message || 'Could not create resource' });
+    } finally {
+      setConvertBusy('');
+    }
+  };
 
   return (
     <div className={styles.page}>
@@ -515,6 +714,16 @@ export default function NoteDetailView() {
                 </button>
               </div>
             </div>
+            {structuredMeta.metadata.length > 0 && (
+              <section className={styles.inlineMetaSection} aria-label="Note metadata">
+                {structuredMeta.metadata.map((entry) => (
+                  <div key={entry.key} className={styles.inlineMetaItem}>
+                    <span className={styles.inlineMetaKey}>{entry.key}</span>
+                    <span className={styles.inlineMetaValue}>{entry.value}</span>
+                  </div>
+                ))}
+              </section>
+            )}
           </header>
 
           {/* MOC TOC */}
@@ -588,7 +797,7 @@ export default function NoteDetailView() {
               aria-label="Edit note text"
             >
               <span className={styles.editHint}>Click to edit</span>
-              <div dangerouslySetInnerHTML={{ __html: renderStoredContent(note.raw_text || '') }} />
+              <div dangerouslySetInnerHTML={{ __html: renderStoredContent(structuredMeta.body || '') }} />
             </article>
           )}
 
@@ -603,7 +812,7 @@ export default function NoteDetailView() {
           {/* AI info */}
           {note._ai_meta && (
             <div className={styles.aiInfo}>
-              <span className={styles.aiLabel}>AI classified as</span>
+              <span className={styles.aiLabel}>AI</span>
               <BucketBadge bucket={note._ai_meta.bucket?.toUpperCase()} />
               <span className={styles.aiConf}>
                 {Math.round((note._ai_meta.confidence || 0) * 100)}% confidence
@@ -649,6 +858,108 @@ export default function NoteDetailView() {
                   </span>
                 </div>
               )}
+            </div>
+          </section>
+
+          <section className={styles.metadataSection}>
+            <h2 className={styles.sectionTitle}>
+              <Link2 size={14} /> Associations
+            </h2>
+            <div className={styles.assocBlock}>
+              <span className={styles.metaLabel}>Projects</span>
+              <div className={styles.assocChips}>
+                {linkedProjects.map((p) => (
+                  <span key={p.id} className={styles.projectChipLinkWrap}>
+                    <Link to={`/projects/${p.id}`} className={styles.entityChip}>
+                      <FolderOpen size={11} />
+                      {p.title}
+                    </Link>
+                    <button type="button" className={styles.projectChipRemove} onClick={(e) => handleRemoveProjectFromNote(p.id, e)}>
+                      <X size={11} />
+                    </button>
+                  </span>
+                ))}
+                {linkedProjects.length === 0 && <span className={styles.chipEmpty}>No linked projects</span>}
+              </div>
+              <div className={styles.assocAddRow}>
+                <select className={styles.linkSelect} value={projectPick} onChange={(e) => setProjectPick(e.target.value)}>
+                  <option value="">Add project…</option>
+                  {availableProjectCandidates.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
+                </select>
+                <button type="button" className="btn btn-secondary btn-sm" onClick={handleAddProjectToNote} disabled={!projectPick || assocBusy}>
+                  Add
+                </button>
+              </div>
+            </div>
+
+            <div className={styles.assocBlock}>
+              <span className={styles.metaLabel}>Area</span>
+              <div className={styles.assocChips}>
+                {area ? (
+                  <span className={styles.projectChipLinkWrap}>
+                    <Link to={`/areas/${area.id}`} className={styles.entityChip}><Map size={11} />{area.title}</Link>
+                    <button type="button" className={styles.projectChipRemove} onClick={handleRemoveAreaFromNote}><X size={11} /></button>
+                  </span>
+                ) : <span className={styles.chipEmpty}>No linked area</span>}
+              </div>
+              <div className={styles.assocAddRow}>
+                <select className={styles.linkSelect} value={areaPick} onChange={(e) => setAreaPick(e.target.value)}>
+                  <option value="">Set area…</option>
+                  {availableAreaCandidates.map((a) => <option key={a.id} value={a.id}>{a.title}</option>)}
+                </select>
+                <button type="button" className="btn btn-secondary btn-sm" onClick={handleSetAreaForNote} disabled={!areaPick || assocBusy}>
+                  Set
+                </button>
+              </div>
+            </div>
+
+            <div className={styles.assocBlock}>
+              <span className={styles.metaLabel}>Person</span>
+              <div className={styles.assocChips}>
+                {person ? (
+                  <span className={styles.projectChipLinkWrap}>
+                    <Link to={`/people/${person.id}`} className={styles.entityChip}><User size={11} />{person.title}</Link>
+                    <button type="button" className={styles.projectChipRemove} onClick={handleRemovePersonFromNote}><X size={11} /></button>
+                  </span>
+                ) : <span className={styles.chipEmpty}>No linked person</span>}
+              </div>
+              <div className={styles.assocAddRow}>
+                <select className={styles.linkSelect} value={personPick} onChange={(e) => setPersonPick(e.target.value)}>
+                  <option value="">Set person…</option>
+                  {availablePersonCandidates.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
+                </select>
+                <button type="button" className="btn btn-secondary btn-sm" onClick={handleSetPersonForNote} disabled={!personPick || assocBusy}>
+                  Set
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <section className={styles.metadataSection}>
+            <h2 className={styles.sectionTitle}>
+              <Sparkles size={14} /> Convert Note To
+            </h2>
+            <div className={styles.convertGrid}>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={convertToTask} disabled={!!convertBusy}>
+                {convertBusy === 'task' ? <Loader2 size={13} className="spin" /> : null}
+                Task
+              </button>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={convertToProject} disabled={!!convertBusy}>
+                {convertBusy === 'project' ? <Loader2 size={13} className="spin" /> : null}
+                Project
+              </button>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={convertToArea} disabled={!!convertBusy}>
+                {convertBusy === 'area' ? <Loader2 size={13} className="spin" /> : null}
+                Area
+              </button>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={convertToPerson} disabled={!!convertBusy}>
+                {convertBusy === 'person' ? <Loader2 size={13} className="spin" /> : null}
+                Person
+              </button>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={convertToResource} disabled={!!convertBusy}>
+                {convertBusy === 'resource' ? <Loader2 size={13} className="spin" /> : null}
+                Resource
+              </button>
             </div>
           </section>
 

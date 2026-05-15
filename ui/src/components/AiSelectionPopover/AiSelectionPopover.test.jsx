@@ -205,7 +205,7 @@ describe('AiSelectionPopover', () => {
   it('positions the popover at the given coordinates', () => {
     render(<AiSelectionPopover {...defaultProps} position={{ x: 150, y: 300 }} />);
     const popover = screen.getByTestId('ai-selection-popover');
-    expect(popover).toHaveStyle({ left: '150px', top: '300px', transform: 'translate(-50%, calc(-100% - 8px))' });
+    expect(popover).toHaveStyle({ left: '150px', top: '300px', transform: 'translateX(-50%)' });
   });
 });
 

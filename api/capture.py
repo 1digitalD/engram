@@ -7,14 +7,13 @@ interpretation pipeline, and returns a structured change plan.
 """
 
 from flask import request, jsonify
-from api import api_v2_bp
+from api import api_bp, api_v2_bp
 import logging
 
 logger = logging.getLogger(__name__)
 
 
-@api_v2_bp.route("/capture", methods=["POST"])
-def capture():
+def _capture_impl():
     """
     Primary capture endpoint.
 
@@ -44,3 +43,13 @@ def capture():
     except Exception as e:
         logger.exception("Capture failed: %s", e)
         return jsonify({"error": str(e)}), 500
+
+
+@api_bp.route("/capture", methods=["POST"])
+def capture_v1():
+    return _capture_impl()
+
+
+@api_v2_bp.route("/capture", methods=["POST"])
+def capture_v2():
+    return _capture_impl()
