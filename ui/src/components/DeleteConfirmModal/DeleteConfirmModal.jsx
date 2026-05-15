@@ -139,7 +139,7 @@ export default function DeleteConfirmModal({
           </ul>
           {cascadeIds.size > 0 && (
             <p className={styles.cascadeNote}>
-              <Check size={12} /> {cascadeIds.length} orphaned entity
+              <Check size={12} /> {cascadeIds.size} orphaned entity
               {cascadeIds.size > 1 ? 'ies' : 'y'} will also be deleted
             </p>
           )}

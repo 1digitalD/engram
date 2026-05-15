@@ -224,8 +224,7 @@ const useStore = create((set, get) => ({
 
   deleteNote: async (id, cascadeIds) => {
     try {
-      const cascade = cascadeIds && cascadeIds.length > 0;
-      await notesAPI.delete(id, cascade);
+      await notesAPI.delete(id, true);
       const idsToDelete = new Set([id, ...(cascadeIds || [])]);
       set(s => ({
         notes: s.notes.filter(n => !idsToDelete.has(n.id)),
@@ -408,8 +407,7 @@ const useStore = create((set, get) => ({
 
   deleteProject: async (id, cascadeIds) => {
     try {
-      const cascade = cascadeIds && cascadeIds.length > 0;
-      await projectsAPI.delete(id, cascade);
+      await projectsAPI.delete(id, true);
       const idsToDelete = new Set([id, ...(cascadeIds || [])]);
       set(s => ({
         projects: s.projects.filter(p => !idsToDelete.has(p.id)),
@@ -456,8 +454,7 @@ const useStore = create((set, get) => ({
 
   deleteArea: async (id, cascadeIds) => {
     try {
-      const cascade = cascadeIds && cascadeIds.length > 0;
-      await areasAPI.delete(id, cascade);
+      await areasAPI.delete(id, true);
       const idsToDelete = new Set([id, ...(cascadeIds || [])]);
       set(s => ({
         areas: s.areas.filter(a => !idsToDelete.has(a.id)),
@@ -491,8 +488,7 @@ const useStore = create((set, get) => ({
 
   deleteResource: async (id, cascadeIds) => {
     try {
-      const cascade = cascadeIds && cascadeIds.length > 0;
-      await resourcesAPI.delete(id, cascade);
+      await resourcesAPI.delete(id, true);
       const idsToDelete = new Set([id, ...(cascadeIds || [])]);
       set(s => ({ resources: s.resources.filter(r => !idsToDelete.has(r.id)) }));
       get().addToast({ type: 'success', message: 'Resource deleted' });
@@ -547,8 +543,7 @@ const useStore = create((set, get) => ({
 
   deletePerson: async (id, cascadeIds) => {
     try {
-      const cascade = cascadeIds && cascadeIds.length > 0;
-      await peopleAPI.delete(id, cascade);
+      await peopleAPI.delete(id, true);
       const idsToDelete = new Set([id, ...(cascadeIds || [])]);
       set(s => ({
         people: s.people.filter(p => !idsToDelete.has(p.id)),
@@ -604,8 +599,7 @@ const useStore = create((set, get) => ({
 
   deleteTask: async (id, cascadeIds) => {
     try {
-      const cascade = cascadeIds && cascadeIds.length > 0;
-      await tasksAPI.delete(id, cascade);
+      await tasksAPI.delete(id, true);
       const idsToDelete = new Set([id, ...(cascadeIds || [])]);
       set(s => ({ tasks: s.tasks.filter(t => !idsToDelete.has(t.id)) }));
     } catch (e) {
