@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   ArrowLeft, Edit2, Loader2, Trash2, Tag, User, FolderOpen, Map,
-  Link2, CheckCircle, Circle, X, Sparkles, Diamond, Calendar,
+  Link2, CheckCircle, X, Sparkles, Diamond, Calendar,
   FileText,
 } from 'lucide-react';
 import useStore from '../stores/useStore';
@@ -143,7 +143,6 @@ export default function NoteDetailView() {
     deleteNote,
     getDeletePreview,
     createTask,
-    updateTask,
     addToast,
     startAiStatusPoll,
     stopAiStatusPoll,
@@ -165,17 +164,12 @@ export default function NoteDetailView() {
   const [proposals, setProposals] = useState([]);
   const [proposalsLoading, setProposalsLoading] = useState(false);
   const [proposalActionId, setProposalActionId] = useState(null);
-  const [linkedTasksKey, setLinkedTasksKey] = useState(0);
   const [extractedData, setExtractedData] = useState(null);
   const [extractedLoading, setExtractedLoading] = useState(false);
 
   const note = notes.find(n => n.id === id);
 
-  const linkedTasks = useMemo(() => {
-    return note ? tasks.filter(t => t.note_id === note.id) : [];
-  }, [tasks, note, linkedTasksKey]);
   const [classifying, setClassifying] = useState(false);
-  const [newTaskTitle, setNewTaskTitle] = useState('');
   const [followUpBusy, setFollowUpBusy] = useState(false);
   const [lifecycleBusy, setLifecycleBusy] = useState(false);
   const [projectPick, setProjectPick] = useState('');
@@ -492,28 +486,6 @@ export default function NoteDetailView() {
       addToast({ type: 'error', message: e.message || 'Could not dismiss proposal' });
     } finally {
       setProposalActionId(null);
-    }
-  };
-
-  const toggleLinkedTask = async (t) => {
-    try {
-      const next = t.status === 'done' ? 'pending' : 'done';
-      await updateTask(t.id, { status: next });
-    } catch (error) {
-      addToast({ type: 'error', message: error.message || 'Could not update task' });
-    }
-  };
-
-  const handleAddNoteTask = async (e) => {
-    e.preventDefault();
-    const title = newTaskTitle.trim();
-    if (!title) return;
-    try {
-      await createTask({ title, note_id: note.id });
-      setNewTaskTitle('');
-      setLinkedTasksKey(k => k + 1);
-    } catch (error) {
-      addToast({ type: 'error', message: error.message || 'Could not create task' });
     }
   };
 
@@ -1074,40 +1046,6 @@ export default function NoteDetailView() {
                   {linkBusy ? <Loader2 size={13} className="spin" /> : 'Add link'}
                 </button>
               </div>
-            </section>
-
-            <section className={styles.panel}>
-              <h2 className={styles.panelTitle}>Tasks on this note</h2>
-              {linkedTasks.length === 0 ? (
-                <p className={styles.panelMuted}>No tasks linked yet.</p>
-              ) : (
-                <ul className={styles.taskRows}>
-                  {linkedTasks.map(t => (
-                    <li key={t.id} className={styles.taskRow}>
-                      <button
-                        type="button"
-                        className={styles.taskCheck}
-                        onClick={() => toggleLinkedTask(t)}
-                        aria-label={t.status === 'done' ? 'Mark pending' : 'Mark done'}
-                      >
-                        {t.status === 'done' ? <CheckCircle size={16} /> : <Circle size={16} />}
-                      </button>
-                      <span className={t.status === 'done' ? styles.taskTitleDone : styles.taskTitle}>{t.title}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <form className={styles.taskAdd} onSubmit={handleAddNoteTask}>
-                <input
-                  className={styles.taskInput}
-                  placeholder="New task…"
-                  value={newTaskTitle}
-                  onChange={e => setNewTaskTitle(e.target.value)}
-                />
-                <button type="submit" className="btn btn-primary btn-sm" disabled={!newTaskTitle.trim()}>
-                  Add
-                </button>
-              </form>
             </section>
 
             {/* Extracted from this note */}
