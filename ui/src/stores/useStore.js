@@ -12,11 +12,21 @@ const AI_STATUS_POLL_MAX = 30;
 function normalizeEntity(entity) {
   if (!entity || typeof entity !== 'object') return entity;
   const { name, ai_meta, ...rest } = entity;
+  const classification = ai_meta?.classification || {};
+  const mergedAiMeta = ai_meta !== undefined
+    ? {
+      ...ai_meta,
+      // Back-compat for UI surfaces that expect top-level bucket/confidence.
+      bucket: ai_meta.bucket ?? classification.para_bucket ?? null,
+      confidence: ai_meta.confidence ?? classification.confidence ?? null,
+      reasoning: ai_meta.reasoning ?? classification.reasoning ?? null,
+    }
+    : undefined;
   return {
     ...rest,
     title: name || rest.title,
     status: (rest.status || 'active').toLowerCase(),
-    ...(ai_meta !== undefined && { _ai_meta: ai_meta }),
+    ...(mergedAiMeta !== undefined && { _ai_meta: mergedAiMeta }),
   };
 }
 
@@ -294,7 +304,7 @@ const useStore = create((set, get) => ({
         else return;
 
         const updated = normalizeEntity(res.data);
-        if (updated.ai_status !== 'processing') {
+        if (updated.ai_status !== 'processing' && updated.ai_status !== 'pending') {
           clearInterval(timer);
           set(s => {
             const next = { ...s._aiPollTimers };
@@ -333,17 +343,17 @@ const useStore = create((set, get) => ({
         } else {
           set(s => {
             if (entityType === 'note') {
-              return { notes: s.notes.map(n => n.id === entityId ? { ...n, ai_status: 'processing' } : n) };
+              return { notes: s.notes.map(n => n.id === entityId ? { ...n, ai_status: updated.ai_status || 'processing' } : n) };
             } else if (entityType === 'project') {
-              return { projects: s.projects.map(p => p.id === entityId ? { ...p, ai_status: 'processing' } : p) };
+              return { projects: s.projects.map(p => p.id === entityId ? { ...p, ai_status: updated.ai_status || 'processing' } : p) };
             } else if (entityType === 'area') {
-              return { areas: s.areas.map(a => a.id === entityId ? { ...a, ai_status: 'processing' } : a) };
+              return { areas: s.areas.map(a => a.id === entityId ? { ...a, ai_status: updated.ai_status || 'processing' } : a) };
             } else if (entityType === 'person') {
-              return { people: s.people.map(p => p.id === entityId ? { ...p, ai_status: 'processing' } : p) };
+              return { people: s.people.map(p => p.id === entityId ? { ...p, ai_status: updated.ai_status || 'processing' } : p) };
             } else if (entityType === 'task') {
-              return { tasks: s.tasks.map(t => t.id === entityId ? { ...t, ai_status: 'processing' } : t) };
+              return { tasks: s.tasks.map(t => t.id === entityId ? { ...t, ai_status: updated.ai_status || 'processing' } : t) };
             } else if (entityType === 'resource') {
-              return { resources: s.resources.map(r => r.id === entityId ? { ...r, ai_status: 'processing' } : r) };
+              return { resources: s.resources.map(r => r.id === entityId ? { ...r, ai_status: updated.ai_status || 'processing' } : r) };
             }
             return {};
           });

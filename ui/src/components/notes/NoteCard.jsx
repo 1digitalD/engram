@@ -9,6 +9,22 @@ import styles from './NoteCard.module.css';
 
 const PREVIEW_LIMIT = 400;
 
+function stripHtmlToText(input = '') {
+  if (!input) return '';
+  if (typeof window !== 'undefined' && window.document) {
+    const el = window.document.createElement('div');
+    el.innerHTML = input;
+    return (el.textContent || el.innerText || '').trim();
+  }
+  return input.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function normalizeNoteText(raw = '') {
+  const text = String(raw || '');
+  const looksLikeHtml = /<\/?[a-z][\s\S]*>/i.test(text);
+  return looksLikeHtml ? stripHtmlToText(text) : text;
+}
+
 function isMetadataOnlyImport(text = '') {
   return text.startsWith('Imported from') && text.includes('Source Notion ID');
 }
@@ -73,9 +89,10 @@ export default function NoteCard({ note, onEdit }) {
   const person = note.person_id ? people.find(p => p.id === note.person_id) : null;
 
   const rawText = note.raw_text || '';
+  const normalizedText = normalizeNoteText(rawText);
   const metadataOnlyImport = isMetadataOnlyImport(rawText);
-  const content = expanded ? rawText : truncateMarkdown(rawText);
-  const canExpand = !metadataOnlyImport && rawText.length > PREVIEW_LIMIT;
+  const content = expanded ? normalizedText : truncateMarkdown(normalizedText);
+  const canExpand = !metadataOnlyImport && normalizedText.length > PREVIEW_LIMIT;
 
   const date = new Date(note.created_at).toLocaleDateString('en-US', {
     month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
@@ -214,7 +231,7 @@ export default function NoteCard({ note, onEdit }) {
           setShowDeleteModal(false);
           setDeletePreview(null);
         }}
-        entityTitle={(note.raw_text || note.content || '').split('\n')[0].replace(/^#\s*/, '').trim() || 'Untitled'}
+        entityTitle={normalizeNoteText(note.raw_text || note.content || '').split('\n')[0].replace(/^#\s*/, '').trim() || 'Untitled'}
         entityType="note"
         preview={deletePreview}
       />

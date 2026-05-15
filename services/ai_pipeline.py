@@ -207,6 +207,10 @@ def run_classify(payload):
             "suggested_project": extraction.suggested_project,
             "suggested_area": extraction.suggested_area,
         }
+        # Back-compat: preserve top-level fields expected by older UI surfaces.
+        ai_meta["bucket"] = extraction.para_bucket
+        ai_meta["confidence"] = extraction.confidence
+        ai_meta["reasoning"] = extraction.reasoning
 
         if extraction.confidence >= AUTOLINK_CONFIDENCE_THRESHOLD:
             # High confidence: reconcile project and area through entity service
