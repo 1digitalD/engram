@@ -86,10 +86,20 @@ def apply_change_plan(change_plan, actor="agent:capture"):
                 operation, confidence,
             )
 
-    # Add pre-defined suggestions from the change plan
+    # Persist pre-defined suggestions from the change plan
     for s in plan_suggestions:
-        s["change_batch_id"] = batch.id if batch else None
-        new_suggestions.append(s)
+        suggestion_payload = dict(s or {})
+        if "confidence" not in suggestion_payload:
+            suggestion_payload["confidence"] = SUGGESTION_THRESHOLD_MIN
+        suggestion = _create_suggestion(
+            suggestion_payload,
+            source_note_id,
+            batch_id=batch.id if batch else None,
+        )
+        if suggestion:
+            new_suggestions.append(suggestion)
+
+    db.session.commit()
 
     return {
         "applied_changes": applied_changes,
@@ -447,7 +457,7 @@ def _apply_append_context(change, source_note_id, actor, batch_id=None):
     }
 
 
-def _apply_complete_task(change, actor):
+def _apply_complete_task(change, actor, batch_id=None):
     task_id = change.get("target_entity_id")
     if not task_id:
         return None

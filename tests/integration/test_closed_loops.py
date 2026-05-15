@@ -734,6 +734,36 @@ class TestExtractedEntitiesEndpoint:
         resp = client.get("/api/v2/entities/nonexistent-id/extracted")
         assert resp.status_code == 404
 
+    def test_change_plan_suggestions_are_persisted_and_returned(self, client, app):
+        """Plan-level suggestions should persist to AiSuggestion and appear in extracted view."""
+        from services.entity_service import create_entity
+        from services.ai_operation_applier import apply_change_plan
+
+        with app.app_context():
+            note_id = str(create_entity(entity_type="note", title="Suggestion source", actor="user").id)
+            result = apply_change_plan(
+                {
+                    "source_note_id": note_id,
+                    "proposed_changes": [],
+                    "suggestions": [
+                        {
+                            "operation": "create_task",
+                            "title": "Suggested via classify",
+                            "reason": "Medium-confidence extraction",
+                            "confidence": 0.80,
+                        }
+                    ],
+                },
+                actor="agent:classify",
+            )
+            assert len(result["suggestions"]) == 1
+
+        resp = client.get(f"/api/v2/entities/{note_id}/extracted")
+        assert resp.status_code == 200
+        data = resp.get_json()["data"]
+        assert len(data["suggestions"]) == 1
+        assert data["suggestions"][0]["suggestion_type"] == "create_task"
+
 
 class TestTodaySummary:
     """Test GET /api/v2/today/summary"""
