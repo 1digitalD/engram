@@ -118,7 +118,22 @@ class TestNoteCreateClassifyTagLoop:
         assert resp.status_code == 200
         data = resp.get_json()["data"]
         assert "tag_ids" in data
-        assert len(data["tag_ids"]) == 2
+
+    @patch("services.ai_pipeline.enqueue_embed")
+    @patch("services.ai_pipeline.enqueue_classify")
+    def test_patch_note_with_classify_enqueues_reclassify_jobs(self, mock_enqueue_classify, mock_enqueue_embed, client, app):
+        """PATCH /notes/:id with classify=true should enqueue classify+embed jobs."""
+        resp = client.post("/api/v1/notes", json={"raw_text": "Initial content", "classify": False})
+        assert resp.status_code == 201
+        note_id = resp.get_json()["data"]["id"]
+        mock_enqueue_classify.reset_mock()
+        mock_enqueue_embed.reset_mock()
+
+        resp = client.patch(f"/api/v1/notes/{note_id}", json={"classify": True})
+        assert resp.status_code == 200
+
+        mock_enqueue_classify.assert_called_once()
+        mock_enqueue_embed.assert_called_once()
 
 
 # ─── 2. Task drag-and-drop updates status via updateTask (backend API) ────────

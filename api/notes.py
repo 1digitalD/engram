@@ -251,6 +251,14 @@ def update_note(note_id):
     db.session.commit()
     note = db.session.get(Entity, note_id)
 
+    if data.get("classify") is True:
+        from services.ai_pipeline import enqueue_classify, enqueue_embed
+
+        note.ai_status = "pending"
+        db.session.commit()
+        enqueue_classify(note.id)
+        enqueue_embed(note.id)
+
     return jsonify({"data": _entity_to_note_response(note)})
 
 

@@ -374,6 +374,37 @@ class TestRunClassify:
     @patch("services.ai_pipeline.reconcile_all")
     @patch("services.ai_pipeline.apply_change_plan")
     @patch("services.extractor.extract")
+    def test_classify_people_match_uses_mentions_link_type(self, mock_extract, mock_apply, mock_reconcile, app):
+        from services.ai_pipeline import run_classify
+        from services.extractor import ExtractionResult, ExtractedPerson
+
+        mock_extract.return_value = ExtractionResult(
+            summary="Meeting note",
+            para_bucket="INBOX",
+            confidence=0.95,
+            reasoning="Extracted one person",
+            tags=[],
+            tasks=[],
+            people=[ExtractedPerson(name="Alice Smith", email=None, context="attendee")],
+        )
+
+        matched = MagicMock()
+        matched.id = "person-1"
+        mock_reconcile.return_value = [
+            {"detected": {"type": "person", "name": "Alice Smith"}, "reconciliation": {"matched_entity": matched, "confidence": 0.96}},
+        ]
+        mock_apply.return_value = {"applied_changes": [], "suggestions": []}
+
+        with app.app_context():
+            entity = _create_entity(content="Met Alice Smith")
+            run_classify({"entity_id": entity.id})
+
+            plan = mock_apply.call_args[0][0]
+            assert plan["proposed_changes"][0]["link_type"] == "mentions"
+
+    @patch("services.ai_pipeline.reconcile_all")
+    @patch("services.ai_pipeline.apply_change_plan")
+    @patch("services.extractor.extract")
     def test_classify_reconciles_extracted_tasks(self, mock_extract, mock_apply, mock_reconcile, app):
         from services.ai_pipeline import run_classify
         from services.extractor import ExtractionResult, ExtractedTask

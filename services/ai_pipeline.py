@@ -228,7 +228,7 @@ def run_classify(payload):
                     if recon:
                         matched = recon.get("matched_entity")
                         confidence = recon.get("confidence", 0.88)
-                        if matched:
+                        if matched and str(matched.id) != str(entity.id):
                             proposed_changes.append({
                                 "operation": "link_entity",
                                 "src_id": entity.id,
@@ -297,12 +297,12 @@ def run_classify(payload):
                 if recon:
                     matched = recon.get("matched_entity")
                     confidence = recon.get("confidence", 0.88)
-                    if matched:
+                    if matched and str(matched.id) != str(entity.id):
                         proposed_changes.append({
                             "operation": "link_entity",
                             "src_id": entity.id,
                             "dst_id": matched.id,
-                            "link_type": "related",
+                            "link_type": "mentions",
                             "confidence": confidence,
                             "reason": f"Person '{name}' matched existing",
                             "title": name,
@@ -353,7 +353,7 @@ def run_classify(payload):
                 if recon:
                     matched = recon.get("matched_entity")
                     confidence = recon.get("confidence", 0.88)
-                    if matched:
+                    if matched and str(matched.id) != str(entity.id):
                         change = {
                             "operation": "link_entity",
                             "src_id": entity.id,
