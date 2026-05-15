@@ -6,7 +6,7 @@ import {
   FileText,
 } from 'lucide-react';
 import useStore from '../stores/useStore';
-import { linksAPI, relationshipsAPI, resourcesAPI } from '../api/engram';
+import { linksAPI, relationshipsAPI } from '../api/engram';
 import { BucketBadge, TagBadge } from '../components/ui/Badge';
 import TipTapEditor, { renderStoredContent } from '../components/Editor/TipTapEditor';
 import {
@@ -135,14 +135,9 @@ export default function NoteDetailView() {
     people,
     tasks,
     resources,
-    createProject,
-    createArea,
-    createPerson,
-    upsertResource,
     updateNote,
     deleteNote,
     getDeletePreview,
-    createTask,
     addToast,
     startAiStatusPoll,
     stopAiStatusPoll,
@@ -176,7 +171,6 @@ export default function NoteDetailView() {
   const [areaPick, setAreaPick] = useState('');
   const [personPick, setPersonPick] = useState('');
   const [assocBusy, setAssocBusy] = useState(false);
-  const [convertBusy, setConvertBusy] = useState('');
 
   const loadLinks = useCallback(async () => {
     if (!note?.id) return;
@@ -546,96 +540,6 @@ export default function NoteDetailView() {
     }
   };
 
-  const convertToTask = async () => {
-    if (convertBusy) return;
-    setConvertBusy('task');
-    try {
-      await createTask({
-        title: notePreviewLine(note),
-        note_id: note.id,
-        project_id: noteProjectIds[0] || null,
-        area_id: note.area_id || null,
-      });
-      addToast({ type: 'success', message: 'Task created from note' });
-    } catch (e) {
-      addToast({ type: 'error', message: e.message || 'Could not create task' });
-    } finally {
-      setConvertBusy('');
-    }
-  };
-
-  const convertToProject = async () => {
-    if (convertBusy) return;
-    setConvertBusy('project');
-    try {
-      const project = await createProject({
-        title: notePreviewLine(note),
-        description: (structuredMeta.body || '').slice(0, 1000) || null,
-        area_id: note.area_id || null,
-      });
-      await updateNote(note.id, { project_ids: [...noteProjectIds, project.id] });
-      addToast({ type: 'success', message: 'Project created and linked to note' });
-    } catch (e) {
-      addToast({ type: 'error', message: e.message || 'Could not create project' });
-    } finally {
-      setConvertBusy('');
-    }
-  };
-
-  const convertToArea = async () => {
-    if (convertBusy) return;
-    setConvertBusy('area');
-    try {
-      const areaEntity = await createArea({
-        title: notePreviewLine(note),
-        description: (structuredMeta.body || '').slice(0, 500) || null,
-      });
-      await updateNote(note.id, { area_id: areaEntity.id });
-      addToast({ type: 'success', message: 'Area created and linked to note' });
-    } catch (e) {
-      addToast({ type: 'error', message: e.message || 'Could not create area' });
-    } finally {
-      setConvertBusy('');
-    }
-  };
-
-  const convertToPerson = async () => {
-    if (convertBusy) return;
-    setConvertBusy('person');
-    try {
-      const personEntity = await createPerson({
-        title: notePreviewLine(note).replace(/^Task:\s*/i, '').trim(),
-      });
-      await updateNote(note.id, { person_id: personEntity.id });
-      addToast({ type: 'success', message: 'Person created and linked to note' });
-    } catch (e) {
-      addToast({ type: 'error', message: e.message || 'Could not create person' });
-    } finally {
-      setConvertBusy('');
-    }
-  };
-
-  const convertToResource = async () => {
-    if (convertBusy) return;
-    setConvertBusy('resource');
-    try {
-      const created = await resourcesAPI.create({
-        title: notePreviewLine(note),
-        description: (structuredMeta.body || '').slice(0, 2000) || null,
-      });
-      const resourceEntity = created?.data;
-      if (resourceEntity?.id) {
-        upsertResource(resourceEntity);
-        await linksAPI.create({ src_id: note.id, dst_id: resourceEntity.id, link_type: 'references' });
-      }
-      addToast({ type: 'success', message: 'Resource created from note' });
-    } catch (e) {
-      addToast({ type: 'error', message: e.message || 'Could not create resource' });
-    } finally {
-      setConvertBusy('');
-    }
-  };
-
   return (
     <div className={styles.page}>
       <nav className={styles.breadcrumb} aria-label="Breadcrumb">
@@ -833,114 +737,73 @@ export default function NoteDetailView() {
             </div>
           </section>
 
-          <section className={styles.metadataSection}>
-            <h2 className={styles.sectionTitle}>
-              <Link2 size={14} /> Associations
-            </h2>
-            <div className={styles.assocBlock}>
-              <span className={styles.metaLabel}>Projects</span>
-              <div className={styles.assocChips}>
-                {linkedProjects.map((p) => (
-                  <span key={p.id} className={styles.projectChipLinkWrap}>
-                    <Link to={`/projects/${p.id}`} className={styles.entityChip}>
-                      <FolderOpen size={11} />
-                      {p.title}
-                    </Link>
-                    <button type="button" className={styles.projectChipRemove} onClick={(e) => handleRemoveProjectFromNote(p.id, e)}>
-                      <X size={11} />
-                    </button>
-                  </span>
-                ))}
-                {linkedProjects.length === 0 && <span className={styles.chipEmpty}>No linked projects</span>}
-              </div>
-              <div className={styles.assocAddRow}>
-                <select className={styles.linkSelect} value={projectPick} onChange={(e) => setProjectPick(e.target.value)}>
-                  <option value="">Add project…</option>
-                  {availableProjectCandidates.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
-                </select>
-                <button type="button" className="btn btn-secondary btn-sm" onClick={handleAddProjectToNote} disabled={!projectPick || assocBusy}>
-                  Add
-                </button>
-              </div>
-            </div>
-
-            <div className={styles.assocBlock}>
-              <span className={styles.metaLabel}>Area</span>
-              <div className={styles.assocChips}>
-                {area ? (
-                  <span className={styles.projectChipLinkWrap}>
-                    <Link to={`/areas/${area.id}`} className={styles.entityChip}><Map size={11} />{area.title}</Link>
-                    <button type="button" className={styles.projectChipRemove} onClick={handleRemoveAreaFromNote}><X size={11} /></button>
-                  </span>
-                ) : <span className={styles.chipEmpty}>No linked area</span>}
-              </div>
-              <div className={styles.assocAddRow}>
-                <select className={styles.linkSelect} value={areaPick} onChange={(e) => setAreaPick(e.target.value)}>
-                  <option value="">Set area…</option>
-                  {availableAreaCandidates.map((a) => <option key={a.id} value={a.id}>{a.title}</option>)}
-                </select>
-                <button type="button" className="btn btn-secondary btn-sm" onClick={handleSetAreaForNote} disabled={!areaPick || assocBusy}>
-                  Set
-                </button>
-              </div>
-            </div>
-
-            <div className={styles.assocBlock}>
-              <span className={styles.metaLabel}>Person</span>
-              <div className={styles.assocChips}>
-                {person ? (
-                  <span className={styles.projectChipLinkWrap}>
-                    <Link to={`/people/${person.id}`} className={styles.entityChip}><User size={11} />{person.title}</Link>
-                    <button type="button" className={styles.projectChipRemove} onClick={handleRemovePersonFromNote}><X size={11} /></button>
-                  </span>
-                ) : <span className={styles.chipEmpty}>No linked person</span>}
-              </div>
-              <div className={styles.assocAddRow}>
-                <select className={styles.linkSelect} value={personPick} onChange={(e) => setPersonPick(e.target.value)}>
-                  <option value="">Set person…</option>
-                  {availablePersonCandidates.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
-                </select>
-                <button type="button" className="btn btn-secondary btn-sm" onClick={handleSetPersonForNote} disabled={!personPick || assocBusy}>
-                  Set
-                </button>
-              </div>
-            </div>
-          </section>
-
-          <section className={styles.metadataSection}>
-            <h2 className={styles.sectionTitle}>
-              <Sparkles size={14} /> Convert Note To
-            </h2>
-            <div className={styles.convertGrid}>
-              <button type="button" className="btn btn-ghost btn-sm" onClick={convertToTask} disabled={!!convertBusy}>
-                {convertBusy === 'task' ? <Loader2 size={13} className="spin" /> : null}
-                Task
-              </button>
-              <button type="button" className="btn btn-ghost btn-sm" onClick={convertToProject} disabled={!!convertBusy}>
-                {convertBusy === 'project' ? <Loader2 size={13} className="spin" /> : null}
-                Project
-              </button>
-              <button type="button" className="btn btn-ghost btn-sm" onClick={convertToArea} disabled={!!convertBusy}>
-                {convertBusy === 'area' ? <Loader2 size={13} className="spin" /> : null}
-                Area
-              </button>
-              <button type="button" className="btn btn-ghost btn-sm" onClick={convertToPerson} disabled={!!convertBusy}>
-                {convertBusy === 'person' ? <Loader2 size={13} className="spin" /> : null}
-                Person
-              </button>
-              <button type="button" className="btn btn-ghost btn-sm" onClick={convertToResource} disabled={!!convertBusy}>
-                {convertBusy === 'resource' ? <Loader2 size={13} className="spin" /> : null}
-                Resource
-              </button>
-            </div>
-          </section>
-
           {/* Panels */}
           <div className={styles.panels}>
             <section className={styles.panel}>
               <h2 className={styles.panelTitle}>
                 <Link2 size={14} /> Linked Context
               </h2>
+
+              <div className={styles.assocBlock}>
+                <span className={styles.metaLabel}>Primary associations</span>
+
+                <div className={styles.assocChips}>
+                  {linkedProjects.map((p) => (
+                    <span key={p.id} className={styles.projectChipLinkWrap}>
+                      <Link to={`/projects/${p.id}`} className={styles.entityChip}>
+                        <FolderOpen size={11} />
+                        {p.title}
+                      </Link>
+                      <button type="button" className={styles.projectChipRemove} onClick={(e) => handleRemoveProjectFromNote(p.id, e)}>
+                        <X size={11} />
+                      </button>
+                    </span>
+                  ))}
+                  {area ? (
+                    <span className={styles.projectChipLinkWrap}>
+                      <Link to={`/areas/${area.id}`} className={styles.entityChip}><Map size={11} />{area.title}</Link>
+                      <button type="button" className={styles.projectChipRemove} onClick={handleRemoveAreaFromNote}><X size={11} /></button>
+                    </span>
+                  ) : null}
+                  {person ? (
+                    <span className={styles.projectChipLinkWrap}>
+                      <Link to={`/people/${person.id}`} className={styles.entityChip}><User size={11} />{person.title}</Link>
+                      <button type="button" className={styles.projectChipRemove} onClick={handleRemovePersonFromNote}><X size={11} /></button>
+                    </span>
+                  ) : null}
+                  {linkedProjects.length === 0 && !area && !person && (
+                    <span className={styles.chipEmpty}>No primary associations yet</span>
+                  )}
+                </div>
+
+                <div className={styles.assocAddRow}>
+                  <select className={styles.linkSelect} value={projectPick} onChange={(e) => setProjectPick(e.target.value)}>
+                    <option value="">Add project…</option>
+                    {availableProjectCandidates.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
+                  </select>
+                  <button type="button" className="btn btn-secondary btn-sm" onClick={handleAddProjectToNote} disabled={!projectPick || assocBusy}>
+                    Add
+                  </button>
+                </div>
+                <div className={styles.assocAddRow}>
+                  <select className={styles.linkSelect} value={areaPick} onChange={(e) => setAreaPick(e.target.value)}>
+                    <option value="">Set area…</option>
+                    {availableAreaCandidates.map((a) => <option key={a.id} value={a.id}>{a.title}</option>)}
+                  </select>
+                  <button type="button" className="btn btn-secondary btn-sm" onClick={handleSetAreaForNote} disabled={!areaPick || assocBusy}>
+                    Set
+                  </button>
+                </div>
+                <div className={styles.assocAddRow}>
+                  <select className={styles.linkSelect} value={personPick} onChange={(e) => setPersonPick(e.target.value)}>
+                    <option value="">Set person…</option>
+                    {availablePersonCandidates.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
+                  </select>
+                  <button type="button" className="btn btn-secondary btn-sm" onClick={handleSetPersonForNote} disabled={!personPick || assocBusy}>
+                    Set
+                  </button>
+                </div>
+              </div>
 
               {/* AI Suggestions */}
               {proposals.length > 0 && (
