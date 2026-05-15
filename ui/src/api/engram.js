@@ -20,13 +20,25 @@ async function apiRequest(method, path, body = null, params = {}) {
   };
   if (body) opts.body = JSON.stringify(body);
   const res = await fetch(url.toString(), opts);
+  const contentType = (res.headers.get('content-type') || '').toLowerCase();
+  const isJson = contentType.includes('application/json');
+
   if (!res.ok) {
-    const errBody = await res.json().catch(() => ({ error: res.statusText }));
+    const errBody = isJson
+      ? await res.json().catch(() => ({ error: res.statusText }))
+      : { error: `${res.status} ${res.statusText}` };
     const msg = errBody.error || errBody.message || `HTTP ${res.status}`;
     const err = new Error(msg);
     err.status = res.status;
     err.body = errBody;
     throw err;
+  }
+  if (res.status === 204) return {};
+  if (!isJson) {
+    const sample = await res.text().catch(() => '');
+    throw new Error(
+      `Unexpected non-JSON response from ${method} ${url.pathname}: ${sample.slice(0, 80)}`
+    );
   }
   return res.json();
 }
@@ -264,5 +276,12 @@ export const healthAPI = {
 
 // ── Delete Preview ───────────────────────────
 export const deletePreviewAPI = {
-  get: (id) => apiRequest('GET', `/entities/${id}/delete-preview`.replace('/api/v1', '/api/v2')),
+  get: async (id) => {
+    const res = await fetch(`/api/v2/entities/${encodeURIComponent(id)}/delete-preview`);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || err.message || `HTTP ${res.status}`);
+    }
+    return res.json();
+  },
 };
