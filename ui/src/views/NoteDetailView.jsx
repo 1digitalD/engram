@@ -119,9 +119,6 @@ function extractStructuredMetadata(rawText) {
 const ENTITY_GROUPS = [
   { key: 'notes', label: 'Notes', type: 'note' },
   { key: 'tasks', label: 'Tasks', type: 'task' },
-  { key: 'projects', label: 'Projects', type: 'project' },
-  { key: 'areas', label: 'Areas', type: 'area' },
-  { key: 'people', label: 'People', type: 'person' },
   { key: 'resources', label: 'Resources', type: 'resource' },
 ];
 
@@ -445,6 +442,16 @@ export default function NoteDetailView() {
       addToast({ type: 'error', message: e.message || 'Could not add link' });
     } finally {
       setLinkBusy(false);
+    }
+  };
+
+  const handleRemoveLink = async (linkId) => {
+    try {
+      await relationshipsAPI.delete(linkId);
+      addToast({ type: 'success', message: 'Link removed' });
+      await loadLinks();
+    } catch (e) {
+      addToast({ type: 'error', message: e.message || 'Could not remove link' });
     }
   };
 
@@ -866,9 +873,13 @@ export default function NoteDetailView() {
                 linksOut={linksOut}
                 linksIn={linksIn}
                 loading={linksLoading}
+                onRemoveLink={handleRemoveLink}
               />
 
               <div className={styles.linkAdd}>
+                <p className={styles.panelMuted} style={{ marginBottom: 6 }}>
+                  Add related context links (notes, tasks, resources). Use the primary selectors above for project/area/person.
+                </p>
                 <input
                   type="search"
                   className={styles.linkFilter}
@@ -906,7 +917,7 @@ export default function NoteDetailView() {
                   onClick={handleAddLink}
                   disabled={!linkPick || linkBusy}
                 >
-                  {linkBusy ? <Loader2 size={13} className="spin" /> : 'Add link'}
+                  {linkBusy ? <Loader2 size={13} className="spin" /> : 'Add related link'}
                 </button>
               </div>
             </section>
