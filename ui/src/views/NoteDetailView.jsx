@@ -292,6 +292,20 @@ export default function NoteDetailView() {
     return groups;
   }, [linkCandidates]);
 
+  const linkedEntityIds = useMemo(() => {
+    const ids = new Set();
+    [...(linksOut || []), ...(linksIn || [])].forEach((link) => {
+      const otherId = link.src_id === note?.id ? link.dst_id : link.src_id;
+      if (otherId) ids.add(otherId);
+    });
+    return ids;
+  }, [linksOut, linksIn, note?.id]);
+
+  const unlinkedDetectedEntities = useMemo(() => {
+    const list = extractedData?.linked_existing || [];
+    return list.filter((entity) => !linkedEntityIds.has(entity.id));
+  }, [extractedData?.linked_existing, linkedEntityIds]);
+
   if (!note) {
     if (loading) {
       return (
@@ -442,6 +456,17 @@ export default function NoteDetailView() {
       addToast({ type: 'error', message: e.message || 'Could not add link' });
     } finally {
       setLinkBusy(false);
+    }
+  };
+
+  const handleAddDetectedLink = async (entityId) => {
+    if (!entityId) return;
+    try {
+      await linksAPI.create({ src_id: note.id, dst_id: entityId, link_type: 'related' });
+      addToast({ type: 'success', message: 'Added to linked context' });
+      await loadLinks();
+    } catch (e) {
+      addToast({ type: 'error', message: e.message || 'Could not link entity' });
     }
   };
 
@@ -920,110 +945,113 @@ export default function NoteDetailView() {
                   {linkBusy ? <Loader2 size={13} className="spin" /> : 'Add related link'}
                 </button>
               </div>
-            </section>
+              <div className={styles.extractedGroup}>
+                <span className={styles.linkHeading}>
+                  <Sparkles size={12} aria-hidden />
+                  AI from this note
+                </span>
+                {extractedLoading ? (
+                  <p className={styles.panelMuted}>
+                    <Loader2 size={14} className="spin" aria-hidden /> Loading…
+                  </p>
+                ) : (
+                  <>
+                    {extractedData?.derived?.length > 0 && (
+                      <div className={styles.extractedGroup}>
+                        <span className={styles.linkHeading}>Created</span>
+                        <ul className={styles.extractedList}>
+                          {extractedData.derived.map(e => (
+                            <li key={e.id} className={styles.extractedItem}>
+                              {renderEntityLink(e.id, getEntityTitle(e) || e.title, e)}
+                              <span className={styles.entityTypeTag}>{e.type}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
 
-            {/* Extracted from this note */}
-            <section className={styles.panel}>
-              <h2 className={styles.panelTitle}>
-                <Sparkles size={14} /> Extracted from this note
-              </h2>
-              {extractedLoading ? (
-                <p className={styles.panelMuted}>
-                  <Loader2 size={14} className="spin" aria-hidden /> Loading…
-                </p>
-              ) : (
-                <>
-                  {/* Derived entities (created from this note) */}
-                  {extractedData?.derived?.length > 0 && (
-                    <div className={styles.extractedGroup}>
-                      <span className={styles.linkHeading}>Created</span>
-                      <ul className={styles.extractedList}>
-                        {extractedData.derived.map(e => (
-                          <li key={e.id} className={styles.extractedItem}>
-                            {renderEntityLink(e.id, getEntityTitle(e) || e.title, e)}
-                            <span className={styles.entityTypeTag}>{e.type}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {/* Linked existing projects/areas */}
-                  {extractedData?.linked_existing?.length > 0 && (
-                    <div className={styles.extractedGroup}>
-                      <span className={styles.linkHeading}>Linked existing</span>
-                      <ul className={styles.extractedList}>
-                        {extractedData.linked_existing.map(e => (
-                          <li key={e.id} className={styles.extractedItem}>
-                            {renderEntityLink(e.id, getEntityTitle(e) || e.title, e)}
-                            <span className={styles.entityTypeTag}>{e.type}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {/* Pending AI suggestions */}
-                  {extractedData?.suggestions?.length > 0 && (
-                    <div className={styles.extractedGroup}>
-                      <span className={styles.linkHeading}>Suggestions</span>
-                      <ul className={styles.extractedList}>
-                        {extractedData.suggestions.map(s => (
-                          <li key={s.id} className={styles.extractedItem}>
-                            <span className={styles.suggestionOp}>{s.suggestion_type}</span>
-                            <span className={styles.suggestionConf}>
-                              {Math.round((s.confidence || 0) * 100)}%
-                            </span>
-                            {s.reason && <span className={styles.proposalReason}>{s.reason}</span>}
-                            <div className={styles.suggestionActions}>
+                    {unlinkedDetectedEntities.length > 0 && (
+                      <div className={styles.extractedGroup}>
+                        <span className={styles.linkHeading}>Detected but not linked</span>
+                        <ul className={styles.extractedList}>
+                          {unlinkedDetectedEntities.map(e => (
+                            <li key={e.id} className={styles.extractedItem}>
+                              {renderEntityLink(e.id, getEntityTitle(e) || e.title, e)}
+                              <span className={styles.entityTypeTag}>{e.type}</span>
                               <button
                                 type="button"
-                                className="btn btn-primary btn-xs"
-                                onClick={async () => {
-                                  setProposalActionId(s.id);
-                                  try {
-                                    await suggestionsAPI.accept(s.id);
-                                    loadExtracted();
-                                  } catch (e) {
-                                    addToast({ type: 'error', message: 'Failed to accept suggestion' });
-                                  } finally {
-                                    setProposalActionId(null);
-                                  }
-                                }}
-                                disabled={proposalActionId === s.id}
+                                className="btn btn-secondary btn-xs"
+                                onClick={() => handleAddDetectedLink(e.id)}
                               >
-                                Accept
+                                Add to linked context
                               </button>
-                              <button
-                                type="button"
-                                className="btn btn-ghost btn-xs"
-                                onClick={async () => {
-                                  setProposalActionId(s.id);
-                                  try {
-                                    await suggestionsAPI.dismiss(s.id);
-                                    loadExtracted();
-                                  } catch (e) {
-                                    addToast({ type: 'error', message: 'Failed to dismiss suggestion' });
-                                  } finally {
-                                    setProposalActionId(null);
-                                  }
-                                }}
-                                disabled={proposalActionId === s.id}
-                              >
-                                Dismiss
-                              </button>
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
 
-                  {((!extractedData?.derived?.length) && (!extractedData?.linked_existing?.length) && (!extractedData?.suggestions?.length)) && (
-                    <p className={styles.panelMuted}>Nothing extracted yet. Classify this note to extract entities.</p>
-                  )}
-                </>
-              )}
+                    {extractedData?.suggestions?.length > 0 && (
+                      <div className={styles.extractedGroup}>
+                        <span className={styles.linkHeading}>Suggestions</span>
+                        <ul className={styles.extractedList}>
+                          {extractedData.suggestions.map(s => (
+                            <li key={s.id} className={styles.extractedItem}>
+                              <span className={styles.suggestionOp}>{s.suggestion_type}</span>
+                              <span className={styles.suggestionConf}>
+                                {Math.round((s.confidence || 0) * 100)}%
+                              </span>
+                              {s.reason && <span className={styles.proposalReason}>{s.reason}</span>}
+                              <div className={styles.suggestionActions}>
+                                <button
+                                  type="button"
+                                  className="btn btn-primary btn-xs"
+                                  onClick={async () => {
+                                    setProposalActionId(s.id);
+                                    try {
+                                      await suggestionsAPI.accept(s.id);
+                                      await Promise.all([loadExtracted(), loadLinks()]);
+                                    } catch (e) {
+                                      addToast({ type: 'error', message: 'Failed to accept suggestion' });
+                                    } finally {
+                                      setProposalActionId(null);
+                                    }
+                                  }}
+                                  disabled={proposalActionId === s.id}
+                                >
+                                  Accept
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn btn-ghost btn-xs"
+                                  onClick={async () => {
+                                    setProposalActionId(s.id);
+                                    try {
+                                      await suggestionsAPI.dismiss(s.id);
+                                      loadExtracted();
+                                    } catch (e) {
+                                      addToast({ type: 'error', message: 'Failed to dismiss suggestion' });
+                                    } finally {
+                                      setProposalActionId(null);
+                                    }
+                                  }}
+                                  disabled={proposalActionId === s.id}
+                                >
+                                  Dismiss
+                                </button>
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {(!extractedData?.derived?.length && !unlinkedDetectedEntities.length && !extractedData?.suggestions?.length) && (
+                      <p className={styles.panelMuted}>Nothing extracted yet. Classify this note to extract entities.</p>
+                    )}
+                  </>
+                )}
+              </div>
             </section>
           </div>
         </div>
