@@ -247,7 +247,24 @@ export const changeBatchesAPI = {
 
 // ── Relationships API ─────────────────────
 export const relationshipsAPI = {
-  list:        (entityId)     => fetch(`/api/v2/links/${encodeURIComponent(entityId)}`).then(r => r.json()),
+  list: async (entityId) => {
+    const res = await fetch(`/api/v2/links/${encodeURIComponent(entityId)}`);
+    if (!res.ok) throw new Error(`Failed to load links: ${res.status}`);
+    const payload = await res.json();
+    if (Array.isArray(payload?.outgoing) || Array.isArray(payload?.incoming)) {
+      return {
+        outgoing: payload.outgoing || [],
+        incoming: payload.incoming || [],
+        data: payload.data || [],
+      };
+    }
+    const rows = Array.isArray(payload?.data) ? payload.data : [];
+    return {
+      outgoing: rows.filter((l) => l.direction === 'outgoing'),
+      incoming: rows.filter((l) => l.direction === 'incoming'),
+      data: rows,
+    };
+  },
   create:      (data)         => apiRequest('POST',   '/links', data),
   delete:      (linkId)       => apiRequest('DELETE', `/links/${linkId}`),
   linkTypes:   (srcType, dstType) => linkTypesAPI.forPair(srcType, dstType),

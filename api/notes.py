@@ -72,6 +72,64 @@ def _apply_project_links(entity, data):
                 db.session.add(link)
 
 
+def _apply_area_link(entity, data):
+    """Apply area_id from request data as note->area parent link."""
+    if "area_id" not in data:
+        return
+
+    # Remove existing note->area structural links
+    existing = EntityLink.query.filter(
+        EntityLink.src_id == entity.id,
+        EntityLink.link_type.in_(["parent", "related"]),
+    ).all()
+    for link in existing:
+        dst = db.session.get(Entity, link.dst_id)
+        if dst and dst.type == "area":
+            db.session.delete(link)
+
+    area_id = data.get("area_id")
+    if area_id:
+        dst = db.session.get(Entity, area_id)
+        if dst and dst.type == "area":
+            link = EntityLink(
+                src_id=entity.id,
+                dst_id=area_id,
+                link_type="parent",
+                source="manual",
+            )
+            link.inverse = "child"
+            db.session.add(link)
+
+
+def _apply_person_link(entity, data):
+    """Apply person_id from request data as note->person mentions link."""
+    if "person_id" not in data:
+        return
+
+    # Remove existing note->person association links
+    existing = EntityLink.query.filter(
+        EntityLink.src_id == entity.id,
+        EntityLink.link_type.in_(["mentions", "related"]),
+    ).all()
+    for link in existing:
+        dst = db.session.get(Entity, link.dst_id)
+        if dst and dst.type == "person":
+            db.session.delete(link)
+
+    person_id = data.get("person_id")
+    if person_id:
+        dst = db.session.get(Entity, person_id)
+        if dst and dst.type == "person":
+            link = EntityLink(
+                src_id=entity.id,
+                dst_id=person_id,
+                link_type="mentions",
+                source="manual",
+            )
+            link.inverse = "mentioned_in"
+            db.session.add(link)
+
+
 def _entity_to_note_response(entity):
     """Convert Entity to note-like response dict with all legacy fields."""
     d = entity.to_dict()
@@ -91,6 +149,9 @@ def _entity_to_note_response(entity):
             proj = db.session.get(Entity, link.dst_id)
             if proj:
                 d["projects"].append({"id": proj.id, "name": proj.title})
+    props = d.get("properties") or {}
+    d["area_id"] = props.get("area_id")
+    d["person_id"] = props.get("person_id")
     return d
 
 
@@ -178,6 +239,8 @@ def create_note():
 
     # Apply project links
     _apply_project_links(entity, data)
+    _apply_area_link(entity, data)
+    _apply_person_link(entity, data)
 
     # Apply tags
     _apply_tags(entity, data)
@@ -244,6 +307,8 @@ def update_note(note_id):
     # Apply project links
     if "project_ids" in data or "project_id" in data:
         _apply_project_links(note, data)
+    _apply_area_link(note, data)
+    _apply_person_link(note, data)
 
     # Apply tags
     _apply_tags(note, data)
