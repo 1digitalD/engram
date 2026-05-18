@@ -242,6 +242,16 @@ def get_entity_events(entity_id):
     return jsonify({"data": [event.to_dict() for event in events]})
 
 
+@api_v4_bp.route("/entities/<entity_id>/canonical", methods=["GET"])
+def get_entity_canonical(entity_id):
+    entity = _load_entity(entity_id)
+    if entity is None:
+        return _error("entity not found", 404)
+
+    from services.canonical_document import generate_canonical_markdown
+    return jsonify({"entity_id": entity.id, "canonical": generate_canonical_markdown(entity)})
+
+
 @api_v4_bp.route("/entities/<entity_id>/relationships", methods=["GET"])
 def get_relationships(entity_id):
     entity = db.session.get(Entity, entity_id)
