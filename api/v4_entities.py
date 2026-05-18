@@ -318,6 +318,124 @@ def get_entity_events(entity_id):
     return jsonify({"data": [event.to_dict() for event in events]})
 
 
+@api_v4_bp.route("/suggestions", methods=["GET"])
+def list_suggestions():
+    status = request.args.get("status", "pending")
+    query = AiSuggestion.query
+    if status != "all":
+        query = query.filter(AiSuggestion.status == status)
+    rows = query.order_by(AiSuggestion.created_at.desc()).limit(200).all()
+    return jsonify({"data": [row.to_dict() for row in rows]})
+
+
+@api_v4_bp.route("/suggestions/<suggestion_id>/accept", methods=["POST"])
+def accept_suggestion(suggestion_id):
+    suggestion = db.session.get(AiSuggestion, suggestion_id)
+    if suggestion is None:
+        return _error("suggestion not found", 404)
+    if suggestion.status != "pending":
+        return _error("suggestion is not pending", 409)
+    if suggestion.operation_type != "create_entity":
+        return _error(f"unsupported suggestion operation: {suggestion.operation_type}")
+
+    payload = suggestion.payload or {}
+    entity_type = payload.get("type")
+    if entity_type not in RISKY_ENTITY_CREATION_TYPES:
+        return _error("suggestion payload type must be one of: " + ", ".join(sorted(RISKY_ENTITY_CREATION_TYPES)))
+
+    properties = payload.get("properties") or {}
+    properties_error = _validate_properties(properties)
+    if properties_error:
+        return properties_error
+
+    status = payload.get("status") or DEFAULT_STATUS[entity_type]
+    validation_error = _validate_status(entity_type, status)
+    if validation_error:
+        return validation_error
+
+    source_note = db.session.get(Entity, suggestion.source_entity_id)
+    if source_note is None:
+        return _error("source note not found", 404)
+
+    entity = Entity(
+        type=entity_type,
+        title=payload.get("title"),
+        content=payload.get("content"),
+        status=status,
+        lifecycle="active",
+        follow_up_at=_parse_datetime(payload.get("follow_up_at")),
+        source="ai_suggestion",
+        reference_url=payload.get("reference_url"),
+        properties=properties,
+        ai_meta={},
+        ai_status="pending",
+    )
+    db.session.add(entity)
+    db.session.flush()
+    _write_event(entity, "created", new_value=entity.to_dict(), actor="agent:v4-review")
+
+    link_source, link_target, relationship_type = _accepted_suggestion_link(source_note, entity)
+    link = _create_entity_link(
+        link_source,
+        link_target,
+        relationship_type,
+        suggestion.confidence,
+        suggestion.reason,
+        source="ai_review",
+    )
+    if link is not None:
+        _write_event(
+            link_source,
+            "relationship_added",
+            new_value=link.to_dict(),
+            actor="agent:v4-review",
+            confidence=suggestion.confidence,
+            reason=suggestion.reason,
+        )
+
+    suggestion.status = "accepted"
+    suggestion.resolved_at = datetime.utcnow()
+    _write_event(
+        source_note,
+        "suggestion_accepted",
+        new_value={"suggestion_id": suggestion.id, "created_entity_id": entity.id},
+        actor="agent:v4-review",
+        confidence=suggestion.confidence,
+        reason=suggestion.reason,
+    )
+    db.session.commit()
+
+    return jsonify({
+        "suggestion": suggestion.to_dict(),
+        "created_entity": _load_entity(entity.id).to_dict(),
+        "relationship": link.to_dict() if link is not None else None,
+    })
+
+
+@api_v4_bp.route("/suggestions/<suggestion_id>/dismiss", methods=["POST"])
+def dismiss_suggestion(suggestion_id):
+    suggestion = db.session.get(AiSuggestion, suggestion_id)
+    if suggestion is None:
+        return _error("suggestion not found", 404)
+    if suggestion.status != "pending":
+        return _error("suggestion is not pending", 409)
+
+    suggestion.status = "dismissed"
+    suggestion.resolved_at = datetime.utcnow()
+    source_entity = db.session.get(Entity, suggestion.source_entity_id)
+    if source_entity is not None:
+        _write_event(
+            source_entity,
+            "suggestion_dismissed",
+            new_value={"suggestion_id": suggestion.id},
+            actor="agent:v4-review",
+            confidence=suggestion.confidence,
+            reason=suggestion.reason,
+        )
+    db.session.commit()
+    return jsonify({"data": suggestion.to_dict()})
+
+
 @api_v4_bp.route("/entities/<entity_id>/canonical", methods=["GET"])
 def get_entity_canonical(entity_id):
     entity = _load_entity(entity_id)
@@ -711,7 +829,7 @@ def _create_suggestion(note, suggestion_type, operation_type, payload, confidenc
     return suggestion
 
 
-def _create_entity_link(note, target, relationship_type, confidence, evidence):
+def _create_entity_link(note, target, relationship_type, confidence, evidence, source="ai"):
     existing = EntityLink.query.filter_by(
         source_entity_id=note.id,
         target_entity_id=target.id,
@@ -723,7 +841,7 @@ def _create_entity_link(note, target, relationship_type, confidence, evidence):
         source_entity_id=note.id,
         target_entity_id=target.id,
         relationship_type=relationship_type,
-        source="ai",
+        source=source,
         confidence=confidence,
         evidence=evidence,
     )
@@ -744,6 +862,16 @@ def _default_relationship_type(entity_type):
     if entity_type == "person":
         return "mentions"
     return "related"
+
+
+def _accepted_suggestion_link(source_note, entity):
+    if entity.type == "task":
+        return entity, source_note, "derived_from"
+    if entity.type == "person":
+        return source_note, entity, "mentions"
+    if entity.type == "resource":
+        return source_note, entity, "references"
+    return source_note, entity, "related"
 
 
 def _candidate_value(candidate, key):
