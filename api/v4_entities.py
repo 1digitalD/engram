@@ -219,6 +219,14 @@ def get_entity(entity_id):
     return jsonify({"data": entity.to_dict()})
 
 
+@api_v4_bp.route("/entities/<entity_id>/detail", methods=["GET"])
+def get_entity_detail(entity_id):
+    entity = _load_entity(entity_id)
+    if entity is None:
+        return _error("entity not found", 404)
+    return jsonify({"entity": entity.to_dict(), "sections": _relationship_detail_sections(entity)})
+
+
 @api_v4_bp.route("/entities/<entity_id>", methods=["PATCH"])
 def update_entity(entity_id):
     entity = _load_entity(entity_id)
@@ -559,6 +567,137 @@ def _entity_query():
 
 def _load_entity(entity_id):
     return _entity_query().filter(Entity.id == entity_id).first()
+
+
+def _relationship_detail_sections(entity):
+    links = (
+        EntityLink.query.filter(
+            (EntityLink.source_entity_id == entity.id) | (EntityLink.target_entity_id == entity.id)
+        )
+        .order_by(EntityLink.created_at.asc())
+        .all()
+    )
+    builders = {
+        "task": _task_detail_sections,
+        "project": _project_detail_sections,
+        "area": _area_detail_sections,
+        "note": _note_detail_sections,
+        "person": _person_detail_sections,
+        "resource": _resource_detail_sections,
+    }
+    return builders[entity.type](entity, links)
+
+
+def _task_detail_sections(entity, links):
+    return [
+        _section("project", "Project", _link_items(entity, links, "outgoing", {"parent"}, {"project"})),
+        _section("area", "Area", _link_items(entity, links, "outgoing", {"parent"}, {"area"})),
+        _section("people", "People", _link_items(entity, links, "outgoing", {"assigned_to", "mentions"}, {"person"})),
+        _section("source_notes", "Source Notes", _link_items(entity, links, "outgoing", {"derived_from"}, {"note"})),
+        _section("related_notes", "Related Notes", _link_items(entity, links, "both", {"related"}, {"note"})),
+        _section("resources", "Resources", _link_items(entity, links, "outgoing", {"references", "related"}, {"resource"})),
+        _section("blocking", "Blocking / Blocked By", _link_items(entity, links, "both", {"blocks"}, {"task"})),
+        _section("related_tasks", "Related Tasks", _link_items(entity, links, "both", {"related"}, {"task"})),
+    ]
+
+
+def _project_detail_sections(entity, links):
+    return [
+        _section("area", "Area", _link_items(entity, links, "outgoing", {"parent"}, {"area"})),
+        _section(
+            "open_tasks",
+            "Open Tasks",
+            _link_items(entity, links, "incoming", {"parent"}, {"task"}, exclude_statuses={"done", "cancelled"}),
+        ),
+        _section(
+            "completed_tasks",
+            "Completed Tasks",
+            _link_items(entity, links, "incoming", {"parent"}, {"task"}, statuses={"done"}),
+        ),
+        _section("notes", "Notes", _link_items(entity, links, "both", {"related", "mentions", "references"}, {"note"})),
+        _section("resources", "Resources", _link_items(entity, links, "both", {"references", "related"}, {"resource"})),
+        _section("people", "People", _link_items(entity, links, "both", {"assigned_to", "mentions", "related"}, {"person"})),
+        _section("related_projects", "Related Projects", _link_items(entity, links, "both", {"related"}, {"project"})),
+        _section("blocked_by_blocks", "Blocked By / Blocks", _link_items(entity, links, "both", {"blocks"}, {"project"})),
+    ]
+
+
+def _area_detail_sections(entity, links):
+    return [
+        _section("projects", "Projects", _link_items(entity, links, "incoming", {"parent", "related"}, {"project"})),
+        _section("tasks", "Tasks", _link_items(entity, links, "incoming", {"parent", "related"}, {"task"})),
+        _section("notes", "Notes", _link_items(entity, links, "both", {"related", "mentions"}, {"note"})),
+        _section("resources", "Resources", _link_items(entity, links, "both", {"references", "related"}, {"resource"})),
+        _section("people", "People", _link_items(entity, links, "both", {"mentions", "assigned_to", "related"}, {"person"})),
+    ]
+
+
+def _note_detail_sections(entity, links):
+    return [
+        _section("projects", "Projects", _link_items(entity, links, "outgoing", {"related", "mentions"}, {"project"})),
+        _section("areas", "Areas", _link_items(entity, links, "outgoing", {"related", "mentions"}, {"area"})),
+        _section("people_mentioned", "People Mentioned", _link_items(entity, links, "outgoing", {"mentions"}, {"person"})),
+        _section("derived_tasks", "Derived Tasks", _link_items(entity, links, "incoming", {"derived_from"}, {"task"})),
+        _section("referenced_resources", "Referenced Resources", _link_items(entity, links, "outgoing", {"references"}, {"resource"})),
+        _section("related_notes", "Related Notes", _link_items(entity, links, "both", {"related"}, {"note"})),
+    ]
+
+
+def _person_detail_sections(entity, links):
+    return [
+        _section("assigned_tasks", "Assigned Tasks", _link_items(entity, links, "incoming", {"assigned_to"}, {"task"})),
+        _section("mentioned_in_notes", "Mentioned In Notes", _link_items(entity, links, "incoming", {"mentions"}, {"note"})),
+        _section("projects", "Projects", _link_items(entity, links, "both", {"assigned_to", "mentions", "related"}, {"project"})),
+        _section("resources", "Resources", _link_items(entity, links, "both", {"references", "related"}, {"resource"})),
+        _section("related_people", "Related People", _link_items(entity, links, "both", {"related"}, {"person"})),
+    ]
+
+
+def _resource_detail_sections(entity, links):
+    return [
+        _section("referenced_by_notes", "Referenced By Notes", _link_items(entity, links, "incoming", {"references"}, {"note"})),
+        _section("projects", "Projects", _link_items(entity, links, "both", {"references", "related"}, {"project"})),
+        _section("tasks", "Tasks", _link_items(entity, links, "both", {"references", "related"}, {"task"})),
+        _section("areas", "Areas", _link_items(entity, links, "both", {"references", "related"}, {"area"})),
+        _section("people", "People", _link_items(entity, links, "both", {"references", "related"}, {"person"})),
+        _section("related_resources", "Related Resources", _link_items(entity, links, "both", {"related"}, {"resource"})),
+    ]
+
+
+def _section(key, title, items):
+    return {"key": key, "title": title, "items": items}
+
+
+def _link_items(entity, links, direction, relationship_types, related_types, statuses=None, exclude_statuses=None):
+    items = []
+    for link in links:
+        related_entity, resolved_direction = _related_entity_for_link(entity, link, direction)
+        if related_entity is None or related_entity.lifecycle == "deleted":
+            continue
+        if link.relationship_type not in relationship_types:
+            continue
+        if related_entity.type not in related_types:
+            continue
+        if statuses is not None and related_entity.status not in statuses:
+            continue
+        if exclude_statuses is not None and related_entity.status in exclude_statuses:
+            continue
+        items.append(
+            {
+                "entity": related_entity.to_dict(),
+                "relationship": link.to_dict(),
+                "direction": resolved_direction,
+            }
+        )
+    return items
+
+
+def _related_entity_for_link(entity, link, direction):
+    if direction in {"outgoing", "both"} and link.source_entity_id == entity.id:
+        return db.session.get(Entity, link.target_entity_id), "outgoing"
+    if direction in {"incoming", "both"} and link.target_entity_id == entity.id:
+        return db.session.get(Entity, link.source_entity_id), "incoming"
+    return None, None
 
 
 def _replace_tags(entity, tag_names):
