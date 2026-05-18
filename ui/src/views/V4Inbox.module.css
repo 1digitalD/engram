@@ -1,0 +1,143 @@
+.inbox {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+  gap: var(--space-5);
+  height: 100vh;
+  overflow: auto;
+  padding: var(--space-8);
+}
+
+.capturePanel,
+.resultPanel,
+.recentPanel {
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background: color-mix(in oklch, var(--surface) 92%, transparent);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-6);
+}
+
+.capturePanel {
+  align-self: start;
+}
+
+.capturePanel h1 {
+  font-size: clamp(36px, 6vw, 68px);
+  letter-spacing: -0.07em;
+  margin-bottom: var(--space-5);
+}
+
+.eyebrow {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.16em;
+  margin-bottom: var(--space-3);
+  text-transform: uppercase;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.form label {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.form textarea {
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  padding: var(--space-4);
+  resize: vertical;
+}
+
+.form textarea:focus {
+  border-color: var(--border-focus);
+  outline: none;
+}
+
+.form button {
+  align-self: flex-start;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--text);
+  color: var(--surface);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  padding: 11px 18px;
+}
+
+.form button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.resultPanel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.recentPanel {
+  align-self: start;
+  grid-row: span 2;
+}
+
+.noteCard,
+.warning {
+  border-radius: 16px;
+  background: var(--surface2);
+  padding: var(--space-4);
+}
+
+.warning {
+  border: 1px solid color-mix(in oklch, var(--yellow) 35%, var(--border));
+}
+
+.error {
+  border-radius: 14px;
+  background: color-mix(in oklch, var(--red) 12%, var(--surface));
+  color: var(--red);
+  margin-top: var(--space-4);
+  padding: var(--space-3);
+}
+
+.list,
+.noteList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  list-style: none;
+  margin-top: var(--space-2);
+}
+
+.noteList li {
+  border-bottom: 1px solid var(--border-faint);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-3) 0;
+}
+
+.noteList span {
+  color: var(--text-secondary);
+}
+
+@media (max-width: 920px) {
+  .inbox {
+    grid-template-columns: 1fr;
+    height: auto;
+    padding: var(--space-4);
+  }
+
+  .recentPanel {
+    grid-row: auto;
+  }
+}

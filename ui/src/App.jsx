@@ -1,5 +1,6 @@
 import { NavLink, Navigate, Route, Routes, useParams } from 'react-router-dom';
 import styles from './App.module.css';
+import V4Inbox from './views/V4Inbox';
 
 const navItems = [
   ['/', 'Inbox'],
@@ -73,8 +74,8 @@ export default function App() {
       </aside>
 
       <Routes>
-        <Route path="/" element={<ShellPage page="inbox" />} />
-        <Route path="/inbox" element={<ShellPage page="inbox" />} />
+        <Route path="/" element={<V4Inbox />} />
+        <Route path="/inbox" element={<V4Inbox />} />
         <Route path="/today" element={<ShellPage page="today" />} />
         <Route path="/search" element={<ShellPage page="search" />} />
         <Route path="/entities/:id" element={<EntityShell />} />
