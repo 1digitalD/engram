@@ -28,9 +28,10 @@ def create_app(config_name=None):
     db.init_app(app)
 
     # Register API blueprint (includes all sub-modules)
-    from api import api_bp, api_v2_bp
+    from api import api_bp, api_v2_bp, api_v4_bp
     app.register_blueprint(api_bp)
     app.register_blueprint(api_v2_bp)
+    app.register_blueprint(api_v4_bp)
 
     # Register AI pipeline handlers
     from services.ai_pipeline import register_handlers
