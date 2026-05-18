@@ -1,0 +1,113 @@
+.search {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.8fr) minmax(0, 1.2fr);
+  gap: var(--space-5);
+  height: 100vh;
+  overflow: auto;
+  padding: var(--space-8);
+}
+
+.hero,
+.results {
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background: color-mix(in oklch, var(--surface) 92%, transparent);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-6);
+}
+
+.hero {
+  align-self: start;
+}
+
+.hero h1 {
+  font-size: clamp(40px, 7vw, 76px);
+  letter-spacing: -0.08em;
+  margin-bottom: var(--space-5);
+}
+
+.eyebrow {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.16em;
+  margin-bottom: var(--space-3);
+  text-transform: uppercase;
+}
+
+.form {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.form input,
+.form select {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  padding: 11px 12px;
+}
+
+.form button {
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--text);
+  color: var(--surface);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  padding: 10px 16px;
+}
+
+.form button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.results ul {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  list-style: none;
+  margin-top: var(--space-4);
+}
+
+.results a {
+  border: 1px solid var(--border-faint);
+  border-radius: 18px;
+  display: grid;
+  gap: 4px;
+  padding: var(--space-4);
+}
+
+.results a:hover {
+  background: var(--surface2);
+}
+
+.type {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+}
+
+.results small {
+  color: var(--text-muted);
+}
+
+.error {
+  border-radius: 14px;
+  background: color-mix(in oklch, var(--red) 12%, var(--surface));
+  color: var(--red);
+  padding: var(--space-3);
+}
+
+@media (max-width: 900px) {
+  .search {
+    grid-template-columns: 1fr;
+    height: auto;
+    padding: var(--space-4);
+  }
+}
