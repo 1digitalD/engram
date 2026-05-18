@@ -4,6 +4,7 @@ import V4Inbox from './views/V4Inbox';
 import V4EntityList from './views/V4EntityList';
 import V4EntityDetail from './views/V4EntityDetail';
 import V4Search from './views/V4Search';
+import V4Today from './views/V4Today';
 
 const navItems = [
   ['/', 'Inbox'],
@@ -67,7 +68,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<V4Inbox />} />
         <Route path="/inbox" element={<V4Inbox />} />
-        <Route path="/today" element={<ShellPage page="today" />} />
+        <Route path="/today" element={<V4Today />} />
         <Route path="/search" element={<V4Search />} />
         <Route path="/entities/:id" element={<V4EntityDetail />} />
         <Route path="/notes" element={<V4EntityList type="note" />} />

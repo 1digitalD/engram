@@ -1,6 +1,6 @@
 """Engram v4 canonical entity API."""
 
-from datetime import datetime
+from datetime import datetime, time, timezone
 
 from flask import jsonify, request
 from sqlalchemy import func
@@ -166,6 +166,66 @@ def search():
     )
     resolved_mode = mode if mode in {"keyword", "semantic", "hybrid"} else "hybrid"
     return jsonify({"query": q, "mode": resolved_mode, "results": results})
+
+
+@api_v4_bp.route("/today", methods=["GET"])
+def today():
+    now = datetime.now(timezone.utc)
+    end_of_today = datetime.combine(now.date(), time.max, tzinfo=timezone.utc)
+    follow_ups = (
+        _entity_query()
+        .filter(
+            Entity.lifecycle == "active",
+            Entity.follow_up_at.isnot(None),
+            Entity.follow_up_at <= end_of_today,
+        )
+        .order_by(Entity.follow_up_at.asc())
+        .limit(50)
+        .all()
+    )
+    blocked_or_waiting_tasks = (
+        _entity_query()
+        .filter(
+            Entity.type == "task",
+            Entity.lifecycle == "active",
+            Entity.status.in_(["blocked", "waiting"]),
+        )
+        .order_by(Entity.updated_at.desc())
+        .limit(50)
+        .all()
+    )
+    projects = (
+        _entity_query()
+        .filter(Entity.type == "project", Entity.lifecycle == "active", Entity.status == "active")
+        .order_by(Entity.updated_at.desc())
+        .limit(100)
+        .all()
+    )
+    projects_without_open_tasks = [
+        project for project in projects
+        if not _project_has_open_task(project.id)
+    ][:25]
+    recent_notes = (
+        _entity_query()
+        .filter(Entity.type == "note", Entity.lifecycle == "active")
+        .order_by(Entity.updated_at.desc(), Entity.created_at.desc())
+        .limit(10)
+        .all()
+    )
+    pending_suggestions = (
+        AiSuggestion.query.filter_by(status="pending")
+        .order_by(AiSuggestion.created_at.desc())
+        .limit(25)
+        .all()
+    )
+
+    return jsonify({
+        "follow_ups": [entity.to_dict() for entity in follow_ups],
+        "blocked_or_waiting_tasks": [entity.to_dict() for entity in blocked_or_waiting_tasks],
+        "projects_without_open_tasks": [entity.to_dict() for entity in projects_without_open_tasks],
+        "recent_notes": [entity.to_dict() for entity in recent_notes],
+        "pending_suggestions": [suggestion.to_dict() for suggestion in pending_suggestions],
+    })
 
 
 @api_v4_bp.route("/entities", methods=["POST"])
@@ -567,6 +627,16 @@ def _entity_query():
 
 def _load_entity(entity_id):
     return _entity_query().filter(Entity.id == entity_id).first()
+
+
+def _project_has_open_task(project_id):
+    open_statuses = {"open", "in_progress", "waiting", "blocked"}
+    links = EntityLink.query.filter_by(target_entity_id=project_id, relationship_type="parent").all()
+    for link in links:
+        task = db.session.get(Entity, link.source_entity_id)
+        if task is not None and task.type == "task" and task.lifecycle == "active" and task.status in open_statuses:
+            return True
+    return False
 
 
 def _relationship_detail_sections(entity):
