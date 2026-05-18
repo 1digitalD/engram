@@ -7,7 +7,7 @@ from sqlalchemy.orm import selectinload
 
 from api import api_v4_bp
 from extensions import db
-from models import Entity, EntityEvent, EntityLink, EntityTag, Tag
+from models import Entity, EntityEvent, EntityLink, EntityTag, Job, Tag
 
 
 ENTITY_TYPES = {"note", "task", "project", "area", "resource", "person"}
@@ -67,6 +67,46 @@ RELATIONSHIP_TYPES = {
 def health():
     db.session.execute(db.text("SELECT 1"))
     return jsonify({"status": "ok", "api": "v4"})
+
+
+@api_v4_bp.route("/capture", methods=["POST"])
+def capture():
+    data = request.get_json(silent=True) or {}
+    content = (data.get("content") or "").strip()
+    if not content:
+        return _error("content is required")
+
+    note = Entity(
+        type="note",
+        title=data.get("title") or _title_from_content(content),
+        content=content,
+        status="active",
+        lifecycle="active",
+        source=data.get("source") or "quick_capture",
+        properties={},
+        ai_meta={},
+        ai_status="pending",
+    )
+    db.session.add(note)
+    db.session.flush()
+    _write_event(note, "created", new_value=note.to_dict())
+    db.session.add(Job(job_type="embed", entity_id=note.id, payload={"reason": "capture"}))
+
+    applied_changes = []
+    suggestions = []
+    warnings = []
+    try:
+        _run_basic_capture_extraction(note, data.get("mode") or "auto")
+    except Exception as exc:
+        warnings.append(str(exc))
+
+    db.session.commit()
+    return jsonify({
+        "source_note": _load_entity(note.id).to_dict(),
+        "applied_changes": applied_changes,
+        "suggestions": suggestions,
+        "warnings": warnings,
+    }), 201
 
 
 @api_v4_bp.route("/entities", methods=["GET"])
@@ -472,3 +512,13 @@ def _parse_datetime(value):
 
 def _error(message, status=400):
     return jsonify({"error": message}), status
+
+
+def _title_from_content(content):
+    first_line = content.splitlines()[0].strip()
+    return first_line[:80] if first_line else "Untitled note"
+
+
+def _run_basic_capture_extraction(note, mode):
+    """Cycle 6 placeholder hook; later cycles add extraction and suggestions."""
+    return None
