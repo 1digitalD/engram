@@ -244,7 +244,7 @@ describe('NoteDetailView MOC note type', () => {
       const url = String(input);
       const method = init?.method || 'GET';
 
-      if (url.includes('/api/v2/proposals') && method === 'GET') {
+      if (url.includes('/api/v4/suggestions') && method === 'GET') {
         return Promise.resolve({
           ok: true,
           json: async () => ({
@@ -266,7 +266,7 @@ describe('NoteDetailView MOC note type', () => {
         });
       }
 
-      if (url.includes('/api/v2/links') && method === 'POST') {
+      if (url.includes('/api/v4/relationships') && method === 'POST') {
         return Promise.resolve({
           ok: true,
           json: async () => ({ data: { id: 'link-1' } }),
@@ -309,7 +309,7 @@ describe('NoteDetailView MOC note type', () => {
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/v2/links'),
+        expect.stringContaining('/api/v4/relationships'),
         expect.objectContaining({
           method: 'POST',
           body: JSON.stringify({ src_id: 'note-1', dst_id: 'project-1', link_type: 'related' }),

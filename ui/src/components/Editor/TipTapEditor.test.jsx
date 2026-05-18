@@ -195,7 +195,7 @@ describe('TipTapEditor', () => {
     await user.click(screen.getByTestId('ai-apply-btn'));
 
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith('/api/v2/ai/propose-from-selection', expect.objectContaining({
+      expect(global.fetch).toHaveBeenCalledWith('/api/v4/ai/propose-from-selection', expect.objectContaining({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       }));

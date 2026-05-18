@@ -148,7 +148,7 @@ describe('AiSelectionPopover', () => {
     await user.click(screen.getByRole('button', { name: 'Apply Project Apollo' }));
 
     expect(global.fetch).toHaveBeenCalledWith(
-      '/api/v2/entities/entity-1',
+      '/api/v4/entities/entity-1',
       expect.objectContaining({
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -242,7 +242,7 @@ describe('callAiAction', () => {
   it('calls the backend endpoint when no apiCall is provided', async () => {
     const result = await callAiAction('classify', 'Hello world');
     expect(result).toHaveProperty('action', 'classify');
-    expect(global.fetch).toHaveBeenCalledWith('/api/v2/ai/propose-from-selection', expect.objectContaining({
+    expect(global.fetch).toHaveBeenCalledWith('/api/v4/ai/propose-from-selection', expect.objectContaining({
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'classify', selected_text: 'Hello world' }),

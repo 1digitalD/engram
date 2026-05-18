@@ -117,7 +117,7 @@ export default function Today() {
 
   useEffect(() => {
     setSummaryLoading(true);
-    fetch('/api/v2/today/summary')
+    fetch('/api/v4/today')
       .then(r => r.json())
       .then(d => setSummary(d.data || { projects_without_next_action: [], waiting_on_people: [] }))
       .catch(() => setSummary({ projects_without_next_action: [], waiting_on_people: [] }))

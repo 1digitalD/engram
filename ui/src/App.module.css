@@ -1,9 +1,127 @@
-.toastStack {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  z-index: 9999;
+.shell {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  width: 100vw;
+  height: 100vh;
+  background:
+    radial-gradient(circle at 20% 12%, oklch(93% 0.05 88), transparent 34%),
+    linear-gradient(135deg, var(--bg), var(--surface2));
+}
+
+.sidebar {
+  border-right: 1px solid var(--border);
+  background: color-mix(in oklch, var(--surface) 88%, transparent);
+  padding: var(--space-5);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-6);
+}
+
+.brand {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  color: var(--text);
+  letter-spacing: -0.03em;
+}
+
+.brand span {
+  font-size: var(--text-2xl);
+  font-weight: 700;
+}
+
+.brand strong {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  padding: 2px 8px;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.navLink {
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-weight: 500;
+  padding: 10px 12px;
+}
+
+.navLink:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.active {
+  background: var(--text);
+  color: var(--surface);
+}
+
+.active:hover {
+  background: var(--text);
+  color: var(--surface);
+}
+
+.page {
+  align-self: center;
+  justify-self: center;
+  width: min(720px, calc(100vw - 320px));
+  border: 1px solid var(--border);
+  border-radius: 28px;
+  background: color-mix(in oklch, var(--surface) 92%, transparent);
+  box-shadow: var(--shadow-lg);
+  padding: clamp(32px, 6vw, 72px);
+}
+
+.page h1 {
+  margin: 0 0 var(--space-4);
+  font-size: clamp(36px, 7vw, 72px);
+  letter-spacing: -0.07em;
+}
+
+.page p {
+  max-width: 56ch;
+  font-size: var(--text-lg);
+}
+
+.eyebrow {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.16em;
+  margin-bottom: var(--space-3);
+  text-transform: uppercase;
+}
+
+@media (max-width: 760px) {
+  .shell {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+  }
+
+  .sidebar {
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+    padding: var(--space-4);
+  }
+
+  .nav {
+    flex-flow: row wrap;
+  }
+
+  .navLink {
+    padding: 8px 10px;
+  }
+
+  .page {
+    align-self: start;
+    width: calc(100vw - 32px);
+    margin: var(--space-4);
+    padding: var(--space-8);
+  }
 }

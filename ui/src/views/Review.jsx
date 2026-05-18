@@ -1534,7 +1534,7 @@ export default function Review() {
           <p className={styles.summaryEmpty}>
             No saved summary matches this granularity and date window. Trigger one from the backend
             (e.g.{' '}
-            <code className={styles.inlineCode}>POST /api/v1/summarize</code>
+            <code className={styles.inlineCode}>POST /api/v4/search</code>
             ), then refresh here.
           </p>
         )}

@@ -80,7 +80,7 @@ function AIPanel({ editor, onClose }) {
     if (!selectedContent || busy) return;
     setBusy(true);
     try {
-      const res = await fetch('/api/v2/ai/propose-from-selection', {
+      const res = await fetch('/api/v4/ai/propose-from-selection', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

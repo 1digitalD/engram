@@ -14,7 +14,7 @@ export async function callAiAction(action, selectedText, apiCall) {
     return apiCall(action, selectedText);
   }
   // Call the real backend endpoint
-  const res = await fetch('/api/v2/ai/propose-from-selection', {
+  const res = await fetch('/api/v4/ai/propose-from-selection', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ action, selected_text: selectedText }),
@@ -219,7 +219,7 @@ export default function AiSelectionPopover({
 
     setApplyingCandidateIds((current) => current.concat(candidateId));
     try {
-      const res = await fetch(`/api/v2/entities/${candidateId}`, {
+      const res = await fetch(`/api/v4/entities/${candidateId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(candidate.proposed_change),

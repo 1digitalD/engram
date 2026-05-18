@@ -189,7 +189,7 @@ export default function NoteDetailView() {
     if (!note?.id) return;
     setProposalsLoading(true);
     try {
-      const res = await fetchJson(`/api/v2/proposals?entity_id=${encodeURIComponent(note.id)}&limit=100`);
+      const res = await fetchJson(`/api/v4/suggestions?entity_id=${encodeURIComponent(note.id)}&limit=100`);
       setProposals(res.data || []);
     } catch (e) {
       addToast({ type: 'error', message: e.message || 'Failed to load link proposals' });
@@ -203,7 +203,7 @@ export default function NoteDetailView() {
     if (!note?.id) return;
     setExtractedLoading(true);
     try {
-      const res = await fetchJson(`/api/v2/entities/${encodeURIComponent(note.id)}/extracted`);
+      const res = await fetchJson(`/api/v4/entities/${encodeURIComponent(note.id)}/detail`);
       setExtractedData(res.data || { derived: [], linked_existing: [], suggestions: [] });
     } catch (e) {
       setExtractedData({ derived: [], linked_existing: [], suggestions: [] });
@@ -484,7 +484,7 @@ export default function NoteDetailView() {
     if (proposalActionId) return;
     setProposalActionId(proposal.id);
     try {
-      await fetchJson('/api/v2/links', {
+      await fetchJson('/api/v4/relationships', {
         method: 'POST',
         body: JSON.stringify({
           src_id: proposal.src_id,
