@@ -1,6 +1,8 @@
-import { NavLink, Navigate, Route, Routes, useParams } from 'react-router-dom';
+import { NavLink, Navigate, Route, Routes } from 'react-router-dom';
 import styles from './App.module.css';
 import V4Inbox from './views/V4Inbox';
+import V4EntityList from './views/V4EntityList';
+import V4EntityDetail from './views/V4EntityDetail';
 
 const navItems = [
   ['/', 'Inbox'],
@@ -39,18 +41,6 @@ function ShellPage({ page }) {
   );
 }
 
-function EntityShell({ type }) {
-  const { id } = useParams();
-  const title = type ? `${type[0].toUpperCase()}${type.slice(1)} detail` : 'Entity detail';
-  return (
-    <main className={styles.page}>
-      <p className={styles.eyebrow}>Engram v4</p>
-      <h1>{title}</h1>
-      <p>Detail route shell for entity {id}. Relationship-aware screens arrive in Cycle 12.</p>
-    </main>
-  );
-}
-
 export default function App() {
   return (
     <div className={styles.shell}>
@@ -78,19 +68,19 @@ export default function App() {
         <Route path="/inbox" element={<V4Inbox />} />
         <Route path="/today" element={<ShellPage page="today" />} />
         <Route path="/search" element={<ShellPage page="search" />} />
-        <Route path="/entities/:id" element={<EntityShell />} />
-        <Route path="/notes" element={<ShellPage page="notes" />} />
-        <Route path="/notes/:id" element={<EntityShell type="note" />} />
-        <Route path="/projects" element={<ShellPage page="projects" />} />
-        <Route path="/projects/:id" element={<EntityShell type="project" />} />
-        <Route path="/tasks" element={<ShellPage page="tasks" />} />
-        <Route path="/tasks/:id" element={<EntityShell type="task" />} />
-        <Route path="/areas" element={<ShellPage page="areas" />} />
-        <Route path="/areas/:id" element={<EntityShell type="area" />} />
-        <Route path="/people" element={<ShellPage page="people" />} />
-        <Route path="/people/:id" element={<EntityShell type="person" />} />
-        <Route path="/resources" element={<ShellPage page="resources" />} />
-        <Route path="/resources/:id" element={<EntityShell type="resource" />} />
+        <Route path="/entities/:id" element={<V4EntityDetail />} />
+        <Route path="/notes" element={<V4EntityList type="note" />} />
+        <Route path="/notes/:id" element={<V4EntityDetail type="note" />} />
+        <Route path="/projects" element={<V4EntityList type="project" />} />
+        <Route path="/projects/:id" element={<V4EntityDetail type="project" />} />
+        <Route path="/tasks" element={<V4EntityList type="task" />} />
+        <Route path="/tasks/:id" element={<V4EntityDetail type="task" />} />
+        <Route path="/areas" element={<V4EntityList type="area" />} />
+        <Route path="/areas/:id" element={<V4EntityDetail type="area" />} />
+        <Route path="/people" element={<V4EntityList type="person" />} />
+        <Route path="/people/:id" element={<V4EntityDetail type="person" />} />
+        <Route path="/resources" element={<V4EntityList type="resource" />} />
+        <Route path="/resources/:id" element={<V4EntityDetail type="resource" />} />
         <Route path="/suggestions" element={<ShellPage page="suggestions" />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
