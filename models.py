@@ -1,8 +1,4 @@
-"""Engram v2 — SQLAlchemy models (Postgres-backed).
-
-All seven canonical tables from docs/SCHEMA.sql:
-  Entity, EntityLink, EntityTag, EntityChunk, EntityEvent, Job, Tag
-"""
+"""Engram v4 SQLAlchemy models for the clean-cutover schema."""
 
 import uuid
 from datetime import datetime, timezone
@@ -20,7 +16,6 @@ from sqlalchemy import (
     UniqueConstraint,
     TypeDecorator,
     Text as SqlText,
-    FetchedValue,
     text,
 )
 from sqlalchemy.orm import relationship
@@ -124,38 +119,58 @@ class EntityTag(db.Model):
 class EntityLink(BaseModel):
     __tablename__ = "entity_links"
     __table_args__ = (
-        UniqueConstraint("src_id", "dst_id", "link_type", name="uq_entity_links_src_dst_type"),
-        CheckConstraint("src_id <> dst_id", name="chk_no_self_link"),
+        UniqueConstraint(
+            "source_entity_id",
+            "target_entity_id",
+            "relationship_type",
+            name="uq_entity_links_source_target_type",
+        ),
+        CheckConstraint("source_entity_id <> target_entity_id", name="chk_entity_links_no_self_link"),
+        CheckConstraint(
+            "relationship_type IN ("
+            "'parent', 'related', 'derived_from', 'mentions', "
+            "'assigned_to', 'references', 'blocks'"
+            ")",
+            name="chk_entity_links_relationship_type",
+        ),
     )
 
-    src_id = Column(String(36), ForeignKey("entities.id", ondelete="CASCADE"), nullable=False)
-    dst_id = Column(String(36), ForeignKey("entities.id", ondelete="CASCADE"), nullable=False)
-    link_type = Column(Text, nullable=False, default="related")
-    inverse = Column(Text, nullable=True)
-    weight = Column(Float, nullable=False, default=1.0)
+    source_entity_id = Column(String(36), ForeignKey("entities.id", ondelete="CASCADE"), nullable=False)
+    target_entity_id = Column(String(36), ForeignKey("entities.id", ondelete="CASCADE"), nullable=False)
+    relationship_type = Column(Text, nullable=False, default="related")
     source = Column(Text, nullable=False, default="manual")
     confidence = Column(Float, nullable=True)
     evidence = Column(Text, nullable=True)
+    updated_at = Column(
+        DateTime, nullable=False, default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
 
-    src_entity = relationship("Entity", foreign_keys=[src_id], back_populates="outgoing_links")
-    dst_entity = relationship("Entity", foreign_keys=[dst_id], back_populates="incoming_links")
+    source_entity = relationship(
+        "Entity", foreign_keys=[source_entity_id], back_populates="outgoing_links"
+    )
+    target_entity = relationship(
+        "Entity", foreign_keys=[target_entity_id], back_populates="incoming_links"
+    )
 
     def to_dict(self):
         return {
             "id": self.id,
-            "src_id": self.src_id,
-            "dst_id": self.dst_id,
-            "link_type": self.link_type,
-            "inverse": self.inverse,
-            "weight": self.weight,
+            "source_entity_id": self.source_entity_id,
+            "target_entity_id": self.target_entity_id,
+            "relationship_type": self.relationship_type,
             "source": self.source,
             "confidence": self.confidence,
             "evidence": self.evidence,
             "created_at": _iso(self.created_at),
+            "updated_at": _iso(self.updated_at),
         }
 
     def __repr__(self):
-        return f"<EntityLink {self.id[:8]} {self.src_id[:8]}→{self.dst_id[:8]} type={self.link_type!r}>"
+        return (
+            f"<EntityLink {self.id[:8]} {self.source_entity_id[:8]}→"
+            f"{self.target_entity_id[:8]} type={self.relationship_type!r}>"
+        )
 
 
 # ─── Entity Chunks (embeddings) ──────────────────────────────────────────────
@@ -222,56 +237,36 @@ class EntityEvent(BaseModel):
         return f"<EntityEvent {self.id[:8]} type={self.event_type!r} actor={self.actor!r}>"
 
 
-# ─── Link Type Allowlist (relationship matrix) ──────────────────────────────
+# ─── Legacy import shim ─────────────────────────────────────────────────────
 
 
-class LinkTypeAllowlist(BaseModel):
-    """Defines allowed (src_type, dst_type, link_type) triplets with their inverses."""
+class LinkTypeAllowlist:
+    """Non-persistent v4 relationship allowlist for old imports during cutover."""
 
-    __tablename__ = "link_type_allowlist"
-    __table_args__ = (
-        UniqueConstraint("src_type", "dst_type", "link_type", name="uq_link_type_allowlist"),
-    )
-
-    src_type = Column(Text, nullable=False)
-    dst_type = Column(Text, nullable=False)
-    link_type = Column(Text, nullable=False)
-    inverse = Column(Text, nullable=False)
-
-    @staticmethod
-    def is_allowed(src_type, dst_type, link_type):
-        return db.session.query(
-            db.session.query(LinkTypeAllowlist).filter_by(
-                src_type=src_type, dst_type=dst_type, link_type=link_type
-            ).exists()
-        ).scalar()
+    ALLOWED_RELATIONSHIP_TYPES = {
+        "parent",
+        "related",
+        "derived_from",
+        "mentions",
+        "assigned_to",
+        "references",
+        "blocks",
+    }
 
     @staticmethod
-    def get_inverse(src_type, dst_type, link_type):
-        row = LinkTypeAllowlist.query.filter_by(
-            src_type=src_type, dst_type=dst_type, link_type=link_type
-        ).first()
-        return row.inverse if row else None
+    def is_allowed(src_type, dst_type, relationship_type):
+        return relationship_type in LinkTypeAllowlist.ALLOWED_RELATIONSHIP_TYPES
+
+    @staticmethod
+    def get_inverse(src_type, dst_type, relationship_type):
+        return None
 
     @staticmethod
     def get_allowed_types(src_type, dst_type):
-        rows = LinkTypeAllowlist.query.filter_by(
-            src_type=src_type, dst_type=dst_type
-        ).all()
-        return [{"link_type": r.link_type, "inverse": r.inverse} for r in rows]
-
-    def to_dict(self):
-        return {
-            "id": self.id,
-            "src_type": self.src_type,
-            "dst_type": self.dst_type,
-            "link_type": self.link_type,
-            "inverse": self.inverse,
-            "created_at": _iso(self.created_at),
-        }
-
-    def __repr__(self):
-        return f"<LinkTypeAllowlist {self.src_type}→{self.dst_type} type={self.link_type!r}>"
+        return [
+            {"relationship_type": relationship_type}
+            for relationship_type in sorted(LinkTypeAllowlist.ALLOWED_RELATIONSHIP_TYPES)
+        ]
 
 
 # ─── Entity (single-table inheritance) ───────────────────────────────────────
@@ -279,6 +274,16 @@ class LinkTypeAllowlist(BaseModel):
 
 class Entity(BaseModel):
     __tablename__ = "entities"
+    __table_args__ = (
+        CheckConstraint(
+            "type IN ('note', 'task', 'project', 'area', 'resource', 'person')",
+            name="chk_entities_type",
+        ),
+        CheckConstraint(
+            "lifecycle IN ('active', 'archived', 'deleted')",
+            name="chk_entities_lifecycle",
+        ),
+    )
 
     # Discriminator
     type = Column(Text, nullable=False)
@@ -301,12 +306,6 @@ class Entity(BaseModel):
     ai_meta = Column(JSON, nullable=False, default=dict)
     ai_status = Column(Text, nullable=False, default="pending")
 
-    # Generated columns (read-only — populated by Postgres)
-    priority = Column(Text, nullable=True, server_default=FetchedValue())
-    due_date = Column(Text, nullable=True, server_default=FetchedValue())
-    bucket = Column(Text, nullable=True, server_default=FetchedValue())
-    search_vector = Column(Text, nullable=True, server_default=FetchedValue())
-
     updated_at = Column(
         DateTime, nullable=False, default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
@@ -315,81 +314,59 @@ class Entity(BaseModel):
     # Relationships
     entity_tags = relationship("EntityTag", back_populates="entity", cascade="all, delete-orphan")
     outgoing_links = relationship(
-        "EntityLink", foreign_keys="EntityLink.src_id", back_populates="src_entity",
+        "EntityLink", foreign_keys="EntityLink.source_entity_id", back_populates="source_entity",
         cascade="all, delete-orphan",
     )
     incoming_links = relationship(
-        "EntityLink", foreign_keys="EntityLink.dst_id", back_populates="dst_entity",
+        "EntityLink", foreign_keys="EntityLink.target_entity_id", back_populates="target_entity",
     )
     chunks = relationship("EntityChunk", back_populates="entity", cascade="all, delete-orphan")
     events = relationship("EntityEvent", back_populates="entity", cascade="all, delete-orphan")
     jobs = relationship("Job", back_populates="entity")
 
     def to_dict(self):
-        """Return full API response shape with backward-compat aliases."""
-        # Resolve tag data from relationship or test-time attributes
-        tag_ids = []
-        tag_names = []
+        """Return the canonical v4 Entity DTO."""
         tags = []
         if hasattr(self, "_tag_objects"):
             tags = [
-                {"id": t.id, "name": t.name, "color": t.color}
+                {"id": t.id, "name": t.name}
                 for t in self._tag_objects
             ]
-            tag_ids = [t.id for t in self._tag_objects]
-            tag_names = [t.name for t in self._tag_objects]
         elif self.entity_tags:
             for et in self.entity_tags:
-                tag_ids.append(et.tag_id)
                 if hasattr(et, "tag") and et.tag:
-                    tag_names.append(et.tag.name)
-                    tags.append({"id": et.tag.id, "name": et.tag.name, "color": et.tag.color})
+                    tags.append({"id": et.tag.id, "name": et.tag.name})
 
-        # Link count from relationship or test-time attribute
-        link_count = getattr(self, "_link_count", None)
-        if link_count is None:
-            link_count = (
-                len(self.outgoing_links) + len(self.incoming_links)
-                if hasattr(self, "outgoing_links") and hasattr(self, "incoming_links")
-                else 0
-            )
+        relationship_counts = getattr(self, "_relationship_counts", None)
+        if relationship_counts is None:
+            relationship_counts = {
+                "incoming": len(self.incoming_links) if hasattr(self, "incoming_links") else 0,
+                "outgoing": len(self.outgoing_links) if hasattr(self, "outgoing_links") else 0,
+            }
 
-        d = {
+        ai_meta = self.ai_meta or {}
+
+        return {
             "id": self.id,
             "type": self.type,
             "title": self.title,
             "content": self.content,
             "status": self.status,
             "lifecycle": self.lifecycle,
-            "bucket": (self.properties or {}).get("bucket"),
             "follow_up_at": _iso(self.follow_up_at),
             "source": self.source,
             "reference_url": self.reference_url,
             "properties": self.properties or {},
-            "ai_meta": self.ai_meta or {},
-            "ai_status": self.ai_status,
-            "tag_ids": tag_ids,
-            "tag_names": tag_names,
             "tags": tags,
-            "link_count": link_count,
+            "ai": {
+                "summary": ai_meta.get("summary"),
+                "status": self.ai_status,
+                "confidence": ai_meta.get("confidence"),
+            },
+            "relationship_counts": relationship_counts,
             "created_at": _iso(self.created_at),
             "updated_at": _iso(self.updated_at),
         }
-
-        # ── Backward-compat aliases (Cycle 1 — removed in Cycle 2) ──
-        # note.raw_text → alias for content
-        d["raw_text"] = self.content
-
-        # note.is_archived / project.is_archived → lifecycle == 'archived'
-        d["is_archived"] = self.lifecycle == "archived"
-
-        # project.name → alias for title
-        d["name"] = self.title
-
-        # task.due_date → alias for follow_up_at
-        d["due_date"] = _iso(self.follow_up_at)
-
-        return d
 
     def __repr__(self):
         return f"<Entity {self.id[:8]} type={self.type!r} title={self.title!r}>"

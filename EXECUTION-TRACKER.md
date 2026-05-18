@@ -338,3 +338,7 @@ cd ui && npm run build
 ```
 
 Each iteration must pass all validation before committing and moving to the next.
+
+## V4 clean cutover
+
+- **2026-05-18** Cycle 1 → this commit: Implemented fresh v4 schema and model serialization. Replaced v2 relationship columns with `source_entity_id`, `target_entity_id`, and `relationship_type`; removed legacy DTO aliases from canonical entity serialization; added tests proving v4 tables initialize and canonical DTOs omit legacy fields. Validation: `PYTHONPATH=. ./venv/bin/pytest tests/unit/test_models.py -q` passed. Full legacy `PYTHONPATH=. ./venv/bin/pytest -q` was run and failed because existing v1/v2 tests still exercise obsolete routes, DTO aliases, and old `src_id`/`dst_id` link fields; those failures are expected cutover fallout and are not fixed in Cycle 1.
