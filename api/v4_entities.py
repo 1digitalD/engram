@@ -92,6 +92,35 @@ def list_entities():
     return jsonify({"data": [row.to_dict() for row in rows]})
 
 
+@api_v4_bp.route("/search", methods=["GET"])
+def search():
+    q = request.args.get("q", "").strip()
+    if not q:
+        return _error("q parameter is required")
+    mode = request.args.get("mode", "hybrid")
+    entity_type = request.args.get("type")
+    status = request.args.get("status")
+    lifecycle = request.args.get("lifecycle")
+    limit = request.args.get("limit", 20, type=int)
+
+    if entity_type and entity_type not in ENTITY_TYPES:
+        return _error(f"invalid entity type: {entity_type}")
+    if lifecycle and lifecycle not in VALID_LIFECYCLE:
+        return _error(f"invalid lifecycle: {lifecycle}")
+
+    from services.v4_search import search_entities
+    results = search_entities(
+        q,
+        mode=mode,
+        entity_type=entity_type,
+        status=status,
+        lifecycle=lifecycle,
+        limit=limit,
+    )
+    resolved_mode = mode if mode in {"keyword", "semantic", "hybrid"} else "hybrid"
+    return jsonify({"query": q, "mode": resolved_mode, "results": results})
+
+
 @api_v4_bp.route("/entities", methods=["POST"])
 def create_entity():
     data = request.get_json(silent=True) or {}
