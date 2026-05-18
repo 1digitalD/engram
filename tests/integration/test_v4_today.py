@@ -45,7 +45,7 @@ def test_v4_today_returns_execution_sections(client, app):
             source_entity_id=note.id,
             suggestion_type="create_task",
             operation_type="create_entity",
-            payload={"title": "Suggested task", "type": "task", "source_note_id": note.id},
+            payload={"title": "Suggested task", "type": "task", "source_entity_id": note.id},
             status="pending",
         )
         db.session.add(suggestion)

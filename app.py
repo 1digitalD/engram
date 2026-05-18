@@ -27,15 +27,9 @@ def create_app(config_name=None):
     # Init DB
     db.init_app(app)
 
-    # Register API blueprint (includes all sub-modules)
-    from api import api_bp, api_v2_bp, api_v4_bp
-    app.register_blueprint(api_bp)
-    app.register_blueprint(api_v2_bp)
+    # v4 clean cutover: only the canonical v4 API is registered at runtime.
+    from api import api_v4_bp
     app.register_blueprint(api_v4_bp)
-
-    # Register AI pipeline handlers
-    from services.ai_pipeline import register_handlers
-    register_handlers()
 
     # Start job worker on boot (non-blocking background thread)
     # Skip in testing mode to avoid background DB connections

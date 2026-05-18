@@ -148,15 +148,3 @@ def embed_query(query):
         logger.error("embed_query failed: %s", e)
         return None
 
-
-# ── Backward-compat shims (V2-INGEST-02) ─────────────────────────────────────
-
-def embed_note(note_id, text):
-    """Compatibility shim. Delegates to embed_entity."""
-    return embed_entity(note_id, text)
-
-
-def find_related_note_ids(entity_id, limit=5, min_similarity=0.80):
-    """Compatibility shim. Delegates to services.search.find_related."""
-    from services.search import find_related
-    return find_related(entity_id, limit=limit, min_similarity=min_similarity)

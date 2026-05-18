@@ -41,18 +41,9 @@ WRITABLE_FIELDS = {
     "properties",
 }
 RELATIONSHIP_PROPERTY_KEYS = {
-    "project_id",
-    "project_ids",
-    "area_id",
-    "area_ids",
-    "person_id",
-    "person_ids",
-    "note_id",
-    "note_ids",
-    "source_note_id",
-    "source_note_ids",
-    "parent_id",
-    "parent_ids",
+    f"{prefix}{suffix}"
+    for prefix in ("project", "area", "person", "note", "source_note", "parent")
+    for suffix in ("_id", "_ids")
 }
 RELATIONSHIP_TYPES = {
     "parent",
@@ -226,6 +217,21 @@ def today():
         "recent_notes": [entity.to_dict() for entity in recent_notes],
         "pending_suggestions": [suggestion.to_dict() for suggestion in pending_suggestions],
     })
+
+
+@api_v4_bp.route("/recent", methods=["GET"])
+def recent():
+    query = _entity_query().filter(Entity.lifecycle == "active")
+    entity_type = request.args.get("type")
+    limit = max(1, min(request.args.get("limit", 20, type=int), 100))
+
+    if entity_type:
+        if entity_type not in ENTITY_TYPES:
+            return _error(f"invalid entity type: {entity_type}")
+        query = query.filter(Entity.type == entity_type)
+
+    rows = query.order_by(Entity.updated_at.desc(), Entity.created_at.desc()).limit(limit).all()
+    return jsonify({"data": [row.to_dict() for row in rows]})
 
 
 @api_v4_bp.route("/entities", methods=["POST"])
@@ -629,9 +635,9 @@ def _load_entity(entity_id):
     return _entity_query().filter(Entity.id == entity_id).first()
 
 
-def _project_has_open_task(project_id):
+def _project_has_open_task(entity_id):
     open_statuses = {"open", "in_progress", "waiting", "blocked"}
-    links = EntityLink.query.filter_by(target_entity_id=project_id, relationship_type="parent").all()
+    links = EntityLink.query.filter_by(target_entity_id=entity_id, relationship_type="parent").all()
     for link in links:
         task = db.session.get(Entity, link.source_entity_id)
         if task is not None and task.type == "task" and task.lifecycle == "active" and task.status in open_statuses:
@@ -947,7 +953,7 @@ def _reconcile_link_candidate(note, candidate, applied_changes):
                 "type": target_type,
                 "title": title,
                 "content": _candidate_value(candidate, "content"),
-                "source_note_id": note.id,
+                "source_entity_id": note.id,
                 "evidence": evidence,
                 "relationship_type": relationship_type,
             },
@@ -962,7 +968,7 @@ def _reconcile_link_candidate(note, candidate, applied_changes):
             suggestion_type="link_existing",
             operation_type="link_existing",
             payload={
-                "source_note_id": note.id,
+                "source_entity_id": note.id,
                 "target_entity_id": target.id,
                 "target_type": target.type,
                 "title": target.title,
@@ -1007,7 +1013,7 @@ def _suggest_entity_creation(note, candidate):
         "type": entity_type,
         "title": title,
         "content": _candidate_value(candidate, "content"),
-        "source_note_id": note.id,
+        "source_entity_id": note.id,
         "evidence": evidence,
     }
     properties = candidate.get("properties") if isinstance(candidate, dict) else None

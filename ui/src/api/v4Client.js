@@ -34,8 +34,6 @@ export async function v4Request(method, path, body = null, params = {}) {
   return isJson ? response.json() : {};
 }
 
-const listEntities = (type, params = {}) => v4Request('GET', '/entities', null, { ...params, type });
-const createEntity = (type, data) => v4Request('POST', '/entities', { ...data, type });
 const getEntity = (id) => v4Request('GET', `/entities/${encodeURIComponent(id)}`);
 const getEntityDetail = (id) => v4Request('GET', `/entities/${encodeURIComponent(id)}/detail`);
 const updateEntity = (id, data) => v4Request('PATCH', `/entities/${encodeURIComponent(id)}`, data);
@@ -69,85 +67,3 @@ export const v4API = {
   today: () => v4Request('GET', '/today'),
   recent: (params = {}) => v4Request('GET', '/recent', null, params),
 };
-
-export const notesAPI = {
-  list: (params = {}) => listEntities('note', params),
-  get: getEntity,
-  detail: getEntityDetail,
-  create: (data) => createEntity('note', data),
-  update: updateEntity,
-  delete: deleteEntity,
-  search: (q, mode = 'hybrid') => v4API.search({ q, mode, type: 'note' }),
-};
-
-export const tasksAPI = {
-  list: (params = {}) => listEntities('task', params),
-  get: getEntity,
-  detail: getEntityDetail,
-  create: (data) => createEntity('task', data),
-  update: updateEntity,
-  delete: deleteEntity,
-};
-
-export const projectsAPI = {
-  list: (params = {}) => listEntities('project', params),
-  get: getEntity,
-  detail: getEntityDetail,
-  create: (data) => createEntity('project', data),
-  update: updateEntity,
-  delete: deleteEntity,
-};
-
-export const areasAPI = {
-  list: (params = {}) => listEntities('area', params),
-  get: getEntity,
-  detail: getEntityDetail,
-  create: (data) => createEntity('area', data),
-  update: updateEntity,
-  delete: deleteEntity,
-};
-
-export const peopleAPI = {
-  list: (params = {}) => listEntities('person', params),
-  get: getEntity,
-  detail: getEntityDetail,
-  create: (data) => createEntity('person', data),
-  update: updateEntity,
-  delete: deleteEntity,
-};
-
-export const resourcesAPI = {
-  list: (params = {}) => listEntities('resource', params),
-  get: getEntity,
-  detail: getEntityDetail,
-  create: (data) => createEntity('resource', data),
-  update: updateEntity,
-  delete: deleteEntity,
-};
-
-export const captureAPI = {
-  capture: v4API.capture,
-};
-
-export const suggestionsAPI = v4API.suggestions;
-export const relationshipsAPI = v4API.relationships;
-export const entitiesAPI = v4API.entities;
-export const healthAPI = { check: v4API.health };
-
-export const tagsAPI = {
-  list: async () => ({ data: [] }),
-  create: async () => ({ data: null }),
-  update: async () => ({ data: null }),
-  delete: async () => ({ data: null }),
-};
-
-export const ingestAPI = { capture: v4API.capture };
-export const connectionsAPI = { forEntity: v4API.relationships.list };
-export const linkTypesAPI = { forPair: async () => ({ data: [] }) };
-export const deletePreviewAPI = { get: async (id) => ({ id, cascade: [] }) };
-export const proposalsAPI = { list: async () => ({ data: [] }) };
-export const reviewAPI = { weeklyDigest: async () => ({ data: null }) };
-export const metricsAPI = { health: async () => ({ data: null }) };
-export const summariesAPI = { list: async () => ({ data: [] }) };
-export const batchAPI = { execute: async () => ({ data: [] }) };
-export const changeBatchesAPI = { list: async () => ({ data: [] }) };

@@ -24,10 +24,10 @@ def _create_note(app, title="Source note"):
         return note_id
 
 
-def _create_suggestion(app, source_note_id, suggestion_type, payload):
+def _create_suggestion(app, source_entity_id, suggestion_type, payload):
     with app.app_context():
         suggestion = AiSuggestion(
-            source_entity_id=source_note_id,
+            source_entity_id=source_entity_id,
             suggestion_type=suggestion_type,
             operation_type="create_entity",
             payload=payload,
@@ -52,7 +52,7 @@ def test_list_v4_suggestions_returns_pending_items(client, app):
             "type": "task",
             "title": "Follow up",
             "content": "Follow up with Henry",
-            "source_note_id": note_id,
+            "source_entity_id": note_id,
             "evidence": "follow up",
         },
     )
@@ -63,7 +63,7 @@ def test_list_v4_suggestions_returns_pending_items(client, app):
     data = response.get_json()["data"]
     assert [row["id"] for row in data] == [suggestion_id]
     assert data[0]["status"] == "pending"
-    assert data[0]["payload"]["source_note_id"] == note_id
+    assert data[0]["payload"]["source_entity_id"] == note_id
 
 
 def test_accept_create_task_suggestion_creates_task_and_derived_from_link(client, app):
@@ -76,7 +76,7 @@ def test_accept_create_task_suggestion_creates_task_and_derived_from_link(client
             "type": "task",
             "title": "Follow up with Henry",
             "content": "Ask Henry about rollout",
-            "source_note_id": note_id,
+            "source_entity_id": note_id,
             "evidence": "Ask Henry",
             "properties": {"priority": "high"},
         },
@@ -124,7 +124,7 @@ def test_accept_create_person_project_area_resource_suggestions(client, app):
                 "type": entity_type,
                 "title": title,
                 "content": f"{title} content",
-                "source_note_id": note_id,
+                "source_entity_id": note_id,
                 "evidence": title,
             },
         )
@@ -156,7 +156,7 @@ def test_dismiss_suggestion_does_not_mutate_entities(client, app):
         {
             "type": "project",
             "title": "Do not create",
-            "source_note_id": note_id,
+            "source_entity_id": note_id,
             "evidence": "maybe project",
         },
     )
@@ -181,7 +181,7 @@ def test_accept_rejects_relationship_ids_inside_suggestion_properties(client, ap
         {
             "type": "task",
             "title": "Bad task",
-            "source_note_id": note_id,
+            "source_entity_id": note_id,
             "properties": {"project_id": "legacy"},
         },
     )

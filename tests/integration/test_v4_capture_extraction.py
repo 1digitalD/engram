@@ -27,7 +27,7 @@ def test_capture_creates_task_suggestion_without_creating_task(client, app):
     suggestion = data["suggestions"][0]
     assert suggestion["suggestion_type"] == "create_task"
     assert suggestion["operation_type"] == "create_entity"
-    assert suggestion["payload"]["source_note_id"] == data["source_note"]["id"]
+    assert suggestion["payload"]["source_entity_id"] == data["source_note"]["id"]
     assert suggestion["payload"]["evidence"] == "ask Henry about rollout"
 
     with app.app_context():
@@ -58,7 +58,7 @@ def test_capture_creates_person_suggestion_without_creating_person(client, app):
         assert Entity.query.filter_by(type="person").count() == 0
         person_suggestion = AiSuggestion.query.filter_by(suggestion_type="create_person").one()
         assert person_suggestion.payload["title"] == "Henry"
-        assert person_suggestion.payload["source_note_id"] == data["source_note"]["id"]
+        assert person_suggestion.payload["source_entity_id"] == data["source_note"]["id"]
 
 
 def test_capture_auto_applies_summary_and_high_confidence_tags(client, app):

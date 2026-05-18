@@ -2,24 +2,11 @@ import pathlib
 import threading
 import time
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 from app import create_app
 from extensions import db
 from sqlalchemy import text
-
-# Optional MCP server stack (fastmcp) is not installed in minimal test venvs.
-# Legacy v1 model tests — tables no longer exist in v2 Postgres schema.
-collect_ignore = [
-    "test_mcp_server.py",
-    "test_models_legacy.py",
-    "test_phase1_backend_foundation.py",
-    "test_api.py",
-    "test_rollup.py",
-    "test_summaries_api.py",
-    "test_links_api.py",
-    "test_moc.py",
-]
 
 SCHEMA_PATH = pathlib.Path(__file__).resolve().parents[1] / "docs" / "SCHEMA.sql"
 
@@ -110,30 +97,6 @@ def client(app):
 @pytest.fixture
 def runner(app):
     return app.test_cli_runner()
-
-
-# ── OpenAI mock ───────────────────────────────────────────────────────────────
-
-@pytest.fixture
-def mock_openai():
-    """Mock OpenAI API — returns deterministic extraction result."""
-    from services.extractor import ExtractionResult
-    result = ExtractionResult(
-        summary="Test note summary",
-        para_bucket="PROJECTS",
-        confidence=0.95,
-        suggested_project="Test Project",
-        suggested_area=None,
-        tasks=[],
-        people=[],
-        tags=["test"],
-        reasoning="High confidence project note",
-    )
-    with patch("services.extractor.get_openai_client") as mock:
-        mock_response = MagicMock()
-        mock_response.choices[0].message.parsed = result
-        mock.return_value.beta.chat.completions.parse.return_value = mock_response
-        yield result
 
 
 @pytest.fixture

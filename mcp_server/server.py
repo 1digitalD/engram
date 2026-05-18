@@ -72,10 +72,10 @@ def get_entity(entity_id: str, include_relationships: bool = True) -> str:
 @mcp.tool(description="List recent active v4 entities, optionally filtered by entity type. Read-only.")
 def list_recent(entity_type: Optional[str] = None, limit: int = 10) -> str:
     limit = max(1, min(limit, 50))
-    params = {"limit": limit, "lifecycle": "active"}
+    params = {"limit": limit}
     if entity_type:
         params["type"] = entity_type
-    payload = _api("GET", "/entities", params=params)
+    payload = _api("GET", "/recent", params=params)
     return format_recent(payload, entity_type=entity_type)
 
 
