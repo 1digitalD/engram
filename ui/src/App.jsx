@@ -7,17 +7,20 @@ import V4Search from './views/V4Search';
 import V4Today from './views/V4Today';
 import V4Suggestions from './views/V4Suggestions';
 
-const navItems = [
+const viewItems = [
   ['/', 'Inbox'],
   ['/today', 'Today'],
   ['/search', 'Search'],
+  ['/suggestions', 'Suggestions'],
+];
+
+const libraryItems = [
   ['/notes', 'Notes'],
   ['/projects', 'Projects'],
   ['/tasks', 'Tasks'],
   ['/areas', 'Areas'],
   ['/people', 'People'],
   ['/resources', 'Resources'],
-  ['/suggestions', 'Suggestions'],
 ];
 
 export default function App() {
@@ -29,11 +32,22 @@ export default function App() {
           <strong>v4</strong>
         </div>
         <nav className={styles.nav}>
-          {navItems.map(([to, label]) => (
+          <p className={styles.navSection}>Views</p>
+          {viewItems.map(([to, label]) => (
             <NavLink
               key={to}
               to={to}
               end={to === '/'}
+              className={({ isActive }) => `${styles.navLink} ${isActive ? styles.active : ''}`}
+            >
+              {label}
+            </NavLink>
+          ))}
+          <p className={styles.navSection}>Library</p>
+          {libraryItems.map(([to, label]) => (
+            <NavLink
+              key={to}
+              to={to}
               className={({ isActive }) => `${styles.navLink} ${isActive ? styles.active : ''}`}
             >
               {label}

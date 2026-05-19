@@ -168,6 +168,10 @@ describe('v4 entity screens', () => {
       </MemoryRouter>,
     );
 
+    // Expand the Tasks action panel first
+    const addButtons = await screen.findAllByRole('button', { name: /\+ Add/i });
+    fireEvent.click(addButtons[0]);
+
     fireEvent.change(await screen.findByLabelText('Tasks title'), { target: { value: 'Draft rollout' } });
     fireEvent.change(screen.getByLabelText('Tasks due date'), { target: { value: '2026-05-22T12:00' } });
     fireEvent.change(screen.getByLabelText('Tasks priority'), { target: { value: 'urgent' } });
@@ -219,6 +223,10 @@ describe('v4 entity screens', () => {
       </MemoryRouter>,
     );
 
+    // Expand the Notes action panel (second "+ Add" button for project: Tasks, Notes, People, Resources)
+    const addButtons = await screen.findAllByRole('button', { name: /\+ Add/i });
+    fireEvent.click(addButtons[1]);
+
     fireEvent.change(await screen.findByLabelText('Notes title'), { target: { value: 'Meeting note' } });
     fireEvent.click(screen.getByRole('button', { name: 'Add project note' }));
 
@@ -266,7 +274,11 @@ describe('v4 entity screens', () => {
       </MemoryRouter>,
     );
 
-    fireEvent.click((await screen.findAllByRole('button', { name: 'Existing' }))[0]);
+    // Expand the Tasks action panel, then switch to Existing
+    const addButtons = await screen.findAllByRole('button', { name: /\+ Add/i });
+    fireEvent.click(addButtons[0]);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Existing' }));
     fireEvent.change(screen.getByLabelText('Existing Tasks'), { target: { value: 't3' } });
     fireEvent.click(screen.getByRole('button', { name: 'Add existing task' }));
 
