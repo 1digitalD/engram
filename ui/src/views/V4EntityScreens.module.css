@@ -22,7 +22,7 @@
 .headerPanel,
 .listHeaderPanel,
 .listPanel {
-  max-width: 1160px;
+  max-width: 1600px;
   width: 100%;
 }
 
@@ -46,11 +46,12 @@
 }
 
 .segmentsStack {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
   gap: var(--space-2);
-  max-width: 1160px;
+  max-width: 1600px;
   width: 100%;
+  align-items: start;
 }
 
 .segmentPanel {
