@@ -3,6 +3,8 @@ import React from 'react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { v4API } from '../api/v4Client';
+import MarkdownContent from '../components/MarkdownContent';
+import mdStyles from '../components/MarkdownContent.module.css';
 import styles from './V4EntityScreens.module.css';
 
 const pluralTitle = {
@@ -114,6 +116,11 @@ export default function V4EntityList({ type }) {
               <li key={entity.id}>
                 <Link to={detailPath(entity)}>
                   <strong>{entity.title || 'Untitled'}</strong>
+                  {entity.content && (
+                    <div className={`${mdStyles.md} ${mdStyles.mdCompact}`}>
+                      <MarkdownContent content={entity.content} />
+                    </div>
+                  )}
                   <span className={styles.metaRow}>
                     <span className={styles.statusPill}>{entity.status}</span>
                     {entity.properties?.priority && (

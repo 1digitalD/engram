@@ -3,6 +3,8 @@ import React from 'react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { v4API } from '../api/v4Client';
+import MarkdownContent from '../components/MarkdownContent';
+import mdStyles from '../components/MarkdownContent.module.css';
 import styles from './V4Inbox.module.css';
 
 function entityTitle(entity) {
@@ -124,7 +126,11 @@ export default function V4Inbox() {
               <li key={note.id}>
                 <Link to={notePath(note)} className={styles.noteLink}>
                   <strong>{entityTitle(note)}</strong>
-                  {note.content && <span>{note.content}</span>}
+                  {note.content && (
+                    <div className={`${mdStyles.md} ${mdStyles.mdCompact}`}>
+                      <MarkdownContent content={note.content} />
+                    </div>
+                  )}
                 </Link>
               </li>
             ))}
