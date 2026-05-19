@@ -1020,9 +1020,13 @@ def _reconcile_capture_candidates(note, extraction):
         suggestions.extend(_reconcile_link_candidate(note, link_candidate, applied_changes))
 
     for entity_candidate in extraction.get("entities") or []:
-        suggestion = _suggest_entity_creation(note, entity_candidate)
-        if suggestion is not None:
-            suggestions.append(suggestion.to_dict())
+        result = _suggest_entity_creation(note, entity_candidate)
+        if result is None:
+            pass
+        elif isinstance(result, dict) and result.get("auto_applied"):
+            applied_changes.append({"type": "entity_created", **{k: v for k, v in result.items() if k != "auto_applied"}})
+        else:
+            suggestions.append(result.to_dict())
 
     return applied_changes, suggestions
 
@@ -1041,6 +1045,30 @@ def _reconcile_link_candidate(note, candidate, applied_changes):
     target = _find_existing_entity(target_type, title)
 
     if target is None:
+        if confidence >= AUTO_APPLY_CONFIDENCE:
+            target = _auto_create_entity(
+                entity_type=target_type,
+                title=title,
+                content=_candidate_value(candidate, "content"),
+            )
+            link = _create_entity_link(note, target, relationship_type, confidence, evidence)
+            if link is not None:
+                applied_changes.append({
+                    "type": "entity_created",
+                    "entity_id": target.id,
+                    "entity_type": target_type,
+                    "title": target.title,
+                    "confidence": confidence,
+                })
+                applied_changes.append({
+                    "type": "relationship_added",
+                    "target_entity_id": target.id,
+                    "relationship_type": relationship_type,
+                    "confidence": confidence,
+                })
+                _write_event(target, "created", new_value=target.to_dict(), actor="agent:v4-capture", confidence=confidence, reason=evidence)
+                _write_event(note, "relationship_added", new_value=link.to_dict(), actor="agent:v4-capture", confidence=confidence, reason=evidence)
+            return []
         suggestion = _create_suggestion(
             note,
             suggestion_type=f"create_{target_type}",
@@ -1104,15 +1132,28 @@ def _suggest_entity_creation(note, candidate):
     if entity_type not in RISKY_ENTITY_CREATION_TYPES or not title:
         return None
 
+    confidence = _candidate_confidence(candidate)
     evidence = _candidate_value(candidate, "evidence")
+    content = _candidate_value(candidate, "content")
+    properties = candidate.get("properties") if isinstance(candidate, dict) else None
+
+    if confidence >= AUTO_APPLY_CONFIDENCE:
+        entity = _auto_create_entity(
+            entity_type=entity_type,
+            title=title,
+            content=content,
+            properties=properties if isinstance(properties, dict) and _find_relationship_property_key(properties) is None else None,
+        )
+        _write_event(entity, "created", new_value=entity.to_dict(), actor="agent:v4-capture", confidence=confidence, reason=evidence)
+        return {"auto_applied": True, "entity_id": entity.id, "entity_type": entity_type, "title": title, "confidence": confidence}
+
     payload = {
         "type": entity_type,
         "title": title,
-        "content": _candidate_value(candidate, "content"),
+        "content": content,
         "source_entity_id": note.id,
         "evidence": evidence,
     }
-    properties = candidate.get("properties") if isinstance(candidate, dict) else None
     if isinstance(properties, dict) and _find_relationship_property_key(properties) is None:
         payload["properties"] = properties
     return _create_suggestion(
@@ -1120,9 +1161,26 @@ def _suggest_entity_creation(note, candidate):
         suggestion_type=f"create_{entity_type}",
         operation_type="create_entity",
         payload=payload,
-        confidence=_candidate_confidence(candidate),
+        confidence=confidence,
         reason=evidence,
     )
+
+
+def _auto_create_entity(entity_type, title, content=None, properties=None):
+    entity = Entity(
+        type=entity_type,
+        title=title,
+        content=content,
+        status="open" if entity_type == "task" else "active",
+        lifecycle="active",
+        source="ai_capture",
+        properties=properties or {},
+        ai_meta={},
+        ai_status="pending",
+    )
+    db.session.add(entity)
+    db.session.flush()
+    return entity
 
 
 def _create_suggestion(note, suggestion_type, operation_type, payload, confidence=None, reason=None):
