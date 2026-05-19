@@ -45,6 +45,20 @@
   gap: var(--space-1);
 }
 
+.navSection {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.1em;
+  margin: var(--space-3) 0 var(--space-1) 12px;
+  text-transform: uppercase;
+}
+
+.navSection:first-child {
+  margin-top: 0;
+}
+
 .navLink {
   border-radius: var(--radius-md);
   color: var(--text-secondary);

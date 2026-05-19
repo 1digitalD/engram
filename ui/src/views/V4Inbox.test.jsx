@@ -2,6 +2,7 @@
 import React from 'react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import V4Inbox from './V4Inbox';
 import { v4API } from '../api/v4Client';
 
@@ -13,6 +14,10 @@ vi.mock('../api/v4Client', () => ({
     },
   },
 }));
+
+function renderInbox() {
+  return render(<MemoryRouter><V4Inbox /></MemoryRouter>);
+}
 
 describe('V4Inbox', () => {
   beforeEach(() => {
@@ -30,7 +35,7 @@ describe('V4Inbox', () => {
       warnings: ['AI extraction degraded'],
     });
 
-    render(<V4Inbox />);
+    renderInbox();
 
     fireEvent.change(screen.getByLabelText(/capture text/i), {
       target: { value: 'Ask Henry about rollout' },
@@ -46,12 +51,12 @@ describe('V4Inbox', () => {
     });
     expect(await screen.findAllByText('Captured note')).toHaveLength(2);
     expect(screen.getByText('AI extraction degraded')).toBeInTheDocument();
-    expect(screen.getByText('Follow up with Henry')).toBeInTheDocument();
-    expect(screen.getByText('summary_updated')).toBeInTheDocument();
+    expect(screen.getByText(/suggestion.*pending/i)).toBeInTheDocument();
+    expect(screen.getByText(/applied/i)).toBeInTheDocument();
   });
 
   it('lists recent notes from the v4 entity API', async () => {
-    render(<V4Inbox />);
+    renderInbox();
 
     expect(await screen.findByText('Older note')).toBeInTheDocument();
     expect(v4API.entities.list).toHaveBeenCalledWith({ type: 'note', limit: 20 });

@@ -14,15 +14,6 @@ const pluralTitle = {
   resource: 'Resources',
 };
 
-const subtitles = {
-  note: 'Capture source notes. AI can extract links and suggestions without converting the note.',
-  task: 'Create actionable work, then link it to projects, areas, notes, people, and resources.',
-  project: 'Group outcomes and keep linked tasks, notes, people, and resources close.',
-  area: 'Track ongoing responsibilities and the projects/tasks that belong under them.',
-  person: 'Keep people, assigned tasks, mentions, and relevant resources connected.',
-  resource: 'Save references and connect them to the work they support.',
-};
-
 function detailPath(entity) {
   const base = entity.type === 'person' ? 'people' : `${entity.type}s`;
   return `/${base}/${entity.id}`;
@@ -86,9 +77,7 @@ export default function V4EntityList({ type }) {
     <main className={styles.screen}>
       <section className={styles.listHeaderPanel}>
         <div className={styles.listHeading}>
-          <p className={styles.eyebrow}>Engram v4</p>
           <h1>{pluralTitle[type]}</h1>
-          <p>{subtitles[type]}</p>
         </div>
         <form onSubmit={handleCreate} className={styles.quickCreateForm} aria-label={`Create ${type}`}>
           <input
@@ -113,21 +102,24 @@ export default function V4EntityList({ type }) {
 
       <section className={styles.listPanel}>
         <header className={styles.segmentHeader}>
-          <div>
-            <p className={styles.segmentKicker}>{type}</p>
-            <h2>{pluralTitle[type]}</h2>
+          <div className={styles.segmentHeaderRight}>
+            <span className={styles.countPill}>{entities.length}</span>
           </div>
-          <span className={styles.countPill}>{entities.length}</span>
         </header>
         {entities.length === 0 ? (
-          <p>No {pluralTitle[type].toLowerCase()} yet.</p>
+          <p className={styles.emptyText}>No {pluralTitle[type].toLowerCase()} yet.</p>
         ) : (
           <ul className={styles.cards}>
             {entities.map((entity) => (
               <li key={entity.id}>
                 <Link to={detailPath(entity)}>
                   <strong>{entity.title || 'Untitled'}</strong>
-                  <span>{entity.status}</span>
+                  <span className={styles.metaRow}>
+                    <span className={styles.statusPill}>{entity.status}</span>
+                    {entity.properties?.priority && (
+                      <span className={styles.priorityPill}>Priority {entity.properties.priority}</span>
+                    )}
+                  </span>
                 </Link>
               </li>
             ))}

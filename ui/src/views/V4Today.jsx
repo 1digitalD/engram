@@ -14,9 +14,12 @@ function entityPath(entity) {
 function EntitySection({ title, items }) {
   return (
     <section className={styles.panel}>
-      <h2>{title}</h2>
+      <h2>
+        {title}
+        {items.length > 0 && <span className={styles.count}>{items.length}</span>}
+      </h2>
       {items.length === 0 ? (
-        <p>Nothing here.</p>
+        <p className={styles.empty}>Nothing here.</p>
       ) : (
         <ul className={styles.list}>
           {items.map((entity) => (
@@ -59,21 +62,26 @@ export default function V4Today() {
     );
   }
 
+  const dateLabel = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+
   return (
     <main className={styles.today}>
-      <section className={styles.hero}>
-        <p className={styles.eyebrow}>Engram v4 Today</p>
-        <h1>Work the right edges.</h1>
-        <p>Follow-ups, blocked work, projects needing a next action, fresh notes, and pending AI review.</p>
-      </section>
+      <header className={styles.dateHeader}>
+        <h1>{dateLabel}</h1>
+      </header>
 
       <EntitySection title="Overdue and Today" items={today.follow_ups || []} />
-      <EntitySection title="Blocked or Waiting Tasks" items={today.blocked_or_waiting_tasks || []} />
+      <EntitySection title="Blocked or Waiting" items={today.blocked_or_waiting_tasks || []} />
       <EntitySection title="Projects Without Open Tasks" items={today.projects_without_open_tasks || []} />
       <EntitySection title="Recent Notes" items={today.recent_notes || []} />
 
       <section className={styles.panel}>
-        <h2>Pending Suggestions</h2>
+        <h2>
+          Suggestions
+          {today.pending_suggestions?.length > 0 && (
+            <span className={styles.count}>{today.pending_suggestions.length}</span>
+          )}
+        </h2>
         {today.pending_suggestions?.length ? (
           <ul className={styles.list}>
             {today.pending_suggestions.map((suggestion) => (
@@ -86,7 +94,7 @@ export default function V4Today() {
             ))}
           </ul>
         ) : (
-          <p>No pending suggestions.</p>
+          <p className={styles.empty}>No pending suggestions.</p>
         )}
       </section>
     </main>

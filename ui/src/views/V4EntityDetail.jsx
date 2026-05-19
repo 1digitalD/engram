@@ -259,73 +259,91 @@ export default function V4EntityDetail({ type: routeType }) {
   return (
     <main className={styles.screen}>
       <section className={styles.headerPanel}>
-        <p className={styles.eyebrow}>Engram v4 {entityType}</p>
-        <h1>{entity.title || 'Untitled'}</h1>
-        <form onSubmit={handleSave} className={styles.compactForm} aria-label="Edit entity">
+        <form onSubmit={handleSave} className={styles.detailForm} aria-label="Edit entity">
+          <div className={styles.headerTop}>
+            <p className={styles.eyebrow}>Engram v4 {entityType}</p>
+            <div className={styles.headerActions}>
+              <button className={styles.dangerButton} type="button" onClick={handleArchive}>Archive</button>
+              <button className={styles.primaryButton} type="submit">Save</button>
+            </div>
+          </div>
           <input
-            className={styles.titleField}
+            className={styles.detailTitle}
             value={draft.title}
             onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))}
             aria-label="Title"
+            placeholder="Title"
           />
           <textarea
-            className={styles.contentField}
+            className={styles.detailContent}
             value={draft.content}
             onChange={(event) => setDraft((current) => ({ ...current, content: event.target.value }))}
             aria-label="Content"
+            placeholder="Content"
             rows={3}
           />
-          <select
-            className={styles.statusControl}
-            value={draft.status}
-            onChange={(event) => setDraft((current) => ({ ...current, status: event.target.value }))}
-            aria-label="Status"
-          >
-            {(statusOptions[entity.type] || ['active']).map((status) => (
-              <option key={status} value={status}>{status}</option>
-            ))}
-          </select>
-          <input
-            className={styles.dateControl}
-            value={draft.due_at}
-            onChange={(event) => setDraft((current) => ({ ...current, due_at: event.target.value }))}
-            aria-label="Due date"
-            type="datetime-local"
-          />
-          <input
-            className={styles.dateControl}
-            value={draft.follow_up_at}
-            onChange={(event) => setDraft((current) => ({ ...current, follow_up_at: event.target.value }))}
-            aria-label="Follow-up"
-            type="datetime-local"
-          />
-          <select
-            className={styles.priorityControl}
-            value={draft.priority}
-            onChange={(event) => setDraft((current) => ({ ...current, priority: event.target.value }))}
-            aria-label="Priority"
-          >
-            {priorityOptions.map((priority) => (
-              <option key={priority || 'none'} value={priority}>{priority || 'No priority'}</option>
-            ))}
-          </select>
-          <input
-            className={styles.tagsField}
-            value={draft.tags}
-            onChange={(event) => setDraft((current) => ({ ...current, tags: event.target.value }))}
-            aria-label="Tags"
-            placeholder="Tags, comma separated"
-          />
-          <input
-            className={styles.wideField}
-            value={draft.reference_url}
-            onChange={(event) => setDraft((current) => ({ ...current, reference_url: event.target.value }))}
-            aria-label="Reference URL"
-            placeholder="Reference URL"
-          />
-          <div className={styles.actions}>
-            <button className={styles.primaryButton} type="submit">Save</button>
-            <button className={styles.dangerButton} type="button" onClick={handleArchive}>Archive/delete</button>
+          <div className={styles.metaRow}>
+            <label className={styles.metaLabel}>
+              <span>Status</span>
+              <select
+                value={draft.status}
+                onChange={(event) => setDraft((current) => ({ ...current, status: event.target.value }))}
+                aria-label="Status"
+              >
+                {(statusOptions[entity.type] || ['active']).map((status) => (
+                  <option key={status} value={status}>{status}</option>
+                ))}
+              </select>
+            </label>
+            <label className={styles.metaLabel}>
+              <span>Priority</span>
+              <select
+                value={draft.priority}
+                onChange={(event) => setDraft((current) => ({ ...current, priority: event.target.value }))}
+                aria-label="Priority"
+              >
+                {priorityOptions.map((priority) => (
+                  <option key={priority || 'none'} value={priority}>{priority || 'none'}</option>
+                ))}
+              </select>
+            </label>
+            <label className={styles.metaLabel}>
+              <span>Due</span>
+              <input
+                value={draft.due_at}
+                onChange={(event) => setDraft((current) => ({ ...current, due_at: event.target.value }))}
+                aria-label="Due date"
+                type="datetime-local"
+              />
+            </label>
+            <label className={styles.metaLabel}>
+              <span>Follow-up</span>
+              <input
+                value={draft.follow_up_at}
+                onChange={(event) => setDraft((current) => ({ ...current, follow_up_at: event.target.value }))}
+                aria-label="Follow-up"
+                type="datetime-local"
+              />
+            </label>
+            <label className={styles.metaLabel}>
+              <span>Tags</span>
+              <input
+                value={draft.tags}
+                onChange={(event) => setDraft((current) => ({ ...current, tags: event.target.value }))}
+                aria-label="Tags"
+                placeholder="tag1, tag2"
+              />
+            </label>
+            <label className={styles.metaLabelWide}>
+              <span>URL</span>
+              <input
+                value={draft.reference_url}
+                onChange={(event) => setDraft((current) => ({ ...current, reference_url: event.target.value }))}
+                aria-label="Reference URL"
+                placeholder="https://..."
+                type="url"
+              />
+            </label>
           </div>
         </form>
         {error && <div className={styles.error}>{error}</div>}
@@ -368,6 +386,7 @@ function RelationshipSegment({
   onQuickStatus,
 }) {
   const items = sections.flatMap((section) => section.items);
+  const [actionOpen, setActionOpen] = useState(false);
 
   return (
     <article className={styles.segmentPanel}>
@@ -376,15 +395,27 @@ function RelationshipSegment({
           <p className={styles.segmentKicker}>{config.type || 'linked'}</p>
           <h2>{config.title}</h2>
         </div>
-        <span className={styles.countPill}>{items.length}</span>
+        <div className={styles.segmentHeaderRight}>
+          <span className={styles.countPill}>{items.length}</span>
+          {config.type && (
+            <button
+              type="button"
+              className={styles.addButton}
+              onClick={() => setActionOpen((v) => !v)}
+              aria-expanded={actionOpen}
+            >
+              {actionOpen ? '✕' : `+ Add`}
+            </button>
+          )}
+        </div>
       </header>
 
-      {config.type && (
+      {config.type && actionOpen && (
         <TypedAction
           config={config}
           currentId={currentId}
-          onCreate={onCreate}
-          onLink={onLink}
+          onCreate={async (form) => { await onCreate(form); setActionOpen(false); }}
+          onLink={async (targetId) => { await onLink(targetId); setActionOpen(false); }}
         />
       )}
 

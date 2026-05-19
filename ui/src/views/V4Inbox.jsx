@@ -1,11 +1,16 @@
 /* eslint-disable no-unused-vars */
 import React from 'react';
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { v4API } from '../api/v4Client';
 import styles from './V4Inbox.module.css';
 
 function entityTitle(entity) {
   return entity?.title || entity?.content?.slice(0, 80) || 'Untitled note';
+}
+
+function notePath(entity) {
+  return `/notes/${entity.id}`;
 }
 
 function suggestionLabel(suggestion) {
@@ -64,8 +69,7 @@ export default function V4Inbox() {
   return (
     <main className={styles.inbox}>
       <section className={styles.capturePanel}>
-        <p className={styles.eyebrow}>Engram v4 Inbox</p>
-        <h1>Capture first. Sort later.</h1>
+        <h1>Capture</h1>
         <form onSubmit={handleSubmit} className={styles.form}>
           <label htmlFor="capture-content">Capture text</label>
           <textarea
@@ -73,66 +77,55 @@ export default function V4Inbox() {
             value={content}
             onChange={(event) => setContent(event.target.value)}
             placeholder="Paste a note, reminder, task idea, person mention, or project update..."
-            rows={7}
+            rows={6}
           />
           <button type="submit" disabled={!content.trim() || loading}>
             {loading ? 'Capturing...' : 'Capture'}
           </button>
         </form>
         {error && <div className={styles.error}>{error}</div>}
-      </section>
 
-      {result && (
-        <section className={styles.resultPanel} aria-label="Capture result">
-          <h2>Saved source note</h2>
-          <article className={styles.noteCard}>
+        {result && (
+          <div className={styles.resultPanel} aria-label="Capture result">
+            <p className={styles.resultHead}>Saved</p>
             <strong>{entityTitle(result.source_note)}</strong>
-            <p>{result.source_note?.content}</p>
-          </article>
 
-          {!!result.warnings?.length && (
-            <div className={styles.warning}>
-              <h3>AI warning</h3>
-              {result.warnings.map((warning) => (
-                <p key={warning}>{warning}</p>
-              ))}
-            </div>
-          )}
-
-          {!!result.applied_changes?.length && (
-            <div>
-              <h3>Applied safely</h3>
-              <ul className={styles.list}>
-                {result.applied_changes.map((change, index) => (
-                  <li key={`${change.type}-${index}`}>{change.type}</li>
+            {!!result.warnings?.length && (
+              <div className={styles.warning}>
+                {result.warnings.map((warning) => (
+                  <p key={warning}>{warning}</p>
                 ))}
-              </ul>
-            </div>
-          )}
+              </div>
+            )}
 
-          {!!result.suggestions?.length && (
-            <div>
-              <h3>Suggestions for review</h3>
-              <ul className={styles.list}>
-                {result.suggestions.map((suggestion) => (
-                  <li key={suggestion.id || suggestionLabel(suggestion)}>{suggestionLabel(suggestion)}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </section>
-      )}
+            {!!result.applied_changes?.length && (
+              <p className={styles.resultMeta}>
+                Applied: {result.applied_changes.map((c) => c.type).join(', ')}
+              </p>
+            )}
+
+            {!!result.suggestions?.length && (
+              <p className={styles.resultMeta}>
+                {result.suggestions.length} suggestion{result.suggestions.length !== 1 ? 's' : ''} pending &rarr;{' '}
+                <Link to="/suggestions">Review</Link>
+              </p>
+            )}
+          </div>
+        )}
+      </section>
 
       <section className={styles.recentPanel}>
         <h2>Recent notes</h2>
         {notes.length === 0 ? (
-          <p>No notes captured yet.</p>
+          <p className={styles.empty}>No notes captured yet.</p>
         ) : (
           <ul className={styles.noteList}>
             {notes.map((note) => (
               <li key={note.id}>
-                <strong>{entityTitle(note)}</strong>
-                <span>{note.content}</span>
+                <Link to={notePath(note)} className={styles.noteLink}>
+                  <strong>{entityTitle(note)}</strong>
+                  {note.content && <span>{note.content}</span>}
+                </Link>
               </li>
             ))}
           </ul>
