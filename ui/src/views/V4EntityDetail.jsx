@@ -110,6 +110,7 @@ export default function V4EntityDetail({ type: routeType }) {
     priority: '',
   });
   const [error, setError] = useState('');
+  const [editingContent, setEditingContent] = useState(false);
 
   async function loadDetail() {
     const response = await v4API.entities.detail(id);
