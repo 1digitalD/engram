@@ -18,44 +18,44 @@ const priorityOptions = ['', 'low', 'medium', 'high', 'urgent'];
 
 const actionConfigs = {
   project: [
-    { key: 'task', title: 'Tasks', type: 'task', relationship: 'parent', direction: 'incoming', primary: 'Add new task', existing: 'Add existing task', taskFields: true },
-    { key: 'note', title: 'Notes', type: 'note', relationship: 'related', direction: 'outgoing', primary: 'Add project note', existing: 'Link existing note' },
-    { key: 'person', title: 'People', type: 'person', relationship: 'assigned_to', direction: 'outgoing', primary: 'Add new person', existing: 'Add existing person' },
-    { key: 'resource', title: 'Resources', type: 'resource', relationship: 'references', direction: 'outgoing', primary: 'Add new resource', existing: 'Add existing resource' },
+    { key: 'task', sectionKeys: ['open_tasks', 'completed_tasks'], title: 'Tasks', type: 'task', relationship: 'parent', direction: 'incoming', primary: 'Add new task', existing: 'Add existing task', taskFields: true },
+    { key: 'note', sectionKeys: ['notes'], title: 'Notes', type: 'note', relationship: 'related', direction: 'outgoing', primary: 'Add project note', existing: 'Link existing note' },
+    { key: 'person', sectionKeys: ['people'], title: 'People', type: 'person', relationship: 'assigned_to', direction: 'outgoing', primary: 'Add new person', existing: 'Add existing person' },
+    { key: 'resource', sectionKeys: ['resources'], title: 'Resources', type: 'resource', relationship: 'references', direction: 'outgoing', primary: 'Add new resource', existing: 'Add existing resource' },
   ],
   area: [
-    { key: 'project', title: 'Projects', type: 'project', relationship: 'parent', direction: 'incoming', primary: 'Add new project', existing: 'Add existing project' },
-    { key: 'task', title: 'Tasks', type: 'task', relationship: 'parent', direction: 'incoming', primary: 'Add new task', existing: 'Add existing task', taskFields: true },
-    { key: 'note', title: 'Notes', type: 'note', relationship: 'related', direction: 'outgoing', primary: 'Add area note', existing: 'Link existing note' },
-    { key: 'resource', title: 'Resources', type: 'resource', relationship: 'references', direction: 'outgoing', primary: 'Add new resource', existing: 'Add existing resource' },
+    { key: 'project', sectionKeys: ['projects'], title: 'Projects', type: 'project', relationship: 'parent', direction: 'incoming', primary: 'Add new project', existing: 'Add existing project' },
+    { key: 'task', sectionKeys: ['tasks'], title: 'Tasks', type: 'task', relationship: 'parent', direction: 'incoming', primary: 'Add new task', existing: 'Add existing task', taskFields: true },
+    { key: 'note', sectionKeys: ['notes'], title: 'Notes', type: 'note', relationship: 'related', direction: 'outgoing', primary: 'Add area note', existing: 'Link existing note' },
+    { key: 'resource', sectionKeys: ['resources'], title: 'Resources', type: 'resource', relationship: 'references', direction: 'outgoing', primary: 'Add new resource', existing: 'Add existing resource' },
   ],
   task: [
-    { key: 'project', title: 'Project', type: 'project', relationship: 'parent', direction: 'outgoing', existing: 'Move/link to project' },
-    { key: 'area', title: 'Area', type: 'area', relationship: 'parent', direction: 'outgoing', existing: 'Move/link to area' },
-    { key: 'person', title: 'Assignee', type: 'person', relationship: 'assigned_to', direction: 'outgoing', primary: 'Create and assign person', existing: 'Assign existing person' },
-    { key: 'note', title: 'Source Notes', type: 'note', relationship: 'derived_from', direction: 'outgoing', primary: 'Add source note', existing: 'Attach existing note' },
-    { key: 'resource', title: 'Resources', type: 'resource', relationship: 'references', direction: 'outgoing', primary: 'Add resource', existing: 'Attach existing resource' },
-    { key: 'blocker', title: 'Blocked By', type: 'task', relationship: 'blocks', direction: 'incoming', existing: 'Add blocking task' },
+    { key: 'project', sectionKeys: ['project'], title: 'Project', type: 'project', relationship: 'parent', direction: 'outgoing', existing: 'Move/link to project' },
+    { key: 'area', sectionKeys: ['area'], title: 'Area', type: 'area', relationship: 'parent', direction: 'outgoing', existing: 'Move/link to area' },
+    { key: 'person', sectionKeys: ['people'], title: 'Assignee', type: 'person', relationship: 'assigned_to', direction: 'outgoing', primary: 'Create and assign person', existing: 'Assign existing person' },
+    { key: 'note', sectionKeys: ['source_notes', 'related_notes'], title: 'Notes', type: 'note', relationship: 'derived_from', direction: 'outgoing', primary: 'Add source note', existing: 'Attach existing note' },
+    { key: 'resource', sectionKeys: ['resources'], title: 'Resources', type: 'resource', relationship: 'references', direction: 'outgoing', primary: 'Add resource', existing: 'Attach existing resource' },
+    { key: 'blocker', sectionKeys: ['blocking'], title: 'Blocked By', type: 'task', relationship: 'blocks', direction: 'incoming', existing: 'Add blocking task' },
   ],
   note: [
-    { key: 'task', title: 'Derived Tasks', type: 'task', relationship: 'derived_from', direction: 'incoming', primary: 'Create task from note', existing: 'Link existing task', taskFields: true },
-    { key: 'project', title: 'Projects', type: 'project', relationship: 'related', direction: 'outgoing', primary: 'Add new project', existing: 'Link existing project' },
-    { key: 'area', title: 'Areas', type: 'area', relationship: 'related', direction: 'outgoing', existing: 'Link existing area' },
-    { key: 'person', title: 'People Mentioned', type: 'person', relationship: 'mentions', direction: 'outgoing', primary: 'Add mentioned person', existing: 'Link existing person' },
-    { key: 'resource', title: 'Referenced Resources', type: 'resource', relationship: 'references', direction: 'outgoing', primary: 'Add referenced resource', existing: 'Link existing resource' },
+    { key: 'task', sectionKeys: ['derived_tasks'], title: 'Derived Tasks', type: 'task', relationship: 'derived_from', direction: 'incoming', primary: 'Create task from note', existing: 'Link existing task', taskFields: true },
+    { key: 'project', sectionKeys: ['projects'], title: 'Projects', type: 'project', relationship: 'related', direction: 'outgoing', primary: 'Add new project', existing: 'Link existing project' },
+    { key: 'area', sectionKeys: ['areas'], title: 'Areas', type: 'area', relationship: 'related', direction: 'outgoing', existing: 'Link existing area' },
+    { key: 'person', sectionKeys: ['people_mentioned'], title: 'People Mentioned', type: 'person', relationship: 'mentions', direction: 'outgoing', primary: 'Add mentioned person', existing: 'Link existing person' },
+    { key: 'resource', sectionKeys: ['referenced_resources'], title: 'Referenced Resources', type: 'resource', relationship: 'references', direction: 'outgoing', primary: 'Add referenced resource', existing: 'Link existing resource' },
   ],
   person: [
-    { key: 'task', title: 'Assigned Tasks', type: 'task', relationship: 'assigned_to', direction: 'incoming', primary: 'Add assigned task', existing: 'Assign existing task', taskFields: true },
-    { key: 'note', title: 'Notes', type: 'note', relationship: 'mentions', direction: 'incoming', primary: 'Add note about person', existing: 'Link existing note' },
-    { key: 'project', title: 'Projects', type: 'project', relationship: 'assigned_to', direction: 'incoming', existing: 'Add to existing project' },
-    { key: 'resource', title: 'Resources', type: 'resource', relationship: 'references', direction: 'outgoing', primary: 'Add person resource', existing: 'Link existing resource' },
+    { key: 'task', sectionKeys: ['assigned_tasks'], title: 'Assigned Tasks', type: 'task', relationship: 'assigned_to', direction: 'incoming', primary: 'Add assigned task', existing: 'Assign existing task', taskFields: true },
+    { key: 'note', sectionKeys: ['mentioned_in_notes'], title: 'Notes', type: 'note', relationship: 'mentions', direction: 'incoming', primary: 'Add note about person', existing: 'Link existing note' },
+    { key: 'project', sectionKeys: ['projects'], title: 'Projects', type: 'project', relationship: 'assigned_to', direction: 'incoming', existing: 'Add to existing project' },
+    { key: 'resource', sectionKeys: ['resources'], title: 'Resources', type: 'resource', relationship: 'references', direction: 'outgoing', primary: 'Add person resource', existing: 'Link existing resource' },
   ],
   resource: [
-    { key: 'note', title: 'Reference Notes', type: 'note', relationship: 'references', direction: 'incoming', primary: 'Add reference note', existing: 'Link existing note' },
-    { key: 'project', title: 'Projects', type: 'project', relationship: 'references', direction: 'incoming', existing: 'Use in existing project' },
-    { key: 'task', title: 'Tasks', type: 'task', relationship: 'references', direction: 'incoming', existing: 'Use in existing task', taskFields: true },
-    { key: 'area', title: 'Areas', type: 'area', relationship: 'references', direction: 'incoming', existing: 'Use in existing area' },
-    { key: 'person', title: 'People', type: 'person', relationship: 'references', direction: 'incoming', existing: 'Link existing person' },
+    { key: 'note', sectionKeys: ['referenced_by_notes'], title: 'Reference Notes', type: 'note', relationship: 'references', direction: 'incoming', primary: 'Add reference note', existing: 'Link existing note' },
+    { key: 'project', sectionKeys: ['projects'], title: 'Projects', type: 'project', relationship: 'references', direction: 'incoming', existing: 'Use in existing project' },
+    { key: 'task', sectionKeys: ['tasks'], title: 'Tasks', type: 'task', relationship: 'references', direction: 'incoming', existing: 'Use in existing task', taskFields: true },
+    { key: 'area', sectionKeys: ['areas'], title: 'Areas', type: 'area', relationship: 'references', direction: 'incoming', existing: 'Use in existing area' },
+    { key: 'person', sectionKeys: ['people'], title: 'People', type: 'person', relationship: 'references', direction: 'incoming', existing: 'Link existing person' },
   ],
 };
 
@@ -244,10 +244,13 @@ export default function V4EntityDetail({ type: routeType }) {
 
   const entity = detail.entity;
   const entityType = routeType || entity.type;
+  const configs = actionConfigs[entity.type] || [];
+  const usedSectionKeys = new Set(configs.flatMap((config) => config.sectionKeys || []));
+  const additionalSections = detail.sections.filter((section) => !usedSectionKeys.has(section.key) && section.items.length > 0);
 
   return (
     <main className={styles.screen}>
-      <section className={styles.panel}>
+      <section className={styles.headerPanel}>
         <p className={styles.eyebrow}>Engram v4 {entityType}</p>
         <h1>{entity.title || 'Untitled'}</h1>
         <form onSubmit={handleSave} className={styles.form} aria-label="Edit entity">
@@ -312,59 +315,114 @@ export default function V4EntityDetail({ type: routeType }) {
         {error && <div className={styles.error}>{error}</div>}
       </section>
 
-      <section className={styles.panel}>
-        <h2>Actions</h2>
-        <div className={styles.actionGrid}>
-          {(actionConfigs[entity.type] || []).map((config) => (
-            <TypedAction
-              key={config.key}
-              config={config}
-              currentId={entity.id}
-              onCreate={(form) => handleCreateAndLink(config, form)}
-              onLink={(targetId) => handleLinkExisting(config, targetId)}
-            />
-          ))}
-        </div>
-      </section>
-
-      <section className={styles.sections}>
-        {detail.sections.map((section) => (
-          <article key={section.key} className={styles.panel}>
-            <h2>{section.title}</h2>
-            {section.items.length === 0 ? (
-              <p>No linked entities.</p>
-            ) : (
-              <ul className={styles.cards}>
-                {section.items.map((item) => (
-                  <li key={item.relationship.id}>
-                    <Link to={pathForEntity(item.entity)}>
-                      <strong>{item.entity.title || 'Untitled'}</strong>
-                      <span className={styles.metaRow}>
-                        <span className={styles.typePill}>{item.entity.type}</span>
-                        <span className={styles.statusPill}>{item.entity.status}</span>
-                        <span className={styles.relationshipPill}>{item.relationship.relationship_type}</span>
-                      </span>
-                      {item.entity.due_at && <span className={styles.mutedMeta}>Due {new Date(item.entity.due_at).toLocaleString()}</span>}
-                      {item.entity.properties?.priority && <span className={styles.priorityPill}>Priority {item.entity.properties.priority}</span>}
-                    </Link>
-                    <div className={styles.cardActions}>
-                      {item.entity.type === 'task' && statusOptions.task.map((status) => (
-                        <button className={styles.statusButton} key={status} type="button" onClick={() => handleQuickStatus(item.entity.id, status)}>
-                          {status}
-                        </button>
-                      ))}
-                      <button className={styles.removeButton} type="button" onClick={() => handleRemoveRelationship(item.relationship.id)}>
-                        Remove
-                      </button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </article>
+      <section className={styles.segmentsStack} aria-label={`${entityType} relationship segments`}>
+        {configs.map((config) => (
+          <RelationshipSegment
+            key={config.key}
+            config={config}
+            currentId={entity.id}
+            sections={detail.sections.filter((section) => (config.sectionKeys || []).includes(section.key))}
+            onCreate={(form) => handleCreateAndLink(config, form)}
+            onLink={(targetId) => handleLinkExisting(config, targetId)}
+            onRemove={handleRemoveRelationship}
+            onQuickStatus={handleQuickStatus}
+          />
         ))}
+        {additionalSections.length > 0 && (
+          <RelationshipSegment
+            config={{ key: 'additional', title: 'Additional Links' }}
+            currentId={entity.id}
+            sections={additionalSections}
+            onRemove={handleRemoveRelationship}
+            onQuickStatus={handleQuickStatus}
+          />
+        )}
       </section>
     </main>
+  );
+}
+
+function RelationshipSegment({
+  config,
+  currentId,
+  sections,
+  onCreate,
+  onLink,
+  onRemove,
+  onQuickStatus,
+}) {
+  const items = sections.flatMap((section) => section.items);
+
+  return (
+    <article className={styles.segmentPanel}>
+      <header className={styles.segmentHeader}>
+        <div>
+          <p className={styles.segmentKicker}>{config.type || 'linked'}</p>
+          <h2>{config.title}</h2>
+        </div>
+        <span className={styles.countPill}>{items.length}</span>
+      </header>
+
+      {config.type && (
+        <TypedAction
+          config={config}
+          currentId={currentId}
+          onCreate={onCreate}
+          onLink={onLink}
+        />
+      )}
+
+      <div className={styles.linkedArea}>
+        {sections.length === 0 || items.length === 0 ? (
+          <p className={styles.emptyText}>No linked {config.title.toLowerCase()} yet.</p>
+        ) : (
+          sections.map((section) => (
+            section.items.length > 0 && (
+              <div key={section.key} className={styles.linkedGroup}>
+                {sections.length > 1 && <h3>{section.title}</h3>}
+                <ul className={styles.cards}>
+                  {section.items.map((item) => (
+                    <LinkedEntityRow
+                      key={item.relationship.id}
+                      item={item}
+                      onRemove={onRemove}
+                      onQuickStatus={onQuickStatus}
+                    />
+                  ))}
+                </ul>
+              </div>
+            )
+          ))
+        )}
+      </div>
+    </article>
+  );
+}
+
+function LinkedEntityRow({ item, onRemove, onQuickStatus }) {
+  return (
+    <li>
+      <Link to={pathForEntity(item.entity)}>
+        <strong>{item.entity.title || 'Untitled'}</strong>
+        <span className={styles.metaRow}>
+          <span className={styles.typePill}>{item.entity.type}</span>
+          <span className={styles.statusPill}>{item.entity.status}</span>
+          <span className={styles.relationshipPill}>{item.relationship.relationship_type}</span>
+        </span>
+        {item.entity.due_at && <span className={styles.mutedMeta}>Due {new Date(item.entity.due_at).toLocaleString()}</span>}
+        {item.entity.properties?.priority && <span className={styles.priorityPill}>Priority {item.entity.properties.priority}</span>}
+      </Link>
+      <div className={styles.cardActions}>
+        {item.entity.type === 'task' && statusOptions.task.map((status) => (
+          <button className={styles.statusButton} key={status} type="button" onClick={() => onQuickStatus(item.entity.id, status)}>
+            {status}
+          </button>
+        ))}
+        <button className={styles.removeButton} type="button" onClick={() => onRemove(item.relationship.id)}>
+          Remove
+        </button>
+      </div>
+    </li>
   );
 }
 
