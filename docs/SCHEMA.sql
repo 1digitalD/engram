@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS entities (
     status        TEXT NOT NULL DEFAULT 'active',
     lifecycle     TEXT NOT NULL DEFAULT 'active'
                   CHECK (lifecycle IN ('active', 'archived', 'deleted')),
+    due_at        TIMESTAMPTZ,
     follow_up_at  TIMESTAMPTZ,
     source        TEXT,
     reference_url TEXT,
@@ -30,6 +31,8 @@ CREATE TABLE IF NOT EXISTS entities (
 CREATE INDEX IF NOT EXISTS entities_type_idx       ON entities (type);
 CREATE INDEX IF NOT EXISTS entities_status_idx     ON entities (type, status);
 CREATE INDEX IF NOT EXISTS entities_lifecycle_idx  ON entities (lifecycle);
+CREATE INDEX IF NOT EXISTS entities_due_idx        ON entities (due_at)
+    WHERE due_at IS NOT NULL AND lifecycle = 'active';
 CREATE INDEX IF NOT EXISTS entities_follow_up_idx  ON entities (follow_up_at)
     WHERE follow_up_at IS NOT NULL AND lifecycle = 'active';
 CREATE INDEX IF NOT EXISTS entities_updated_idx    ON entities (updated_at DESC);

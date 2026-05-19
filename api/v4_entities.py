@@ -35,6 +35,7 @@ WRITABLE_FIELDS = {
     "content",
     "status",
     "lifecycle",
+    "due_at",
     "follow_up_at",
     "source",
     "reference_url",
@@ -254,6 +255,9 @@ def create_entity():
     follow_up_at, follow_up_error = _parse_datetime_or_error(data.get("follow_up_at"))
     if follow_up_error:
         return follow_up_error
+    due_at, due_error = _parse_datetime_or_error(data.get("due_at"))
+    if due_error:
+        return due_error
 
     entity = Entity(
         type=entity_type,
@@ -261,6 +265,7 @@ def create_entity():
         content=data.get("content"),
         status=status,
         lifecycle=data.get("lifecycle") or "active",
+        due_at=due_at,
         follow_up_at=follow_up_at,
         source=data.get("source") or "manual",
         reference_url=data.get("reference_url"),
@@ -341,6 +346,11 @@ def update_entity(entity_id):
         if follow_up_error:
             return follow_up_error
         entity.follow_up_at = follow_up_at
+    if "due_at" in data:
+        due_at, due_error = _parse_datetime_or_error(data["due_at"])
+        if due_error:
+            return due_error
+        entity.due_at = due_at
     if "tags" in data:
         _replace_tags(entity, data.get("tags") or [])
 
@@ -439,6 +449,9 @@ def accept_suggestion(suggestion_id):
     follow_up_at, follow_up_error = _parse_datetime_or_error(payload.get("follow_up_at"))
     if follow_up_error:
         return follow_up_error
+    due_at, due_error = _parse_datetime_or_error(payload.get("due_at"))
+    if due_error:
+        return due_error
 
     source_note = db.session.get(Entity, suggestion.source_entity_id)
     if source_note is None:
@@ -450,6 +463,7 @@ def accept_suggestion(suggestion_id):
         content=payload.get("content"),
         status=status,
         lifecycle="active",
+        due_at=due_at,
         follow_up_at=follow_up_at,
         source="ai_suggestion",
         reference_url=payload.get("reference_url"),

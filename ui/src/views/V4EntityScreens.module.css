@@ -77,6 +77,61 @@
   gap: var(--space-2);
 }
 
+.actionGrid {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  margin-top: var(--space-4);
+}
+
+.actionCard {
+  border: 1px solid var(--border-faint);
+  border-radius: 18px;
+  background: color-mix(in oklch, var(--surface) 96%, var(--green) 4%);
+  padding: var(--space-4);
+}
+
+.actionCard header {
+  align-items: center;
+  display: flex;
+  gap: var(--space-3);
+  justify-content: space-between;
+}
+
+.actionCard h3 {
+  margin: 0;
+}
+
+.tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.tabs button,
+.cardActions button {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  padding: 6px 10px;
+}
+
+.tabs .activeTab {
+  background: var(--text);
+  color: var(--surface);
+}
+
+.cardActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
 .form button,
 .inlineForm button,
 .cards button {
@@ -101,8 +156,9 @@
 .cards li {
   border: 1px solid var(--border-faint);
   border-radius: 16px;
-  display: flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
   justify-content: space-between;
   gap: var(--space-3);
   padding: var(--space-3);
@@ -137,5 +193,13 @@
 
   .inlineForm {
     grid-template-columns: 1fr;
+  }
+
+  .cards li {
+    grid-template-columns: 1fr;
+  }
+
+  .cardActions {
+    justify-content: flex-start;
   }
 }

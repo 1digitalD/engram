@@ -64,6 +64,7 @@ def test_create_entity_with_tags_and_event(client, app):
             "title": "Follow up with Henry",
             "content": "Ask for rollout stages.",
             "status": "waiting",
+            "due_at": "2026-05-19T17:00:00+00:00",
             "follow_up_at": "2026-05-20T10:00:00+00:00",
             "properties": {"priority": "high"},
             "tags": ["memory", "rollout"],
@@ -72,6 +73,7 @@ def test_create_entity_with_tags_and_event(client, app):
 
     assert response.status_code == 201
     entity = response.get_json()["data"]
+    assert entity["due_at"] == "2026-05-19T17:00:00+00:00"
     assert entity["properties"] == {"priority": "high"}
     assert {tag["name"] for tag in entity["tags"]} == {"memory", "rollout"}
     assert entity["ai"]["status"] == "pending"
@@ -112,6 +114,7 @@ def test_update_entity_fields_tags_and_event(client):
             "title": "New",
             "content": "Updated body",
             "status": "in_progress",
+            "due_at": "2026-05-21T17:00:00+00:00",
             "follow_up_at": "2026-05-21T09:30:00+00:00",
             "properties": {"priority": "medium"},
             "tags": ["new", "work"],
@@ -123,6 +126,7 @@ def test_update_entity_fields_tags_and_event(client):
     assert entity["title"] == "New"
     assert entity["content"] == "Updated body"
     assert entity["status"] == "in_progress"
+    assert entity["due_at"] == "2026-05-21T17:00:00+00:00"
     assert entity["properties"] == {"priority": "medium"}
     assert {tag["name"] for tag in entity["tags"]} == {"new", "work"}
 
@@ -140,6 +144,18 @@ def test_reject_invalid_follow_up_at_on_create_without_mutation(client, app):
     assert "invalid datetime" in response.get_json()["error"]
     with app.app_context():
         assert Entity.query.filter_by(type="task", title="Bad date").count() == 0
+
+
+def test_reject_invalid_due_at_on_create_without_mutation(client, app):
+    response = client.post(
+        "/api/v4/entities",
+        json={"type": "task", "title": "Bad due date", "due_at": "not-a-date"},
+    )
+
+    assert response.status_code == 400
+    assert "invalid datetime" in response.get_json()["error"]
+    with app.app_context():
+        assert Entity.query.filter_by(type="task", title="Bad due date").count() == 0
 
 
 def test_reject_invalid_follow_up_at_on_update_without_mutation(client, app):

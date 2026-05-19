@@ -26,6 +26,7 @@ vi.mock('../api/v4Client', () => ({
 describe('v4 entity screens', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    v4API.entities.list.mockResolvedValue({ data: [] });
   });
 
   it('creates a task manually from the task list', async () => {
@@ -53,9 +54,20 @@ describe('v4 entity screens', () => {
     expect(await screen.findByRole('link', { name: /Follow up/i })).toHaveAttribute('href', '/tasks/t1');
   });
 
-  it('updates status and manages relationships from detail sections', async () => {
+  it('updates metadata and manages linked section actions from detail sections', async () => {
     const detail = {
-      entity: { id: 't1', type: 'task', title: 'Follow up', content: 'Body', status: 'open' },
+      entity: {
+        id: 't1',
+        type: 'task',
+        title: 'Follow up',
+        content: 'Body',
+        status: 'open',
+        due_at: null,
+        follow_up_at: null,
+        reference_url: null,
+        properties: {},
+        tags: [],
+      },
       sections: [{
         key: 'project',
         title: 'Project',
@@ -80,22 +92,109 @@ describe('v4 entity screens', () => {
 
     expect(await screen.findByText('Memory Lookup')).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'done' } });
+    fireEvent.change(screen.getByLabelText('Due date'), { target: { value: '2026-05-21T17:00' } });
+    fireEvent.change(screen.getByLabelText('Priority'), { target: { value: 'high' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(v4API.entities.update).toHaveBeenCalledWith('t1', {
       title: 'Follow up',
       content: 'Body',
       status: 'done',
-    }));
-
-    fireEvent.change(screen.getByLabelText('Target entity ID'), { target: { value: 'p2' } });
-    fireEvent.change(screen.getByLabelText('Relationship type'), { target: { value: 'parent' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Add link' }));
-    await waitFor(() => expect(v4API.relationships.create).toHaveBeenCalledWith('t1', {
-      target_entity_id: 'p2',
-      relationship_type: 'parent',
+      due_at: '2026-05-21T17:00',
+      properties: { priority: 'high' },
+      tags: [],
     }));
 
     fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
     await waitFor(() => expect(v4API.relationships.delete).toHaveBeenCalledWith('r1'));
+  });
+
+  it('creates a new task from a project detail and links it as parent', async () => {
+    const detail = {
+      entity: {
+        id: 'p1',
+        type: 'project',
+        title: 'Memory Lookup',
+        content: '',
+        status: 'active',
+        due_at: null,
+        follow_up_at: null,
+        reference_url: null,
+        properties: {},
+        tags: [],
+      },
+      sections: [],
+    };
+    v4API.entities.detail.mockResolvedValue(detail);
+    v4API.entities.create.mockResolvedValue({
+      data: { id: 't2', type: 'task', title: 'Draft rollout', status: 'open' },
+    });
+    v4API.relationships.create.mockResolvedValue({ data: { id: 'r2' } });
+
+    render(
+      <MemoryRouter initialEntries={['/projects/p1']}>
+        <Routes>
+          <Route path="/projects/:id" element={<V4EntityDetail type="project" />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.change(await screen.findByLabelText('Tasks title'), { target: { value: 'Draft rollout' } });
+    fireEvent.change(screen.getByLabelText('Tasks due date'), { target: { value: '2026-05-22T12:00' } });
+    fireEvent.change(screen.getByLabelText('Tasks priority'), { target: { value: 'urgent' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add new task' }));
+
+    await waitFor(() => expect(v4API.entities.create).toHaveBeenCalledWith({
+      type: 'task',
+      title: 'Draft rollout',
+      content: null,
+      due_at: '2026-05-22T12:00',
+      properties: { priority: 'urgent' },
+    }));
+    await waitFor(() => expect(v4API.relationships.create).toHaveBeenCalledWith('t2', {
+      target_entity_id: 'p1',
+      relationship_type: 'parent',
+    }));
+  });
+
+  it('links an existing task from a project detail without raw IDs', async () => {
+    const detail = {
+      entity: {
+        id: 'p1',
+        type: 'project',
+        title: 'Memory Lookup',
+        content: '',
+        status: 'active',
+        due_at: null,
+        follow_up_at: null,
+        reference_url: null,
+        properties: {},
+        tags: [],
+      },
+      sections: [],
+    };
+    v4API.entities.detail.mockResolvedValue(detail);
+    v4API.entities.list.mockImplementation(({ type }) => Promise.resolve({
+      data: type === 'task'
+        ? [{ id: 't3', type: 'task', title: 'Existing task', status: 'open' }]
+        : [],
+    }));
+    v4API.relationships.create.mockResolvedValue({ data: { id: 'r3' } });
+
+    render(
+      <MemoryRouter initialEntries={['/projects/p1']}>
+        <Routes>
+          <Route path="/projects/:id" element={<V4EntityDetail type="project" />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Existing' }))[0]);
+    fireEvent.change(screen.getByLabelText('Existing Tasks'), { target: { value: 't3' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add existing task' }));
+
+    await waitFor(() => expect(v4API.relationships.create).toHaveBeenCalledWith('t3', {
+      target_entity_id: 'p1',
+      relationship_type: 'parent',
+    }));
   });
 });

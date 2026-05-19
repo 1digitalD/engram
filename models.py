@@ -263,6 +263,7 @@ class Entity(BaseModel):
     # Lifecycle
     status = Column(Text, nullable=False, default="active")
     lifecycle = Column(Text, nullable=False, default="active")
+    due_at = Column(DateTime, nullable=True)
     follow_up_at = Column(DateTime, nullable=True)
     source = Column(Text, nullable=True)
     reference_url = Column(Text, nullable=True)
@@ -321,6 +322,7 @@ class Entity(BaseModel):
             "content": self.content,
             "status": self.status,
             "lifecycle": self.lifecycle,
+            "due_at": _iso(self.due_at),
             "follow_up_at": _iso(self.follow_up_at),
             "source": self.source,
             "reference_url": self.reference_url,

@@ -14,7 +14,50 @@ const statusOptions = {
   resource: ['active', 'archived'],
 };
 
-const relationshipOptions = ['parent', 'related', 'derived_from', 'mentions', 'assigned_to', 'references', 'blocks'];
+const priorityOptions = ['', 'low', 'medium', 'high', 'urgent'];
+
+const actionConfigs = {
+  project: [
+    { key: 'task', title: 'Tasks', type: 'task', relationship: 'parent', direction: 'incoming', primary: 'Add new task', existing: 'Add existing task', taskFields: true },
+    { key: 'note', title: 'Notes', type: 'note', relationship: 'related', direction: 'outgoing', primary: 'Add project note', existing: 'Link existing note' },
+    { key: 'person', title: 'People', type: 'person', relationship: 'assigned_to', direction: 'outgoing', primary: 'Add new person', existing: 'Add existing person' },
+    { key: 'resource', title: 'Resources', type: 'resource', relationship: 'references', direction: 'outgoing', primary: 'Add new resource', existing: 'Add existing resource' },
+  ],
+  area: [
+    { key: 'project', title: 'Projects', type: 'project', relationship: 'parent', direction: 'incoming', primary: 'Add new project', existing: 'Add existing project' },
+    { key: 'task', title: 'Tasks', type: 'task', relationship: 'parent', direction: 'incoming', primary: 'Add new task', existing: 'Add existing task', taskFields: true },
+    { key: 'note', title: 'Notes', type: 'note', relationship: 'related', direction: 'outgoing', primary: 'Add area note', existing: 'Link existing note' },
+    { key: 'resource', title: 'Resources', type: 'resource', relationship: 'references', direction: 'outgoing', primary: 'Add new resource', existing: 'Add existing resource' },
+  ],
+  task: [
+    { key: 'project', title: 'Project', type: 'project', relationship: 'parent', direction: 'outgoing', existing: 'Move/link to project' },
+    { key: 'area', title: 'Area', type: 'area', relationship: 'parent', direction: 'outgoing', existing: 'Move/link to area' },
+    { key: 'person', title: 'Assignee', type: 'person', relationship: 'assigned_to', direction: 'outgoing', primary: 'Create and assign person', existing: 'Assign existing person' },
+    { key: 'note', title: 'Source Notes', type: 'note', relationship: 'derived_from', direction: 'outgoing', primary: 'Add source note', existing: 'Attach existing note' },
+    { key: 'resource', title: 'Resources', type: 'resource', relationship: 'references', direction: 'outgoing', primary: 'Add resource', existing: 'Attach existing resource' },
+    { key: 'blocker', title: 'Blocked By', type: 'task', relationship: 'blocks', direction: 'incoming', existing: 'Add blocking task' },
+  ],
+  note: [
+    { key: 'task', title: 'Derived Tasks', type: 'task', relationship: 'derived_from', direction: 'incoming', primary: 'Create task from note', existing: 'Link existing task', taskFields: true },
+    { key: 'project', title: 'Projects', type: 'project', relationship: 'related', direction: 'outgoing', primary: 'Add new project', existing: 'Link existing project' },
+    { key: 'area', title: 'Areas', type: 'area', relationship: 'related', direction: 'outgoing', existing: 'Link existing area' },
+    { key: 'person', title: 'People Mentioned', type: 'person', relationship: 'mentions', direction: 'outgoing', primary: 'Add mentioned person', existing: 'Link existing person' },
+    { key: 'resource', title: 'Referenced Resources', type: 'resource', relationship: 'references', direction: 'outgoing', primary: 'Add referenced resource', existing: 'Link existing resource' },
+  ],
+  person: [
+    { key: 'task', title: 'Assigned Tasks', type: 'task', relationship: 'assigned_to', direction: 'incoming', primary: 'Add assigned task', existing: 'Assign existing task', taskFields: true },
+    { key: 'note', title: 'Notes', type: 'note', relationship: 'mentions', direction: 'incoming', primary: 'Add note about person', existing: 'Link existing note' },
+    { key: 'project', title: 'Projects', type: 'project', relationship: 'assigned_to', direction: 'incoming', existing: 'Add to existing project' },
+    { key: 'resource', title: 'Resources', type: 'resource', relationship: 'references', direction: 'outgoing', primary: 'Add person resource', existing: 'Link existing resource' },
+  ],
+  resource: [
+    { key: 'note', title: 'Reference Notes', type: 'note', relationship: 'references', direction: 'incoming', primary: 'Add reference note', existing: 'Link existing note' },
+    { key: 'project', title: 'Projects', type: 'project', relationship: 'references', direction: 'incoming', existing: 'Use in existing project' },
+    { key: 'task', title: 'Tasks', type: 'task', relationship: 'references', direction: 'incoming', existing: 'Use in existing task', taskFields: true },
+    { key: 'area', title: 'Areas', type: 'area', relationship: 'references', direction: 'incoming', existing: 'Use in existing area' },
+    { key: 'person', title: 'People', type: 'person', relationship: 'references', direction: 'incoming', existing: 'Link existing person' },
+  ],
+};
 
 function pathForEntity(entity) {
   if (!entity) return '#';
@@ -22,12 +65,35 @@ function pathForEntity(entity) {
   return `/${base}/${entity.id}`;
 }
 
+function toInputDateTime(value) {
+  if (!value) return '';
+  return value.slice(0, 16);
+}
+
+function cleanPayload(payload) {
+  return Object.fromEntries(Object.entries(payload).filter(([, value]) => value !== '' && value !== undefined));
+}
+
+function relationshipPayload(currentId, linkedId, config) {
+  if (config.direction === 'incoming') {
+    return { sourceId: linkedId, target_entity_id: currentId, relationship_type: config.relationship };
+  }
+  return { sourceId: currentId, target_entity_id: linkedId, relationship_type: config.relationship };
+}
+
 export default function V4EntityDetail({ type: routeType }) {
   const { id } = useParams();
   const [detail, setDetail] = useState(null);
-  const [draft, setDraft] = useState({ title: '', content: '', status: 'active' });
-  const [targetEntityId, setTargetEntityId] = useState('');
-  const [relationshipType, setRelationshipType] = useState('related');
+  const [draft, setDraft] = useState({
+    title: '',
+    content: '',
+    status: 'active',
+    due_at: '',
+    follow_up_at: '',
+    reference_url: '',
+    tags: '',
+    priority: '',
+  });
   const [error, setError] = useState('');
 
   async function loadDetail() {
@@ -37,6 +103,11 @@ export default function V4EntityDetail({ type: routeType }) {
       title: response.entity.title || '',
       content: response.entity.content || '',
       status: response.entity.status || 'active',
+      due_at: toInputDateTime(response.entity.due_at),
+      follow_up_at: toInputDateTime(response.entity.follow_up_at),
+      reference_url: response.entity.reference_url || '',
+      tags: (response.entity.tags || []).map((tag) => tag.name).join(', '),
+      priority: response.entity.properties?.priority || '',
     });
   }
 
@@ -50,6 +121,11 @@ export default function V4EntityDetail({ type: routeType }) {
           title: response.entity.title || '',
           content: response.entity.content || '',
           status: response.entity.status || 'active',
+          due_at: toInputDateTime(response.entity.due_at),
+          follow_up_at: toInputDateTime(response.entity.follow_up_at),
+          reference_url: response.entity.reference_url || '',
+          tags: (response.entity.tags || []).map((tag) => tag.name).join(', '),
+          priority: response.entity.properties?.priority || '',
         });
       })
       .catch((err) => {
@@ -63,8 +139,24 @@ export default function V4EntityDetail({ type: routeType }) {
   async function handleSave(event) {
     event.preventDefault();
     setError('');
+    const properties = { ...(detail.entity.properties || {}) };
+    if (draft.priority) {
+      properties.priority = draft.priority;
+    } else {
+      delete properties.priority;
+    }
+
     try {
-      await v4API.entities.update(id, draft);
+      await v4API.entities.update(id, cleanPayload({
+        title: draft.title,
+        content: draft.content,
+        status: draft.status,
+        due_at: draft.due_at,
+        follow_up_at: draft.follow_up_at,
+        reference_url: draft.reference_url,
+        properties,
+        tags: draft.tags.split(',').map((tag) => tag.trim()).filter(Boolean),
+      }));
       await loadDetail();
     } catch (err) {
       setError(err.message || 'Failed to save entity');
@@ -81,22 +173,6 @@ export default function V4EntityDetail({ type: routeType }) {
     }
   }
 
-  async function handleAddRelationship(event) {
-    event.preventDefault();
-    if (!targetEntityId.trim()) return;
-    setError('');
-    try {
-      await v4API.relationships.create(id, {
-        target_entity_id: targetEntityId.trim(),
-        relationship_type: relationshipType,
-      });
-      setTargetEntityId('');
-      await loadDetail();
-    } catch (err) {
-      setError(err.message || 'Failed to add relationship');
-    }
-  }
-
   async function handleRemoveRelationship(relationshipId) {
     setError('');
     try {
@@ -104,6 +180,55 @@ export default function V4EntityDetail({ type: routeType }) {
       await loadDetail();
     } catch (err) {
       setError(err.message || 'Failed to remove relationship');
+    }
+  }
+
+  async function handleCreateAndLink(config, form) {
+    setError('');
+    try {
+      const properties = {};
+      if (form.priority) properties.priority = form.priority;
+      const created = await v4API.entities.create(cleanPayload({
+        type: config.type,
+        title: form.title,
+        content: form.content,
+        due_at: form.due_at,
+        follow_up_at: form.follow_up_at,
+        properties,
+      }));
+      const link = relationshipPayload(id, created.data.id, config);
+      await v4API.relationships.create(link.sourceId, {
+        target_entity_id: link.target_entity_id,
+        relationship_type: link.relationship_type,
+      });
+      await loadDetail();
+    } catch (err) {
+      setError(err.message || `Failed to add ${config.type}`);
+    }
+  }
+
+  async function handleLinkExisting(config, targetId) {
+    if (!targetId) return;
+    setError('');
+    try {
+      const link = relationshipPayload(id, targetId, config);
+      await v4API.relationships.create(link.sourceId, {
+        target_entity_id: link.target_entity_id,
+        relationship_type: link.relationship_type,
+      });
+      await loadDetail();
+    } catch (err) {
+      setError(err.message || `Failed to link ${config.type}`);
+    }
+  }
+
+  async function handleQuickStatus(entityId, status) {
+    setError('');
+    try {
+      await v4API.entities.update(entityId, { status });
+      await loadDetail();
+    } catch (err) {
+      setError(err.message || 'Failed to update status');
     }
   }
 
@@ -146,6 +271,39 @@ export default function V4EntityDetail({ type: routeType }) {
               <option key={status} value={status}>{status}</option>
             ))}
           </select>
+          <input
+            value={draft.due_at}
+            onChange={(event) => setDraft((current) => ({ ...current, due_at: event.target.value }))}
+            aria-label="Due date"
+            type="datetime-local"
+          />
+          <input
+            value={draft.follow_up_at}
+            onChange={(event) => setDraft((current) => ({ ...current, follow_up_at: event.target.value }))}
+            aria-label="Follow-up"
+            type="datetime-local"
+          />
+          <select
+            value={draft.priority}
+            onChange={(event) => setDraft((current) => ({ ...current, priority: event.target.value }))}
+            aria-label="Priority"
+          >
+            {priorityOptions.map((priority) => (
+              <option key={priority || 'none'} value={priority}>{priority || 'No priority'}</option>
+            ))}
+          </select>
+          <input
+            value={draft.tags}
+            onChange={(event) => setDraft((current) => ({ ...current, tags: event.target.value }))}
+            aria-label="Tags"
+            placeholder="Tags, comma separated"
+          />
+          <input
+            value={draft.reference_url}
+            onChange={(event) => setDraft((current) => ({ ...current, reference_url: event.target.value }))}
+            aria-label="Reference URL"
+            placeholder="Reference URL"
+          />
           <div className={styles.actions}>
             <button type="submit">Save</button>
             <button type="button" onClick={handleArchive}>Archive/delete</button>
@@ -155,25 +313,18 @@ export default function V4EntityDetail({ type: routeType }) {
       </section>
 
       <section className={styles.panel}>
-        <h2>Add relationship</h2>
-        <form onSubmit={handleAddRelationship} className={styles.inlineForm} aria-label="Add relationship">
-          <input
-            value={targetEntityId}
-            onChange={(event) => setTargetEntityId(event.target.value)}
-            placeholder="Target entity ID"
-            aria-label="Target entity ID"
-          />
-          <select
-            value={relationshipType}
-            onChange={(event) => setRelationshipType(event.target.value)}
-            aria-label="Relationship type"
-          >
-            {relationshipOptions.map((option) => (
-              <option key={option} value={option}>{option}</option>
-            ))}
-          </select>
-          <button type="submit">Add link</button>
-        </form>
+        <h2>Actions</h2>
+        <div className={styles.actionGrid}>
+          {(actionConfigs[entity.type] || []).map((config) => (
+            <TypedAction
+              key={config.key}
+              config={config}
+              currentId={entity.id}
+              onCreate={(form) => handleCreateAndLink(config, form)}
+              onLink={(targetId) => handleLinkExisting(config, targetId)}
+            />
+          ))}
+        </div>
       </section>
 
       <section className={styles.sections}>
@@ -188,11 +339,20 @@ export default function V4EntityDetail({ type: routeType }) {
                   <li key={item.relationship.id}>
                     <Link to={pathForEntity(item.entity)}>
                       <strong>{item.entity.title || 'Untitled'}</strong>
-                      <span>{item.relationship.relationship_type}</span>
+                      <span>{item.entity.type} · {item.entity.status} · {item.relationship.relationship_type}</span>
+                      {item.entity.due_at && <span>Due {new Date(item.entity.due_at).toLocaleString()}</span>}
+                      {item.entity.properties?.priority && <span>Priority {item.entity.properties.priority}</span>}
                     </Link>
-                    <button type="button" onClick={() => handleRemoveRelationship(item.relationship.id)}>
-                      Remove
-                    </button>
+                    <div className={styles.cardActions}>
+                      {item.entity.type === 'task' && statusOptions.task.map((status) => (
+                        <button key={status} type="button" onClick={() => handleQuickStatus(item.entity.id, status)}>
+                          {status}
+                        </button>
+                      ))}
+                      <button type="button" onClick={() => handleRemoveRelationship(item.relationship.id)}>
+                        Remove
+                      </button>
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -201,5 +361,125 @@ export default function V4EntityDetail({ type: routeType }) {
         ))}
       </section>
     </main>
+  );
+}
+
+function TypedAction({ config, currentId, onCreate, onLink }) {
+  const [mode, setMode] = useState(config.primary ? 'create' : 'existing');
+  const [form, setForm] = useState({ title: '', content: '', due_at: '', follow_up_at: '', priority: '' });
+  const [options, setOptions] = useState([]);
+  const [selectedId, setSelectedId] = useState('');
+  const [filter, setFilter] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    v4API.entities.list({ type: config.type, limit: 100 })
+      .then((response) => {
+        if (active) setOptions(response.data || []);
+      })
+      .catch(() => {
+        if (active) setOptions([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [config.type]);
+
+  const filtered = options.filter((option) => {
+    if (option.id === currentId) return false;
+    const text = `${option.title || ''} ${option.content || ''}`.toLowerCase();
+    return text.includes(filter.toLowerCase());
+  });
+
+  async function submitCreate(event) {
+    event.preventDefault();
+    if (!form.title.trim()) return;
+    await onCreate({ ...form, title: form.title.trim(), content: form.content.trim() || null });
+    setForm({ title: '', content: '', due_at: '', follow_up_at: '', priority: '' });
+  }
+
+  async function submitExisting(event) {
+    event.preventDefault();
+    await onLink(selectedId);
+    setSelectedId('');
+    setFilter('');
+  }
+
+  return (
+    <article className={styles.actionCard}>
+      <header>
+        <h3>{config.title}</h3>
+        {config.primary && (
+          <div className={styles.tabs}>
+            <button type="button" className={mode === 'create' ? styles.activeTab : ''} onClick={() => setMode('create')}>
+              New
+            </button>
+            <button type="button" className={mode === 'existing' ? styles.activeTab : ''} onClick={() => setMode('existing')}>
+              Existing
+            </button>
+          </div>
+        )}
+      </header>
+
+      {mode === 'create' && config.primary ? (
+        <form onSubmit={submitCreate} className={styles.form} aria-label={config.primary}>
+          <input
+            value={form.title}
+            onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))}
+            placeholder={`${config.type} title`}
+            aria-label={`${config.title} title`}
+          />
+          <textarea
+            value={form.content}
+            onChange={(event) => setForm((current) => ({ ...current, content: event.target.value }))}
+            placeholder="Optional content"
+            aria-label={`${config.title} content`}
+            rows={2}
+          />
+          {config.taskFields && (
+            <>
+              <input
+                value={form.due_at}
+                onChange={(event) => setForm((current) => ({ ...current, due_at: event.target.value }))}
+                aria-label={`${config.title} due date`}
+                type="datetime-local"
+              />
+              <select
+                value={form.priority}
+                onChange={(event) => setForm((current) => ({ ...current, priority: event.target.value }))}
+                aria-label={`${config.title} priority`}
+              >
+                {priorityOptions.map((priority) => (
+                  <option key={priority || 'none'} value={priority}>{priority || 'No priority'}</option>
+                ))}
+              </select>
+            </>
+          )}
+          <button type="submit" disabled={!form.title.trim()}>{config.primary}</button>
+        </form>
+      ) : (
+        <form onSubmit={submitExisting} className={styles.form} aria-label={config.existing}>
+          <input
+            value={filter}
+            onChange={(event) => setFilter(event.target.value)}
+            placeholder={`Search ${config.type}s`}
+            aria-label={`Search ${config.title}`}
+          />
+          <select
+            value={selectedId}
+            onChange={(event) => setSelectedId(event.target.value)}
+            aria-label={`Existing ${config.title}`}
+          >
+            <option value="">Choose {config.type}</option>
+            {filtered.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.title || 'Untitled'} · {option.status}
+              </option>
+            ))}
+          </select>
+          <button type="submit" disabled={!selectedId}>{config.existing}</button>
+        </form>
+      )}
+    </article>
   );
 }
