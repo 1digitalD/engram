@@ -237,38 +237,6 @@ class EntityEvent(BaseModel):
         return f"<EntityEvent {self.id[:8]} type={self.event_type!r} actor={self.actor!r}>"
 
 
-# ─── Legacy import shim ─────────────────────────────────────────────────────
-
-
-class LinkTypeAllowlist:
-    """Non-persistent v4 relationship allowlist for old imports during cutover."""
-
-    ALLOWED_RELATIONSHIP_TYPES = {
-        "parent",
-        "related",
-        "derived_from",
-        "mentions",
-        "assigned_to",
-        "references",
-        "blocks",
-    }
-
-    @staticmethod
-    def is_allowed(src_type, dst_type, relationship_type):
-        return relationship_type in LinkTypeAllowlist.ALLOWED_RELATIONSHIP_TYPES
-
-    @staticmethod
-    def get_inverse(src_type, dst_type, relationship_type):
-        return None
-
-    @staticmethod
-    def get_allowed_types(src_type, dst_type):
-        return [
-            {"relationship_type": relationship_type}
-            for relationship_type in sorted(LinkTypeAllowlist.ALLOWED_RELATIONSHIP_TYPES)
-        ]
-
-
 # ─── Entity (single-table inheritance) ───────────────────────────────────────
 
 
