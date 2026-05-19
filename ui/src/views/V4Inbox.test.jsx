@@ -6,6 +6,10 @@ import { MemoryRouter } from 'react-router-dom';
 import V4Inbox from './V4Inbox';
 import { v4API } from '../api/v4Client';
 
+vi.mock('../components/MarkdownContent', () => ({
+  default: ({ content }) => content || null,
+}));
+
 vi.mock('../api/v4Client', () => ({
   v4API: {
     capture: vi.fn(),
@@ -21,7 +25,6 @@ function renderInbox() {
 
 describe('V4Inbox', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     v4API.entities.list.mockResolvedValue({
       data: [{ id: 'n-old', title: 'Older note', content: 'Already captured' }],
     });

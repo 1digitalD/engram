@@ -1,4 +1,6 @@
 import '@testing-library/jest-dom/vitest';
+import * as React from 'react';
+if (typeof globalThis.React === 'undefined') globalThis.React = React;
 
 /** Node / partial jsdom environments may expose a broken `localStorage`; tests need a real Map-backed one. */
 function makeMemoryStorage() {

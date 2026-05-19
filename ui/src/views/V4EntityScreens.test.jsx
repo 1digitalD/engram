@@ -7,6 +7,10 @@ import { v4API } from '../api/v4Client';
 import V4EntityList from './V4EntityList';
 import V4EntityDetail from './V4EntityDetail';
 
+vi.mock('../components/MarkdownContent', () => ({
+  default: ({ content }) => content || null,
+}));
+
 vi.mock('../api/v4Client', () => ({
   v4API: {
     entities: {
