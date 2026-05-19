@@ -74,6 +74,20 @@ def test_hybrid_search_uses_rrf(client, app):
     assert all(row["score"] > 0 for row in data["results"])
 
 
+def test_hybrid_search_degrades_to_keyword_without_embeddings(client, monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    _create_entity(client, "note", "Memory rollout", "Feature flags and rollback plan")
+
+    response = client.get("/api/v4/search?q=rollback&mode=hybrid")
+
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["mode"] == "hybrid"
+    assert [row["entity"]["title"] for row in data["results"]] == ["Memory rollout"]
+    assert data["results"][0]["match"]["keyword_rank"] == 1
+    assert data["results"][0]["match"]["semantic_rank"] is None
+
+
 def test_search_filters(client):
     _create_entity(client, "note", "Memory rollout", "Feature flags")
     _create_entity(client, "task", "Memory task", "Feature flags", status="waiting")

@@ -48,10 +48,9 @@ def _keyword_search(search_query, filters, limit):
 
 
 def _semantic_search(search_query, filters, limit):
-    from services.embeddings import _embed_texts
+    from services.embeddings import embed_query
 
-    vectors = _embed_texts([search_query])
-    query_vector = vectors[0] if vectors else None
+    query_vector = embed_query(search_query)
     if not query_vector:
         return []
 
