@@ -302,68 +302,64 @@ export default function V4EntityDetail({ type: routeType }) {
                 : <span className={styles.contentPlaceholder}>Content — supports Markdown</span>}
             </div>
           )}
-          <div className={styles.metaRow}>
-            <label className={styles.metaLabel}>
-              <span>Status</span>
-              <select
-                value={draft.status}
-                onChange={(event) => setDraft((current) => ({ ...current, status: event.target.value }))}
-                aria-label="Status"
-              >
-                {(statusOptions[entity.type] || ['active']).map((status) => (
-                  <option key={status} value={status}>{status}</option>
-                ))}
-              </select>
-            </label>
-            <label className={styles.metaLabel}>
-              <span>Priority</span>
-              <select
-                value={draft.priority}
-                onChange={(event) => setDraft((current) => ({ ...current, priority: event.target.value }))}
-                aria-label="Priority"
-              >
-                {priorityOptions.map((priority) => (
-                  <option key={priority || 'none'} value={priority}>{priority || 'none'}</option>
-                ))}
-              </select>
-            </label>
-            <label className={styles.metaLabel}>
-              <span>Due</span>
-              <input
-                value={draft.due_at}
-                onChange={(event) => setDraft((current) => ({ ...current, due_at: event.target.value }))}
-                aria-label="Due date"
-                type="datetime-local"
-              />
-            </label>
-            <label className={styles.metaLabel}>
-              <span>Follow-up</span>
-              <input
-                value={draft.follow_up_at}
-                onChange={(event) => setDraft((current) => ({ ...current, follow_up_at: event.target.value }))}
-                aria-label="Follow-up"
-                type="datetime-local"
-              />
-            </label>
-            <label className={styles.metaLabel}>
-              <span>Tags</span>
-              <input
-                value={draft.tags}
-                onChange={(event) => setDraft((current) => ({ ...current, tags: event.target.value }))}
-                aria-label="Tags"
-                placeholder="tag1, tag2"
-              />
-            </label>
-            <label className={styles.metaLabelWide}>
-              <span>URL</span>
-              <input
-                value={draft.reference_url}
-                onChange={(event) => setDraft((current) => ({ ...current, reference_url: event.target.value }))}
-                aria-label="Reference URL"
-                placeholder="https://..."
-                type="url"
-              />
-            </label>
+          <div className={styles.metaStrip}>
+            <select
+              className={styles.metaChip}
+              value={draft.status}
+              onChange={(event) => setDraft((current) => ({ ...current, status: event.target.value }))}
+              aria-label="Status"
+              title="Status"
+            >
+              {(statusOptions[entity.type] || ['active']).map((status) => (
+                <option key={status} value={status}>● {status}</option>
+              ))}
+            </select>
+            <select
+              className={styles.metaChip}
+              value={draft.priority}
+              onChange={(event) => setDraft((current) => ({ ...current, priority: event.target.value }))}
+              aria-label="Priority"
+              title="Priority"
+            >
+              {priorityOptions.map((priority) => (
+                <option key={priority || 'none'} value={priority}>
+                  {priority ? `! ${priority}` : '— priority'}
+                </option>
+              ))}
+            </select>
+            <input
+              className={styles.metaChip}
+              value={draft.due_at}
+              onChange={(event) => setDraft((current) => ({ ...current, due_at: event.target.value }))}
+              aria-label="Due date"
+              title="Due"
+              type="datetime-local"
+            />
+            <input
+              className={styles.metaChip}
+              value={draft.follow_up_at}
+              onChange={(event) => setDraft((current) => ({ ...current, follow_up_at: event.target.value }))}
+              aria-label="Follow-up"
+              title="Follow-up"
+              type="datetime-local"
+            />
+            <input
+              className={styles.metaChip}
+              value={draft.tags}
+              onChange={(event) => setDraft((current) => ({ ...current, tags: event.target.value }))}
+              aria-label="Tags"
+              title="Tags"
+              placeholder="# tags"
+            />
+            <input
+              className={`${styles.metaChip} ${styles.metaChipWide}`}
+              value={draft.reference_url}
+              onChange={(event) => setDraft((current) => ({ ...current, reference_url: event.target.value }))}
+              aria-label="Reference URL"
+              title="URL"
+              placeholder="https://..."
+              type="url"
+            />
           </div>
         </form>
         {error && <div className={styles.error}>{error}</div>}
