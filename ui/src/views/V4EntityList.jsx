@@ -27,6 +27,7 @@ export default function V4EntityList({ type }) {
   const [content, setContent] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -68,6 +69,7 @@ export default function V4EntityList({ type }) {
       }
       setTitle('');
       setContent('');
+      setOpen(false);
     } catch (err) {
       setError(err.message || `Failed to create ${type}`);
     } finally {
@@ -80,34 +82,41 @@ export default function V4EntityList({ type }) {
       <section className={styles.listHeaderPanel}>
         <div className={styles.listHeading}>
           <h1>{pluralTitle[type]}</h1>
-        </div>
-        <form onSubmit={handleCreate} className={styles.quickCreateForm} aria-label={`Create ${type}`}>
-          <input
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-            placeholder={type === 'note' ? 'Optional note title' : `New ${type} title`}
-            aria-label="Title"
-          />
-          <textarea
-            value={content}
-            onChange={(event) => setContent(event.target.value)}
-            placeholder={type === 'note' ? 'Write the note. AI can safely extract metadata and links.' : 'Optional content'}
-            aria-label="Content"
-            rows={type === 'note' ? 2 : 1}
-          />
-          <button className={styles.primaryButton} type="submit" disabled={loading || (type === 'note' ? !title.trim() && !content.trim() : !title.trim())}>
-            {loading ? 'Creating...' : `Create ${type}`}
+          <span className={styles.countPill}>{entities.length}</span>
+          <button
+            type="button"
+            className={styles.addButton}
+            onClick={() => setOpen((v) => !v)}
+            aria-expanded={open}
+          >
+            {open ? '✕' : `+ New ${type}`}
           </button>
-        </form>
+        </div>
+        {open && (
+          <form onSubmit={handleCreate} className={styles.quickCreateForm} aria-label={`Create ${type}`}>
+            <input
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+              placeholder={type === 'note' ? 'Optional note title' : `New ${type} title`}
+              aria-label="Title"
+              autoFocus
+            />
+            <textarea
+              value={content}
+              onChange={(event) => setContent(event.target.value)}
+              placeholder={type === 'note' ? 'Write the note. AI can safely extract metadata and links.' : 'Optional content'}
+              aria-label="Content"
+              rows={type === 'note' ? 2 : 1}
+            />
+            <button className={styles.primaryButton} type="submit" disabled={loading || (type === 'note' ? !title.trim() && !content.trim() : !title.trim())}>
+              {loading ? 'Creating...' : `Create ${type}`}
+            </button>
+          </form>
+        )}
         {error && <div className={styles.error}>{error}</div>}
       </section>
 
       <section className={styles.listPanel}>
-        <header className={styles.segmentHeader}>
-          <div className={styles.segmentHeaderRight}>
-            <span className={styles.countPill}>{entities.length}</span>
-          </div>
-        </header>
         {entities.length === 0 ? (
           <p className={styles.emptyText}>No {pluralTitle[type].toLowerCase()} yet.</p>
         ) : (
