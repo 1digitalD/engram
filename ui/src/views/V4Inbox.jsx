@@ -15,6 +15,27 @@ function notePath(entity) {
   return `/notes/${entity.id}`;
 }
 
+function formatTimestamp(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const now = new Date();
+  const diffMs = now - date;
+  const diffMin = Math.round(diffMs / 60000);
+  if (diffMin < 1) return 'just now';
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.round(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  const diffDay = Math.round(diffHr / 24);
+  if (diffDay < 7) return `${diffDay}d ago`;
+  const sameYear = date.getFullYear() === now.getFullYear();
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    ...(sameYear ? {} : { year: 'numeric' }),
+  });
+}
+
 function suggestionLabel(suggestion) {
   const payload = suggestion?.payload || {};
   return payload.title || suggestion?.suggestion_type || 'Suggestion';
@@ -124,7 +145,18 @@ export default function V4Inbox() {
             {notes.map((note) => (
               <li key={note.id}>
                 <Link to={notePath(note)} className={styles.noteLink}>
-                  <strong>{entityTitle(note)}</strong>
+                  <div className={styles.noteHeader}>
+                    <strong>{entityTitle(note)}</strong>
+                    {(note.created_at || note.updated_at) && (
+                      <time
+                        className={styles.noteTimestamp}
+                        dateTime={note.created_at || note.updated_at}
+                        title={new Date(note.created_at || note.updated_at).toLocaleString()}
+                      >
+                        {formatTimestamp(note.created_at || note.updated_at)}
+                      </time>
+                    )}
+                  </div>
                   {note.content && (
                     <div className={`${mdStyles.md} ${mdStyles.mdCompact}`}>
                       <MarkdownContent content={note.content} />
