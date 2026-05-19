@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { v4API } from '../api/v4Client';
 import styles from './V4EntityScreens.module.css';
@@ -39,7 +39,23 @@ export default function V4EntityDetail({ type: routeType }) {
   }
 
   useEffect(() => {
-    loadDetail().catch((err) => setError(err.message));
+    let active = true;
+    v4API.entities.detail(id)
+      .then((response) => {
+        if (!active) return;
+        setDetail(response);
+        setDraft({
+          title: response.entity.title || '',
+          content: response.entity.content || '',
+          status: response.entity.status || 'active',
+        });
+      })
+      .catch((err) => {
+        if (active) setError(err.message);
+      });
+    return () => {
+      active = false;
+    };
   }, [id]);
 
   async function handleSave(event) {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { v4API } from '../api/v4Client';
 import styles from './V4Search.module.css';

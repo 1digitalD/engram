@@ -1,4 +1,3 @@
-import React from 'react';
 import { useEffect, useState } from 'react';
 import { v4API } from '../api/v4Client';
 import styles from './V4Inbox.module.css';
@@ -19,13 +18,18 @@ export default function V4Inbox() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  async function loadRecentNotes() {
-    const response = await v4API.entities.list({ type: 'note', limit: 20 });
-    setNotes(response.data || []);
-  }
-
   useEffect(() => {
-    loadRecentNotes().catch((err) => setError(err.message));
+    let active = true;
+    v4API.entities.list({ type: 'note', limit: 20 })
+      .then((response) => {
+        if (active) setNotes(response.data || []);
+      })
+      .catch((err) => {
+        if (active) setError(err.message);
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
   async function handleSubmit(event) {

@@ -22,6 +22,9 @@ export default defineConfig({
     outDir: '../static',
     emptyOutDir: true,
   },
+  esbuild: {
+    jsx: 'automatic',
+  },
   test: {
     globals: true,
     environment: 'jsdom',

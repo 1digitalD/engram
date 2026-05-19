@@ -20,29 +20,6 @@ const navItems = [
   ['/suggestions', 'Suggestions'],
 ];
 
-const routeMeta = {
-  inbox: ['Inbox', 'Capture-first workspace shell. Full capture UI arrives in Cycle 11.'],
-  today: ['Today', 'Execution cockpit shell. Backend and UI implementation arrives in Cycle 14.'],
-  search: ['Search', 'Hybrid search shell. Full search UI arrives in Cycle 13.'],
-  notes: ['Notes', 'Note list shell backed by v4 entity APIs in later cycles.'],
-  projects: ['Projects', 'Project list shell backed by v4 entity APIs in later cycles.'],
-  tasks: ['Tasks', 'Task list shell backed by v4 entity APIs in later cycles.'],
-  areas: ['Areas', 'Area list shell backed by v4 entity APIs in later cycles.'],
-  people: ['People', 'People list shell backed by v4 entity APIs in later cycles.'],
-  resources: ['Resources', 'Resource list shell backed by v4 entity APIs in later cycles.'],
-};
-
-function ShellPage({ page }) {
-  const [title, description] = routeMeta[page];
-  return (
-    <main className={styles.page}>
-      <p className={styles.eyebrow}>Engram v4</p>
-      <h1>{title}</h1>
-      <p>{description}</p>
-    </main>
-  );
-}
-
 export default function App() {
   return (
     <div className={styles.shell}>

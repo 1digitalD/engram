@@ -1,6 +1,7 @@
 import logging
 import os
 import threading
+from pathlib import Path
 
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
@@ -55,10 +56,20 @@ def create_app(config_name=None):
 
     @app.cli.command("init-db")
     def init_db_cmd():
-        """Create all tables from SCHEMA.sql."""
+        """Apply the canonical v4 schema from docs/SCHEMA.sql."""
         with app.app_context():
-            db.create_all()
-            print("Database ready.")
+            schema_path = Path(__file__).resolve().parent / "docs" / "SCHEMA.sql"
+            connection = db.engine.raw_connection()
+            try:
+                connection.autocommit = True
+                cursor = connection.cursor()
+                try:
+                    cursor.execute(schema_path.read_text())
+                finally:
+                    cursor.close()
+            finally:
+                connection.close()
+            print("v4 schema applied.")
 
     @app.cli.command("embed-backfill")
     def embed_backfill_cmd():

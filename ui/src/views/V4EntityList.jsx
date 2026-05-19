@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { v4API } from '../api/v4Client';
 import styles from './V4EntityScreens.module.css';
@@ -24,13 +24,18 @@ export default function V4EntityList({ type }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  async function loadEntities() {
-    const response = await v4API.entities.list({ type, limit: 100 });
-    setEntities(response.data || []);
-  }
-
   useEffect(() => {
-    loadEntities().catch((err) => setError(err.message));
+    let active = true;
+    v4API.entities.list({ type, limit: 100 })
+      .then((response) => {
+        if (active) setEntities(response.data || []);
+      })
+      .catch((err) => {
+        if (active) setError(err.message);
+      });
+    return () => {
+      active = false;
+    };
   }, [type]);
 
   async function handleCreate(event) {

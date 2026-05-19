@@ -6,6 +6,7 @@ instance/
 __pycache__/
 *.pyc
 .pytest_cache/
+.coverage
 engram.log
 api/__pycache__/
 services/__pycache__/
@@ -25,4 +26,6 @@ logs/
 # Build artifacts that don't belong in source
 .gstack/
 static/assets/
+static/index.html
 .claude/
+.v2-overhaul-backup/

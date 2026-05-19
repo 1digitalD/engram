@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { v4API } from '../api/v4Client';
 import styles from './V4Suggestions.module.css';
 
@@ -28,9 +28,20 @@ export default function V4Suggestions() {
   }
 
   useEffect(() => {
-    loadSuggestions()
-      .catch((err) => setError(err.message || 'Failed to load suggestions'))
-      .finally(() => setLoading(false));
+    let active = true;
+    v4API.suggestions.list({ status: 'pending' })
+      .then((response) => {
+        if (active) setSuggestions(response.data || []);
+      })
+      .catch((err) => {
+        if (active) setError(err.message || 'Failed to load suggestions');
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
   async function resolveSuggestion(id, action) {
