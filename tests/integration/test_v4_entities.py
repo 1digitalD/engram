@@ -130,6 +130,37 @@ def test_update_entity_fields_tags_and_event(client):
     assert {"status_changed", "updated"}.issubset({event["event_type"] for event in events})
 
 
+def test_reject_invalid_follow_up_at_on_create_without_mutation(client, app):
+    response = client.post(
+        "/api/v4/entities",
+        json={"type": "task", "title": "Bad date", "follow_up_at": "not-a-date"},
+    )
+
+    assert response.status_code == 400
+    assert "invalid datetime" in response.get_json()["error"]
+    with app.app_context():
+        assert Entity.query.filter_by(type="task", title="Bad date").count() == 0
+
+
+def test_reject_invalid_follow_up_at_on_update_without_mutation(client, app):
+    created = client.post(
+        "/api/v4/entities",
+        json={"type": "task", "title": "Keep date", "follow_up_at": "2026-05-20T10:00:00+00:00"},
+    ).get_json()["data"]
+
+    response = client.patch(
+        f"/api/v4/entities/{created['id']}",
+        json={"follow_up_at": "not-a-date"},
+    )
+
+    assert response.status_code == 400
+    assert "invalid datetime" in response.get_json()["error"]
+    with app.app_context():
+        stored = db.session.get(Entity, created["id"])
+        assert stored.title == "Keep date"
+        assert stored.follow_up_at == datetime(2026, 5, 20, 10, 0, tzinfo=timezone.utc)
+
+
 def test_archive_and_delete_write_events(client, app):
     archived = client.post(
         "/api/v4/entities",

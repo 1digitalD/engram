@@ -251,13 +251,17 @@ def create_entity():
     if properties_error:
         return properties_error
 
+    follow_up_at, follow_up_error = _parse_datetime_or_error(data.get("follow_up_at"))
+    if follow_up_error:
+        return follow_up_error
+
     entity = Entity(
         type=entity_type,
         title=data.get("title"),
         content=data.get("content"),
         status=status,
         lifecycle=data.get("lifecycle") or "active",
-        follow_up_at=_parse_datetime(data.get("follow_up_at")),
+        follow_up_at=follow_up_at,
         source=data.get("source") or "manual",
         reference_url=data.get("reference_url"),
         properties=properties,
@@ -333,7 +337,10 @@ def update_entity(entity_id):
         if field in data:
             setattr(entity, field, data[field])
     if "follow_up_at" in data:
-        entity.follow_up_at = _parse_datetime(data["follow_up_at"])
+        follow_up_at, follow_up_error = _parse_datetime_or_error(data["follow_up_at"])
+        if follow_up_error:
+            return follow_up_error
+        entity.follow_up_at = follow_up_at
     if "tags" in data:
         _replace_tags(entity, data.get("tags") or [])
 
@@ -429,6 +436,10 @@ def accept_suggestion(suggestion_id):
     if validation_error:
         return validation_error
 
+    follow_up_at, follow_up_error = _parse_datetime_or_error(payload.get("follow_up_at"))
+    if follow_up_error:
+        return follow_up_error
+
     source_note = db.session.get(Entity, suggestion.source_entity_id)
     if source_note is None:
         return _error("source note not found", 404)
@@ -439,7 +450,7 @@ def accept_suggestion(suggestion_id):
         content=payload.get("content"),
         status=status,
         lifecycle="active",
-        follow_up_at=_parse_datetime(payload.get("follow_up_at")),
+        follow_up_at=follow_up_at,
         source="ai_suggestion",
         reference_url=payload.get("reference_url"),
         properties=properties,
@@ -928,6 +939,13 @@ def _parse_datetime(value):
         return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
     except ValueError:
         raise ValueError(f"invalid datetime: {value}") from None
+
+
+def _parse_datetime_or_error(value):
+    try:
+        return _parse_datetime(value), None
+    except ValueError as exc:
+        return None, _error(str(exc))
 
 
 def _error(message, status=400):

@@ -250,3 +250,26 @@ def test_accept_rejects_relationship_ids_inside_suggestion_properties(client, ap
     with app.app_context():
         assert Entity.query.filter_by(type="task").count() == 0
         assert db.session.get(AiSuggestion, suggestion_id).status == "pending"
+
+
+def test_accept_rejects_invalid_follow_up_at_without_mutation(client, app):
+    note_id = _create_note(app)
+    suggestion_id = _create_suggestion(
+        app,
+        note_id,
+        "create_task",
+        {
+            "type": "task",
+            "title": "Bad date task",
+            "source_entity_id": note_id,
+            "follow_up_at": "not-a-date",
+        },
+    )
+
+    response = client.post(f"/api/v4/suggestions/{suggestion_id}/accept")
+
+    assert response.status_code == 400
+    assert "invalid datetime" in response.get_json()["error"]
+    with app.app_context():
+        assert Entity.query.filter_by(type="task", title="Bad date task").count() == 0
+        assert db.session.get(AiSuggestion, suggestion_id).status == "pending"
