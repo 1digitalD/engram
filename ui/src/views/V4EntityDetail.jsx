@@ -253,17 +253,19 @@ export default function V4EntityDetail({ type: routeType }) {
       <section className={styles.headerPanel}>
         <p className={styles.eyebrow}>Engram v4 {entityType}</p>
         <h1>{entity.title || 'Untitled'}</h1>
-        <form onSubmit={handleSave} className={styles.form} aria-label="Edit entity">
+        <form onSubmit={handleSave} className={styles.compactForm} aria-label="Edit entity">
           <input
+            className={styles.titleField}
             value={draft.title}
             onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))}
             aria-label="Title"
           />
           <textarea
+            className={styles.contentField}
             value={draft.content}
             onChange={(event) => setDraft((current) => ({ ...current, content: event.target.value }))}
             aria-label="Content"
-            rows={5}
+            rows={3}
           />
           <select
             value={draft.status}
@@ -302,6 +304,7 @@ export default function V4EntityDetail({ type: routeType }) {
             placeholder="Tags, comma separated"
           />
           <input
+            className={styles.wideField}
             value={draft.reference_url}
             onChange={(event) => setDraft((current) => ({ ...current, reference_url: event.target.value }))}
             aria-label="Reference URL"
@@ -484,7 +487,7 @@ function TypedAction({ config, currentId, onCreate, onLink }) {
       </header>
 
       {mode === 'create' && config.primary ? (
-        <form onSubmit={submitCreate} className={styles.form} aria-label={config.primary}>
+        <form onSubmit={submitCreate} className={styles.actionForm} aria-label={config.primary}>
           <input
             value={form.title}
             onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))}
@@ -520,7 +523,7 @@ function TypedAction({ config, currentId, onCreate, onLink }) {
           <button className={styles.primaryButton} type="submit" disabled={!form.title.trim()}>{config.primary}</button>
         </form>
       ) : (
-        <form onSubmit={submitExisting} className={styles.form} aria-label={config.existing}>
+        <form onSubmit={submitExisting} className={styles.actionForm} aria-label={config.existing}>
           <input
             value={filter}
             onChange={(event) => setFilter(event.target.value)}
