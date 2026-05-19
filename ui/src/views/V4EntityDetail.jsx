@@ -3,6 +3,7 @@ import React from 'react';
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { v4API } from '../api/v4Client';
+import MarkdownContent from '../components/MarkdownContent';
 import styles from './V4EntityScreens.module.css';
 
 const statusOptions = {
@@ -255,6 +256,7 @@ export default function V4EntityDetail({ type: routeType }) {
   const configs = actionConfigs[entity.type] || [];
   const usedSectionKeys = new Set(configs.flatMap((config) => config.sectionKeys || []));
   const additionalSections = detail.sections.filter((section) => !usedSectionKeys.has(section.key) && section.items.length > 0);
+  const [editingContent, setEditingContent] = useState(false);
 
   return (
     <main className={styles.screen}>
@@ -274,14 +276,32 @@ export default function V4EntityDetail({ type: routeType }) {
             aria-label="Title"
             placeholder="Title"
           />
-          <textarea
-            className={styles.detailContent}
-            value={draft.content}
-            onChange={(event) => setDraft((current) => ({ ...current, content: event.target.value }))}
-            aria-label="Content"
-            placeholder="Content"
-            rows={3}
-          />
+          {editingContent ? (
+            <textarea
+              className={styles.detailContent}
+              value={draft.content}
+              onChange={(event) => setDraft((current) => ({ ...current, content: event.target.value }))}
+              aria-label="Content"
+              placeholder="Content — supports Markdown"
+              rows={6}
+              autoFocus
+              onBlur={() => setEditingContent(false)}
+            />
+          ) : (
+            <div
+              className={styles.detailContentPreview}
+              onClick={() => setEditingContent(true)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => e.key === 'Enter' && setEditingContent(true)}
+              aria-label="Edit content"
+              title="Click to edit"
+            >
+              {draft.content
+                ? <MarkdownContent content={draft.content} />
+                : <span className={styles.contentPlaceholder}>Content — supports Markdown</span>}
+            </div>
+          )}
           <div className={styles.metaRow}>
             <label className={styles.metaLabel}>
               <span>Status</span>
