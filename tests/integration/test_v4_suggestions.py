@@ -24,12 +24,12 @@ def _create_note(app, title="Source note"):
         return note_id
 
 
-def _create_suggestion(app, source_entity_id, suggestion_type, payload):
+def _create_suggestion(app, source_entity_id, suggestion_type, payload, operation_type="create_entity"):
     with app.app_context():
         suggestion = AiSuggestion(
             source_entity_id=source_entity_id,
             suggestion_type=suggestion_type,
-            operation_type="create_entity",
+            operation_type=operation_type,
             payload=payload,
             confidence=0.91,
             reason=payload.get("evidence"),
@@ -103,6 +103,63 @@ def test_accept_create_task_suggestion_creates_task_and_derived_from_link(client
         assert db.session.get(AiSuggestion, suggestion_id).status == "accepted"
         assert EntityEvent.query.filter_by(entity_id=task.id, event_type="created").count() == 1
         assert EntityEvent.query.filter_by(entity_id=task.id, event_type="relationship_added").count() == 1
+        assert EntityEvent.query.filter_by(entity_id=note_id, event_type="suggestion_accepted").count() == 1
+
+
+def test_accept_link_existing_suggestion_creates_entity_link(client, app):
+    note_id = _create_note(app)
+    with app.app_context():
+        project = Entity(
+            type="project",
+            title="Memory Lookup",
+            content="Project context",
+            status="active",
+            lifecycle="active",
+            source="test",
+            properties={},
+            ai_meta={},
+            ai_status="pending",
+        )
+        db.session.add(project)
+        db.session.flush()
+        project_id = project.id
+        db.session.commit()
+
+    suggestion_id = _create_suggestion(
+        app,
+        note_id,
+        "link_existing",
+        {
+            "source_entity_id": note_id,
+            "target_entity_id": project_id,
+            "target_type": "project",
+            "title": "Memory Lookup",
+            "relationship_type": "related",
+            "evidence": "mentions Memory Lookup",
+        },
+        operation_type="link_existing",
+    )
+
+    response = client.post(f"/api/v4/suggestions/{suggestion_id}/accept")
+
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["suggestion"]["status"] == "accepted"
+    assert data["created_entity"] is None
+    assert data["relationship"]["source_entity_id"] == note_id
+    assert data["relationship"]["target_entity_id"] == project_id
+    assert data["relationship"]["relationship_type"] == "related"
+    assert data["relationship"]["source"] == "ai_review"
+
+    with app.app_context():
+        EntityLink.query.filter_by(
+            source_entity_id=note_id,
+            target_entity_id=project_id,
+            relationship_type="related",
+        ).one()
+        assert db.session.get(AiSuggestion, suggestion_id).status == "accepted"
+        assert Entity.query.filter_by(type="project", title="Memory Lookup").count() == 1
+        assert EntityEvent.query.filter_by(entity_id=note_id, event_type="relationship_added").count() == 1
         assert EntityEvent.query.filter_by(entity_id=note_id, event_type="suggestion_accepted").count() == 1
 
 

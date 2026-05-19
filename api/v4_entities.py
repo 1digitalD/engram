@@ -409,6 +409,8 @@ def accept_suggestion(suggestion_id):
         return _error("suggestion not found", 404)
     if suggestion.status != "pending":
         return _error("suggestion is not pending", 409)
+    if suggestion.operation_type == "link_existing":
+        return _accept_link_existing_suggestion(suggestion)
     if suggestion.operation_type != "create_entity":
         return _error(f"unsupported suggestion operation: {suggestion.operation_type}")
 
@@ -483,6 +485,68 @@ def accept_suggestion(suggestion_id):
         "suggestion": suggestion.to_dict(),
         "created_entity": _load_entity(entity.id).to_dict(),
         "relationship": link.to_dict() if link is not None else None,
+    })
+
+
+def _accept_link_existing_suggestion(suggestion):
+    payload = suggestion.payload or {}
+    source_entity = db.session.get(Entity, suggestion.source_entity_id)
+    if source_entity is None:
+        return _error("source entity not found", 404)
+
+    target_entity_id = payload.get("target_entity_id")
+    if not target_entity_id:
+        return _error("target_entity_id is required")
+    if target_entity_id == source_entity.id:
+        return _error("self-link relationships are not allowed")
+
+    target_entity = db.session.get(Entity, target_entity_id)
+    if target_entity is None:
+        return _error("target entity not found", 404)
+
+    relationship_type = payload.get("relationship_type") or _default_relationship_type(target_entity.type)
+    if relationship_type not in RELATIONSHIP_TYPES:
+        return _error(f"invalid relationship_type: {relationship_type}")
+    if EntityLink.query.filter_by(
+        source_entity_id=source_entity.id,
+        target_entity_id=target_entity.id,
+        relationship_type=relationship_type,
+    ).first():
+        return _error("duplicate relationship", 409)
+
+    link = _create_entity_link(
+        source_entity,
+        target_entity,
+        relationship_type,
+        suggestion.confidence,
+        payload.get("evidence") or suggestion.reason,
+        source="ai_review",
+    )
+    _write_event(
+        source_entity,
+        "relationship_added",
+        new_value=link.to_dict(),
+        actor="agent:v4-review",
+        confidence=suggestion.confidence,
+        reason=suggestion.reason,
+    )
+
+    suggestion.status = "accepted"
+    suggestion.resolved_at = datetime.utcnow()
+    _write_event(
+        source_entity,
+        "suggestion_accepted",
+        new_value={"suggestion_id": suggestion.id, "relationship_id": link.id},
+        actor="agent:v4-review",
+        confidence=suggestion.confidence,
+        reason=suggestion.reason,
+    )
+    db.session.commit()
+
+    return jsonify({
+        "suggestion": suggestion.to_dict(),
+        "created_entity": None,
+        "relationship": link.to_dict(),
     })
 
 
