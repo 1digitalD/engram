@@ -85,7 +85,7 @@ def capture():
     db.session.add(note)
     db.session.flush()
     _write_event(note, "created", new_value=note.to_dict())
-    db.session.add(Job(job_type="embed", entity_id=note.id, payload={"reason": "capture"}))
+    db.session.add(Job(job_type="embed", entity_id=note.id, payload={"entity_id": note.id, "reason": "capture"}))
 
     applied_changes = []
     suggestions = []

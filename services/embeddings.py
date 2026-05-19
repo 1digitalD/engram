@@ -11,6 +11,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 from utils import get_openai_client
+from services.job_worker import register_handler
 
 EMBEDDING_MODEL = "text-embedding-3-small"
 EMBEDDING_DIMS = 1536
@@ -137,6 +138,24 @@ def embed_entity(entity_id, text):
             logger.warning("Rollback failed after embed error: %s", rb_e)
 
 
+@register_handler("embed")
+def handle_embed_job(payload):
+    """Generate canonical markdown embeddings for a queued v4 entity."""
+    from extensions import db
+    from models import Entity
+    from services.canonical_document import generate_canonical_markdown
+
+    entity_id = (payload or {}).get("entity_id")
+    if not entity_id:
+        raise ValueError("embed job payload missing entity_id")
+
+    entity = db.session.get(Entity, entity_id)
+    if entity is None:
+        raise ValueError(f"entity not found for embed job: {entity_id}")
+
+    embed_entity(entity.id, generate_canonical_markdown(entity))
+
+
 def embed_query(query):
     """Embed a search query string. Returns vector or None."""
     if not os.getenv("OPENAI_API_KEY"):
@@ -147,4 +166,3 @@ def embed_query(query):
     except Exception as e:
         logger.error("embed_query failed: %s", e)
         return None
-

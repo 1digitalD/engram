@@ -31,6 +31,9 @@ def create_app(config_name=None):
     from api import api_v4_bp
     app.register_blueprint(api_v4_bp)
 
+    # Register v4 background job handlers.
+    from services import embeddings  # noqa: F401
+
     # Start job worker on boot (non-blocking background thread)
     # Skip in testing mode to avoid background DB connections
     is_testing = app.config.get("TESTING", False)

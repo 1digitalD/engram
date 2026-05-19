@@ -3,6 +3,7 @@
 from unittest.mock import patch
 
 from models import Entity, Job
+from services.job_worker import get_handler, process_job
 
 
 def test_capture_saves_source_note_and_queues_embedding(client, app):
@@ -25,6 +26,21 @@ def test_capture_saves_source_note_and_queues_embedding(client, app):
         assert note.id == data["source_note"]["id"]
         job = Job.query.filter_by(entity_id=note.id, job_type="embed").one()
         assert job.status == "pending"
+        assert job.payload["entity_id"] == note.id
+        assert get_handler("embed") is not None
+
+
+def test_capture_embedding_job_is_processable(client, app):
+    response = client.post("/api/v4/capture", json={"content": "Remember the rollout plan"})
+    assert response.status_code == 201
+
+    with app.app_context():
+        job = Job.query.filter_by(job_type="embed").one()
+        with patch("services.embeddings.embed_entity") as mock_embed:
+            process_job(job)
+
+        assert job.status == "done"
+        mock_embed.assert_called_once()
 
 
 def test_capture_ai_failure_does_not_lose_note(client, app):
