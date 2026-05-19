@@ -16,6 +16,7 @@ vi.mock('../api/v4Client', () => ({
       update: vi.fn(),
       delete: vi.fn(),
     },
+    capture: vi.fn(),
     relationships: {
       create: vi.fn(),
       delete: vi.fn(),
@@ -52,6 +53,35 @@ describe('v4 entity screens', () => {
       });
     });
     expect(await screen.findByRole('link', { name: /Follow up/i })).toHaveAttribute('href', '/tasks/t1');
+  });
+
+  it('creates a note from content-first input through capture', async () => {
+    v4API.entities.list.mockResolvedValue({ data: [] });
+    v4API.capture.mockResolvedValue({
+      source_note: { id: 'n1', type: 'note', title: 'Captured note', content: 'Remember the rollout', status: 'active' },
+      applied_changes: [],
+      suggestions: [],
+      warnings: [],
+    });
+
+    render(
+      <MemoryRouter>
+        <V4EntityList type="note" />
+      </MemoryRouter>,
+    );
+
+    fireEvent.change(screen.getByLabelText('Content'), { target: { value: 'Remember the rollout' } });
+    fireEvent.click(screen.getByRole('button', { name: /create note/i }));
+
+    await waitFor(() => {
+      expect(v4API.capture).toHaveBeenCalledWith({
+        title: undefined,
+        content: 'Remember the rollout',
+        source: 'ui',
+        mode: 'auto',
+      });
+    });
+    expect(await screen.findByRole('link', { name: /Captured note/i })).toHaveAttribute('href', '/notes/n1');
   });
 
   it('updates metadata and manages linked section actions from detail sections', async () => {

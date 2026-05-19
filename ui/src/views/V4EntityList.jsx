@@ -42,16 +42,28 @@ export default function V4EntityList({ type }) {
 
   async function handleCreate(event) {
     event.preventDefault();
-    if (!title.trim()) return;
+    const trimmedTitle = title.trim();
+    const trimmedContent = content.trim();
+    if (type === 'note' ? !trimmedTitle && !trimmedContent : !trimmedTitle) return;
     setLoading(true);
     setError('');
     try {
-      const response = await v4API.entities.create({
-        type,
-        title: title.trim(),
-        content: content.trim() || null,
-      });
-      setEntities((current) => [response.data, ...current]);
+      if (type === 'note') {
+        const response = await v4API.capture({
+          title: trimmedTitle || undefined,
+          content: trimmedContent || trimmedTitle,
+          source: 'ui',
+          mode: 'auto',
+        });
+        setEntities((current) => [response.source_note, ...current]);
+      } else {
+        const response = await v4API.entities.create({
+          type,
+          title: trimmedTitle,
+          content: trimmedContent || null,
+        });
+        setEntities((current) => [response.data, ...current]);
+      }
       setTitle('');
       setContent('');
     } catch (err) {
@@ -70,17 +82,17 @@ export default function V4EntityList({ type }) {
           <input
             value={title}
             onChange={(event) => setTitle(event.target.value)}
-            placeholder={`New ${type} title`}
+            placeholder={type === 'note' ? 'Optional note title' : `New ${type} title`}
             aria-label="Title"
           />
           <textarea
             value={content}
             onChange={(event) => setContent(event.target.value)}
-            placeholder="Optional content"
+            placeholder={type === 'note' ? 'Write the note. AI can safely extract metadata and links.' : 'Optional content'}
             aria-label="Content"
             rows={3}
           />
-          <button type="submit" disabled={loading || !title.trim()}>
+          <button type="submit" disabled={loading || (type === 'note' ? !title.trim() && !content.trim() : !title.trim())}>
             Create {type}
           </button>
         </form>
