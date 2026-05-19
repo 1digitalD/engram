@@ -156,6 +156,28 @@ def handle_embed_job(payload):
     embed_entity(entity.id, generate_canonical_markdown(entity))
 
 
+def backfill_embeddings(limit=None):
+    """Embed active v4 entities that do not have any stored chunks."""
+    from models import Entity, EntityChunk
+    from services.canonical_document import generate_canonical_markdown
+
+    query = (
+        Entity.query
+        .outerjoin(EntityChunk, EntityChunk.entity_id == Entity.id)
+        .filter(Entity.lifecycle == "active", EntityChunk.id.is_(None))
+        .order_by(Entity.updated_at.desc(), Entity.created_at.desc())
+    )
+    if limit is not None:
+        query = query.limit(limit)
+
+    count = 0
+    for entity in query.all():
+        embed_entity(entity.id, generate_canonical_markdown(entity))
+        count += 1
+    print(f"Embedded {count} entities.")
+    return count
+
+
 def embed_query(query):
     """Embed a search query string. Returns vector or None."""
     if not os.getenv("OPENAI_API_KEY"):

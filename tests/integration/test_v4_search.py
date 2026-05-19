@@ -87,3 +87,20 @@ def test_search_filters(client):
     assert len(results) == 1
     assert results[0]["entity"]["type"] == "task"
     assert results[0]["entity"]["status"] == "waiting"
+
+
+def test_embed_backfill_cli_embeds_active_entities_without_chunks(client, runner, app):
+    needs_embedding = _create_entity(client, "note", "Needs embedding", "Memory rollout")
+    already_embedded = _create_entity(client, "task", "Already embedded", "Task")
+    deleted = _create_entity(client, "project", "Deleted project", "Project")
+    client.delete(f"/api/v4/entities/{deleted['id']}")
+
+    with app.app_context():
+        _add_chunk(already_embedded["id"], "existing chunk", [0.0] * 1536)
+
+    with patch("services.embeddings.embed_entity") as mock_embed:
+        result = runner.invoke(args=["embed-backfill"])
+
+    assert result.exit_code == 0
+    assert "Embedded 1 entities." in result.output
+    assert [call.args[0] for call in mock_embed.call_args_list] == [needs_embedding["id"]]
