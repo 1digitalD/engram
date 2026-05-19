@@ -14,6 +14,15 @@ const pluralTitle = {
   resource: 'Resources',
 };
 
+const subtitles = {
+  note: 'Capture source notes. AI can extract links and suggestions without converting the note.',
+  task: 'Create actionable work, then link it to projects, areas, notes, people, and resources.',
+  project: 'Group outcomes and keep linked tasks, notes, people, and resources close.',
+  area: 'Track ongoing responsibilities and the projects/tasks that belong under them.',
+  person: 'Keep people, assigned tasks, mentions, and relevant resources connected.',
+  resource: 'Save references and connect them to the work they support.',
+};
+
 function detailPath(entity) {
   const base = entity.type === 'person' ? 'people' : `${entity.type}s`;
   return `/${base}/${entity.id}`;
@@ -75,10 +84,13 @@ export default function V4EntityList({ type }) {
 
   return (
     <main className={styles.screen}>
-      <section className={styles.panel}>
-        <p className={styles.eyebrow}>Engram v4</p>
-        <h1>{pluralTitle[type]}</h1>
-        <form onSubmit={handleCreate} className={styles.form} aria-label={`Create ${type}`}>
+      <section className={styles.listHeaderPanel}>
+        <div className={styles.listHeading}>
+          <p className={styles.eyebrow}>Engram v4</p>
+          <h1>{pluralTitle[type]}</h1>
+          <p>{subtitles[type]}</p>
+        </div>
+        <form onSubmit={handleCreate} className={styles.quickCreateForm} aria-label={`Create ${type}`}>
           <input
             value={title}
             onChange={(event) => setTitle(event.target.value)}
@@ -90,17 +102,23 @@ export default function V4EntityList({ type }) {
             onChange={(event) => setContent(event.target.value)}
             placeholder={type === 'note' ? 'Write the note. AI can safely extract metadata and links.' : 'Optional content'}
             aria-label="Content"
-            rows={3}
+            rows={type === 'note' ? 2 : 1}
           />
-          <button type="submit" disabled={loading || (type === 'note' ? !title.trim() && !content.trim() : !title.trim())}>
-            Create {type}
+          <button className={styles.primaryButton} type="submit" disabled={loading || (type === 'note' ? !title.trim() && !content.trim() : !title.trim())}>
+            {loading ? 'Creating...' : `Create ${type}`}
           </button>
         </form>
         {error && <div className={styles.error}>{error}</div>}
       </section>
 
-      <section className={styles.panel}>
-        <h2>{pluralTitle[type]} list</h2>
+      <section className={styles.listPanel}>
+        <header className={styles.segmentHeader}>
+          <div>
+            <p className={styles.segmentKicker}>{type}</p>
+            <h2>{pluralTitle[type]}</h2>
+          </div>
+          <span className={styles.countPill}>{entities.length}</span>
+        </header>
         {entities.length === 0 ? (
           <p>No {pluralTitle[type].toLowerCase()} yet.</p>
         ) : (

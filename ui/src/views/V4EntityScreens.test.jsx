@@ -186,6 +186,54 @@ describe('v4 entity screens', () => {
     }));
   });
 
+  it('creates a project note through capture and links the source note', async () => {
+    const detail = {
+      entity: {
+        id: 'p1',
+        type: 'project',
+        title: 'Memory Lookup',
+        content: '',
+        status: 'active',
+        due_at: null,
+        follow_up_at: null,
+        reference_url: null,
+        properties: {},
+        tags: [],
+      },
+      sections: [],
+    };
+    v4API.entities.detail.mockResolvedValue(detail);
+    v4API.capture.mockResolvedValue({
+      source_note: { id: 'n2', type: 'note', title: 'Meeting note', content: 'Meeting note', status: 'active' },
+      applied_changes: [],
+      suggestions: [],
+      warnings: [],
+    });
+    v4API.relationships.create.mockResolvedValue({ data: { id: 'r4' } });
+
+    render(
+      <MemoryRouter initialEntries={['/projects/p1']}>
+        <Routes>
+          <Route path="/projects/:id" element={<V4EntityDetail type="project" />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.change(await screen.findByLabelText('Notes title'), { target: { value: 'Meeting note' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add project note' }));
+
+    await waitFor(() => expect(v4API.capture).toHaveBeenCalledWith({
+      title: 'Meeting note',
+      content: 'Meeting note',
+      source: 'ui',
+      mode: 'auto',
+    }));
+    await waitFor(() => expect(v4API.relationships.create).toHaveBeenCalledWith('p1', {
+      target_entity_id: 'n2',
+      relationship_type: 'related',
+    }));
+  });
+
   it('links an existing task from a project detail without raw IDs', async () => {
     const detail = {
       entity: {

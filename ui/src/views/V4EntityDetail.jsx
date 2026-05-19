@@ -188,15 +188,23 @@ export default function V4EntityDetail({ type: routeType }) {
     try {
       const properties = {};
       if (form.priority) properties.priority = form.priority;
-      const created = await v4API.entities.create(cleanPayload({
-        type: config.type,
-        title: form.title,
-        content: form.content,
-        due_at: form.due_at,
-        follow_up_at: form.follow_up_at,
-        properties,
-      }));
-      const link = relationshipPayload(id, created.data.id, config);
+      const response = config.type === 'note'
+        ? await v4API.capture({
+          title: form.title || undefined,
+          content: form.content || form.title,
+          source: 'ui',
+          mode: 'auto',
+        })
+        : await v4API.entities.create(cleanPayload({
+          type: config.type,
+          title: form.title,
+          content: form.content,
+          due_at: form.due_at,
+          follow_up_at: form.follow_up_at,
+          properties,
+        }));
+      const createdEntity = config.type === 'note' ? response.source_note : response.data;
+      const link = relationshipPayload(id, createdEntity.id, config);
       await v4API.relationships.create(link.sourceId, {
         target_entity_id: link.target_entity_id,
         relationship_type: link.relationship_type,
@@ -456,9 +464,13 @@ function TypedAction({ config, currentId, onCreate, onLink }) {
     return text.includes(filter.toLowerCase());
   });
 
+  const createDisabled = config.type === 'note'
+    ? !form.title.trim() && !form.content.trim()
+    : !form.title.trim();
+
   async function submitCreate(event) {
     event.preventDefault();
-    if (!form.title.trim()) return;
+    if (createDisabled) return;
     await onCreate({ ...form, title: form.title.trim(), content: form.content.trim() || null });
     setForm({ title: '', content: '', due_at: '', follow_up_at: '', priority: '' });
   }
@@ -491,36 +503,39 @@ function TypedAction({ config, currentId, onCreate, onLink }) {
           <input
             value={form.title}
             onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))}
-            placeholder={`${config.type} title`}
+            placeholder={config.type === 'note' ? 'Optional note title' : `${config.type} title`}
             aria-label={`${config.title} title`}
           />
-          <textarea
-            value={form.content}
-            onChange={(event) => setForm((current) => ({ ...current, content: event.target.value }))}
-            placeholder="Optional content"
-            aria-label={`${config.title} content`}
-            rows={2}
-          />
-          {config.taskFields && (
-            <>
-              <input
-                value={form.due_at}
-                onChange={(event) => setForm((current) => ({ ...current, due_at: event.target.value }))}
-                aria-label={`${config.title} due date`}
-                type="datetime-local"
-              />
-              <select
-                value={form.priority}
-                onChange={(event) => setForm((current) => ({ ...current, priority: event.target.value }))}
-                aria-label={`${config.title} priority`}
-              >
-                {priorityOptions.map((priority) => (
-                  <option key={priority || 'none'} value={priority}>{priority || 'No priority'}</option>
-                ))}
-              </select>
-            </>
-          )}
-          <button className={styles.primaryButton} type="submit" disabled={!form.title.trim()}>{config.primary}</button>
+          <button className={styles.primaryButton} type="submit" disabled={createDisabled}>{config.primary}</button>
+          <details className={styles.advancedFields}>
+            <summary>{config.type === 'note' ? 'Add note body' : 'Details'}</summary>
+            <textarea
+              value={form.content}
+              onChange={(event) => setForm((current) => ({ ...current, content: event.target.value }))}
+              placeholder={config.type === 'note' ? 'Write the source note' : 'Optional content'}
+              aria-label={`${config.title} content`}
+              rows={2}
+            />
+            {config.taskFields && (
+              <div className={styles.advancedGrid}>
+                <input
+                  value={form.due_at}
+                  onChange={(event) => setForm((current) => ({ ...current, due_at: event.target.value }))}
+                  aria-label={`${config.title} due date`}
+                  type="datetime-local"
+                />
+                <select
+                  value={form.priority}
+                  onChange={(event) => setForm((current) => ({ ...current, priority: event.target.value }))}
+                  aria-label={`${config.title} priority`}
+                >
+                  {priorityOptions.map((priority) => (
+                    <option key={priority || 'none'} value={priority}>{priority || 'No priority'}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </details>
         </form>
       ) : (
         <form onSubmit={submitExisting} className={styles.actionForm} aria-label={config.existing}>
