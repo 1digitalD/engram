@@ -1,122 +1,67 @@
-# AGENTS.md — Engram v3
+# AGENTS.md - Engram v4
 
-> This file is the entry point for all agents. Read it fully before touching any code.
+This file is the entry point for agents working in this repository. Read it before touching code.
 
----
+## Project Purpose
 
-## Project purpose
+Engram is a self-hosted personal workspace: capture anything, recall it later, and run projects and tasks with AI assistance. It is single-user and self-hosted.
 
-Engram is a self-hosted personal workspace: capture anything, recall it later, run projects and tasks with AI assistance. Single user. Self-hosted on Mac Mini.
+The active implementation is Engram v4. v4 is a fresh clean cutover.
 
-**V3 builds on the v2 Postgres architecture.** The current build plan is in V3_PLAN.md and prd.json. All active work uses these sources.
-
----
-
-## Active documentation (read before starting any task)
+## Active Documentation
 
 | Document | Purpose |
 |---|---|
-| `V3_PLAN.md` | V3 build plan: 5-phase roadmap with design system, task breakdown |
-| `prd.json` | Executable task queue (28 tasks across Phase 0-5) |
-| `docs/PRD.md` | Product vision, entity model, lifecycle model |
-| `docs/TECH_SPEC.md` | Stack, architecture, service contracts |
-| `docs/SCHEMA.sql` | Canonical Postgres schema -- source of truth for all DB structure |
-| `docs/API_SPEC.md` | All API routes, request/response shapes |
-| `docs/TEST_STRATEGY.md` | TDD approach, conftest fixtures, test patterns |
-| `EXECUTION-TRACKER.md` | Append-only evidence log of all task executions |
+| `docs/V4_PRINCIPLES.md` | Non-negotiable v4 product and architecture rules |
+| `docs/V4_IMPLEMENTATION_PLAN.md` | v4 cycle plan and acceptance criteria |
+| `docs/SCHEMA.sql` | Canonical fresh v4 Postgres schema |
+| `mcp_server/README_V4.md` | v4 read-only MCP behavior |
+| `EXECUTION-TRACKER.md` | Historical and current execution log |
 
----
+Historical plans and PRDs are not active sources of truth for v4 work.
 
-## Working rules
+## Non-Negotiable v4 Rules
 
-- **Read your task's spec before writing a single line of code.** Each task in `docs/AGENT_PLAN.md` lists exactly what to read.
-- **Write tests first.** Confirm they fail. Then implement. Confirm they pass. This is not optional.
-- **Respect file ownership.** Each task owns specific files. Do not touch files outside your task's `writes` list. See the ownership map in `docs/AGENT_PLAN.md`.
-- **A task is done only when its tests pass** and the full suite still passes. Report test output and coverage.
-- **Update `EXECUTION-TRACKER.md`** after each completed or blocked task.
-- **Commit logical, reviewable units.** One commit per task, or per meaningful sub-step within a task.
-- **Do not touch `.venv/`** — leave it alone, do not commit it.
+- Do not preserve backward compatibility.
+- Do not implement migration.
+- Existing local app data can be deleted.
+- Do not preserve `/api/v1` or `/api/v2` behavior.
+- `/api/v4` is the only target runtime API.
+- Do not build compatibility adapters for old response shapes.
+- Do not store relationship IDs inside `properties`.
+- All relationships must use `EntityLink` / relationship records.
+- Notes remain source artifacts.
+- AI can extract from notes, but must not convert notes into other entity types.
+- Safe metadata and high-confidence linking may be auto-applied.
+- Risky creation, status, deletion, merge, and relationship-deletion work must be suggestions.
+- Work proceeds cycle by cycle with validation before moving on.
 
----
+## Working Rules
 
-## Validation commands
+- Read the v4 principles and implementation plan before changing code.
+- Keep changes simple, explicit, and testable.
+- Write or update tests for behavior changes.
+- Run focused validation first, then broader validation.
+- Commit logical, reviewable units.
+- Do not touch `.venv/`, `venv/`, `ui/node_modules/`, or ignored build artifacts.
+- Do not revert unrelated user changes.
+
+## Validation Commands
 
 ```bash
-# Full backend test suite
-PYTHONPATH=. pytest -q --cov=. --cov-report=term-missing
-
-# Unit tests only (fastest, no DB needed)
-PYTHONPATH=. pytest tests/unit/ -q
-
-# Integration tests (requires Postgres running)
-PYTHONPATH=. pytest tests/integration/ -q
-
-# Frontend build
-cd ui && npm install && npm run build
-
-# Apply schema to test DB
-psql $TEST_DATABASE_URL -f docs/SCHEMA.sql
+PYTHONPATH=. ./venv/bin/pytest -q
+PYTHONPATH=. ./venv/bin/pytest tests/unit/ -q
+PYTHONPATH=. ./venv/bin/pytest tests/integration/ -q
+cd ui && npm test
+cd ui && npm run build
+bash scripts/apply_schema.sh
 ```
-
----
 
 ## Conventions
 
-- Backend: Flask + SQLAlchemy 2.x. Migration scripts in `scripts/`, not Alembic.
-- Frontend: React 18 + Vite + Zustand store at `ui/src/stores/useStore.js`.
-- All DB structure changes go through `docs/SCHEMA.sql` first, then implementation. Never add columns in application code without updating the schema file.
-- Service layer is the only place with business logic. API handlers call services only.
-- All AI actions write to `entity_events` with `actor='agent:<name>'`. No silent mutations.
-
----
-
-## Gotchas
-
-- **Postgres requires pgvector extension.** Use `docker compose up -d` which uses `pgvector/pgvector:pg16` image.
-- **`ui/node_modules` is not tracked.** Run `npm install` before `npm run build`.
-- **OpenAI and Anthropic keys must be mocked in tests.** Never make real API calls in the test suite. See `tests/conftest.py` for `mock_openai` and `mock_embed` fixtures.
-- **`tests/conftest.py` is shared.** Coordinate with other agents before modifying it.
-
----
-
-## Rate limits and model selection
-
-This project runs via an automated coding loop (`scripts/build_overnight.sh`) that
-spawns one `claude --print` session per task. Each session makes many tool calls
-(file reads, test runs, edits). To avoid hitting Anthropic API rate limits:
-
-**Model defaults**
-
-| Task | Recommended model | Why |
-|---|---|---|
-| C1-MODELS, C1-SERVICES-CORE, C1-AI-PIPELINE, C1-API | `claude-sonnet-4-6` | Multi-file rewrites, complex logic |
-| C1-JOBS, C1-SEARCH, C2-* single-file tasks | `claude-haiku-4-5-20251001` | Simpler scope, 10× cheaper, faster |
-| C1-INFRA (migration script), C3-* | `claude-sonnet-4-6` | Judgment-heavy |
-
-Override per run: `CLAUDE_MODEL=claude-haiku-4-5-20251001 bash scripts/run_task.sh C1-JOBS`
-
-**Pacing**
-
-- `build_overnight.sh` sleeps `$INTER_TASK_SLEEP` seconds (default 90) between tasks.
-- Override: `INTER_TASK_SLEEP=120 bash scripts/build_overnight.sh`
-- Skip for rapid local iteration: `SKIP_SLEEP=1 bash scripts/build_overnight.sh`
-- The script retries a failed `claude` invocation up to `$CLAUDE_MAX_RETRIES` times
-  (default 3) with exponential backoff starting at 60s (60 → 120 → 240).
-
-**If you hit rate limits mid-task**
-
-1. Check `logs/tasks/<task_id>.log` — the agent writes partial progress before exiting.
-2. Check `EXECUTION-TRACKER.md` for any blocker the agent recorded.
-3. Wait 5–10 minutes, then re-run: `bash scripts/run_task.sh <TASK_ID>`
-4. The agent will re-read the spec and pick up from where the code is — it does not
-   resume a session, so ensure any partial file writes are valid Python/JS before re-running.
-
----
-
-## Archived (do not use for new work)
-
-- `archive/PLAN.md` — old phase plan, archived
-- `archive/SPEC.md` — old spec, superseded by `docs/PRD.md`
-- `archive/prd.json` — old task queue, inactive
-- `archive/v1-prd-before-v2-bootstrap.json` — old v1 executable queue, archived 2026-05-11 when `prd.json` was re-bootstrapped for v2 Cycle 1
-- `archive/AUDIT.md` — historical audit, for reference only
+- Backend: Flask + SQLAlchemy 2.x.
+- Database: fresh Postgres + pgvector using `docs/SCHEMA.sql`.
+- Frontend: React + Vite.
+- Service layer owns business logic; API handlers should stay thin.
+- Meaningful mutations write `entity_events`.
+- AI actions use explicit `agent:*` actors and must not silently perform risky changes.

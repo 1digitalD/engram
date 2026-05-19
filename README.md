@@ -1,8 +1,8 @@
 # Engram
 
-Personal knowledge management with PARA methodology and AI-powered recall.
+Engram is a self-hosted personal workspace for capturing notes, recalling context, and running projects and tasks with AI assistance.
 
-> An engram is a physical trace in the brain that stores a memory.
+The active implementation is **Engram v4**. v4 is a fresh clean cutover: there is no backward compatibility requirement, no data migration requirement, and existing local app data can be deleted before running v4.
 
 ## Quick Start
 
@@ -10,124 +10,90 @@ Personal knowledge management with PARA methodology and AI-powered recall.
 git clone https://github.com/1digitalD/engram
 cd engram
 
-# Backend
-python3.11 -m venv venv && source venv/bin/activate
+python3.11 -m venv venv
+source venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
-# Add your OPENAI_API_KEY to .env if you want AI extraction/classification
-export FLASK_APP=app.py
-flask init-db
-PORT=5001 flask run
 
-# Frontend (in a separate terminal)
-cd ui
-npm install
-npm run dev      # dev server at http://localhost:5173 (proxies API to :5001)
-npm run build    # production build → ../static/
+# Start Postgres + pgvector.
+docker compose up -d
+
+# Optional: start isolated test DB.
+docker compose -f docker-compose.test.yml up -d
+
+# Apply the fresh v4 schema.
+bash scripts/apply_schema.sh
+
+# Run backend and UI.
+PORT=5001 flask --app app.py run
+cd ui && npm install && npm run dev
 ```
 
-Open http://localhost:5001 in your browser.
+Open the UI at `http://localhost:5173` during development, or `http://localhost:5001` after `cd ui && npm run build`.
+
+## v4 Runtime Boundary
+
+The only target runtime API is `/api/v4`.
+
+Obsolete APIs are not v4 targets:
+
+- `/api/v1`
+- `/api/v2`
+
+Do not add compatibility adapters for old response shapes. Do not store relationship IDs in `properties`; all relationships must use `EntityLink` records.
+
+## Core v4 Concepts
+
+- Notes remain source artifacts.
+- Supported entity types are `note`, `task`, `project`, `area`, `resource`, and `person`.
+- Relationships are first-class records with types such as `parent`, `related`, `derived_from`, `mentions`, `assigned_to`, `references`, and `blocks`.
+- AI may safely auto-apply metadata and high-confidence links.
+- Risky changes such as entity creation, status changes, deletion, merge, and relationship deletion must be suggestions for review.
+
+## API Examples
+
+```bash
+curl http://localhost:5001/api/v4/health
+
+curl -X POST http://localhost:5001/api/v4/capture \
+  -H "Content-Type: application/json" \
+  -d '{"content": "Ask Henry about rollout", "source": "quick_capture", "mode": "auto"}'
+
+curl http://localhost:5001/api/v4/entities?type=task
+curl "http://localhost:5001/api/v4/search?q=rollout&mode=hybrid"
+curl http://localhost:5001/api/v4/today
+```
 
 ## MCP
 
-Engram ships with a local MCP server at `mcp_server/server.py`.
-
-### STDIO transport, best for Claude Desktop and local assistants
+Engram ships with a v4 read-only MCP server at `mcp_server/server.py`.
 
 ```bash
 cd /path/to/engram
 source venv/bin/activate
-export ENGRAM_API_BASE=http://localhost:5001/api/v1
-python mcp_server/server.py
+ENGRAM_API_BASE=http://localhost:5001/api/v4 python mcp_server/server.py
 ```
 
-### Streamable HTTP transport, best for HTTP-capable MCP clients
+Available MCP tools:
+
+- `search_entities`
+- `get_entity`
+- `list_recent`
+
+MCP intentionally exposes no capture, create, update, link, merge, or delete tools for v4 launch.
+
+## Validation
 
 ```bash
-cd /path/to/engram
-source venv/bin/activate
-export ENGRAM_API_BASE=http://localhost:5001/api/v1
-export TRANSPORT=http
-export MCP_PORT=8765
-python mcp_server/server.py
+PYTHONPATH=. ./venv/bin/pytest -q
+cd ui && npm test
+cd ui && npm run build
 ```
 
-Or serve the exported ASGI app directly:
+## Active Documentation
 
-```bash
-cd /path/to/engram
-source venv/bin/activate
-export ENGRAM_API_BASE=http://localhost:5001/api/v1
-uvicorn mcp_server.server:mcp_app --host 127.0.0.1 --port 8765
-```
-
-### Smoke checks
-
-```bash
-curl http://localhost:5001/health
-curl http://localhost:5001/api/v1/notes
-curl -i -H 'Accept: text/event-stream' http://localhost:8765/mcp
-```
-
-The MCP server exposes these tools: `capture`, `search`, `get_note`, `list_recent`, `update_note`, `link_notes`, `review`.
-
-## Architecture
-
-```
-engram/
-├── app.py            # Flask backend (serves API + static/ at /)
-├── api/              # REST API (notes, projects, tasks, people, areas, tags)
-├── models.py         # SQLAlchemy models + FTS5 search
-├── services/
-│   ├── classifier.py # OpenAI GPT-4o PARA classification
-│   └── search.py     # Full-text search
-├── static/           # Compiled React UI (built from ui/)
-│   └── index.html    # SPA entry point
-└── ui/               # React + Vite source
-    ├── src/
-    │   ├── views/    # Dashboard, Notes, Projects, Tasks, People, Areas, Review, Graph
-    │   ├── components/ # layout, ui, search, notes components
-    │   ├── stores/   # Zustand state
-    │   └── api/      # Engram API client
-    ├── vite.config.js
-    └── package.json
-```
-
-## Features
-
-- **Auto-classification** — notes are AI-classified into PARA buckets with project/area linking
-- **Full-text search** — SQLite FTS5 across all notes
-- **Command palette** — `⌘K` for fuzzy search + quick actions
-- **Kanban tasks** — drag between Inbox/Open/In Progress/Done
-- **Graph view** — D3 force-directed network of all entities
-- **Weekly review** — inbox digest + project/task summary
-- **REST API** — full CRUD at `/api/v1/*`
-
-## Tech Stack
-
-- Flask + SQLAlchemy + SQLite (FTS5)
-- React 18 + Vite (frontend SPA)
-- OpenAI GPT-4o (classification)
-- Zustand (state) + Lucide icons
-
-## API
-
-```bash
-# Health
-curl http://localhost:5001/health
-
-# Create note (auto-classifies)
-curl -X POST http://localhost:5001/api/v1/notes \
-  -H "Content-Type: application/json" \
-  -d '{"raw_text": "Your note here"}'
-
-# List notes
-curl http://localhost:5001/api/v1/notes
-
-# Search
-curl "http://localhost:5001/api/v1/notes/search?q=keyword"
-```
-
-## Status
-
-MVP complete. See [SPEC.md](SPEC.md) for full specification.
+- `docs/V4_PRINCIPLES.md`
+- `docs/V4_IMPLEMENTATION_PLAN.md`
+- `docs/SCHEMA.sql`
+- `mcp_server/README_V4.md`
+- `EXECUTION-TRACKER.md`
