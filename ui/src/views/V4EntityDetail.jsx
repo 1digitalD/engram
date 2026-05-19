@@ -305,8 +305,8 @@ export default function V4EntityDetail({ type: routeType }) {
             placeholder="Reference URL"
           />
           <div className={styles.actions}>
-            <button type="submit">Save</button>
-            <button type="button" onClick={handleArchive}>Archive/delete</button>
+            <button className={styles.primaryButton} type="submit">Save</button>
+            <button className={styles.dangerButton} type="button" onClick={handleArchive}>Archive/delete</button>
           </div>
         </form>
         {error && <div className={styles.error}>{error}</div>}
@@ -339,17 +339,21 @@ export default function V4EntityDetail({ type: routeType }) {
                   <li key={item.relationship.id}>
                     <Link to={pathForEntity(item.entity)}>
                       <strong>{item.entity.title || 'Untitled'}</strong>
-                      <span>{item.entity.type} · {item.entity.status} · {item.relationship.relationship_type}</span>
-                      {item.entity.due_at && <span>Due {new Date(item.entity.due_at).toLocaleString()}</span>}
-                      {item.entity.properties?.priority && <span>Priority {item.entity.properties.priority}</span>}
+                      <span className={styles.metaRow}>
+                        <span className={styles.typePill}>{item.entity.type}</span>
+                        <span className={styles.statusPill}>{item.entity.status}</span>
+                        <span className={styles.relationshipPill}>{item.relationship.relationship_type}</span>
+                      </span>
+                      {item.entity.due_at && <span className={styles.mutedMeta}>Due {new Date(item.entity.due_at).toLocaleString()}</span>}
+                      {item.entity.properties?.priority && <span className={styles.priorityPill}>Priority {item.entity.properties.priority}</span>}
                     </Link>
                     <div className={styles.cardActions}>
                       {item.entity.type === 'task' && statusOptions.task.map((status) => (
-                        <button key={status} type="button" onClick={() => handleQuickStatus(item.entity.id, status)}>
+                        <button className={styles.statusButton} key={status} type="button" onClick={() => handleQuickStatus(item.entity.id, status)}>
                           {status}
                         </button>
                       ))}
-                      <button type="button" onClick={() => handleRemoveRelationship(item.relationship.id)}>
+                      <button className={styles.removeButton} type="button" onClick={() => handleRemoveRelationship(item.relationship.id)}>
                         Remove
                       </button>
                     </div>
@@ -455,7 +459,7 @@ function TypedAction({ config, currentId, onCreate, onLink }) {
               </select>
             </>
           )}
-          <button type="submit" disabled={!form.title.trim()}>{config.primary}</button>
+          <button className={styles.primaryButton} type="submit" disabled={!form.title.trim()}>{config.primary}</button>
         </form>
       ) : (
         <form onSubmit={submitExisting} className={styles.form} aria-label={config.existing}>
@@ -477,7 +481,7 @@ function TypedAction({ config, currentId, onCreate, onLink }) {
               </option>
             ))}
           </select>
-          <button type="submit" disabled={!selectedId}>{config.existing}</button>
+          <button className={styles.secondaryButton} type="submit" disabled={!selectedId}>{config.existing}</button>
         </form>
       )}
     </article>
