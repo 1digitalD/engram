@@ -1,6 +1,6 @@
 .shell {
   display: grid;
-  grid-template-columns: 240px minmax(0, 1fr);
+  grid-template-columns: 184px minmax(0, 1fr);
   width: 100vw;
   height: 100vh;
   background:
@@ -11,10 +11,10 @@
 .sidebar {
   border-right: 1px solid var(--border);
   background: color-mix(in oklch, var(--surface) 88%, transparent);
-  padding: var(--space-5);
+  padding: var(--space-3) var(--space-3);
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
+  gap: var(--space-4);
 }
 
 .brand {
@@ -26,7 +26,7 @@
 }
 
 .brand span {
-  font-size: var(--text-2xl);
+  font-size: var(--text-lg);
   font-weight: 700;
 }
 
@@ -51,7 +51,7 @@
   font-size: 10px;
   font-weight: 650;
   letter-spacing: 0.1em;
-  margin: var(--space-3) 0 var(--space-1) 12px;
+  margin: var(--space-2) 0 var(--space-1) 10px;
   text-transform: uppercase;
 }
 
@@ -60,10 +60,33 @@
 }
 
 .navLink {
+  align-items: center;
   border-radius: var(--radius-md);
   color: var(--text-secondary);
+  display: flex;
+  font-size: var(--text-sm);
   font-weight: 500;
-  padding: 10px 12px;
+  gap: 10px;
+  padding: 6px 10px;
+}
+
+.navLabel {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.navCount {
+  align-items: center;
+  background: color-mix(in oklch, var(--accent) 12%, var(--surface));
+  border-radius: var(--radius-full);
+  color: var(--accent);
+  display: inline-flex;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  justify-content: center;
+  min-width: 18px;
+  padding: 1px 6px;
 }
 
 .navLink:hover {
@@ -78,6 +101,11 @@
 
 .active:hover {
   background: var(--text);
+  color: var(--surface);
+}
+
+.active .navCount {
+  background: color-mix(in oklch, var(--surface) 22%, transparent);
   color: var(--surface);
 }
 
@@ -112,7 +140,7 @@
   text-transform: uppercase;
 }
 
-@media (max-width: 760px) {
+@media (max-width: 960px) {
   .shell {
     grid-template-columns: 1fr;
     grid-template-rows: auto 1fr;

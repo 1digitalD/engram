@@ -66,15 +66,9 @@ export default function V4Suggestions() {
 
   return (
     <main className={styles.suggestions}>
-      <section className={styles.hero}>
-        <p className={styles.eyebrow}>Engram v4 Review</p>
-        <h1>Approve the risky changes.</h1>
-        <p>AI can propose creation and linking work here; entity creation remains review-gated.</p>
-      </section>
-
       <section className={styles.panel}>
         <div className={styles.panelHeader}>
-          <h2>Pending suggestions</h2>
+          <h2>Suggestions{suggestions.length ? ` · ${suggestions.length}` : ''}</h2>
           <button type="button" onClick={() => loadSuggestions()} disabled={loading || !!busyId}>
             Refresh
           </button>

@@ -1,53 +1,37 @@
 .search {
-  display: grid;
-  grid-template-columns: minmax(320px, 0.8fr) minmax(0, 1.2fr);
-  gap: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
   height: 100vh;
   overflow: auto;
-  padding: var(--space-8);
+  padding: var(--space-4);
 }
 
 .hero,
 .results {
-  border: 1px solid var(--border);
-  border-radius: 24px;
-  background: color-mix(in oklch, var(--surface) 92%, transparent);
-  box-shadow: var(--shadow-md);
-  padding: var(--space-6);
-}
-
-.hero {
-  align-self: start;
-}
-
-.hero h1 {
-  font-size: clamp(40px, 7vw, 76px);
-  letter-spacing: -0.08em;
-  margin-bottom: var(--space-5);
-}
-
-.eyebrow {
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  letter-spacing: 0.16em;
-  margin-bottom: var(--space-3);
-  text-transform: uppercase;
+  border: 1px solid var(--border-faint);
+  border-radius: 16px;
+  background: color-mix(in oklch, var(--surface) 96%, transparent);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-3);
 }
 
 .form {
   display: grid;
-  gap: var(--space-3);
+  grid-template-columns: minmax(0, 1fr) max-content max-content max-content;
+  gap: var(--space-2);
+  align-items: center;
 }
 
 .form input,
 .form select {
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: 10px;
   background: var(--surface);
   color: var(--text);
-  font: inherit;
-  padding: 11px 12px;
+  font-size: var(--text-sm);
+  padding: 6px 10px;
+  min-height: 32px;
 }
 
 .form button {
@@ -58,7 +42,9 @@
   cursor: pointer;
   font: inherit;
   font-weight: 700;
-  padding: 10px 16px;
+  font-size: var(--text-sm);
+  padding: 6px 14px;
+  min-height: 32px;
 }
 
 .form button:disabled {
@@ -66,20 +52,26 @@
   opacity: 0.45;
 }
 
+.results h2 {
+  font-size: var(--text-md);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: var(--space-2);
+}
+
 .results ul {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-1);
   list-style: none;
-  margin-top: var(--space-4);
 }
 
 .results a {
   border: 1px solid var(--border-faint);
-  border-radius: 18px;
+  border-radius: 10px;
   display: grid;
-  gap: 4px;
-  padding: var(--space-4);
+  gap: 2px;
+  padding: var(--space-2) var(--space-3);
 }
 
 .results a:hover {

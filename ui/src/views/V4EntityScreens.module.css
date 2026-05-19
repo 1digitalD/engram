@@ -22,7 +22,7 @@
 .headerPanel,
 .listHeaderPanel,
 .listPanel {
-  max-width: 1160px;
+  max-width: 1600px;
   width: 100%;
 }
 
@@ -34,8 +34,13 @@
 
 .listHeading {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: var(--space-2);
+  justify-content: flex-start;
+}
+
+.listHeading .addButton {
+  margin-left: auto;
 }
 
 .listHeading h1 {
@@ -46,11 +51,12 @@
 }
 
 .segmentsStack {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
   gap: var(--space-2);
-  max-width: 1160px;
+  max-width: 1600px;
   width: 100%;
+  align-items: start;
 }
 
 .segmentPanel {
@@ -209,6 +215,40 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
+}
+
+.metaStrip {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.metaChip {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  min-height: 26px;
+  padding: 3px 10px;
+  max-width: 180px;
+}
+
+.metaChip:focus {
+  border-color: var(--border-focus);
+  outline: none;
+}
+
+.metaChip[type="datetime-local"] {
+  font-family: var(--font-mono);
+  letter-spacing: -0.02em;
+}
+
+.metaChipWide {
+  flex: 1 1 180px;
+  max-width: none;
 }
 
 .metaLabel,

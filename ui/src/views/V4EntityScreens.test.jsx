@@ -46,6 +46,7 @@ describe('v4 entity screens', () => {
       </MemoryRouter>,
     );
 
+    fireEvent.click(screen.getByRole('button', { name: /\+ New task/i }));
     fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Follow up' } });
     fireEvent.click(screen.getByRole('button', { name: /create task/i }));
 
@@ -74,6 +75,7 @@ describe('v4 entity screens', () => {
       </MemoryRouter>,
     );
 
+    fireEvent.click(screen.getByRole('button', { name: /\+ New note/i }));
     fireEvent.change(screen.getByLabelText('Content'), { target: { value: 'Remember the rollout' } });
     fireEvent.click(screen.getByRole('button', { name: /create note/i }));
 
