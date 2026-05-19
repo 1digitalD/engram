@@ -27,7 +27,12 @@ export default defineConfig({
     environment: 'jsdom',
     css: true,
     include: ['src/**/*.test.{js,jsx}'],
-    mockReset: true,
+    restoreMocks: true,
     setupFiles: ['./src/setupTests.js'],
+    server: {
+      deps: {
+        inline: [/react-markdown/, /remark-/, /rehype-/, /unified/, /vfile/, /devlop/, /hast-/, /mdast-/, /micromark/, /bail/, /is-plain-obj/, /trough/, /zwitch/, /longest-streak/, /property-information/],
+      },
+    },
   },
 })

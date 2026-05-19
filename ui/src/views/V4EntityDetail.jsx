@@ -96,6 +96,7 @@ export default function V4EntityDetail({ type: routeType }) {
     priority: '',
   });
   const [error, setError] = useState('');
+  const [editingContent, setEditingContent] = useState(false);
 
   async function loadDetail() {
     const response = await v4API.entities.detail(id);
@@ -256,7 +257,6 @@ export default function V4EntityDetail({ type: routeType }) {
   const configs = actionConfigs[entity.type] || [];
   const usedSectionKeys = new Set(configs.flatMap((config) => config.sectionKeys || []));
   const additionalSections = detail.sections.filter((section) => !usedSectionKeys.has(section.key) && section.items.length > 0);
-  const [editingContent, setEditingContent] = useState(false);
 
   return (
     <main className={styles.screen}>
