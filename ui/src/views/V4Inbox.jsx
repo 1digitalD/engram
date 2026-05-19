@@ -71,9 +71,8 @@ export default function V4Inbox() {
   return (
     <main className={styles.inbox}>
       <section className={styles.capturePanel}>
-        <h1>Capture</h1>
         <form onSubmit={handleSubmit} className={styles.form}>
-          <label htmlFor="capture-content">Capture text</label>
+          <label htmlFor="capture-content" className={styles.srOnly}>Capture text</label>
           <textarea
             id="capture-content"
             value={content}

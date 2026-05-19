@@ -46,8 +46,6 @@ export default function V4Search() {
   return (
     <main className={styles.search}>
       <section className={styles.hero}>
-        <p className={styles.eyebrow}>Engram v4 Search</p>
-        <h1>Find the thread.</h1>
         <form onSubmit={handleSearch} className={styles.form} aria-label="Search entities">
           <input
             value={query}
