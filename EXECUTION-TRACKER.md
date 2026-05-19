@@ -1,8 +1,10 @@
-# Engram v2 — Execution Tracker
+# Engram — Execution Tracker
 
-Last updated: 2026-05-11
-Branch: `claude/busy-wozniak-e23763` → target: `main`
-Architecture: Postgres + pgvector (replaces SQLite + sqlite-vec)
+This is a historical execution log. The active implementation is Engram v4, a fresh clean cutover with `/api/v4` as the only runtime API.
+
+Last updated: 2026-05-18
+Branch: `main`
+Architecture: Fresh Postgres + pgvector v4 schema. No migration or backward compatibility is required.
 
 ## Operating principles
 
@@ -16,12 +18,10 @@ Architecture: Postgres + pgvector (replaces SQLite + sqlite-vec)
 
 | Document | Purpose |
 |---|---|
-| `docs/PRD.md` | Product vision, entity model, lifecycle, cycle goals |
-| `docs/TECH_SPEC.md` | Stack, architecture, service contracts, migration mapping |
-| `docs/SCHEMA.sql` | Canonical Postgres schema — source of truth |
-| `docs/API_SPEC.md` | All routes, request/response shapes, backward-compat rules |
-| `docs/TEST_STRATEGY.md` | TDD approach, conftest fixtures, test patterns |
-| `docs/AGENT_PLAN.md` | Task breakdown, file ownership map, done criteria |
+| `docs/V4_PRINCIPLES.md` | Non-negotiable v4 product and architecture rules |
+| `docs/V4_IMPLEMENTATION_PLAN.md` | v4 cycle plan and acceptance criteria |
+| `docs/SCHEMA.sql` | Canonical fresh v4 Postgres schema |
+| `mcp_server/README_V4.md` | v4 read-only MCP behavior |
 
 ## Task log
 
@@ -69,7 +69,7 @@ Architecture: Postgres + pgvector (replaces SQLite + sqlite-vec)
 ## Recovery notes
 
 If the session resets:
-1. Re-read this file and `docs/AGENT_PLAN.md`.
+1. Re-read this file, `docs/V4_PRINCIPLES.md`, and `docs/V4_IMPLEMENTATION_PLAN.md`.
 2. Run `git log --oneline -10` to find the latest commit.
 3. Run `git status` to check for uncommitted work.
 4. Resume the first `pending` task in the table above.
