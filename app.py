@@ -1,8 +1,10 @@
 import logging
 import os
+import sys
 import threading
 from pathlib import Path
 
+import click
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 
@@ -15,6 +17,38 @@ logging.basicConfig(
     handlers=[logging.FileHandler("engram.log"), logging.StreamHandler()],
 )
 logger = logging.getLogger(__name__)
+
+
+def _drop_public_tables(connection):
+    """Drop all public tables for the v4 clean cutover."""
+    cursor = connection.cursor()
+    try:
+        cursor.execute(
+            """
+            DO $$ DECLARE
+                r RECORD;
+            BEGIN
+                FOR r IN (SELECT tablename FROM pg_tables WHERE schemaname = 'public') LOOP
+                    EXECUTE 'DROP TABLE IF EXISTS ' || quote_ident(r.tablename) || ' CASCADE';
+                END LOOP;
+            END $$;
+            """
+        )
+    finally:
+        cursor.close()
+
+
+def _apply_schema(connection):
+    schema_path = Path(__file__).resolve().parent / "docs" / "SCHEMA.sql"
+    cursor = connection.cursor()
+    try:
+        cursor.execute(schema_path.read_text())
+    finally:
+        cursor.close()
+
+
+def _is_flask_run_command():
+    return Path(sys.argv[0]).name == "flask" and "run" in sys.argv
 
 
 def create_app(config_name=None):
@@ -38,7 +72,7 @@ def create_app(config_name=None):
     # Start job worker on boot (non-blocking background thread)
     # Skip in testing mode to avoid background DB connections
     is_testing = app.config.get("TESTING", False)
-    if not is_testing:
+    if not is_testing and (Path(sys.argv[0]).name != "flask" or _is_flask_run_command()):
         def _start_worker():
             try:
                 from services.job_worker import start_worker
@@ -55,21 +89,45 @@ def create_app(config_name=None):
     # ── CLI Commands ──────────────────────────────────────────────────────────
 
     @app.cli.command("init-db")
-    def init_db_cmd():
+    @click.option(
+        "--keep-existing",
+        is_flag=True,
+        help="Apply the schema without dropping existing public tables.",
+    )
+    def init_db_cmd(keep_existing):
         """Apply the canonical v4 schema from docs/SCHEMA.sql."""
         with app.app_context():
-            schema_path = Path(__file__).resolve().parent / "docs" / "SCHEMA.sql"
             connection = db.engine.raw_connection()
             try:
-                connection.autocommit = True
-                cursor = connection.cursor()
-                try:
-                    cursor.execute(schema_path.read_text())
-                finally:
-                    cursor.close()
+                if not keep_existing:
+                    _drop_public_tables(connection)
+                _apply_schema(connection)
+                connection.commit()
+            except Exception:
+                connection.rollback()
+                raise
             finally:
                 connection.close()
-            print("v4 schema applied.")
+            if keep_existing:
+                print("v4 schema applied without reset.")
+            else:
+                print("fresh v4 schema applied.")
+
+    @app.cli.command("reset-db")
+    def reset_db_cmd():
+        """Drop local app tables and apply the canonical fresh v4 schema."""
+        with app.app_context():
+            connection = db.engine.raw_connection()
+            try:
+                _drop_public_tables(connection)
+                _apply_schema(connection)
+                connection.commit()
+            except Exception:
+                connection.rollback()
+                raise
+            finally:
+                connection.close()
+            print("fresh v4 schema applied.")
 
     @app.cli.command("embed-backfill")
     def embed_backfill_cmd():

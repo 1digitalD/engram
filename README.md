@@ -21,8 +21,8 @@ docker compose up -d
 # Optional: start isolated test DB.
 docker compose -f docker-compose.test.yml up -d
 
-# Apply the fresh v4 schema.
-bash scripts/apply_schema.sh
+# Apply the fresh v4 schema. This deletes existing local Engram app data.
+flask --app app.py init-db
 
 # Run backend and UI.
 PORT=5001 flask --app app.py run
@@ -41,6 +41,8 @@ Obsolete APIs are not v4 targets:
 - `/api/v2`
 
 Do not add compatibility adapters for old response shapes. Do not store relationship IDs in `properties`; all relationships must use `EntityLink` records.
+
+If the app returns database errors after upgrading to v4, reset the local database with `flask --app app.py init-db`. v4 is a clean cutover; old v1/v2/v3 table shapes are not migrated or preserved.
 
 ## Core v4 Concepts
 
@@ -89,6 +91,8 @@ PYTHONPATH=. ./venv/bin/pytest -q
 cd ui && npm test
 cd ui && npm run build
 ```
+
+Schema reset validation is destructive: `flask --app app.py init-db`.
 
 ## Active Documentation
 

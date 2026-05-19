@@ -130,6 +130,68 @@ def test_fresh_database_uses_v4_entity_link_columns(app):
     assert {"src_id", "dst_id", "link_type", "weight", "inverse"}.isdisjoint(columns)
 
 
+def test_init_db_resets_stale_entity_links_shape(app, runner):
+    from sqlalchemy import text
+    from extensions import db
+
+    db.session.remove()
+    connection = db.engine.raw_connection()
+    try:
+        connection.autocommit = True
+        cursor = connection.cursor()
+        try:
+            cursor.execute(
+                """
+                DO $$ DECLARE
+                    r RECORD;
+                BEGIN
+                    FOR r IN (SELECT tablename FROM pg_tables WHERE schemaname = 'public') LOOP
+                        EXECUTE 'DROP TABLE IF EXISTS ' || quote_ident(r.tablename) || ' CASCADE';
+                    END LOOP;
+                END $$;
+                """
+            )
+            cursor.execute('CREATE EXTENSION IF NOT EXISTS "pgcrypto"')
+            cursor.execute("CREATE TABLE entities (id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text)")
+            cursor.execute(
+                """
+                CREATE TABLE entity_links (
+                    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+                    src_id TEXT,
+                    dst_id TEXT,
+                    link_type TEXT
+                )
+                """
+            )
+            connection.commit()
+        finally:
+            cursor.close()
+    except Exception:
+        connection.rollback()
+        raise
+    finally:
+        connection.close()
+
+    result = runner.invoke(args=["init-db"])
+
+    assert result.exit_code == 0
+    assert "fresh v4 schema applied." in result.output
+
+    rows = db.session.execute(
+        text(
+            """
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = 'entity_links'
+            """
+        )
+    ).scalars()
+    columns = set(rows)
+    assert {"source_entity_id", "target_entity_id", "relationship_type"}.issubset(columns)
+    assert {"src_id", "dst_id", "link_type"}.isdisjoint(columns)
+
+
 def test_entity_canonical_dto_shape_has_no_legacy_fields():
     tag = _make_tag()
     entity = _make_entity()

@@ -61,6 +61,7 @@ bash scripts/apply_schema.sh
 
 - Backend: Flask + SQLAlchemy 2.x.
 - Database: fresh Postgres + pgvector using `docs/SCHEMA.sql`.
+- `flask --app app.py init-db` is destructive by default and resets local app tables for the v4 clean cutover.
 - Frontend: React + Vite.
 - Service layer owns business logic; API handlers should stay thin.
 - Meaningful mutations write `entity_events`.

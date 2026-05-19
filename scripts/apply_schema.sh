@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Apply SCHEMA.sql to both main and test databases.
-# Run this after C1-INFRA completes, before starting the overnight build.
+# Apply the fresh v4 schema to both main and test databases.
+# This is intentionally destructive: v4 is a clean cutover with no migration.
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -18,10 +18,28 @@ DATABASE_URL="${DATABASE_URL:?DATABASE_URL not set}"
 TEST_DATABASE_URL="${TEST_DATABASE_URL:-$DATABASE_URL}"
 
 echo "Applying schema to main DB..."
+psql -v ON_ERROR_STOP=1 "$DATABASE_URL" -c "
+DO \$\$ DECLARE
+    r RECORD;
+BEGIN
+    FOR r IN (SELECT tablename FROM pg_tables WHERE schemaname = 'public') LOOP
+        EXECUTE 'DROP TABLE IF EXISTS ' || quote_ident(r.tablename) || ' CASCADE';
+    END LOOP;
+END \$\$;
+"
 psql -v ON_ERROR_STOP=1 "$DATABASE_URL" -f "$REPO_DIR/docs/SCHEMA.sql"
 echo "✓ Main DB schema applied"
 
 echo "Applying schema to test DB..."
+psql -v ON_ERROR_STOP=1 "$TEST_DATABASE_URL" -c "
+DO \$\$ DECLARE
+    r RECORD;
+BEGIN
+    FOR r IN (SELECT tablename FROM pg_tables WHERE schemaname = 'public') LOOP
+        EXECUTE 'DROP TABLE IF EXISTS ' || quote_ident(r.tablename) || ' CASCADE';
+    END LOOP;
+END \$\$;
+"
 psql -v ON_ERROR_STOP=1 "$TEST_DATABASE_URL" -f "$REPO_DIR/docs/SCHEMA.sql"
 echo "✓ Test DB schema applied"
 
