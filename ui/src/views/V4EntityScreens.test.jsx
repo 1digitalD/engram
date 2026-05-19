@@ -1,3 +1,5 @@
+/* eslint-disable no-unused-vars */
+import React from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';

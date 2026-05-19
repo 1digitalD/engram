@@ -1,3 +1,5 @@
+/* eslint-disable no-unused-vars */
+import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';

@@ -1,3 +1,5 @@
+/* eslint-disable no-unused-vars */
+import React from 'react';
 import { useEffect, useState } from 'react';
 import { v4API } from '../api/v4Client';
 import styles from './V4Suggestions.module.css';
