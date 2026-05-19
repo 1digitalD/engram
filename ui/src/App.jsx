@@ -5,6 +5,7 @@ import V4EntityList from './views/V4EntityList';
 import V4EntityDetail from './views/V4EntityDetail';
 import V4Search from './views/V4Search';
 import V4Today from './views/V4Today';
+import V4Suggestions from './views/V4Suggestions';
 
 const navItems = [
   ['/', 'Inbox'],
@@ -29,7 +30,6 @@ const routeMeta = {
   areas: ['Areas', 'Area list shell backed by v4 entity APIs in later cycles.'],
   people: ['People', 'People list shell backed by v4 entity APIs in later cycles.'],
   resources: ['Resources', 'Resource list shell backed by v4 entity APIs in later cycles.'],
-  suggestions: ['Suggestions', 'AI suggestion review shell backed by v4 review APIs in later cycles.'],
 };
 
 function ShellPage({ page }) {
@@ -83,7 +83,7 @@ export default function App() {
         <Route path="/people/:id" element={<V4EntityDetail type="person" />} />
         <Route path="/resources" element={<V4EntityList type="resource" />} />
         <Route path="/resources/:id" element={<V4EntityDetail type="resource" />} />
-        <Route path="/suggestions" element={<ShellPage page="suggestions" />} />
+        <Route path="/suggestions" element={<V4Suggestions />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>
