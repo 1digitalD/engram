@@ -276,6 +276,7 @@ export default function V4EntityDetail({ type: routeType }) {
             rows={3}
           />
           <select
+            className={styles.statusControl}
             value={draft.status}
             onChange={(event) => setDraft((current) => ({ ...current, status: event.target.value }))}
             aria-label="Status"
@@ -285,18 +286,21 @@ export default function V4EntityDetail({ type: routeType }) {
             ))}
           </select>
           <input
+            className={styles.dateControl}
             value={draft.due_at}
             onChange={(event) => setDraft((current) => ({ ...current, due_at: event.target.value }))}
             aria-label="Due date"
             type="datetime-local"
           />
           <input
+            className={styles.dateControl}
             value={draft.follow_up_at}
             onChange={(event) => setDraft((current) => ({ ...current, follow_up_at: event.target.value }))}
             aria-label="Follow-up"
             type="datetime-local"
           />
           <select
+            className={styles.priorityControl}
             value={draft.priority}
             onChange={(event) => setDraft((current) => ({ ...current, priority: event.target.value }))}
             aria-label="Priority"
@@ -306,6 +310,7 @@ export default function V4EntityDetail({ type: routeType }) {
             ))}
           </select>
           <input
+            className={styles.tagsField}
             value={draft.tags}
             onChange={(event) => setDraft((current) => ({ ...current, tags: event.target.value }))}
             aria-label="Tags"
@@ -424,11 +429,18 @@ function LinkedEntityRow({ item, onRemove, onQuickStatus }) {
         {item.entity.properties?.priority && <span className={styles.priorityPill}>Priority {item.entity.properties.priority}</span>}
       </Link>
       <div className={styles.cardActions}>
-        {item.entity.type === 'task' && statusOptions.task.map((status) => (
-          <button className={styles.statusButton} key={status} type="button" onClick={() => onQuickStatus(item.entity.id, status)}>
-            {status}
-          </button>
-        ))}
+        {item.entity.type === 'task' && (
+          <select
+            className={styles.rowStatusSelect}
+            value={item.entity.status}
+            onChange={(event) => onQuickStatus(item.entity.id, event.target.value)}
+            aria-label={`Set ${item.entity.title || 'task'} status`}
+          >
+            {statusOptions.task.map((status) => (
+              <option key={status} value={status}>{status}</option>
+            ))}
+          </select>
+        )}
         <button className={styles.removeButton} type="button" onClick={() => onRemove(item.relationship.id)}>
           Remove
         </button>
@@ -519,12 +531,14 @@ function TypedAction({ config, currentId, onCreate, onLink }) {
             {config.taskFields && (
               <div className={styles.advancedGrid}>
                 <input
+                  className={styles.dateControl}
                   value={form.due_at}
                   onChange={(event) => setForm((current) => ({ ...current, due_at: event.target.value }))}
                   aria-label={`${config.title} due date`}
                   type="datetime-local"
                 />
                 <select
+                  className={styles.priorityControl}
                   value={form.priority}
                   onChange={(event) => setForm((current) => ({ ...current, priority: event.target.value }))}
                   aria-label={`${config.title} priority`}
