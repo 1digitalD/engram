@@ -218,7 +218,7 @@
 }
 
 .metaStrip {
-  align-items: center;
+  align-items: start;
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
@@ -262,8 +262,8 @@
   flex: 1 1 180px;
 }
 
-.metaLabel span,
-.metaLabelWide span {
+.metaLabel > span:first-child,
+.metaLabelWide > span:first-child {
   color: var(--text-muted);
   font-family: var(--font-mono);
   font-size: 10px;
@@ -290,6 +290,20 @@
 .metaLabelWide input:focus {
   border-color: var(--border-focus);
   outline: none;
+}
+
+.metaStaticChip {
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  color: var(--text-secondary);
+  display: inline-flex;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  min-height: 26px;
+  padding: 3px 10px;
+  white-space: nowrap;
 }
 
 .formActions {
@@ -531,6 +545,11 @@
   min-height: 30px;
   padding: 6px 10px;
   white-space: nowrap;
+}
+
+.iconButton {
+  min-width: 30px;
+  padding: 6px;
 }
 
 .primaryButton {

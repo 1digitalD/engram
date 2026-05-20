@@ -98,6 +98,8 @@ describe('v4 entity screens', () => {
         title: 'Follow up',
         content: 'Body',
         status: 'open',
+        created_at: '2026-05-20T09:00:00+00:00',
+        updated_at: '2026-05-20T10:00:00+00:00',
         due_at: null,
         follow_up_at: null,
         reference_url: null,
@@ -144,6 +146,50 @@ describe('v4 entity screens', () => {
     await waitFor(() => expect(v4API.relationships.delete).toHaveBeenCalledWith('r1'));
   });
 
+  it('archives separately from delete and hides note due date metadata', async () => {
+    const detail = {
+      entity: {
+        id: 'n1',
+        type: 'note',
+        title: 'Captured note',
+        content: 'Body',
+        status: 'active',
+        created_at: '2026-05-20T09:00:00+00:00',
+        updated_at: '2026-05-20T10:00:00+00:00',
+        due_at: null,
+        follow_up_at: null,
+        reference_url: null,
+        properties: {},
+        tags: [],
+      },
+      sections: [],
+    };
+    v4API.entities.detail.mockResolvedValue(detail);
+    v4API.entities.update.mockResolvedValue({ data: { ...detail.entity, lifecycle: 'archived' } });
+    v4API.entities.delete.mockResolvedValue({ data: { ...detail.entity, lifecycle: 'deleted' } });
+
+    render(
+      <MemoryRouter initialEntries={['/notes/n1']}>
+        <Routes>
+          <Route path="/notes" element={<div>Notes index</div>} />
+          <Route path="/notes/:id" element={<V4EntityDetail type="note" />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByDisplayValue('Captured note')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Due date')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Follow-up date')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Archive' }));
+    await waitFor(() => expect(v4API.entities.update).toHaveBeenCalledWith('n1', { lifecycle: 'archived' }));
+    expect(v4API.entities.delete).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    await waitFor(() => expect(v4API.entities.delete).toHaveBeenCalledWith('n1'));
+    expect(await screen.findByText('Notes index')).toBeInTheDocument();
+  });
+
   it('creates a new task from a project detail and links it as parent', async () => {
     const detail = {
       entity: {
@@ -152,6 +198,8 @@ describe('v4 entity screens', () => {
         title: 'Memory Lookup',
         content: '',
         status: 'active',
+        created_at: '2026-05-20T09:00:00+00:00',
+        updated_at: '2026-05-20T10:00:00+00:00',
         due_at: null,
         follow_up_at: null,
         reference_url: null,
@@ -204,6 +252,8 @@ describe('v4 entity screens', () => {
         title: 'Memory Lookup',
         content: '',
         status: 'active',
+        created_at: '2026-05-20T09:00:00+00:00',
+        updated_at: '2026-05-20T10:00:00+00:00',
         due_at: null,
         follow_up_at: null,
         reference_url: null,
@@ -256,6 +306,8 @@ describe('v4 entity screens', () => {
         title: 'Memory Lookup',
         content: '',
         status: 'active',
+        created_at: '2026-05-20T09:00:00+00:00',
+        updated_at: '2026-05-20T10:00:00+00:00',
         due_at: null,
         follow_up_at: null,
         reference_url: null,

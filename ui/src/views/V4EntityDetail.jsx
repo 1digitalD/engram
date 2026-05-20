@@ -1,7 +1,8 @@
 /* eslint-disable no-unused-vars */
 import React from 'react';
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Archive, Save, Trash2 } from 'lucide-react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { v4API } from '../api/v4Client';
 import MarkdownContent from '../components/MarkdownContent';
 import styles from './V4EntityScreens.module.css';
@@ -66,9 +67,20 @@ function pathForEntity(entity) {
   return `/${base}/${entity.id}`;
 }
 
+function collectionPathForType(entityType) {
+  return entityType === 'person' ? '/people' : `/${entityType}s`;
+}
+
 function toInputDateTime(value) {
   if (!value) return '';
   return value.slice(0, 16);
+}
+
+function formatDateTime(value) {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleString();
 }
 
 function cleanPayload(payload) {
@@ -84,6 +96,7 @@ function relationshipPayload(currentId, linkedId, config) {
 
 export default function V4EntityDetail({ type: routeType }) {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [detail, setDetail] = useState(null);
   const [draft, setDraft] = useState({
     title: '',
@@ -168,10 +181,20 @@ export default function V4EntityDetail({ type: routeType }) {
   async function handleArchive() {
     setError('');
     try {
-      await v4API.entities.delete(id);
+      await v4API.entities.update(id, { lifecycle: 'archived' });
       await loadDetail();
     } catch (err) {
       setError(err.message || 'Failed to archive entity');
+    }
+  }
+
+  async function handleDelete() {
+    setError('');
+    try {
+      await v4API.entities.delete(id);
+      navigate(collectionPathForType(entity.type));
+    } catch (err) {
+      setError(err.message || 'Failed to delete entity');
     }
   }
 
@@ -254,6 +277,7 @@ export default function V4EntityDetail({ type: routeType }) {
 
   const entity = detail.entity;
   const entityType = routeType || entity.type;
+  const showDueDate = entity.type !== 'note';
   const configs = actionConfigs[entity.type] || [];
   const usedSectionKeys = new Set(configs.flatMap((config) => config.sectionKeys || []));
   const additionalSections = detail.sections.filter((section) => !usedSectionKeys.has(section.key) && section.items.length > 0);
@@ -265,8 +289,32 @@ export default function V4EntityDetail({ type: routeType }) {
           <div className={styles.headerTop}>
             <p className={styles.eyebrow}>Engram v4 {entityType}</p>
             <div className={styles.headerActions}>
-              <button className={styles.dangerButton} type="button" onClick={handleArchive}>Archive</button>
-              <button className={styles.primaryButton} type="submit">Save</button>
+              <button
+                className={`${styles.dangerButton} ${styles.iconButton}`}
+                type="button"
+                onClick={handleArchive}
+                aria-label="Archive"
+                title="Archive"
+              >
+                <Archive size={16} strokeWidth={2} aria-hidden="true" />
+              </button>
+              <button
+                className={`${styles.dangerButton} ${styles.iconButton}`}
+                type="button"
+                onClick={handleDelete}
+                aria-label="Delete"
+                title="Delete"
+              >
+                <Trash2 size={16} strokeWidth={2} aria-hidden="true" />
+              </button>
+              <button
+                className={`${styles.primaryButton} ${styles.iconButton}`}
+                type="submit"
+                aria-label="Save"
+                title="Save"
+              >
+                <Save size={16} strokeWidth={2} aria-hidden="true" />
+              </button>
             </div>
           </div>
           <input
@@ -303,63 +351,85 @@ export default function V4EntityDetail({ type: routeType }) {
             </div>
           )}
           <div className={styles.metaStrip}>
-            <select
-              className={styles.metaChip}
-              value={draft.status}
-              onChange={(event) => setDraft((current) => ({ ...current, status: event.target.value }))}
-              aria-label="Status"
-              title="Status"
-            >
-              {(statusOptions[entity.type] || ['active']).map((status) => (
-                <option key={status} value={status}>● {status}</option>
-              ))}
-            </select>
-            <select
-              className={styles.metaChip}
-              value={draft.priority}
-              onChange={(event) => setDraft((current) => ({ ...current, priority: event.target.value }))}
-              aria-label="Priority"
-              title="Priority"
-            >
-              {priorityOptions.map((priority) => (
-                <option key={priority || 'none'} value={priority}>
-                  {priority ? `! ${priority}` : '— priority'}
-                </option>
-              ))}
-            </select>
-            <input
-              className={styles.metaChip}
-              value={draft.due_at}
-              onChange={(event) => setDraft((current) => ({ ...current, due_at: event.target.value }))}
-              aria-label="Due date"
-              title="Due"
-              type="datetime-local"
-            />
-            <input
-              className={styles.metaChip}
-              value={draft.follow_up_at}
-              onChange={(event) => setDraft((current) => ({ ...current, follow_up_at: event.target.value }))}
-              aria-label="Follow-up"
-              title="Follow-up"
-              type="datetime-local"
-            />
-            <input
-              className={styles.metaChip}
-              value={draft.tags}
-              onChange={(event) => setDraft((current) => ({ ...current, tags: event.target.value }))}
-              aria-label="Tags"
-              title="Tags"
-              placeholder="# tags"
-            />
-            <input
-              className={`${styles.metaChip} ${styles.metaChipWide}`}
-              value={draft.reference_url}
-              onChange={(event) => setDraft((current) => ({ ...current, reference_url: event.target.value }))}
-              aria-label="Reference URL"
-              title="URL"
-              placeholder="https://..."
-              type="url"
-            />
+            <label className={styles.metaLabel}>
+              <span>Status</span>
+              <select
+                className={styles.metaChip}
+                value={draft.status}
+                onChange={(event) => setDraft((current) => ({ ...current, status: event.target.value }))}
+                aria-label="Status"
+              >
+                {(statusOptions[entity.type] || ['active']).map((status) => (
+                  <option key={status} value={status}>● {status}</option>
+                ))}
+              </select>
+            </label>
+            <label className={styles.metaLabel}>
+              <span>Priority</span>
+              <select
+                className={styles.metaChip}
+                value={draft.priority}
+                onChange={(event) => setDraft((current) => ({ ...current, priority: event.target.value }))}
+                aria-label="Priority"
+              >
+                {priorityOptions.map((priority) => (
+                  <option key={priority || 'none'} value={priority}>
+                    {priority ? `! ${priority}` : '— priority'}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {showDueDate && (
+              <label className={styles.metaLabel}>
+                <span>Due</span>
+                <input
+                  className={styles.metaChip}
+                  value={draft.due_at}
+                  onChange={(event) => setDraft((current) => ({ ...current, due_at: event.target.value }))}
+                  aria-label="Due date"
+                  type="datetime-local"
+                />
+              </label>
+            )}
+            <label className={styles.metaLabel}>
+              <span>Follow-up</span>
+              <input
+                className={styles.metaChip}
+                value={draft.follow_up_at}
+                onChange={(event) => setDraft((current) => ({ ...current, follow_up_at: event.target.value }))}
+                aria-label="Follow-up date"
+                type="datetime-local"
+              />
+            </label>
+            <div className={styles.metaLabel}>
+              <span>Created</span>
+              <span className={styles.metaStaticChip}>{formatDateTime(entity.created_at)}</span>
+            </div>
+            <div className={styles.metaLabel}>
+              <span>Updated</span>
+              <span className={styles.metaStaticChip}>{formatDateTime(entity.updated_at)}</span>
+            </div>
+            <label className={styles.metaLabel}>
+              <span>Tags</span>
+              <input
+                className={styles.metaChip}
+                value={draft.tags}
+                onChange={(event) => setDraft((current) => ({ ...current, tags: event.target.value }))}
+                aria-label="Tags"
+                placeholder="# tags"
+              />
+            </label>
+            <label className={styles.metaLabelWide}>
+              <span>URL</span>
+              <input
+                className={`${styles.metaChip} ${styles.metaChipWide}`}
+                value={draft.reference_url}
+                onChange={(event) => setDraft((current) => ({ ...current, reference_url: event.target.value }))}
+                aria-label="Reference URL"
+                placeholder="https://..."
+                type="url"
+              />
+            </label>
           </div>
         </form>
         {error && <div className={styles.error}>{error}</div>}
