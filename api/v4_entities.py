@@ -126,6 +126,8 @@ def list_entities():
         if lifecycle not in VALID_LIFECYCLE:
             return _error(f"invalid lifecycle: {lifecycle}")
         query = query.filter(Entity.lifecycle == lifecycle)
+    else:
+        query = query.filter(Entity.lifecycle != "deleted")
 
     rows = query.order_by(Entity.updated_at.desc(), Entity.created_at.desc()).limit(limit).all()
     return jsonify({"data": [row.to_dict() for row in rows]})
