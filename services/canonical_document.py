@@ -73,5 +73,10 @@ def _fmt(value):
     if value is None:
         return None
     if hasattr(value, "isoformat"):
+        from datetime import timezone
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        else:
+            value = value.astimezone(timezone.utc)
         return value.isoformat()
     return str(value)

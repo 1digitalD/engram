@@ -480,9 +480,13 @@ class ChangeBatch(BaseModel):
 
 
 def _iso(dt):
-    """Convert datetime to ISO8601 string, or return None."""
+    """Convert datetime to UTC ISO8601 string, or return None."""
     if dt is None:
         return None
     if isinstance(dt, str):
         return dt
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    else:
+        dt = dt.astimezone(timezone.utc)
     return dt.isoformat()
