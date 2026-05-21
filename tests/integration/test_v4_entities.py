@@ -209,6 +209,30 @@ def test_archive_and_delete_write_events(client, app):
         assert deleted_event.actor == "user"
 
 
+def test_deleted_entities_excluded_from_list_by_default(client):
+    active = client.post(
+        "/api/v4/entities",
+        json={"type": "note", "title": "Active note"},
+    ).get_json()["data"]
+    to_delete = client.post(
+        "/api/v4/entities",
+        json={"type": "note", "title": "Deleted note"},
+    ).get_json()["data"]
+
+    client.delete(f"/api/v4/entities/{to_delete['id']}")
+
+    list_response = client.get("/api/v4/entities?type=note")
+    ids = [e["id"] for e in list_response.get_json()["data"]]
+
+    assert active["id"] in ids
+    assert to_delete["id"] not in ids
+
+    # explicitly requesting deleted lifecycle should return it
+    deleted_response = client.get("/api/v4/entities?type=note&lifecycle=deleted")
+    deleted_ids = [e["id"] for e in deleted_response.get_json()["data"]]
+    assert to_delete["id"] in deleted_ids
+
+
 def test_reject_relationship_ids_in_properties(client):
     for key in ("project_id", "area_id", "person_id", "note_id", "source_note_id", "parent_id"):
         response = client.post(
