@@ -89,6 +89,9 @@ def test_extraction_calls_openai_and_normalizes_candidates(monkeypatch):
         "type": "task",
         "title": "Ask Henry about launch",
         "content": None,
+        "due_at": None,
+        "follow_up_at": None,
+        "assigned_to": None,
         "confidence": 0.7,
         "evidence": None,
     }]

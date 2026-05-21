@@ -10,32 +10,68 @@ import os
 
 from utils import get_openai_client
 
-EXTRACTION_MODEL = os.getenv("OPENAI_EXTRACTION_MODEL", "gpt-4o-mini")
+EXTRACTION_MODEL = os.getenv("OPENAI_EXTRACTION_MODEL", "gpt-4o")
 ALLOWED_ENTITY_TYPES = {"task", "project", "area", "person", "resource"}
 ALLOWED_RELATIONSHIP_TYPES = {"parent", "related", "derived_from", "mentions", "assigned_to", "references", "blocks"}
 
-SYSTEM_PROMPT = """You extract structured candidates from a personal workspace note.
-Return JSON only. Do not rewrite or classify the source note as another entity.
-Only return candidates for possible metadata, links, or reviewable entity creation.
-Risky changes must remain candidates for review, never instructions to mutate data.
-Schema:
+SYSTEM_PROMPT = """You are an extraction engine for a personal knowledge workspace. \
+Analyze the note below and return JSON with metadata, link candidates, and entity creation candidates.
+
+RULES:
+- Return JSON only. No prose, no markdown fences.
+- Do NOT re-extract the source note itself as an entity or link candidate.
+- Be exhaustive: extract every actionable item, person, project, area, and resource mentioned.
+- Prefer over-extraction — the reconciliation layer decides what to apply.
+- Confidence: 0.9+ explicit/unambiguous, 0.7–0.9 strongly implied, 0.5–0.7 inferred, <0.5 speculative.
+
+ENTITY TYPES — use exactly these strings:
+  "task"     — A discrete action item with a clear done state. Signals: action verbs, \
+"TODO", "need to", "follow up", "remind me", deadlines, assignments. Each distinct action \
+is its own task candidate.
+  "project"  — A named multi-step initiative with a defined outcome. Signals: named goals, \
+campaigns, products, deliverables, anything with multiple tasks beneath it.
+  "area"     — An ongoing responsibility or life/work domain with no end date. Signals: \
+"health", "finance", "work", "home", recurring themes without a completion state.
+  "person"   — A named individual. Signals: proper names, @mentions, roles with a clear \
+referent ("my manager John"), pronouns only when the referent is unambiguous.
+  "resource" — A reference artifact to be consulted or used. Signals: URLs, book/article \
+titles, tool names, file names, documents, frameworks, systems.
+
+RELATIONSHIP TYPES — use exactly these strings:
+  "parent"       — Source belongs under / is a child of the target (e.g. task under a project, \
+project under an area).
+  "related"      — General thematic connection when no stronger type fits.
+  "derived_from" — Source was created from, inspired by, or is a follow-up to the target.
+  "mentions"     — Source references the target without a stronger structural relationship.
+  "assigned_to"  — A task or project is owned by or delegated to a person.
+  "references"   — Source cites the target as a source, resource, or external reference.
+  "blocks"       — A task or project cannot proceed until the target is resolved.
+
+TAGS — lowercase, single words or short kebab-case phrases, high signal-to-noise. \
+Extract topic tags, status hints, and domain labels useful for filtering (e.g. "meeting", \
+"finance", "follow-up", "engineering", "q3-2025").
+
+Return this exact schema (all fields required, use empty arrays not null):
 {
-  "summary": "short optional summary",
+  "summary": "1–2 sentence summary of what this note is about",
   "confidence": 0.0,
   "tags": [{"name": "tag", "confidence": 0.0}],
   "links": [{
-    "target_type": "project|area|person|resource|task",
-    "title": "existing or possible entity title",
+    "target_type": "task|project|area|person|resource",
+    "title": "canonical title of the entity to link to",
     "relationship_type": "parent|related|derived_from|mentions|assigned_to|references|blocks",
     "confidence": 0.0,
-    "evidence": "short quote or rationale"
+    "evidence": "exact quote or brief rationale"
   }],
   "entities": [{
     "type": "task|project|area|person|resource",
-    "title": "candidate title",
-    "content": "optional detail",
+    "title": "concise canonical title",
+    "content": "optional detail or description (omit if empty)",
+    "due_at": "ISO 8601 date if a deadline is mentioned, else null",
+    "follow_up_at": "ISO 8601 date if a follow-up date is mentioned, else null",
+    "assigned_to": "person name if task/project is assigned to someone, else null",
     "confidence": 0.0,
-    "evidence": "short quote or rationale"
+    "evidence": "exact quote or brief rationale"
   }]
 }
 """
@@ -140,9 +176,26 @@ def _normalize_entity(item):
         "type": entity_type,
         "title": title[:160],
         "content": _text(item.get("content") or item.get("description")),
+        "due_at": _date(item.get("due_at")),
+        "follow_up_at": _date(item.get("follow_up_at")),
+        "assigned_to": _text(item.get("assigned_to")),
         "confidence": _confidence(item.get("confidence")),
         "evidence": _text(item.get("evidence") or item.get("reason")),
     }
+
+
+def _date(value):
+    """Return an ISO 8601 date string if parseable, otherwise None."""
+    if value is None:
+        return None
+    s = str(value).strip()
+    if not s or s.lower() in {"null", "none", "n/a", ""}:
+        return None
+    # Accept only plausible ISO-looking strings to avoid storing model hallucinations
+    import re
+    if re.match(r"^\d{4}-\d{2}-\d{2}", s):
+        return s[:10]
+    return None
 
 
 def _list(value):

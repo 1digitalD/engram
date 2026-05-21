@@ -665,6 +665,26 @@ def reprocess_entity(entity_id):
     return jsonify({"applied_changes": applied_changes, "suggestions": suggestions})
 
 
+@api_v4_bp.route("/entities/<entity_id>/summarize", methods=["POST"])
+def summarize_entity_endpoint(entity_id):
+    entity = _load_entity(entity_id)
+    if entity is None:
+        return _error("entity not found", 404)
+    if entity.type == "note":
+        return _error("notes are not summarized; summarize the entities they are linked to")
+
+    from services.v4_summarization import summarize_entity
+    summary = summarize_entity(entity_id)
+    if summary is None:
+        return _error("summarization failed or no linked notes found", 422)
+
+    return jsonify({
+        "entity_id": entity_id,
+        "summary": summary,
+        "summarized_at": _load_entity(entity_id).ai_summarized_at.isoformat(),
+    })
+
+
 @api_v4_bp.route("/entities/<entity_id>/canonical", methods=["GET"])
 def get_entity_canonical(entity_id):
     entity = _load_entity(entity_id)
@@ -1082,19 +1102,204 @@ def _reconcile_capture_candidates(note, extraction):
             confidence=confidence,
         )
 
-    for link_candidate in extraction.get("links") or []:
-        suggestions.extend(_reconcile_link_candidate(note, link_candidate, applied_changes))
+    # Flatten link and entity candidates into a single list for reconciliation.
+    # Links carry an explicit relationship_type from extraction; entity candidates
+    # get a default that the reconciliation model can override.
+    all_candidates = []
+    for lc in extraction.get("links") or []:
+        target_type = _candidate_value(lc, "target_type") or _candidate_value(lc, "type")
+        if target_type not in RISKY_ENTITY_CREATION_TYPES:
+            continue
+        all_candidates.append({
+            **lc,
+            "type": target_type,
+            "_source": "link",
+        })
+    for ec in extraction.get("entities") or []:
+        if _candidate_value(ec, "type") not in RISKY_ENTITY_CREATION_TYPES:
+            continue
+        all_candidates.append({**ec, "_source": "entity"})
 
-    for entity_candidate in extraction.get("entities") or []:
-        result = _suggest_entity_creation(note, entity_candidate)
-        if result is None:
-            pass
-        elif isinstance(result, dict) and result.get("auto_applied"):
-            applied_changes.append({"type": "entity_created", **{k: v for k, v in result.items() if k != "auto_applied"}})
-        else:
-            suggestions.append(result.to_dict())
+    if all_candidates:
+        from services.v4_reconciliation import reconcile_candidates
+        decisions = reconcile_candidates(all_candidates)
+        for candidate, decision in zip(all_candidates, decisions):
+            _apply_reconciliation_decision(note, candidate, decision, applied_changes, suggestions)
 
     return applied_changes, suggestions
+
+
+def _apply_reconciliation_decision(note, candidate, decision, applied_changes, suggestions):
+    action = (decision.get("action") or "new").lower()
+    confidence = _candidate_confidence(candidate)
+    evidence = _candidate_value(candidate, "evidence")
+    entity_type = _candidate_value(candidate, "type")
+    title = _candidate_value(candidate, "title")
+    relationship_type = decision.get("relationship_type") or _default_relationship_type(entity_type)
+    if relationship_type not in RELATIONSHIP_TYPES:
+        relationship_type = _default_relationship_type(entity_type)
+
+    if action in ("update", "link"):
+        target_id = decision.get("target_id")
+        target = db.session.get(Entity, target_id) if target_id else None
+        if target is None:
+            # Match is gone or id was hallucinated — fall through to "new"
+            action = "new"
+
+    if action == "update":
+        if confidence >= AUTO_APPLY_CONFIDENCE:
+            _apply_entity_update(note, target, decision, relationship_type, confidence, evidence, applied_changes)
+        else:
+            suggestions.append(_create_suggestion(
+                note,
+                suggestion_type=f"update_{entity_type}",
+                operation_type="update_entity",
+                payload={
+                    "target_entity_id": target.id,
+                    "target_type": entity_type,
+                    "title": target.title,
+                    "fields": decision.get("fields") or {},
+                    "content_append": decision.get("content_append"),
+                    "relationship_type": relationship_type,
+                    "evidence": evidence,
+                },
+                confidence=confidence,
+                reason=decision.get("reason"),
+            ).to_dict())
+        return
+
+    if action == "link":
+        if confidence >= AUTO_APPLY_CONFIDENCE:
+            link = _create_entity_link(note, target, relationship_type, confidence, evidence)
+            if link is not None:
+                applied_changes.append({
+                    "type": "relationship_added",
+                    "target_entity_id": target.id,
+                    "relationship_type": relationship_type,
+                    "confidence": confidence,
+                })
+                _write_event(note, "relationship_added", new_value=link.to_dict(), actor="agent:v4-capture", confidence=confidence, reason=evidence)
+        else:
+            suggestions.append(_create_suggestion(
+                note,
+                suggestion_type="link_existing",
+                operation_type="link_existing",
+                payload={
+                    "source_entity_id": note.id,
+                    "target_entity_id": target.id,
+                    "target_type": target.type,
+                    "title": target.title,
+                    "relationship_type": relationship_type,
+                    "evidence": evidence,
+                },
+                confidence=confidence,
+                reason=decision.get("reason"),
+            ).to_dict())
+        return
+
+    # action == "new"
+    if not title or not entity_type:
+        return
+    content = _candidate_value(candidate, "content")
+    if confidence >= AUTO_APPLY_CONFIDENCE:
+        entity = _auto_create_entity(
+            entity_type=entity_type,
+            title=title,
+            content=content,
+            due_at=decision.get("fields", {}).get("due_at") or _candidate_value(candidate, "due_at"),
+            follow_up_at=decision.get("fields", {}).get("follow_up_at") or _candidate_value(candidate, "follow_up_at"),
+        )
+        link = _create_entity_link(note, entity, relationship_type, confidence, evidence)
+        _write_event(entity, "created", new_value=entity.to_dict(), actor="agent:v4-capture", confidence=confidence, reason=evidence)
+        applied_changes.append({
+            "type": "entity_created",
+            "entity_id": entity.id,
+            "entity_type": entity_type,
+            "title": title,
+            "confidence": confidence,
+        })
+        if link is not None:
+            _write_event(note, "relationship_added", new_value=link.to_dict(), actor="agent:v4-capture", confidence=confidence, reason=evidence)
+            applied_changes.append({
+                "type": "relationship_added",
+                "target_entity_id": entity.id,
+                "relationship_type": relationship_type,
+                "confidence": confidence,
+            })
+    else:
+        suggestions.append(_create_suggestion(
+            note,
+            suggestion_type=f"create_{entity_type}",
+            operation_type="create_entity",
+            payload={
+                "type": entity_type,
+                "title": title,
+                "content": content,
+                "due_at": _candidate_value(candidate, "due_at"),
+                "assigned_to": _candidate_value(candidate, "assigned_to"),
+                "source_entity_id": note.id,
+                "evidence": evidence,
+                "relationship_type": relationship_type,
+            },
+            confidence=confidence,
+            reason=decision.get("reason"),
+        ).to_dict())
+
+
+def _apply_entity_update(note, entity, decision, relationship_type, confidence, evidence, applied_changes):
+    fields = decision.get("fields") or {}
+    changed = {}
+
+    new_status = fields.get("status")
+    if new_status and new_status in VALID_STATUS.get(entity.type, set()):
+        entity.status = new_status
+        changed["status"] = new_status
+
+    raw_due = fields.get("due_at")
+    if raw_due:
+        parsed = _parse_iso_date(raw_due)
+        if parsed:
+            entity.due_at = parsed
+            changed["due_at"] = raw_due
+
+    raw_follow_up = fields.get("follow_up_at")
+    if raw_follow_up:
+        parsed = _parse_iso_date(raw_follow_up)
+        if parsed:
+            entity.follow_up_at = parsed
+            changed["follow_up_at"] = raw_follow_up
+
+    link = _create_entity_link(note, entity, relationship_type, confidence, evidence)
+
+    if changed:
+        applied_changes.append({
+            "type": "entity_updated",
+            "entity_id": entity.id,
+            "entity_type": entity.type,
+            "title": entity.title,
+            "changes": changed,
+        })
+        _write_event(entity, "ai_updated", new_value=changed, actor="agent:v4-capture", confidence=confidence, reason=decision.get("reason"))
+    if link is not None:
+        applied_changes.append({
+            "type": "relationship_added",
+            "target_entity_id": entity.id,
+            "relationship_type": relationship_type,
+            "confidence": confidence,
+        })
+        _write_event(note, "relationship_added", new_value=link.to_dict(), actor="agent:v4-capture", confidence=confidence, reason=evidence)
+
+
+def _parse_iso_date(value):
+    """Parse an ISO 8601 date string into a timezone-aware datetime, or None."""
+    if not value:
+        return None
+    try:
+        from datetime import datetime, timezone
+        s = str(value).strip()[:10]
+        return datetime.strptime(s, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+    except (ValueError, TypeError):
+        return None
 
 
 def _reconcile_link_candidate(note, candidate, applied_changes):
@@ -1232,7 +1437,7 @@ def _suggest_entity_creation(note, candidate):
     )
 
 
-def _auto_create_entity(entity_type, title, content=None, properties=None):
+def _auto_create_entity(entity_type, title, content=None, properties=None, due_at=None, follow_up_at=None):
     entity = Entity(
         type=entity_type,
         title=title,
@@ -1243,6 +1448,8 @@ def _auto_create_entity(entity_type, title, content=None, properties=None):
         properties=properties or {},
         ai_meta={},
         ai_status="pending",
+        due_at=_parse_iso_date(due_at),
+        follow_up_at=_parse_iso_date(follow_up_at),
     )
     db.session.add(entity)
     db.session.flush()
@@ -1282,6 +1489,13 @@ def _create_entity_link(note, target, relationship_type, confidence, evidence, s
     )
     db.session.add(link)
     db.session.flush()
+
+    # When a note is linked to any non-note entity, queue a summarize job so
+    # the entity's summary reflects the new information.
+    if getattr(note, "type", None) == "note" and getattr(target, "type", None) != "note":
+        from services.v4_summarization import queue_summarize_if_needed
+        queue_summarize_if_needed(target.id, has_existing_summary=bool(target.ai_summary))
+
     return link
 
 

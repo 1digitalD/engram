@@ -21,11 +21,13 @@ CREATE TABLE IF NOT EXISTS entities (
     source        TEXT,
     reference_url TEXT,
     properties    JSONB NOT NULL DEFAULT '{}',
-    ai_meta       JSONB NOT NULL DEFAULT '{}',
-    ai_status     TEXT NOT NULL DEFAULT 'pending'
-                  CHECK (ai_status IN ('pending', 'processing', 'done', 'failed', 'skipped')),
-    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+    ai_meta          JSONB NOT NULL DEFAULT '{}',
+    ai_status        TEXT NOT NULL DEFAULT 'pending'
+                     CHECK (ai_status IN ('pending', 'processing', 'done', 'failed', 'skipped')),
+    ai_summary       TEXT,
+    ai_summarized_at TIMESTAMPTZ,
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at       TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS entities_type_idx       ON entities (type);
@@ -36,8 +38,10 @@ CREATE INDEX IF NOT EXISTS entities_due_idx        ON entities (due_at)
 CREATE INDEX IF NOT EXISTS entities_follow_up_idx  ON entities (follow_up_at)
     WHERE follow_up_at IS NOT NULL AND lifecycle = 'active';
 CREATE INDEX IF NOT EXISTS entities_updated_idx    ON entities (updated_at DESC);
-CREATE INDEX IF NOT EXISTS entities_ai_status_idx  ON entities (ai_status)
+CREATE INDEX IF NOT EXISTS entities_ai_status_idx     ON entities (ai_status)
     WHERE ai_status IN ('pending', 'failed');
+CREATE INDEX IF NOT EXISTS entities_summarized_at_idx ON entities (ai_summarized_at DESC)
+    WHERE ai_summarized_at IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS entity_links (
     id                 TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -105,7 +109,7 @@ CREATE TABLE IF NOT EXISTS entity_events (
     event_type  TEXT NOT NULL CHECK (event_type IN (
                     'created', 'updated', 'status_changed', 'archived', 'deleted',
                     'relationship_added', 'relationship_removed',
-                    'tag_added', 'tag_removed', 'ai_processed',
+                    'tag_added', 'tag_removed', 'ai_processed', 'ai_updated', 'ai_summarized',
                     'suggestion_accepted', 'suggestion_dismissed'
                   )),
     actor       TEXT NOT NULL,

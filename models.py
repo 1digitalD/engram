@@ -274,6 +274,8 @@ class Entity(BaseModel):
     # AI metadata
     ai_meta = Column(JSON, nullable=False, default=dict)
     ai_status = Column(Text, nullable=False, default="pending")
+    ai_summary = Column(Text, nullable=True)
+    ai_summarized_at = Column(DateTime, nullable=True)
 
     updated_at = Column(
         DateTime, nullable=False, default=lambda: datetime.now(timezone.utc),
@@ -332,6 +334,8 @@ class Entity(BaseModel):
                 "summary": ai_meta.get("summary"),
                 "status": self.ai_status,
                 "confidence": ai_meta.get("confidence"),
+                "entity_summary": self.ai_summary,
+                "entity_summarized_at": _iso(self.ai_summarized_at),
             },
             "relationship_counts": relationship_counts,
             "created_at": _iso(self.created_at),

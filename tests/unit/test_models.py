@@ -214,7 +214,7 @@ def test_entity_canonical_dto_shape_has_no_legacy_fields():
         "reference_url": None,
         "properties": {"priority": "high"},
         "tags": [{"id": tag.id, "name": "memory"}],
-        "ai": {"summary": "Short generated summary", "status": "done", "confidence": 0.91},
+        "ai": {"summary": "Short generated summary", "status": "done", "confidence": 0.91, "entity_summary": None, "entity_summarized_at": None},
         "relationship_counts": {"incoming": 2, "outgoing": 5},
         "created_at": "2026-05-18T12:00:00+00:00",
         "updated_at": "2026-05-18T12:05:00+00:00",
