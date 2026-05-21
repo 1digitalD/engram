@@ -144,8 +144,14 @@
 .mdCompact ul,
 .mdCompact ol,
 .mdCompact blockquote,
-.mdCompact pre {
+.mdCompact pre,
+.mdCompact h1,
+.mdCompact h2,
+.mdCompact h3,
+.mdCompact h4 {
   display: inline;
+  font-size: inherit;
+  font-weight: 600;
   margin: 0;
 }
 

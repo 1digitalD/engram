@@ -1,6 +1,7 @@
 /* eslint-disable no-unused-vars */
 import React from 'react';
 import { useEffect, useState } from 'react';
+import { Check, RefreshCw, X } from 'lucide-react';
 import { v4API } from '../api/v4Client';
 import styles from './V4Suggestions.module.css';
 
@@ -69,7 +70,15 @@ export default function V4Suggestions() {
       <section className={styles.panel}>
         <div className={styles.panelHeader}>
           <h2>Suggestions{suggestions.length ? ` · ${suggestions.length}` : ''}</h2>
-          <button type="button" onClick={() => loadSuggestions()} disabled={loading || !!busyId}>
+          <button
+            type="button"
+            className={styles.refreshButton}
+            onClick={() => loadSuggestions()}
+            disabled={loading || !!busyId}
+            aria-label="Refresh suggestions"
+            title="Refresh"
+          >
+            <RefreshCw size={12} strokeWidth={2.2} aria-hidden="true" />
             Refresh
           </button>
         </div>
@@ -90,18 +99,23 @@ export default function V4Suggestions() {
                 <div className={styles.actions}>
                   <button
                     type="button"
+                    className={`${styles.iconButton} ${styles.acceptButton}`}
                     onClick={() => resolveSuggestion(suggestion.id, 'accept')}
                     disabled={!!busyId}
+                    aria-label="Accept"
+                    title="Accept"
                   >
-                    {busyId === suggestion.id ? 'Working...' : 'Accept'}
+                    <Check size={16} strokeWidth={2.4} aria-hidden="true" />
                   </button>
                   <button
                     type="button"
-                    className={styles.secondary}
+                    className={`${styles.iconButton} ${styles.dismissButton}`}
                     onClick={() => resolveSuggestion(suggestion.id, 'dismiss')}
                     disabled={!!busyId}
+                    aria-label="Dismiss"
+                    title="Dismiss"
                   >
-                    Dismiss
+                    <X size={16} strokeWidth={2.4} aria-hidden="true" />
                   </button>
                 </div>
               </li>

@@ -1,17 +1,15 @@
 .shell {
   display: grid;
-  grid-template-columns: 184px minmax(0, 1fr);
+  grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
   width: 100vw;
   height: 100vh;
-  background:
-    radial-gradient(circle at 20% 12%, oklch(93% 0.05 88), transparent 34%),
-    linear-gradient(135deg, var(--bg), var(--surface2));
+  background: var(--bg);
 }
 
 .sidebar {
   border-right: 1px solid var(--border);
   background: color-mix(in oklch, var(--surface) 88%, transparent);
-  padding: var(--space-3) var(--space-3);
+  padding: var(--space-3);
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
@@ -49,7 +47,7 @@
   color: var(--text-muted);
   font-family: var(--font-mono);
   font-size: 10px;
-  font-weight: 650;
+  font-weight: 600;
   letter-spacing: 0.1em;
   margin: var(--space-2) 0 var(--space-1) 10px;
   text-transform: uppercase;
@@ -68,6 +66,8 @@
   font-weight: 500;
   gap: 10px;
   padding: 6px 10px;
+  transition: background-color var(--duration-fast) var(--ease-out),
+              color var(--duration-fast) var(--ease-out);
 }
 
 .navLabel {
@@ -77,9 +77,9 @@
 
 .navCount {
   align-items: center;
-  background: color-mix(in oklch, var(--accent) 12%, var(--surface));
+  background: var(--accent);
   border-radius: var(--radius-full);
-  color: var(--accent);
+  color: white;
   display: inline-flex;
   font-family: var(--font-mono);
   font-size: 10px;
@@ -95,40 +95,18 @@
 }
 
 .active {
-  background: var(--text);
-  color: var(--surface);
+  background: color-mix(in oklch, var(--accent) 14%, var(--surface));
+  color: var(--accent);
 }
 
 .active:hover {
-  background: var(--text);
-  color: var(--surface);
+  background: color-mix(in oklch, var(--accent) 18%, var(--surface));
+  color: var(--accent);
 }
 
 .active .navCount {
-  background: color-mix(in oklch, var(--surface) 22%, transparent);
+  background: var(--accent);
   color: var(--surface);
-}
-
-.page {
-  align-self: center;
-  justify-self: center;
-  width: min(720px, calc(100vw - 320px));
-  border: 1px solid var(--border);
-  border-radius: 28px;
-  background: color-mix(in oklch, var(--surface) 92%, transparent);
-  box-shadow: var(--shadow-lg);
-  padding: clamp(32px, 6vw, 72px);
-}
-
-.page h1 {
-  margin: 0 0 var(--space-4);
-  font-size: clamp(36px, 7vw, 72px);
-  letter-spacing: -0.07em;
-}
-
-.page p {
-  max-width: 56ch;
-  font-size: var(--text-lg);
 }
 
 .eyebrow {
@@ -140,7 +118,7 @@
   text-transform: uppercase;
 }
 
-@media (max-width: 960px) {
+@media (max-width: 900px) {
   .shell {
     grid-template-columns: 1fr;
     grid-template-rows: auto 1fr;
@@ -149,21 +127,10 @@
   .sidebar {
     border-right: 0;
     border-bottom: 1px solid var(--border);
-    padding: var(--space-4);
+    padding: var(--space-3);
   }
 
   .nav {
     flex-flow: row wrap;
-  }
-
-  .navLink {
-    padding: 8px 10px;
-  }
-
-  .page {
-    align-self: start;
-    width: calc(100vw - 32px);
-    margin: var(--space-4);
-    padding: var(--space-8);
   }
 }

@@ -47,22 +47,31 @@ export default function V4Search() {
     <main className={styles.search}>
       <section className={styles.hero}>
         <form onSubmit={handleSearch} className={styles.form} aria-label="Search entities">
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search notes, tasks, projects, people, resources..."
-            aria-label="Search query"
-          />
-          <select value={type} onChange={(event) => setType(event.target.value)} aria-label="Entity type">
-            {entityTypes.map((option) => (
-              <option key={option || 'all'} value={option}>{option || 'all types'}</option>
-            ))}
-          </select>
-          <select value={mode} onChange={(event) => setMode(event.target.value)} aria-label="Search mode">
-            {modes.map((option) => (
-              <option key={option} value={option}>{option}</option>
-            ))}
-          </select>
+          <label className={styles.field}>
+            <span className={styles.fieldLabel}>Query</span>
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search notes, tasks, projects, people, resources..."
+              aria-label="Search query"
+            />
+          </label>
+          <label className={styles.field}>
+            <span className={styles.fieldLabel}>Type</span>
+            <select value={type} onChange={(event) => setType(event.target.value)} aria-label="Entity type">
+              {entityTypes.map((option) => (
+                <option key={option || 'all'} value={option}>{option || 'all types'}</option>
+              ))}
+            </select>
+          </label>
+          <label className={styles.field}>
+            <span className={styles.fieldLabel}>Mode</span>
+            <select value={mode} onChange={(event) => setMode(event.target.value)} aria-label="Search mode">
+              {modes.map((option) => (
+                <option key={option} value={option}>{option}</option>
+              ))}
+            </select>
+          </label>
           <button type="submit" disabled={!query.trim() || loading}>
             {loading ? 'Searching...' : 'Search'}
           </button>

@@ -1,7 +1,7 @@
 /* eslint-disable no-unused-vars */
 import React from 'react';
 import { useEffect, useState } from 'react';
-import { Archive, Save, Trash2 } from 'lucide-react';
+import { Archive, Plus, Save, Trash2, X } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { v4API } from '../api/v4Client';
 import MarkdownContent from '../components/MarkdownContent';
@@ -290,7 +290,7 @@ export default function V4EntityDetail({ type: routeType }) {
             <p className={styles.eyebrow}>Engram v4 {entityType}</p>
             <div className={styles.headerActions}>
               <button
-                className={`${styles.dangerButton} ${styles.iconButton}`}
+                className={`${styles.secondaryButton} ${styles.iconButton}`}
                 type="button"
                 onClick={handleArchive}
                 aria-label="Archive"
@@ -473,9 +473,10 @@ function RelationshipSegment({
 }) {
   const items = sections.flatMap((section) => section.items);
   const [actionOpen, setActionOpen] = useState(false);
+  const isCollapsed = items.length === 0 && !actionOpen;
 
   return (
-    <article className={styles.segmentPanel}>
+    <article className={`${styles.segmentPanel} ${isCollapsed ? styles.segmentPanelCollapsed : ''}`}>
       <header className={styles.segmentHeader}>
         <div>
           <p className={styles.segmentKicker}>{config.type || 'linked'}</p>
@@ -486,11 +487,15 @@ function RelationshipSegment({
           {config.type && (
             <button
               type="button"
-              className={styles.addButton}
+              className={`${styles.addButton} ${styles.addButtonIcon}`}
               onClick={() => setActionOpen((v) => !v)}
               aria-expanded={actionOpen}
+              aria-label={actionOpen ? `Close add ${config.type}` : `Add ${config.type}`}
+              title={actionOpen ? 'Close' : `Add ${config.type}`}
             >
-              {actionOpen ? '✕' : `+ Add`}
+              {actionOpen
+                ? <X size={14} strokeWidth={2.2} aria-hidden="true" />
+                : <Plus size={14} strokeWidth={2.2} aria-hidden="true" />}
             </button>
           )}
         </div>
@@ -507,7 +512,7 @@ function RelationshipSegment({
 
       <div className={styles.linkedArea}>
         {sections.length === 0 || items.length === 0 ? (
-          <p className={styles.emptyText}>No linked {config.title.toLowerCase()} yet.</p>
+          actionOpen ? null : null
         ) : (
           sections.map((section) => (
             section.items.length > 0 && (
@@ -520,6 +525,7 @@ function RelationshipSegment({
                       item={item}
                       onRemove={onRemove}
                       onQuickStatus={onQuickStatus}
+                      showType={!config.type}
                     />
                   ))}
                 </ul>
@@ -532,13 +538,13 @@ function RelationshipSegment({
   );
 }
 
-function LinkedEntityRow({ item, onRemove, onQuickStatus }) {
+function LinkedEntityRow({ item, onRemove, onQuickStatus, showType = false }) {
   return (
     <li>
       <Link to={pathForEntity(item.entity)}>
         <strong>{item.entity.title || 'Untitled'}</strong>
         <span className={styles.metaRow}>
-          <span className={styles.typePill}>{item.entity.type}</span>
+          {showType && <span className={styles.typePill}>{item.entity.type}</span>}
           <span className={styles.statusPill}>{item.entity.status}</span>
           <span className={styles.relationshipPill}>{item.relationship.relationship_type}</span>
         </span>
@@ -558,8 +564,14 @@ function LinkedEntityRow({ item, onRemove, onQuickStatus }) {
             ))}
           </select>
         )}
-        <button className={styles.removeButton} type="button" onClick={() => onRemove(item.relationship.id)}>
-          Remove
+        <button
+          className={styles.removeButton}
+          type="button"
+          onClick={() => onRemove(item.relationship.id)}
+          aria-label="Remove"
+          title="Remove"
+        >
+          <X size={14} strokeWidth={2.4} aria-hidden="true" />
         </button>
       </div>
     </li>

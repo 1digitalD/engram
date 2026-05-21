@@ -46,7 +46,7 @@ describe('v4 entity screens', () => {
       </MemoryRouter>,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /\+ New task/i }));
+    fireEvent.click(screen.getByRole('button', { name: /New task/i }));
     fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Follow up' } });
     fireEvent.click(screen.getByRole('button', { name: /create task/i }));
 
@@ -75,7 +75,7 @@ describe('v4 entity screens', () => {
       </MemoryRouter>,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /\+ New note/i }));
+    fireEvent.click(screen.getByRole('button', { name: /New note/i }));
     fireEvent.change(screen.getByLabelText('Content'), { target: { value: 'Remember the rollout' } });
     fireEvent.click(screen.getByRole('button', { name: /create note/i }));
 
@@ -223,7 +223,7 @@ describe('v4 entity screens', () => {
     );
 
     // Expand the Tasks action panel first
-    const addButtons = await screen.findAllByRole('button', { name: /\+ Add/i });
+    const addButtons = await screen.findAllByRole('button', { name: /^Add /i });
     fireEvent.click(addButtons[0]);
 
     fireEvent.change(await screen.findByLabelText('Tasks title'), { target: { value: 'Draft rollout' } });
@@ -280,7 +280,7 @@ describe('v4 entity screens', () => {
     );
 
     // Expand the Notes action panel (second "+ Add" button for project: Tasks, Notes, People, Resources)
-    const addButtons = await screen.findAllByRole('button', { name: /\+ Add/i });
+    const addButtons = await screen.findAllByRole('button', { name: /^Add /i });
     fireEvent.click(addButtons[1]);
 
     fireEvent.change(await screen.findByLabelText('Notes title'), { target: { value: 'Meeting note' } });
@@ -333,7 +333,7 @@ describe('v4 entity screens', () => {
     );
 
     // Expand the Tasks action panel, then switch to Existing
-    const addButtons = await screen.findAllByRole('button', { name: /\+ Add/i });
+    const addButtons = await screen.findAllByRole('button', { name: /^Add /i });
     fireEvent.click(addButtons[0]);
 
     fireEvent.click(await screen.findByRole('button', { name: 'Existing' }));
