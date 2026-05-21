@@ -60,9 +60,11 @@ export const v4API = {
   },
   suggestions: {
     list: (params = {}) => v4Request('GET', '/suggestions', null, params),
+    update: (id, data) => v4Request('PATCH', `/suggestions/${encodeURIComponent(id)}`, data),
     accept: (id) => v4Request('POST', `/suggestions/${encodeURIComponent(id)}/accept`),
     dismiss: (id) => v4Request('POST', `/suggestions/${encodeURIComponent(id)}/dismiss`),
   },
+  reprocess: (entityId) => v4Request('POST', `/entities/${encodeURIComponent(entityId)}/reprocess`),
   search: (params = {}) => v4Request('GET', '/search', null, params),
   today: () => v4Request('GET', '/today'),
   recent: (params = {}) => v4Request('GET', '/recent', null, params),

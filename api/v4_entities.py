@@ -414,11 +414,46 @@ def get_entity_events(entity_id):
 @api_v4_bp.route("/suggestions", methods=["GET"])
 def list_suggestions():
     status = request.args.get("status", "pending")
-    query = AiSuggestion.query
+    query = AiSuggestion.query.options(selectinload(AiSuggestion.source_entity))
     if status != "all":
         query = query.filter(AiSuggestion.status == status)
     rows = query.order_by(AiSuggestion.created_at.desc()).limit(200).all()
-    return jsonify({"data": [row.to_dict() for row in rows]})
+
+    def _serialize(s):
+        d = s.to_dict()
+        d["source_note_title"] = s.source_entity.title if s.source_entity else None
+        return d
+
+    return jsonify({"data": [_serialize(row) for row in rows]})
+
+
+@api_v4_bp.route("/suggestions/<suggestion_id>", methods=["PATCH"])
+def update_suggestion(suggestion_id):
+    suggestion = db.session.get(AiSuggestion, suggestion_id)
+    if suggestion is None:
+        return _error("suggestion not found", 404)
+    if suggestion.status != "pending":
+        return _error("suggestion is not pending", 409)
+    if suggestion.operation_type != "create_entity":
+        return _error("only create_entity suggestions can be edited")
+
+    data = request.get_json(silent=True) or {}
+    payload = dict(suggestion.payload or {})
+
+    if "title" in data:
+        payload["title"] = (data["title"] or "").strip() or payload.get("title")
+    if "content" in data:
+        payload["content"] = data["content"]
+    if "type" in data:
+        new_type = data["type"]
+        if new_type not in RISKY_ENTITY_CREATION_TYPES:
+            return _error("type must be one of: " + ", ".join(sorted(RISKY_ENTITY_CREATION_TYPES)))
+        payload["type"] = new_type
+
+    suggestion.payload = payload
+    flag_modified(suggestion, "payload")
+    db.session.commit()
+    return jsonify({"data": suggestion.to_dict()})
 
 
 @api_v4_bp.route("/suggestions/<suggestion_id>/accept", methods=["POST"])
@@ -599,6 +634,35 @@ def dismiss_suggestion(suggestion_id):
         )
     db.session.commit()
     return jsonify({"data": suggestion.to_dict()})
+
+
+@api_v4_bp.route("/entities/<entity_id>/reprocess", methods=["POST"])
+def reprocess_entity(entity_id):
+    entity = _load_entity(entity_id)
+    if entity is None:
+        return _error("entity not found", 404)
+    if entity.type != "note":
+        return _error("reprocess is only supported for notes")
+
+    pending = AiSuggestion.query.filter_by(
+        source_entity_id=entity_id, status="pending"
+    ).all()
+    for s in pending:
+        s.status = "dismissed"
+        s.resolved_at = datetime.utcnow()
+    db.session.flush()
+
+    applied_changes = []
+    suggestions = []
+    try:
+        result = _run_basic_capture_extraction(entity, "auto")
+        applied_changes, suggestions = _reconcile_capture_candidates(entity, result or {})
+    except Exception as exc:
+        db.session.commit()
+        return _error(f"extraction failed: {exc}", 500)
+
+    db.session.commit()
+    return jsonify({"applied_changes": applied_changes, "suggestions": suggestions})
 
 
 @api_v4_bp.route("/entities/<entity_id>/canonical", methods=["GET"])
