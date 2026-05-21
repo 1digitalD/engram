@@ -10,7 +10,7 @@
 .hero,
 .results {
   border: 1px solid var(--border-faint);
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
   background: color-mix(in oklch, var(--surface) 96%, transparent);
   box-shadow: var(--shadow-sm);
   padding: var(--space-3);
@@ -20,13 +20,29 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) max-content max-content max-content;
   gap: var(--space-2);
-  align-items: center;
+  align-items: end;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.fieldLabel {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .form input,
 .form select {
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--surface);
   color: var(--text);
   font-size: var(--text-sm);
@@ -34,17 +50,30 @@
   min-height: 32px;
 }
 
+.form input:focus,
+.form select:focus {
+  border-color: var(--border-focus);
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-dim);
+}
+
 .form button {
-  border: 0;
+  border: 1px solid var(--accent);
   border-radius: var(--radius-full);
-  background: var(--text);
-  color: var(--surface);
+  background: var(--accent);
+  color: white;
   cursor: pointer;
   font: inherit;
-  font-weight: 700;
+  font-weight: 600;
   font-size: var(--text-sm);
   padding: 6px 14px;
   min-height: 32px;
+  transition: background-color var(--duration-fast) var(--ease-out);
+}
+
+.form button:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
 }
 
 .form button:disabled {
@@ -68,7 +97,7 @@
 
 .results a {
   border: 1px solid var(--border-faint);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   display: grid;
   gap: 2px;
   padding: var(--space-2) var(--space-3);
@@ -90,16 +119,21 @@
 }
 
 .error {
-  border-radius: 14px;
+  border-radius: var(--radius-md);
   background: color-mix(in oklch, var(--red) 12%, var(--surface));
   color: var(--red);
-  padding: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  margin-top: var(--space-2);
 }
 
 @media (max-width: 900px) {
   .search {
-    grid-template-columns: 1fr;
+    padding: var(--space-3);
     height: auto;
-    padding: var(--space-4);
+  }
+
+  .form {
+    grid-template-columns: 1fr;
   }
 }

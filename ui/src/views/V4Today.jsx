@@ -14,33 +14,34 @@ function entityPath(entity) {
 }
 
 function EntitySection({ title, items }) {
+  if (items.length === 0) return null;
   return (
     <section className={styles.panel}>
       <h2>
         {title}
-        {items.length > 0 && <span className={styles.count}>{items.length}</span>}
+        <span className={styles.count}>{items.length}</span>
       </h2>
-      {items.length === 0 ? (
-        <p className={styles.empty}>Nothing here.</p>
-      ) : (
-        <ul className={styles.list}>
-          {items.map((entity) => (
-            <li key={entity.id}>
-              <Link to={entityPath(entity)}>
-                <strong>{entity.title || 'Untitled'}</strong>
-                {entity.content && (
-                  <div className={`${mdStyles.md} ${mdStyles.mdCompact}`}>
-                    <MarkdownContent content={entity.content} />
-                  </div>
-                )}
-                <span>{entity.type} · {entity.status}</span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
+      <ul className={styles.list}>
+        {items.map((entity) => (
+          <li key={entity.id}>
+            <Link to={entityPath(entity)}>
+              <strong>{entity.title || 'Untitled'}</strong>
+              {entity.content && (
+                <div className={`${mdStyles.md} ${mdStyles.mdCompact}`}>
+                  <MarkdownContent content={entity.content} />
+                </div>
+              )}
+              <span>{entity.type} · {entity.status}</span>
+            </Link>
+          </li>
+        ))}
+      </ul>
     </section>
   );
+}
+
+function EmptyStub({ label }) {
+  return <span className={styles.emptyStub}>{label}</span>;
 }
 
 export default function V4Today() {
@@ -71,27 +72,35 @@ export default function V4Today() {
 
   const dateLabel = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
+  const sectionData = [
+    { key: 'follow_ups', title: 'Overdue and Today', items: today.follow_ups || [], stub: 'Nothing overdue' },
+    { key: 'blocked', title: 'Blocked or Waiting', items: today.blocked_or_waiting_tasks || [], stub: 'Nothing blocked' },
+    { key: 'idle', title: 'Projects Without Open Tasks', items: today.projects_without_open_tasks || [], stub: 'All projects active' },
+    { key: 'notes', title: 'Recent Notes', items: today.recent_notes || [], stub: 'No recent notes' },
+  ];
+
+  const pendingSuggestions = today.pending_suggestions || [];
+  const emptyStubs = sectionData.filter((s) => s.items.length === 0).map((s) => s.stub);
+  if (pendingSuggestions.length === 0) emptyStubs.push('No pending suggestions');
+
   return (
     <main className={styles.today}>
       <header className={styles.dateHeader}>
         <h1>{dateLabel}</h1>
       </header>
 
-      <EntitySection title="Overdue and Today" items={today.follow_ups || []} />
-      <EntitySection title="Blocked or Waiting" items={today.blocked_or_waiting_tasks || []} />
-      <EntitySection title="Projects Without Open Tasks" items={today.projects_without_open_tasks || []} />
-      <EntitySection title="Recent Notes" items={today.recent_notes || []} />
+      {sectionData.map((section) => (
+        <EntitySection key={section.key} title={section.title} items={section.items} />
+      ))}
 
-      <section className={styles.panel}>
-        <h2>
-          Suggestions
-          {today.pending_suggestions?.length > 0 && (
-            <span className={styles.count}>{today.pending_suggestions.length}</span>
-          )}
-        </h2>
-        {today.pending_suggestions?.length ? (
+      {pendingSuggestions.length > 0 && (
+        <section className={styles.panel}>
+          <h2>
+            Suggestions
+            <span className={styles.count}>{pendingSuggestions.length}</span>
+          </h2>
           <ul className={styles.list}>
-            {today.pending_suggestions.map((suggestion) => (
+            {pendingSuggestions.map((suggestion) => (
               <li key={suggestion.id}>
                 <Link to="/suggestions">
                   <strong>{suggestion.payload?.title || suggestion.suggestion_type}</strong>
@@ -100,10 +109,16 @@ export default function V4Today() {
               </li>
             ))}
           </ul>
-        ) : (
-          <p className={styles.empty}>No pending suggestions.</p>
-        )}
-      </section>
+        </section>
+      )}
+
+      {emptyStubs.length > 0 && (
+        <footer className={styles.emptyRow} aria-label="All clear sections">
+          {emptyStubs.map((label) => (
+            <EmptyStub key={label} label={label} />
+          ))}
+        </footer>
+      )}
     </main>
   );
 }

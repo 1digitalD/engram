@@ -2,6 +2,7 @@
 import React from 'react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Plus, X } from 'lucide-react';
 import { v4API } from '../api/v4Client';
 import MarkdownContent from '../components/MarkdownContent';
 import mdStyles from '../components/MarkdownContent.module.css';
@@ -85,11 +86,15 @@ export default function V4EntityList({ type }) {
           <span className={styles.countPill}>{entities.length}</span>
           <button
             type="button"
-            className={styles.addButton}
+            className={`${styles.addButton} ${styles.addButtonIcon}`}
             onClick={() => setOpen((v) => !v)}
             aria-expanded={open}
+            aria-label={open ? `Close new ${type}` : `New ${type}`}
+            title={open ? 'Close' : `New ${type}`}
           >
-            {open ? '✕' : `+ New ${type}`}
+            {open
+              ? <X size={14} strokeWidth={2.2} aria-hidden="true" />
+              : <Plus size={14} strokeWidth={2.2} aria-hidden="true" />}
           </button>
         </div>
         {open && (
