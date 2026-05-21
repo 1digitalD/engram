@@ -5,6 +5,7 @@ import { Archive, Plus, Save, Trash2, X } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { v4API } from '../api/v4Client';
 import MarkdownContent from '../components/MarkdownContent';
+import MarkdownEditor from '../components/MarkdownEditor';
 import styles from './V4EntityScreens.module.css';
 
 const statusOptions = {
@@ -109,7 +110,6 @@ export default function V4EntityDetail({ type: routeType }) {
     priority: '',
   });
   const [error, setError] = useState('');
-  const [editingContent, setEditingContent] = useState(false);
 
   async function loadDetail() {
     const response = await v4API.entities.detail(id);
@@ -324,32 +324,12 @@ export default function V4EntityDetail({ type: routeType }) {
             aria-label="Title"
             placeholder="Title"
           />
-          {editingContent ? (
-            <textarea
-              className={styles.detailContent}
-              value={draft.content}
-              onChange={(event) => setDraft((current) => ({ ...current, content: event.target.value }))}
-              aria-label="Content"
-              placeholder="Content — supports Markdown"
-              rows={6}
-              autoFocus
-              onBlur={() => setEditingContent(false)}
-            />
-          ) : (
-            <div
-              className={styles.detailContentPreview}
-              onClick={() => setEditingContent(true)}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => e.key === 'Enter' && setEditingContent(true)}
-              aria-label="Edit content"
-              title="Click to edit"
-            >
-              {draft.content
-                ? <MarkdownContent content={draft.content} />
-                : <span className={styles.contentPlaceholder}>Content — supports Markdown</span>}
-            </div>
-          )}
+          <MarkdownEditor
+            value={draft.content || ''}
+            onChange={(val) => setDraft((current) => ({ ...current, content: val }))}
+            placeholder="Content — supports Markdown"
+            minRows={6}
+          />
           <div className={styles.metaStrip}>
             <label className={styles.metaLabel}>
               <span>Status</span>

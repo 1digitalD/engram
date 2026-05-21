@@ -1,0 +1,166 @@
+.editor {
+  display: flex;
+  flex-direction: column;
+}
+
+/* The ProseMirror editable area */
+.prosemirror {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md, 8px);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  min-height: calc(var(--min-rows, 4) * 1.6 * var(--text-sm, 12px) + 20px);
+  outline: none;
+  padding: var(--space-3);
+  transition: border-color var(--duration-fast, 120ms) var(--ease-out, ease);
+  width: 100%;
+}
+
+.prosemirror:focus {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--border-focus) 15%, transparent);
+}
+
+/* Placeholder — use :global because Tiptap injects .is-editor-empty as a plain class */
+.prosemirror p:global(.is-editor-empty):first-child::before {
+  color: var(--text-muted);
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+/* ── Typography (mirrors MarkdownContent.module.css) ── */
+
+.prosemirror p {
+  margin: 0 0 0.6em;
+}
+
+.prosemirror p:last-child {
+  margin-bottom: 0;
+}
+
+.prosemirror h1,
+.prosemirror h2,
+.prosemirror h3,
+.prosemirror h4 {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  margin: 0.9em 0 0.3em;
+}
+
+.prosemirror h1 { font-size: var(--text-md); }
+.prosemirror h2 { font-size: var(--text-base); }
+.prosemirror h3,
+.prosemirror h4 { font-size: var(--text-sm); }
+
+.prosemirror h1:first-child,
+.prosemirror h2:first-child,
+.prosemirror h3:first-child {
+  margin-top: 0;
+}
+
+.prosemirror ul,
+.prosemirror ol {
+  margin: 0 0 0.6em 1.2em;
+  padding: 0;
+}
+
+.prosemirror li {
+  margin-bottom: 0.2em;
+}
+
+.prosemirror li > ul,
+.prosemirror li > ol {
+  margin-bottom: 0;
+}
+
+/* Task list */
+.prosemirror ul[data-type="taskList"] {
+  list-style: none;
+  margin-left: 0;
+}
+
+.prosemirror ul[data-type="taskList"] li {
+  align-items: flex-start;
+  display: flex;
+  gap: 6px;
+}
+
+.prosemirror ul[data-type="taskList"] li > label {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.prosemirror ul[data-type="taskList"] li > label input[type="checkbox"] {
+  accent-color: var(--green);
+}
+
+.prosemirror ul[data-type="taskList"] li > div {
+  flex: 1;
+}
+
+.prosemirror blockquote {
+  border-left: 3px solid var(--border);
+  color: var(--text-secondary);
+  margin: 0 0 0.6em;
+  padding: 2px 0 2px 12px;
+}
+
+.prosemirror code {
+  background: color-mix(in oklch, var(--accent) 8%, var(--surface));
+  border: 1px solid color-mix(in oklch, var(--accent) 18%, var(--border));
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  padding: 1px 5px;
+}
+
+.prosemirror pre {
+  background: var(--surface2);
+  border: 1px solid var(--border-faint);
+  border-radius: 8px;
+  margin: 0 0 0.6em;
+  overflow-x: auto;
+  padding: var(--space-3);
+}
+
+.prosemirror pre code {
+  background: none;
+  border: none;
+  font-size: var(--text-xs);
+  padding: 0;
+}
+
+.prosemirror a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in oklch, var(--accent) 40%, transparent);
+  text-underline-offset: 2px;
+}
+
+.prosemirror a:hover {
+  text-decoration-color: var(--accent);
+}
+
+.prosemirror hr {
+  border: none;
+  border-top: 1px solid var(--border-faint);
+  margin: 0.8em 0;
+}
+
+.prosemirror strong {
+  font-weight: 650;
+}
+
+.prosemirror em {
+  font-style: italic;
+}
+
+.prosemirror s {
+  text-decoration: line-through;
+}

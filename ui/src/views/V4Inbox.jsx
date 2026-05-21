@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { v4API } from '../api/v4Client';
 import MarkdownContent from '../components/MarkdownContent';
+import MarkdownEditor from '../components/MarkdownEditor';
 import mdStyles from '../components/MarkdownContent.module.css';
 import styles from './V4Inbox.module.css';
 
@@ -93,15 +94,14 @@ export default function V4Inbox() {
     <main className={styles.inbox}>
       <section className={styles.capturePanel}>
         <form onSubmit={handleSubmit} className={styles.form}>
-          <label htmlFor="capture-content" className={styles.srOnly}>Capture text</label>
-          <textarea
-            id="capture-content"
+          <MarkdownEditor
             value={content}
-            onChange={(event) => setContent(event.target.value)}
-            placeholder="Paste a note, reminder, task idea, person mention, or project update..."
-            rows={6}
+            onChange={(val) => { setContent(val); setResult(null); }}
+            placeholder="Paste a note, reminder, task idea, person mention, or project update…"
+            minRows={6}
+            autoFocus
           />
-          <button type="submit" disabled={!content.trim() || loading}>
+          <button type="submit" className={styles.captureButton} disabled={!content.trim() || loading}>
             {loading ? 'Capturing...' : 'Capture'}
           </button>
         </form>

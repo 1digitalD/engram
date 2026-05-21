@@ -53,6 +53,48 @@
   gap: var(--space-2);
 }
 
+.editorTabs {
+  display: flex;
+  gap: 2px;
+}
+
+.editorTab {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  padding: 2px 10px 4px;
+  transition: color var(--duration-fast) var(--ease-out),
+              border-color var(--duration-fast) var(--ease-out);
+}
+
+.editorTab:hover:not(:disabled) {
+  color: var(--text);
+}
+
+.editorTab:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
+.editorTabActive {
+  border-bottom-color: var(--accent);
+  color: var(--text);
+}
+
+.previewPane {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  min-height: 148px;
+  overflow-y: auto;
+  padding: var(--space-3);
+}
+
 .form textarea {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -69,7 +111,7 @@
   box-shadow: 0 0 0 2px var(--accent-dim);
 }
 
-.form button {
+.captureButton {
   align-self: flex-start;
   border: 1px solid var(--accent);
   border-radius: var(--radius-full);
@@ -83,12 +125,12 @@
   transition: background-color var(--duration-fast) var(--ease-out);
 }
 
-.form button:hover:not(:disabled) {
+.captureButton:hover:not(:disabled) {
   background: var(--accent-hover);
   border-color: var(--accent-hover);
 }
 
-.form button:disabled {
+.captureButton:disabled {
   cursor: not-allowed;
   opacity: 0.45;
 }

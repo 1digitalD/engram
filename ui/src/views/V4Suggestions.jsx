@@ -3,6 +3,7 @@ import React from 'react';
 import { useEffect, useState } from 'react';
 import { Check, Pencil, RefreshCw, RotateCcw, X } from 'lucide-react';
 import { v4API } from '../api/v4Client';
+import MarkdownEditor from '../components/MarkdownEditor';
 import styles from './V4Suggestions.module.css';
 
 const ENTITY_TYPES = ['task', 'project', 'area', 'resource', 'person'];
@@ -78,13 +79,11 @@ function SuggestionCard({ suggestion, onAccept, onDismiss, onUpdate, onReprocess
               ))}
             </select>
           </div>
-          <textarea
-            className={styles.editTextarea}
-            value={draft.content}
-            onChange={(e) => setDraft((d) => ({ ...d, content: e.target.value }))}
+          <MarkdownEditor
+            value={draft.content || ''}
+            onChange={(val) => setDraft((d) => ({ ...d, content: val }))}
             placeholder="Description"
-            aria-label="Description"
-            rows={3}
+            minRows={3}
           />
           {error && <p className={styles.editError}>{error}</p>}
           <div className={styles.editActions}>
