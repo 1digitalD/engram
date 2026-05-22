@@ -141,7 +141,7 @@ def search():
     mode = request.args.get("mode", "hybrid")
     entity_type = request.args.get("type")
     status = request.args.get("status")
-    lifecycle = request.args.get("lifecycle")
+    lifecycle = request.args.get("lifecycle", "active")
     limit = request.args.get("limit", 20, type=int)
 
     if entity_type and entity_type not in ENTITY_TYPES:

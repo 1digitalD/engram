@@ -1,13 +1,18 @@
 """V4 search service with keyword, semantic, and hybrid RRF modes."""
 
-import math
+import logging
+
+from sqlalchemy import or_, text as sql_text
 
 from extensions import db
 from models import Entity, EntityChunk
-from services.canonical_document import generate_canonical_markdown
+
+logger = logging.getLogger(__name__)
+
+TITLE_BOOST = 4.0
 
 
-def search_entities(query, mode="hybrid", entity_type=None, status=None, lifecycle=None, limit=20):
+def search_entities(query, mode="hybrid", entity_type=None, status=None, lifecycle="active", limit=20):
     mode = mode if mode in {"keyword", "semantic", "hybrid"} else "hybrid"
     limit = max(1, min(int(limit or 20), 100))
     filters = dict(entity_type=entity_type, status=status, lifecycle=lifecycle)
@@ -37,13 +42,27 @@ def _keyword_search(search_query, filters, limit):
     terms = [term.lower() for term in search_query.split() if term.strip()]
     if not terms:
         return []
+
+    query = _base_query(filters)
+    for term in terms:
+        query = query.filter(
+            or_(
+                Entity.title.ilike(f"%{term}%"),
+                Entity.content.ilike(f"%{term}%"),
+            )
+        )
+
     scored = []
-    for entity in _base_query(filters).all():
-        text = generate_canonical_markdown(entity).lower()
-        score = sum(text.count(term) for term in terms)
+    for entity in query.all():
+        title_text = (entity.title or "").lower()
+        content_text = (entity.content or "").lower()
+        title_score = sum(title_text.count(t) for t in terms) * TITLE_BOOST
+        content_score = sum(content_text.count(t) for t in terms)
+        score = title_score + content_score
         if score > 0:
-            scored.append((entity, float(score), _snippet(text, terms[0])))
-    scored.sort(key=lambda row: (-row[1], row[0].updated_at or row[0].created_at), reverse=False)
+            scored.append((entity, score, _snippet(content_text or title_text, terms[0])))
+
+    scored.sort(key=lambda row: -row[1])
     return scored[:limit]
 
 
@@ -54,19 +73,54 @@ def _semantic_search(search_query, filters, limit):
     if not query_vector:
         return []
 
-    entity_ids = {entity.id for entity in _base_query(filters).all()}
+    vec_str = "[" + ",".join(str(v) for v in query_vector) + "]"
+    prelimit = limit * 5
+
+    conds = []
+    params = {"qvec": vec_str, "prelimit": prelimit}
+    if filters.get("lifecycle"):
+        conds.append("e.lifecycle = :lifecycle")
+        params["lifecycle"] = filters["lifecycle"]
+    if filters.get("entity_type"):
+        conds.append("e.type = :entity_type")
+        params["entity_type"] = filters["entity_type"]
+    if filters.get("status"):
+        conds.append("e.status = :status")
+        params["status"] = filters["status"]
+
+    where = ("WHERE " + " AND ".join(conds)) if conds else ""
+    sql = sql_text(f"""
+        SELECT ec.entity_id, ec.chunk_text, 1 - (ec.embedding <=> CAST(:qvec AS vector)) AS score
+        FROM entity_chunks ec
+        JOIN entities e ON e.id = ec.entity_id
+        {where}
+        ORDER BY ec.embedding <=> CAST(:qvec AS vector)
+        LIMIT :prelimit
+    """)
+
+    try:
+        rows = db.session.execute(sql, params).fetchall()
+    except Exception as e:
+        logger.error("semantic search SQL failed: %s", e)
+        db.session.rollback()
+        return []
+
     best = {}
-    chunks = EntityChunk.query.filter(EntityChunk.entity_id.in_(entity_ids)).all() if entity_ids else []
-    for chunk in chunks:
-        vector = chunk.embedding
-        if not vector:
-            continue
-        score = _cosine(query_vector, vector)
-        current = best.get(chunk.entity_id)
-        if current is None or score > current[1]:
-            best[chunk.entity_id] = (chunk.entity, score, chunk.chunk_text[:160])
-    ranked = sorted(best.values(), key=lambda row: row[1], reverse=True)
-    return ranked[:limit]
+    for entity_id, chunk_text, score in rows:
+        if entity_id not in best or score > best[entity_id][1]:
+            best[entity_id] = (entity_id, float(score), chunk_text)
+
+    if not best:
+        return []
+
+    ranked_ids = sorted(best, key=lambda eid: best[eid][1], reverse=True)[:limit]
+    entities_by_id = {e.id: e for e in Entity.query.filter(Entity.id.in_(ranked_ids)).all()}
+
+    return [
+        (entities_by_id[eid], best[eid][1], _entity_snippet(entities_by_id[eid], best[eid][2]))
+        for eid in ranked_ids
+        if eid in entities_by_id
+    ]
 
 
 def _rrf(keyword_ranked, semantic_ranked, k=60):
@@ -97,18 +151,16 @@ def _format_results(ranked, keyword_ranked, semantic_ranked, limit):
     return results
 
 
-def _cosine(a, b):
-    dot = sum(x * y for x, y in zip(a, b))
-    norm_a = math.sqrt(sum(x * x for x in a))
-    norm_b = math.sqrt(sum(y * y for y in b))
-    if norm_a == 0 or norm_b == 0:
-        return 0.0
-    return dot / (norm_a * norm_b)
-
-
 def _snippet(text, term):
     index = text.find(term)
     if index < 0:
         return text[:160]
     start = max(0, index - 60)
     return text[start:start + 160]
+
+
+def _entity_snippet(entity, chunk_text):
+    content = (entity.content or "").strip()
+    if content:
+        return content[:160]
+    return (entity.title or "")[:160]
