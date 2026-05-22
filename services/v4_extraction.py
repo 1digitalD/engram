@@ -77,6 +77,15 @@ Return this exact schema (all fields required, use empty arrays not null):
 """
 
 
+def normalize_candidates(payload: dict) -> dict:
+    """Normalize and validate a pre-extracted candidates payload.
+
+    Accepts the same schema as the extraction output so a calling agent can
+    skip the LLM step and submit structured candidates directly to reconciliation.
+    """
+    return _normalize_payload(payload)
+
+
 def extract_capture_candidates(content, mode="auto"):
     """Return extraction candidates for a captured note.
 

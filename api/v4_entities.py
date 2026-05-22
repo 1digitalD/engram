@@ -636,6 +636,33 @@ def dismiss_suggestion(suggestion_id):
     return jsonify({"data": suggestion.to_dict()})
 
 
+@api_v4_bp.route("/entities/<entity_id>/ingest_candidates", methods=["POST"])
+def ingest_candidates(entity_id):
+    """Accept pre-extracted candidates from a calling agent, bypassing LLM extraction."""
+    entity = _load_entity(entity_id)
+    if entity is None:
+        return _error("entity not found", 404)
+    if entity.type != "note":
+        return _error("ingest_candidates is only supported for notes")
+
+    from services.v4_extraction import normalize_candidates
+    extraction = normalize_candidates(request.get_json(silent=True) or {})
+
+    try:
+        applied_changes, suggestions = _reconcile_capture_candidates(entity, extraction)
+    except Exception as exc:
+        db.session.rollback()
+        return _error(f"reconciliation failed: {exc}", 500)
+
+    db.session.commit()
+    return jsonify({
+        "source_note": _load_entity(entity.id).to_dict(),
+        "applied_changes": applied_changes,
+        "suggestions": suggestions,
+        "warnings": [],
+    })
+
+
 @api_v4_bp.route("/entities/<entity_id>/reprocess", methods=["POST"])
 def reprocess_entity(entity_id):
     entity = _load_entity(entity_id)
