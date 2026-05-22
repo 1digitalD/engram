@@ -83,26 +83,19 @@ def is_summary_stale(entity) -> bool:
     """True if any linked note was created after the last summarization."""
     if entity.ai_summarized_at is None:
         return False  # no summary yet — not stale, just absent
+    from extensions import db
     from models import Entity, EntityLink
-    linked_note_ids = (
-        db_session()
-        .query(EntityLink.source_entity_id)
-        .join(Entity, Entity.id == EntityLink.source_entity_id)
+    newest = (
+        db.session.query(Entity.created_at)
+        .join(EntityLink, EntityLink.source_entity_id == Entity.id)
         .filter(
             EntityLink.target_entity_id == entity.id,
             Entity.type == "note",
             Entity.lifecycle == "active",
         )
-        .subquery()
-    )
-    from extensions import db
-    from sqlalchemy import select
-    newest = db.session.execute(
-        select(Entity.created_at)
-        .where(Entity.id.in_(linked_note_ids))
         .order_by(Entity.created_at.desc())
-        .limit(1)
-    ).scalar()
+        .scalar()
+    )
     if newest is None:
         return False
     summarized = entity.ai_summarized_at
@@ -205,6 +198,3 @@ def _call_model(entity, notes: list[dict]) -> str | None:
         return None
 
 
-def db_session():
-    from extensions import db
-    return db.session

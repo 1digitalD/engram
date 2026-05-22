@@ -96,7 +96,7 @@ def reconcile_candidates(candidates):
     decisions = _call_model(enriched)
 
     # Pad / fill defaults so caller always gets len(candidates) decisions
-    default = {"action": "new", "target_id": None, "fields": {}, "content_append": None, "relationship_type": None, "confidence": 0.0, "reason": ""}
+    default = {"action": "new", "target_id": None, "fields": {}, "relationship_type": None, "confidence": 0.0, "reason": ""}
     while len(decisions) < len(candidates):
         decisions.append(dict(default))
 
