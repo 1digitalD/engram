@@ -519,18 +519,50 @@ function RelationshipSegment({
   );
 }
 
+function relativeDate(iso) {
+  if (!iso) return null;
+  const now = new Date();
+  const date = new Date(iso);
+  const diffMs = now - date;
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffMins < 1) return 'just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString();
+}
+
 function LinkedEntityRow({ item, onRemove, onQuickStatus, showType = false }) {
+  const tags = item.entity.tags || [];
+  const visibleTags = tags.slice(0, 2);
+  const overflowCount = tags.length - visibleTags.length;
+
+  function tagName(tag) {
+    return tag.name || tag;
+  }
+
   return (
     <li>
       <Link to={pathForEntity(item.entity)}>
         <strong>{item.entity.title || 'Untitled'}</strong>
         <span className={styles.metaRow}>
           {showType && <span className={styles.typePill}>{item.entity.type}</span>}
+          {item.entity.created_at && <span className={styles.mutedMeta}>{relativeDate(item.entity.created_at)}</span>}
           <span className={styles.statusPill}>{item.entity.status}</span>
           <span className={styles.relationshipPill}>{item.relationship.relationship_type}</span>
         </span>
         {item.entity.due_at && <span className={styles.mutedMeta}>Due {new Date(item.entity.due_at).toLocaleString()}</span>}
-        {item.entity.properties?.priority && <span className={styles.priorityPill}>Priority {item.entity.properties.priority}</span>}
+        {item.entity.properties?.priority && <span className={styles.priorityPill}>P{item.entity.properties.priority}</span>}
+        {tags.length > 0 && (
+          <span className={styles.tagStrip}>
+            {visibleTags.map((tag) => (
+              <span key={tag.id || tag} className={styles.tagPill}>{tagName(tag)}</span>
+            ))}
+            {overflowCount > 0 && <span className={styles.tagPillOverflow}>+{overflowCount}</span>}
+          </span>
+        )}
       </Link>
       <div className={styles.cardActions}>
         {item.entity.type === 'task' && (
