@@ -17,6 +17,28 @@ const pluralTitle = {
   resource: 'Resources',
 };
 
+function formatRelativeDate(iso) {
+  if (!iso) return null;
+  const now = new Date();
+  const date = new Date(iso);
+  const diffMs = now - date;
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffMins < 1) return 'just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString();
+}
+
+function formatDate(iso) {
+  if (!iso) return null;
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? null : date.toLocaleDateString();
+}
+
 function detailPath(entity) {
   const base = entity.type === 'person' ? 'people' : `${entity.type}s`;
   return `/${base}/${entity.id}`;
@@ -136,11 +158,30 @@ export default function V4EntityList({ type }) {
                     </div>
                   )}
                   <span className={styles.metaRow}>
+                    <span className={styles.mutedMeta}>{formatRelativeDate(entity.created_at)}</span>
                     <span className={styles.statusPill}>{entity.status}</span>
                     {entity.properties?.priority && (
-                      <span className={styles.priorityPill}>Priority {entity.properties.priority}</span>
+                      <span className={styles.priorityPill}>P{entity.properties.priority}</span>
+                    )}
+                    {entity.due_at && (
+                      <span className={styles.dueMeta}>Due {formatDate(entity.due_at)}</span>
                     )}
                   </span>
+                  {entity.tags && entity.tags.length > 0 && (
+                    <span className={styles.tagStrip}>
+                      {entity.tags.slice(0, 3).map((tag) => (
+                        <span key={tag.id || tag.name} className={styles.tagPill}>{tag.name}</span>
+                      ))}
+                      {entity.tags.length > 3 && (
+                        <span className={styles.tagPillOverflow}>+{entity.tags.length - 3}</span>
+                      )}
+                    </span>
+                  )}
+                  {entity.relationship_counts && (entity.relationship_counts.outgoing + entity.relationship_counts.incoming) > 0 && (
+                    <span className={styles.relCount}>
+                      {entity.relationship_counts.outgoing + entity.relationship_counts.incoming} links
+                    </span>
+                  )}
                 </Link>
               </li>
             ))}
