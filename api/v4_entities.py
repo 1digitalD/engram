@@ -1111,11 +1111,12 @@ def _reconcile_capture_candidates(note, extraction):
         applied_changes.append({"type": "title_updated", "title": note.title})
         _write_event(
             note,
-            "ai_title_set",
+            "ai_updated",
             old_value={"title": old_title},
             new_value={"title": note.title},
             actor="agent:v4-capture",
             confidence=extraction.get("confidence"),
+            reason="ai_title_set",
         )
 
     if summary:
