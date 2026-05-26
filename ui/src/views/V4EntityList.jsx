@@ -5,7 +5,6 @@ import { Link } from 'react-router-dom';
 import { Plus, X } from 'lucide-react';
 import { v4API } from '../api/v4Client';
 import MarkdownContent from '../components/MarkdownContent';
-import mdStyles from '../components/MarkdownContent.module.css';
 import styles from './V4EntityScreens.module.css';
 
 const pluralTitle = {
@@ -22,6 +21,43 @@ function detailPath(entity) {
   return `/${base}/${entity.id}`;
 }
 
+function formatShortDate(value) {
+  if (!value) return null;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+const SORT_OPTIONS = [
+  { value: 'updated_desc', label: 'Recently updated' },
+  { value: 'created_desc', label: 'Recently created' },
+  { value: 'due_asc', label: 'Due date (soonest)' },
+  { value: 'title_asc', label: 'Title (A–Z)' },
+  { value: 'status_asc', label: 'Status' },
+];
+
+function sortEntities(entities, sortBy) {
+  const sorted = [...entities];
+  const dateVal = (v) => (v ? new Date(v).getTime() : 0);
+  switch (sortBy) {
+    case 'created_desc':
+      return sorted.sort((a, b) => dateVal(b.created_at) - dateVal(a.created_at));
+    case 'due_asc':
+      return sorted.sort((a, b) => {
+        const av = a.due_at ? dateVal(a.due_at) : Infinity;
+        const bv = b.due_at ? dateVal(b.due_at) : Infinity;
+        return av - bv;
+      });
+    case 'title_asc':
+      return sorted.sort((a, b) => (a.title || '').localeCompare(b.title || '', undefined, { sensitivity: 'base' }));
+    case 'status_asc':
+      return sorted.sort((a, b) => (a.status || '').localeCompare(b.status || '') || dateVal(b.updated_at) - dateVal(a.updated_at));
+    case 'updated_desc':
+    default:
+      return sorted.sort((a, b) => dateVal(b.updated_at) - dateVal(a.updated_at));
+  }
+}
+
 export default function V4EntityList({ type }) {
   const [entities, setEntities] = useState([]);
   const [title, setTitle] = useState('');
@@ -29,6 +65,7 @@ export default function V4EntityList({ type }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
+  const [sortBy, setSortBy] = useState('updated_desc');
 
   useEffect(() => {
     let active = true;
@@ -84,6 +121,19 @@ export default function V4EntityList({ type }) {
         <div className={styles.listHeading}>
           <h1>{pluralTitle[type]}</h1>
           <span className={styles.countPill}>{entities.length}</span>
+          <div className={styles.listHeadingSpacer} />
+          <label className={styles.sortControl}>
+            <span className={styles.sortLabel}>Sort</span>
+            <select
+              value={sortBy}
+              onChange={(event) => setSortBy(event.target.value)}
+              aria-label={`Sort ${pluralTitle[type].toLowerCase()}`}
+            >
+              {SORT_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </label>
           <button
             type="button"
             className={`${styles.addButton} ${styles.addButtonIcon}`}
@@ -126,24 +176,38 @@ export default function V4EntityList({ type }) {
           <p className={styles.emptyText}>No {pluralTitle[type].toLowerCase()} yet.</p>
         ) : (
           <ul className={styles.cards}>
-            {entities.map((entity) => (
-              <li key={entity.id}>
-                <Link to={detailPath(entity)}>
-                  <strong>{entity.title || 'Untitled'}</strong>
-                  {entity.content && (
-                    <div className={`${mdStyles.md} ${mdStyles.mdCompact}`}>
-                      <MarkdownContent content={entity.content} />
-                    </div>
-                  )}
-                  <span className={styles.metaRow}>
-                    <span className={styles.statusPill}>{entity.status}</span>
-                    {entity.properties?.priority && (
-                      <span className={styles.priorityPill}>Priority {entity.properties.priority}</span>
+            {sortEntities(entities, sortBy).map((entity) => {
+              const created = formatShortDate(entity.created_at);
+              const due = formatShortDate(entity.due_at);
+              const isOverdue = entity.due_at && new Date(entity.due_at).getTime() < Date.now()
+                && entity.status !== 'done' && entity.status !== 'completed' && entity.status !== 'cancelled';
+              return (
+                <li key={entity.id}>
+                  <Link to={detailPath(entity)}>
+                    <strong>{entity.title || 'Untitled'}</strong>
+                    {entity.content && (
+                      <MarkdownContent content={entity.content} compact />
                     )}
-                  </span>
-                </Link>
-              </li>
-            ))}
+                    <span className={styles.metaRow}>
+                      <span className={styles.statusPill}>{entity.status}</span>
+                      {entity.properties?.priority && (
+                        <span className={styles.priorityPill}>Priority {entity.properties.priority}</span>
+                      )}
+                      {due && (
+                        <span className={`${styles.mutedMeta} ${isOverdue ? styles.dueOverdue : ''}`} title={`Due ${due}`}>
+                          Due {due}
+                        </span>
+                      )}
+                      {created && (
+                        <span className={styles.mutedMeta} title={`Created ${created}`}>
+                          Created {created}
+                        </span>
+                      )}
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>

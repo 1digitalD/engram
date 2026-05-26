@@ -130,6 +130,8 @@ describe('v4 entity screens', () => {
 
     expect(await screen.findByText('Memory Lookup')).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'done' } });
+    // Due date is an inline button until clicked; click to enter edit mode, then change.
+    fireEvent.click(screen.getByRole('button', { name: 'Due date' }));
     fireEvent.change(screen.getByLabelText('Due date'), { target: { value: '2026-05-21T17:00' } });
     fireEvent.change(screen.getByLabelText('Priority'), { target: { value: 'high' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
@@ -177,7 +179,7 @@ describe('v4 entity screens', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByDisplayValue('Captured note')).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Title' })).toHaveTextContent('Captured note');
     expect(screen.queryByLabelText('Due date')).not.toBeInTheDocument();
     expect(screen.getByLabelText('Follow-up date')).toBeInTheDocument();
 
@@ -222,10 +224,10 @@ describe('v4 entity screens', () => {
       </MemoryRouter>,
     );
 
-    // Expand the Tasks action panel first
-    const addButtons = await screen.findAllByRole('button', { name: /^Add /i });
-    fireEvent.click(addButtons[0]);
+    // Open the Tasks add modal, then switch to "Create new" tab
+    fireEvent.click(await screen.findByRole('button', { name: 'Add task' }));
 
+    fireEvent.click(await screen.findByRole('tab', { name: 'Create new' }));
     fireEvent.change(await screen.findByLabelText('Tasks title'), { target: { value: 'Draft rollout' } });
     fireEvent.change(screen.getByLabelText('Tasks due date'), { target: { value: '2026-05-22T12:00' } });
     fireEvent.change(screen.getByLabelText('Tasks priority'), { target: { value: 'urgent' } });
@@ -279,10 +281,10 @@ describe('v4 entity screens', () => {
       </MemoryRouter>,
     );
 
-    // Expand the Notes action panel (second "+ Add" button for project: Tasks, Notes, People, Resources)
-    const addButtons = await screen.findAllByRole('button', { name: /^Add /i });
-    fireEvent.click(addButtons[1]);
+    // Open the Notes add modal, then switch to "Create new"
+    fireEvent.click(await screen.findByRole('button', { name: 'Add note' }));
 
+    fireEvent.click(await screen.findByRole('tab', { name: 'Create new' }));
     fireEvent.change(await screen.findByLabelText('Notes title'), { target: { value: 'Meeting note' } });
     fireEvent.click(screen.getByRole('button', { name: 'Add project note' }));
 
@@ -332,13 +334,14 @@ describe('v4 entity screens', () => {
       </MemoryRouter>,
     );
 
-    // Expand the Tasks action panel, then switch to Existing
-    const addButtons = await screen.findAllByRole('button', { name: /^Add /i });
-    fireEvent.click(addButtons[0]);
+    // Open the Tasks add modal — default tab is "Link existing", which renders a combobox.
+    fireEvent.click(await screen.findByRole('button', { name: 'Add task' }));
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Existing' }));
-    fireEvent.change(screen.getByLabelText('Existing Tasks'), { target: { value: 't3' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Add existing task' }));
+    const combobox = await screen.findByLabelText('Search and link Tasks');
+    fireEvent.focus(combobox);
+    fireEvent.change(combobox, { target: { value: 'Existing' } });
+    const option = await screen.findByRole('option', { name: /Existing task/i });
+    fireEvent.mouseDown(option);
 
     await waitFor(() => expect(v4API.relationships.create).toHaveBeenCalledWith('t3', {
       target_entity_id: 'p1',

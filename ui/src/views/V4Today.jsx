@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { v4API } from '../api/v4Client';
 import MarkdownContent from '../components/MarkdownContent';
-import mdStyles from '../components/MarkdownContent.module.css';
 import styles from './V4Today.module.css';
 
 function entityPath(entity) {
@@ -27,9 +26,7 @@ function EntitySection({ title, items }) {
             <Link to={entityPath(entity)}>
               <strong>{entity.title || 'Untitled'}</strong>
               {entity.content && (
-                <div className={`${mdStyles.md} ${mdStyles.mdCompact}`}>
-                  <MarkdownContent content={entity.content} />
-                </div>
+                <MarkdownContent content={entity.content} compact />
               )}
               <span>{entity.type} · {entity.status}</span>
             </Link>

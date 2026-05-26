@@ -5,7 +5,6 @@ import { Link } from 'react-router-dom';
 import { v4API } from '../api/v4Client';
 import MarkdownContent from '../components/MarkdownContent';
 import MarkdownEditor from '../components/MarkdownEditor';
-import mdStyles from '../components/MarkdownContent.module.css';
 import styles from './V4Inbox.module.css';
 
 function entityTitle(entity) {
@@ -158,9 +157,7 @@ export default function V4Inbox() {
                     )}
                   </div>
                   {note.content && (
-                    <div className={`${mdStyles.md} ${mdStyles.mdCompact}`}>
-                      <MarkdownContent content={note.content} />
-                    </div>
+                    <MarkdownContent content={note.content} compact />
                   )}
                 </Link>
               </li>

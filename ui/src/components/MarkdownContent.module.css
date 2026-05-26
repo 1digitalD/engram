@@ -132,29 +132,15 @@
   font-weight: 650;
 }
 
-/* Compact variant for list previews */
+/* Compact variant for list previews — plain text, 2-line clamp. */
 .mdCompact {
-  overflow: hidden;
+  color: var(--text-secondary);
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  font-weight: 400;
   -webkit-box-orient: vertical;
-}
-
-.mdCompact p,
-.mdCompact ul,
-.mdCompact ol,
-.mdCompact blockquote,
-.mdCompact pre,
-.mdCompact h1,
-.mdCompact h2,
-.mdCompact h3,
-.mdCompact h4 {
-  display: inline;
-  font-size: inherit;
-  font-weight: 600;
-  margin: 0;
-}
-
-.mdCompact li::before {
-  content: '· ';
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  white-space: normal;
+  word-break: break-word;
 }

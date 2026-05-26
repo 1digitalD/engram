@@ -6,15 +6,19 @@ are safe to apply and which must become reviewable suggestions.
 from __future__ import annotations
 
 import json
+import logging
 import os
 
 from utils import get_openai_client
 
+logger = logging.getLogger(__name__)
+
 EXTRACTION_MODEL = os.getenv("OPENAI_EXTRACTION_MODEL", "gpt-4o")
 ALLOWED_ENTITY_TYPES = {"task", "project", "area", "person", "resource"}
 ALLOWED_RELATIONSHIP_TYPES = {"parent", "related", "derived_from", "mentions", "assigned_to", "references", "blocks"}
+EXISTING_ENTITY_LIMIT = 10
 
-SYSTEM_PROMPT = """You are an extraction engine for a personal knowledge workspace. \
+SYSTEM_PROMPT_TEMPLATE = """You are an extraction engine for a personal knowledge workspace. \
 Analyze the note below and return JSON with metadata, link candidates, and entity creation candidates.
 
 RULES:
@@ -23,6 +27,14 @@ RULES:
 - Be exhaustive: extract every actionable item, person, project, area, and resource mentioned.
 - Prefer over-extraction — the reconciliation layer decides what to apply.
 - Confidence: 0.9+ explicit/unambiguous, 0.7–0.9 strongly implied, 0.5–0.7 inferred, <0.5 speculative.
+- EXISTING_ENTITIES below lists real projects and areas already in the workspace. \
+Treat them two ways at once:
+    (a) Direct references: if the note refers to one of these (even loosely / paraphrased), \
+reuse its exact title verbatim so the reconciler can match it. Do not invent a variant, \
+do not change capitalization, do not pluralize.
+    (b) Few-shot examples: they show the level of granularity and naming style this workspace \
+uses for "project" and "area". When extracting NEW projects or areas, follow the same shape \
+(scope, specificity, phrasing) as these examples.
 
 ENTITY TYPES — use exactly these strings:
   "task"     — A discrete action item with a clear done state. Signals: action verbs, \
@@ -53,6 +65,8 @@ Extract topic tags, status hints, and domain labels useful for filtering (e.g. "
 
 Return this exact schema (all fields required, use empty arrays not null):
 {
+  "title": "5–8 word headline-style title capturing what the note is about. \
+No trailing punctuation. Sentence case. Concrete and specific (avoid 'Note about X').",
   "summary": "1–2 sentence summary of what this note is about",
   "confidence": 0.0,
   "tags": [{"name": "tag", "confidence": 0.0}],
@@ -75,6 +89,57 @@ Return this exact schema (all fields required, use empty arrays not null):
   }]
 }
 """
+
+# Backwards-compatible alias for tests / other importers.
+SYSTEM_PROMPT = SYSTEM_PROMPT_TEMPLATE
+
+
+def _recent_existing_entities(limit=EXISTING_ENTITY_LIMIT):
+    """Fetch the most recently updated active projects and areas.
+
+    Returns a dict {"project": [titles], "area": [titles]}. Returns empty
+    lists if no Flask app context or DB is available.
+    """
+    try:
+        from models import Entity
+    except Exception:
+        return {"project": [], "area": []}
+
+    out = {"project": [], "area": []}
+    for entity_type in ("project", "area"):
+        try:
+            rows = (
+                Entity.query
+                .filter(Entity.type == entity_type, Entity.lifecycle == "active")
+                .order_by(Entity.updated_at.desc())
+                .limit(limit)
+                .all()
+            )
+            out[entity_type] = [r.title for r in rows if r.title]
+        except Exception as exc:
+            logger.warning("failed to fetch recent %s entities: %s", entity_type, exc)
+            out[entity_type] = []
+    return out
+
+
+def _format_existing_entities_block(existing):
+    """Render the EXISTING_ENTITIES section appended to the system prompt."""
+    def fmt(items):
+        return "\n".join(f"- {t}" for t in items) if items else "- (none yet)"
+
+    return (
+        "\n\nEXISTING_ENTITIES (use as direct references AND as few-shot examples "
+        "for the corresponding type):\n"
+        "Projects:\n"
+        f"{fmt(existing.get('project') or [])}\n"
+        "Areas:\n"
+        f"{fmt(existing.get('area') or [])}\n"
+    )
+
+
+def _build_system_prompt():
+    existing = _recent_existing_entities()
+    return SYSTEM_PROMPT_TEMPLATE + _format_existing_entities_block(existing)
 
 
 def normalize_candidates(payload: dict) -> dict:
@@ -110,7 +175,7 @@ def extract_capture_candidates(content, mode="auto"):
         temperature=0,
         response_format={"type": "json_object"},
         messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": _build_system_prompt()},
             {"role": "user", "content": content[:12000]},
         ],
     )
@@ -123,6 +188,7 @@ def _normalize_payload(payload):
         return {}
 
     return {
+        "title": _text(payload.get("title")),
         "summary": _text(payload.get("summary")),
         "confidence": _confidence(payload.get("confidence")),
         "tags": _normalize_items(payload.get("tags"), _normalize_tag),

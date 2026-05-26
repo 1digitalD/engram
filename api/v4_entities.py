@@ -72,15 +72,16 @@ def capture():
     if not content:
         return _error("content is required")
 
+    user_title = (data.get("title") or "").strip() or None
     note = Entity(
         type="note",
-        title=data.get("title") or _title_from_content(content),
+        title=user_title or _title_from_content(content),
         content=content,
         status="active",
         lifecycle="active",
         source=data.get("source") or "quick_capture",
         properties={},
-        ai_meta={},
+        ai_meta={"title_auto": user_title is None},
         ai_status="pending",
     )
     db.session.add(note)
@@ -343,6 +344,11 @@ def update_entity(entity_id):
     for field in ("title", "content", "source", "reference_url"):
         if field in data:
             setattr(entity, field, data[field])
+    if "title" in data and entity.type == "note" and (entity.ai_meta or {}).get("title_auto"):
+        ai_meta = dict(entity.ai_meta or {})
+        ai_meta["title_auto"] = False
+        entity.ai_meta = ai_meta
+        flag_modified(entity, "ai_meta")
     if "follow_up_at" in data:
         follow_up_at, follow_up_error = _parse_datetime_or_error(data["follow_up_at"])
         if follow_up_error:
@@ -1095,8 +1101,24 @@ def _reconcile_capture_candidates(note, extraction):
     suggestions = []
 
     summary = _clean_text(extraction.get("summary"))
+    ai_title = _clean_text(extraction.get("title"))
+    ai_meta = dict(note.ai_meta or {})
+    title_auto = ai_meta.get("title_auto", False)
+
+    if ai_title and title_auto and note.type == "note":
+        old_title = note.title
+        note.title = ai_title[:160]
+        applied_changes.append({"type": "title_updated", "title": note.title})
+        _write_event(
+            note,
+            "ai_title_set",
+            old_value={"title": old_title},
+            new_value={"title": note.title},
+            actor="agent:v4-capture",
+            confidence=extraction.get("confidence"),
+        )
+
     if summary:
-        ai_meta = dict(note.ai_meta or {})
         ai_meta["summary"] = summary
         if extraction.get("confidence") is not None:
             ai_meta["confidence"] = extraction.get("confidence")
@@ -1111,6 +1133,10 @@ def _reconcile_capture_candidates(note, extraction):
             actor="agent:v4-capture",
             confidence=extraction.get("confidence"),
         )
+    elif ai_title and title_auto:
+        # Title set but no summary — still need to persist ai_meta if we touched it.
+        note.ai_meta = ai_meta
+        flag_modified(note, "ai_meta")
 
     for tag_candidate in extraction.get("tags") or []:
         name = _candidate_value(tag_candidate, "name")

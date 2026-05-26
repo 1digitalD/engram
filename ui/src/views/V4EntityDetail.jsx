@@ -1,7 +1,7 @@
 /* eslint-disable no-unused-vars */
 import React from 'react';
 import { useEffect, useState } from 'react';
-import { Archive, Plus, Save, Trash2, X } from 'lucide-react';
+import { Archive, Plus, RefreshCw, Save, Trash2, X } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { v4API } from '../api/v4Client';
 import MarkdownContent from '../components/MarkdownContent';
@@ -23,7 +23,7 @@ const actionConfigs = {
   project: [
     { key: 'task', sectionKeys: ['open_tasks', 'completed_tasks'], title: 'Tasks', type: 'task', relationship: 'parent', direction: 'incoming', primary: 'Add new task', existing: 'Add existing task', taskFields: true },
     { key: 'note', sectionKeys: ['notes'], title: 'Notes', type: 'note', relationship: 'related', direction: 'outgoing', primary: 'Add project note', existing: 'Link existing note' },
-    { key: 'person', sectionKeys: ['people'], title: 'People', type: 'person', relationship: 'assigned_to', direction: 'outgoing', primary: 'Add new person', existing: 'Add existing person' },
+    { key: 'person', sectionKeys: ['people'], title: 'People', type: 'person', relationship: 'assigned_to', direction: 'outgoing', primary: 'Add new person', existing: 'Add existing person', size: 'narrow' },
     { key: 'resource', sectionKeys: ['resources'], title: 'Resources', type: 'resource', relationship: 'references', direction: 'outgoing', primary: 'Add new resource', existing: 'Add existing resource' },
   ],
   area: [
@@ -33,32 +33,32 @@ const actionConfigs = {
     { key: 'resource', sectionKeys: ['resources'], title: 'Resources', type: 'resource', relationship: 'references', direction: 'outgoing', primary: 'Add new resource', existing: 'Add existing resource' },
   ],
   task: [
-    { key: 'project', sectionKeys: ['project'], title: 'Project', type: 'project', relationship: 'parent', direction: 'outgoing', existing: 'Move/link to project' },
-    { key: 'area', sectionKeys: ['area'], title: 'Area', type: 'area', relationship: 'parent', direction: 'outgoing', existing: 'Move/link to area' },
-    { key: 'person', sectionKeys: ['people'], title: 'Assignee', type: 'person', relationship: 'assigned_to', direction: 'outgoing', primary: 'Create and assign person', existing: 'Assign existing person' },
+    { key: 'project', sectionKeys: ['project'], title: 'Project', type: 'project', relationship: 'parent', direction: 'outgoing', primary: 'Create new project', existing: 'Move/link to project' },
+    { key: 'area', sectionKeys: ['area'], title: 'Area', type: 'area', relationship: 'parent', direction: 'outgoing', primary: 'Create new area', existing: 'Move/link to area', size: 'narrow' },
+    { key: 'person', sectionKeys: ['people'], title: 'Assignee', type: 'person', relationship: 'assigned_to', direction: 'outgoing', primary: 'Create and assign person', existing: 'Assign existing person', size: 'narrow' },
     { key: 'note', sectionKeys: ['source_notes', 'related_notes'], title: 'Notes', type: 'note', relationship: 'derived_from', direction: 'outgoing', primary: 'Add source note', existing: 'Attach existing note' },
     { key: 'resource', sectionKeys: ['resources'], title: 'Resources', type: 'resource', relationship: 'references', direction: 'outgoing', primary: 'Add resource', existing: 'Attach existing resource' },
-    { key: 'blocker', sectionKeys: ['blocking'], title: 'Blocked By', type: 'task', relationship: 'blocks', direction: 'incoming', existing: 'Add blocking task' },
+    { key: 'blocker', sectionKeys: ['blocking'], title: 'Blocked By', type: 'task', relationship: 'blocks', direction: 'incoming', primary: 'Create blocking task', existing: 'Add blocking task', taskFields: true },
   ],
   note: [
     { key: 'task', sectionKeys: ['derived_tasks'], title: 'Derived Tasks', type: 'task', relationship: 'derived_from', direction: 'incoming', primary: 'Create task from note', existing: 'Link existing task', taskFields: true },
     { key: 'project', sectionKeys: ['projects'], title: 'Projects', type: 'project', relationship: 'related', direction: 'outgoing', primary: 'Add new project', existing: 'Link existing project' },
-    { key: 'area', sectionKeys: ['areas'], title: 'Areas', type: 'area', relationship: 'related', direction: 'outgoing', existing: 'Link existing area' },
-    { key: 'person', sectionKeys: ['people_mentioned'], title: 'People Mentioned', type: 'person', relationship: 'mentions', direction: 'outgoing', primary: 'Add mentioned person', existing: 'Link existing person' },
+    { key: 'area', sectionKeys: ['areas'], title: 'Areas', type: 'area', relationship: 'related', direction: 'outgoing', existing: 'Link existing area', size: 'narrow' },
+    { key: 'person', sectionKeys: ['people_mentioned'], title: 'People Mentioned', type: 'person', relationship: 'mentions', direction: 'outgoing', primary: 'Add mentioned person', existing: 'Link existing person', size: 'narrow' },
     { key: 'resource', sectionKeys: ['referenced_resources'], title: 'Referenced Resources', type: 'resource', relationship: 'references', direction: 'outgoing', primary: 'Add referenced resource', existing: 'Link existing resource' },
   ],
   person: [
     { key: 'task', sectionKeys: ['assigned_tasks'], title: 'Assigned Tasks', type: 'task', relationship: 'assigned_to', direction: 'incoming', primary: 'Add assigned task', existing: 'Assign existing task', taskFields: true },
     { key: 'note', sectionKeys: ['mentioned_in_notes'], title: 'Notes', type: 'note', relationship: 'mentions', direction: 'incoming', primary: 'Add note about person', existing: 'Link existing note' },
-    { key: 'project', sectionKeys: ['projects'], title: 'Projects', type: 'project', relationship: 'assigned_to', direction: 'incoming', existing: 'Add to existing project' },
+    { key: 'project', sectionKeys: ['projects'], title: 'Projects', type: 'project', relationship: 'assigned_to', direction: 'incoming', primary: 'Create new project', existing: 'Add to existing project' },
     { key: 'resource', sectionKeys: ['resources'], title: 'Resources', type: 'resource', relationship: 'references', direction: 'outgoing', primary: 'Add person resource', existing: 'Link existing resource' },
   ],
   resource: [
     { key: 'note', sectionKeys: ['referenced_by_notes'], title: 'Reference Notes', type: 'note', relationship: 'references', direction: 'incoming', primary: 'Add reference note', existing: 'Link existing note' },
-    { key: 'project', sectionKeys: ['projects'], title: 'Projects', type: 'project', relationship: 'references', direction: 'incoming', existing: 'Use in existing project' },
-    { key: 'task', sectionKeys: ['tasks'], title: 'Tasks', type: 'task', relationship: 'references', direction: 'incoming', existing: 'Use in existing task', taskFields: true },
-    { key: 'area', sectionKeys: ['areas'], title: 'Areas', type: 'area', relationship: 'references', direction: 'incoming', existing: 'Use in existing area' },
-    { key: 'person', sectionKeys: ['people'], title: 'People', type: 'person', relationship: 'references', direction: 'incoming', existing: 'Link existing person' },
+    { key: 'project', sectionKeys: ['projects'], title: 'Projects', type: 'project', relationship: 'references', direction: 'incoming', primary: 'Create new project', existing: 'Use in existing project' },
+    { key: 'task', sectionKeys: ['tasks'], title: 'Tasks', type: 'task', relationship: 'references', direction: 'incoming', primary: 'Create new task', existing: 'Use in existing task', taskFields: true },
+    { key: 'area', sectionKeys: ['areas'], title: 'Areas', type: 'area', relationship: 'references', direction: 'incoming', primary: 'Create new area', existing: 'Use in existing area', size: 'narrow' },
+    { key: 'person', sectionKeys: ['people'], title: 'People', type: 'person', relationship: 'references', direction: 'incoming', primary: 'Add new person', existing: 'Link existing person', size: 'narrow' },
   ],
 };
 
@@ -106,11 +106,13 @@ export default function V4EntityDetail({ type: routeType }) {
     due_at: '',
     follow_up_at: '',
     reference_url: '',
-    tags: '',
+    tags: [],
     priority: '',
   });
   const [error, setError] = useState('');
   const [editingContent, setEditingContent] = useState(false);
+  const [reprocessing, setReprocessing] = useState(false);
+  const [reprocessStatus, setReprocessStatus] = useState('');
 
   async function loadDetail() {
     const response = await v4API.entities.detail(id);
@@ -122,7 +124,7 @@ export default function V4EntityDetail({ type: routeType }) {
       due_at: toInputDateTime(response.entity.due_at),
       follow_up_at: toInputDateTime(response.entity.follow_up_at),
       reference_url: response.entity.reference_url || '',
-      tags: (response.entity.tags || []).map((tag) => tag.name).join(', '),
+      tags: (response.entity.tags || []).map((tag) => tag.name),
       priority: response.entity.properties?.priority || '',
     });
   }
@@ -140,7 +142,7 @@ export default function V4EntityDetail({ type: routeType }) {
           due_at: toInputDateTime(response.entity.due_at),
           follow_up_at: toInputDateTime(response.entity.follow_up_at),
           reference_url: response.entity.reference_url || '',
-          tags: (response.entity.tags || []).map((tag) => tag.name).join(', '),
+          tags: (response.entity.tags || []).map((tag) => tag.name),
           priority: response.entity.properties?.priority || '',
         });
       })
@@ -151,6 +153,16 @@ export default function V4EntityDetail({ type: routeType }) {
       active = false;
     };
   }, [id]);
+
+  async function commitField(partial) {
+    if (!detail) return;
+    try {
+      await v4API.entities.update(id, cleanPayload(partial));
+      await loadDetail();
+    } catch (err) {
+      setError(err.message || 'Failed to save change');
+    }
+  }
 
   async function handleSave(event) {
     event.preventDefault();
@@ -171,7 +183,7 @@ export default function V4EntityDetail({ type: routeType }) {
         follow_up_at: draft.follow_up_at,
         reference_url: draft.reference_url,
         properties,
-        tags: draft.tags.split(',').map((tag) => tag.trim()).filter(Boolean),
+        tags: Array.isArray(draft.tags) ? draft.tags : [],
       }));
       await loadDetail();
     } catch (err) {
@@ -256,6 +268,28 @@ export default function V4EntityDetail({ type: routeType }) {
     }
   }
 
+  async function handleReprocess() {
+    setError('');
+    setReprocessStatus('Re-running AI extraction…');
+    setReprocessing(true);
+    try {
+      const result = await v4API.reprocess(id);
+      await loadDetail();
+      const applied = (result?.applied_changes || []).length;
+      const suggested = (result?.suggestions || []).length;
+      const parts = [];
+      if (applied) parts.push(`${applied} change${applied === 1 ? '' : 's'} applied`);
+      if (suggested) parts.push(`${suggested} suggestion${suggested === 1 ? '' : 's'}`);
+      setReprocessStatus(parts.length ? `Re-ran extraction · ${parts.join(' · ')}` : 'Re-ran extraction · no changes');
+      setTimeout(() => setReprocessStatus(''), 4500);
+    } catch (err) {
+      setReprocessStatus('');
+      setError(err.message || 'Failed to reprocess note');
+    } finally {
+      setReprocessing(false);
+    }
+  }
+
   async function handleQuickStatus(entityId, status) {
     setError('');
     try {
@@ -290,6 +324,24 @@ export default function V4EntityDetail({ type: routeType }) {
           <div className={styles.headerTop}>
             <p className={styles.eyebrow}>Engram v4 {entityType}</p>
             <div className={styles.headerActions}>
+              {entity.type === 'note' && (
+                <button
+                  className={`${styles.secondaryButton} ${styles.iconButton}`}
+                  type="button"
+                  onClick={handleReprocess}
+                  disabled={reprocessing}
+                  aria-label="Re-run AI extraction"
+                  aria-busy={reprocessing}
+                  title={reprocessing ? 'Re-running AI extraction…' : 'Re-run AI extraction'}
+                >
+                  <RefreshCw
+                    size={16}
+                    strokeWidth={2}
+                    aria-hidden="true"
+                    className={reprocessing ? 'spin' : undefined}
+                  />
+                </button>
+              )}
               <button
                 className={`${styles.secondaryButton} ${styles.iconButton}`}
                 type="button"
@@ -318,101 +370,120 @@ export default function V4EntityDetail({ type: routeType }) {
               </button>
             </div>
           </div>
-          <input
-            className={styles.detailTitle}
-            value={draft.title}
-            onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))}
-            aria-label="Title"
-            placeholder="Title"
-          />
-          <MarkdownEditor
-            value={draft.content || ''}
-            onChange={(val) => setDraft((current) => ({ ...current, content: val }))}
-            placeholder="Content — supports Markdown"
-            minRows={6}
-          />
-          <div className={styles.metaStrip}>
-            <label className={styles.metaLabel}>
-              <span>Status</span>
+          <div className={styles.statusPriorityRow}>
+            <div className={`${styles.pillSelect} ${styles[`statusDot_${draft.status}`] || ''}`}>
+              <span className={styles.statusDot} aria-hidden="true" />
               <select
-                className={styles.metaChip}
                 value={draft.status}
-                onChange={(event) => setDraft((current) => ({ ...current, status: event.target.value }))}
+                onChange={(event) => {
+                  const next = event.target.value;
+                  setDraft((current) => ({ ...current, status: next }));
+                  commitField({ status: next });
+                }}
                 aria-label="Status"
               >
                 {(statusOptions[entity.type] || ['active']).map((status) => (
-                  <option key={status} value={status}>● {status}</option>
+                  <option key={status} value={status}>{status}</option>
                 ))}
               </select>
-            </label>
-            <label className={styles.metaLabel}>
-              <span>Priority</span>
+            </div>
+            <div className={`${styles.pillSelect} ${styles[`priorityDot_${draft.priority || 'none'}`] || ''}`}>
+              <span className={styles.statusDot} aria-hidden="true" />
               <select
-                className={styles.metaChip}
                 value={draft.priority}
-                onChange={(event) => setDraft((current) => ({ ...current, priority: event.target.value }))}
+                onChange={(event) => {
+                  const next = event.target.value;
+                  setDraft((current) => ({ ...current, priority: next }));
+                  const properties = { ...(detail.entity.properties || {}) };
+                  if (next) properties.priority = next;
+                  else delete properties.priority;
+                  commitField({ properties });
+                }}
                 aria-label="Priority"
               >
                 {priorityOptions.map((priority) => (
                   <option key={priority || 'none'} value={priority}>
-                    {priority ? `! ${priority}` : '— priority'}
+                    {priority || 'no priority'}
                   </option>
                 ))}
               </select>
-            </label>
-            {showDueDate && (
-              <label className={styles.metaLabel}>
-                <span>Due</span>
-                <input
-                  className={styles.metaChip}
-                  value={draft.due_at}
-                  onChange={(event) => setDraft((current) => ({ ...current, due_at: event.target.value }))}
-                  aria-label="Due date"
-                  type="datetime-local"
-                />
-              </label>
-            )}
-            <label className={styles.metaLabel}>
-              <span>Follow-up</span>
-              <input
-                className={styles.metaChip}
-                value={draft.follow_up_at}
-                onChange={(event) => setDraft((current) => ({ ...current, follow_up_at: event.target.value }))}
-                aria-label="Follow-up date"
-                type="datetime-local"
-              />
-            </label>
-            <div className={styles.metaLabel}>
-              <span>Created</span>
-              <span className={styles.metaStaticChip}>{formatDateTime(entity.created_at)}</span>
             </div>
-            <div className={styles.metaLabel}>
-              <span>Updated</span>
-              <span className={styles.metaStaticChip}>{formatDateTime(entity.updated_at)}</span>
-            </div>
-            <label className={styles.metaLabel}>
-              <span>Tags</span>
-              <input
-                className={styles.metaChip}
-                value={draft.tags}
-                onChange={(event) => setDraft((current) => ({ ...current, tags: event.target.value }))}
-                aria-label="Tags"
-                placeholder="# tags"
-              />
-            </label>
-            <label className={styles.metaLabelWide}>
-              <span>URL</span>
-              <input
-                className={`${styles.metaChip} ${styles.metaChipWide}`}
-                value={draft.reference_url}
-                onChange={(event) => setDraft((current) => ({ ...current, reference_url: event.target.value }))}
-                aria-label="Reference URL"
-                placeholder="https://..."
-                type="url"
-              />
-            </label>
           </div>
+          <InlineTextField
+            value={draft.title}
+            onChange={(val) => setDraft((current) => ({ ...current, title: val }))}
+            onCommit={(val) => { if (val !== (entity.title || '')) commitField({ title: val }); }}
+            placeholder="Untitled"
+            ariaLabel="Title"
+            className={styles.detailTitle}
+          />
+          <InlineMarkdownField
+            value={draft.content || ''}
+            onChange={(val) => setDraft((current) => ({ ...current, content: val }))}
+            onCommit={(val) => { if (val !== (entity.content || '')) commitField({ content: val }); }}
+            placeholder="Add a description — supports Markdown"
+          />
+          <footer className={styles.detailFooter}>
+            <div className={styles.footerSection}>
+              <span className={styles.footerLabel}>Tags</span>
+              <TagsField
+                value={draft.tags}
+                onChange={(val) => {
+                  setDraft((current) => ({ ...current, tags: val }));
+                  commitField({ tags: val });
+                }}
+              />
+            </div>
+            <div className={styles.footerSection}>
+              <span className={styles.footerLabel}>URL</span>
+              <InlineTextField
+                value={draft.reference_url}
+                onChange={(val) => setDraft((current) => ({ ...current, reference_url: val }))}
+                onCommit={(val) => { if (val !== (entity.reference_url || '')) commitField({ reference_url: val }); }}
+                placeholder="https://…"
+                ariaLabel="Reference URL"
+                type="url"
+                renderEmpty="Add URL"
+              />
+            </div>
+            <div className={styles.footerDateGrid}>
+              {showDueDate && (
+                <div className={styles.footerDate}>
+                  <span className={styles.footerLabel}>Due</span>
+                  <InlineDateField
+                    value={draft.due_at}
+                    onChange={(val) => setDraft((current) => ({ ...current, due_at: val }))}
+                    onCommit={(val) => { if (val !== toInputDateTime(entity.due_at)) commitField({ due_at: val || null }); }}
+                    ariaLabel="Due date"
+                  />
+                </div>
+              )}
+              <div className={styles.footerDate}>
+                <span className={styles.footerLabel}>Follow-up</span>
+                <InlineDateField
+                  value={draft.follow_up_at}
+                  onChange={(val) => setDraft((current) => ({ ...current, follow_up_at: val }))}
+                  onCommit={(val) => { if (val !== toInputDateTime(entity.follow_up_at)) commitField({ follow_up_at: val || null }); }}
+                  ariaLabel="Follow-up date"
+                />
+              </div>
+              <div className={styles.footerDate}>
+                <span className={styles.footerLabel}>Created</span>
+                <span className={styles.metaStaticChip}>{formatDateTime(entity.created_at)}</span>
+              </div>
+              <div className={styles.footerDate}>
+                <span className={styles.footerLabel}>Updated</span>
+                <span className={styles.metaStaticChip}>{formatDateTime(entity.updated_at)}</span>
+              </div>
+            </div>
+          </footer>
         </form>
+        {reprocessStatus && (
+          <div className={styles.statusBanner} role="status" aria-live="polite">
+            {reprocessing && <RefreshCw size={14} strokeWidth={2} className="spin" aria-hidden="true" />}
+            <span>{reprocessStatus}</span>
+          </div>
+        )}
         {error && <div className={styles.error}>{error}</div>}
       </section>
 
@@ -457,12 +528,13 @@ function RelationshipSegment({
   const isCollapsed = items.length === 0 && !actionOpen;
 
   return (
-    <article className={`${styles.segmentPanel} ${isCollapsed ? styles.segmentPanelCollapsed : ''}`}>
+    <article className={[
+      styles.segmentPanel,
+      isCollapsed ? styles.segmentPanelCollapsed : '',
+      config.size === 'narrow' ? styles.segmentPanelNarrow : styles.segmentPanelWide,
+    ].filter(Boolean).join(' ')}>
       <header className={styles.segmentHeader}>
-        <div>
-          <p className={styles.segmentKicker}>{config.type || 'linked'}</p>
-          <h2>{config.title}</h2>
-        </div>
+        <h2>{config.title}</h2>
         <div className={styles.segmentHeaderRight}>
           <span className={styles.countPill}>{items.length}</span>
           {config.type && (
@@ -483,12 +555,17 @@ function RelationshipSegment({
       </header>
 
       {config.type && actionOpen && (
-        <TypedAction
-          config={config}
-          currentId={currentId}
-          onCreate={async (form) => { await onCreate(form); setActionOpen(false); }}
-          onLink={async (targetId) => { await onLink(targetId); setActionOpen(false); }}
-        />
+        <ActionModal
+          title={`Add ${config.title.toLowerCase()}`}
+          onClose={() => setActionOpen(false)}
+        >
+          <TypedAction
+            config={config}
+            currentId={currentId}
+            onCreate={async (form) => { await onCreate(form); setActionOpen(false); }}
+            onLink={async (targetId) => { await onLink(targetId); setActionOpen(false); }}
+          />
+        </ActionModal>
       )}
 
       <div className={styles.linkedArea}>
@@ -559,12 +636,282 @@ function LinkedEntityRow({ item, onRemove, onQuickStatus, showType = false }) {
   );
 }
 
+function InlineTextField({ value, onChange, onCommit, placeholder, ariaLabel, className, type = 'text', renderEmpty }) {
+  const [editing, setEditing] = useState(false);
+  const initialRef = React.useRef(value);
+  const inputRef = React.useRef(null);
+
+  useEffect(() => {
+    if (editing && inputRef.current) {
+      initialRef.current = value;
+      inputRef.current.focus();
+      inputRef.current.select?.();
+    }
+  }, [editing]);
+
+  function commit() {
+    setEditing(false);
+    if (onCommit) onCommit(value);
+  }
+
+  function cancel() {
+    if (onChange) onChange(initialRef.current);
+    setEditing(false);
+  }
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        className={`${styles.inlineInput} ${className || ''}`}
+        value={value}
+        type={type}
+        placeholder={placeholder}
+        aria-label={ariaLabel}
+        onChange={(event) => onChange(event.target.value)}
+        onBlur={commit}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' && type !== 'textarea') {
+            event.preventDefault();
+            commit();
+          } else if (event.key === 'Escape') {
+            event.preventDefault();
+            cancel();
+          }
+        }}
+      />
+    );
+  }
+
+  const display = value && value.length ? value : (renderEmpty || placeholder || 'Click to edit');
+  return (
+    <button
+      type="button"
+      className={`${styles.inlineDisplay} ${className || ''} ${!value ? styles.inlineDisplayEmpty : ''}`}
+      onClick={() => setEditing(true)}
+      aria-label={ariaLabel}
+      title="Click to edit"
+    >
+      {display}
+    </button>
+  );
+}
+
+function InlineDateField({ value, onChange, onCommit, ariaLabel }) {
+  const [editing, setEditing] = useState(false);
+  const inputRef = React.useRef(null);
+
+  useEffect(() => {
+    if (editing && inputRef.current) inputRef.current.focus();
+  }, [editing]);
+
+  function commit() {
+    setEditing(false);
+    if (onCommit) onCommit(value);
+  }
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        className={styles.metaChip}
+        type="datetime-local"
+        value={value || ''}
+        aria-label={ariaLabel}
+        onChange={(event) => onChange(event.target.value)}
+        onBlur={commit}
+      />
+    );
+  }
+
+  const display = value ? formatDateTime(value) : '—';
+  return (
+    <button
+      type="button"
+      className={`${styles.metaStaticChip} ${styles.metaStaticChipButton} ${!value ? styles.inlineDisplayEmpty : ''}`}
+      onClick={() => setEditing(true)}
+      aria-label={ariaLabel}
+      title="Click to edit"
+    >
+      {display}
+    </button>
+  );
+}
+
+function InlineMarkdownField({ value, onChange, onCommit, placeholder }) {
+  const [editing, setEditing] = useState(false);
+  const containerRef = React.useRef(null);
+  const lastValueRef = React.useRef(value);
+
+  useEffect(() => { lastValueRef.current = value; }, [value]);
+
+  useEffect(() => {
+    if (!editing) return undefined;
+    function onClick(event) {
+      if (containerRef.current && !containerRef.current.contains(event.target)) {
+        setEditing(false);
+        if (onCommit) onCommit(lastValueRef.current);
+      }
+    }
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, [editing, onCommit]);
+
+  if (editing) {
+    return (
+      <div ref={containerRef}>
+        <MarkdownEditor
+          value={value || ''}
+          onChange={onChange}
+          placeholder={placeholder}
+          minRows={6}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      className={`${styles.inlineMarkdownDisplay} ${!value ? styles.inlineDisplayEmpty : ''}`}
+      onClick={() => setEditing(true)}
+      aria-label="Description"
+      title="Click to edit"
+    >
+      {value
+        ? <MarkdownContent content={value} />
+        : <span>{placeholder}</span>}
+    </button>
+  );
+}
+
+function TagsField({ value, onChange }) {
+  const list = Array.isArray(value) ? value : [];
+  const [adding, setAdding] = useState(false);
+  const [draftTag, setDraftTag] = useState('');
+  const inputRef = React.useRef(null);
+
+  useEffect(() => {
+    if (adding && inputRef.current) inputRef.current.focus();
+  }, [adding]);
+
+  function commit() {
+    const t = draftTag.trim().replace(/^#/, '').toLowerCase();
+    setDraftTag('');
+    setAdding(false);
+    if (!t) return;
+    if (list.includes(t)) return;
+    onChange([...list, t]);
+  }
+
+  function removeAt(index) {
+    const next = list.slice();
+    next.splice(index, 1);
+    onChange(next);
+  }
+
+  return (
+    <div className={styles.tagChipRow}>
+      {list.map((tag, index) => (
+        <span key={`${tag}-${index}`} className={styles.tagChip}>
+          <span>{tag}</span>
+          <button
+            type="button"
+            className={styles.tagChipRemove}
+            onClick={() => removeAt(index)}
+            aria-label={`Remove tag ${tag}`}
+            title="Remove"
+          >
+            <X size={11} strokeWidth={2.4} aria-hidden="true" />
+          </button>
+        </span>
+      ))}
+      {adding ? (
+        <input
+          ref={inputRef}
+          className={styles.tagChipInput}
+          value={draftTag}
+          placeholder="tag"
+          onChange={(event) => setDraftTag(event.target.value)}
+          onBlur={commit}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ',') {
+              event.preventDefault();
+              commit();
+            } else if (event.key === 'Escape') {
+              event.preventDefault();
+              setDraftTag('');
+              setAdding(false);
+            } else if (event.key === 'Backspace' && !draftTag && list.length) {
+              event.preventDefault();
+              removeAt(list.length - 1);
+            }
+          }}
+        />
+      ) : (
+        <button
+          type="button"
+          className={styles.tagChipAdd}
+          onClick={() => setAdding(true)}
+          aria-label="Add tag"
+          title="Add tag"
+        >
+          <Plus size={12} strokeWidth={2.4} aria-hidden="true" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+function ActionModal({ title, onClose, children }) {
+  useEffect(() => {
+    function onKey(event) {
+      if (event.key === 'Escape') onClose();
+    }
+    document.addEventListener('keydown', onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [onClose]);
+
+  return (
+    <div
+      className={styles.modalBackdrop}
+      role="presentation"
+      onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}
+    >
+      <div
+        className={styles.modalDialog}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <header className={styles.modalHeader}>
+          <h3>{title}</h3>
+          <button
+            type="button"
+            className={`${styles.secondaryButton} ${styles.iconButton}`}
+            onClick={onClose}
+            aria-label="Close"
+            title="Close"
+          >
+            <X size={14} strokeWidth={2.2} aria-hidden="true" />
+          </button>
+        </header>
+        <div className={styles.modalBody}>{children}</div>
+      </div>
+    </div>
+  );
+}
+
 function TypedAction({ config, currentId, onCreate, onLink }) {
-  const [mode, setMode] = useState(config.primary ? 'create' : 'existing');
+  const [mode, setMode] = useState('existing');
   const [form, setForm] = useState({ title: '', content: '', due_at: '', follow_up_at: '', priority: '' });
   const [options, setOptions] = useState([]);
-  const [selectedId, setSelectedId] = useState('');
-  const [filter, setFilter] = useState('');
 
   useEffect(() => {
     let active = true;
@@ -580,11 +927,7 @@ function TypedAction({ config, currentId, onCreate, onLink }) {
     };
   }, [config.type]);
 
-  const filtered = options.filter((option) => {
-    if (option.id === currentId) return false;
-    const text = `${option.title || ''} ${option.content || ''}`.toLowerCase();
-    return text.includes(filter.toLowerCase());
-  });
+  const candidateOptions = options.filter((option) => option.id !== currentId);
 
   const createDisabled = config.type === 'note'
     ? !form.title.trim() && !form.content.trim()
@@ -597,28 +940,30 @@ function TypedAction({ config, currentId, onCreate, onLink }) {
     setForm({ title: '', content: '', due_at: '', follow_up_at: '', priority: '' });
   }
 
-  async function submitExisting(event) {
-    event.preventDefault();
-    await onLink(selectedId);
-    setSelectedId('');
-    setFilter('');
-  }
-
   return (
     <article className={styles.actionCard}>
-      <header>
-        <h3>{config.title}</h3>
-        {config.primary && (
-          <div className={styles.tabs}>
-            <button type="button" className={mode === 'create' ? styles.activeTab : ''} onClick={() => setMode('create')}>
-              New
-            </button>
-            <button type="button" className={mode === 'existing' ? styles.activeTab : ''} onClick={() => setMode('existing')}>
-              Existing
-            </button>
-          </div>
-        )}
-      </header>
+      {config.primary && (
+        <div className={styles.tabs} role="tablist">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === 'existing'}
+            className={mode === 'existing' ? styles.activeTab : ''}
+            onClick={() => setMode('existing')}
+          >
+            Link existing
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === 'create'}
+            className={mode === 'create' ? styles.activeTab : ''}
+            onClick={() => setMode('create')}
+          >
+            Create new
+          </button>
+        </div>
+      )}
 
       {mode === 'create' && config.primary ? (
         <form onSubmit={submitCreate} className={styles.actionForm} aria-label={config.primary}>
@@ -662,28 +1007,99 @@ function TypedAction({ config, currentId, onCreate, onLink }) {
           </details>
         </form>
       ) : (
-        <form onSubmit={submitExisting} className={styles.actionForm} aria-label={config.existing}>
-          <input
-            value={filter}
-            onChange={(event) => setFilter(event.target.value)}
-            placeholder={`Search ${config.type}s`}
-            aria-label={`Search ${config.title}`}
-          />
-          <select
-            value={selectedId}
-            onChange={(event) => setSelectedId(event.target.value)}
-            aria-label={`Existing ${config.title}`}
-          >
-            <option value="">Choose {config.type}</option>
-            {filtered.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.title || 'Untitled'} · {option.status}
-              </option>
-            ))}
-          </select>
-          <button className={styles.secondaryButton} type="submit" disabled={!selectedId}>{config.existing}</button>
-        </form>
+        <LinkCombobox
+          config={config}
+          options={candidateOptions}
+          onPick={(targetId) => onLink(targetId)}
+        />
       )}
     </article>
+  );
+}
+
+function LinkCombobox({ config, options, onPick }) {
+  const [query, setQuery] = useState('');
+  const [open, setOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const wrapperRef = React.useRef(null);
+
+  const q = query.trim().toLowerCase();
+  const filtered = q
+    ? options.filter((o) => `${o.title || ''} ${o.content || ''}`.toLowerCase().includes(q))
+    : options;
+  const limited = filtered.slice(0, 50);
+
+  useEffect(() => { setActiveIndex(0); }, [query]);
+
+  useEffect(() => {
+    function onClick(event) {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, []);
+
+  function onKeyDown(event) {
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      setOpen(true);
+      setActiveIndex((i) => Math.min(i + 1, limited.length - 1));
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      setActiveIndex((i) => Math.max(i - 1, 0));
+    } else if (event.key === 'Enter') {
+      event.preventDefault();
+      const choice = limited[activeIndex];
+      if (choice) onPick(choice.id);
+    } else if (event.key === 'Escape') {
+      setOpen(false);
+    }
+  }
+
+  return (
+    <div className={styles.combobox} ref={wrapperRef}>
+      <input
+        type="text"
+        value={query}
+        onChange={(event) => { setQuery(event.target.value); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+        onKeyDown={onKeyDown}
+        placeholder={`Search and link a ${config.type}…`}
+        aria-label={`Search and link ${config.title}`}
+        aria-autocomplete="list"
+        aria-expanded={open}
+        aria-controls={`${config.key}-combobox-list`}
+        role="combobox"
+      />
+      {open && (
+        <ul
+          id={`${config.key}-combobox-list`}
+          role="listbox"
+          className={styles.comboboxList}
+        >
+          {limited.length === 0 ? (
+            <li className={styles.comboboxEmpty} role="presentation">
+              No matching {config.type}s
+            </li>
+          ) : (
+            limited.map((option, index) => (
+              <li
+                key={option.id}
+                role="option"
+                aria-selected={index === activeIndex}
+                className={`${styles.comboboxOption} ${index === activeIndex ? styles.comboboxOptionActive : ''}`}
+                onMouseDown={(event) => { event.preventDefault(); onPick(option.id); }}
+                onMouseEnter={() => setActiveIndex(index)}
+              >
+                <span className={styles.comboboxTitle}>{option.title || 'Untitled'}</span>
+                <span className={styles.comboboxMeta}>{option.status}</span>
+              </li>
+            ))
+          )}
+        </ul>
+      )}
+    </div>
   );
 }
