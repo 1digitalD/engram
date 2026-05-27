@@ -486,11 +486,11 @@ export default function V4EntityDetail({ type: routeType }) {
               </div>
               <div className={styles.footerDate}>
                 <span className={styles.footerLabel}>Created</span>
-                <span className={styles.metaStaticChip}>{formatDateTime(entity.created_at)}</span>
+                <span className={`${styles.metaStaticChip} ${styles.readOnlyChip}`} title="Not editable">{formatDateTime(entity.created_at)}</span>
               </div>
               <div className={styles.footerDate}>
                 <span className={styles.footerLabel}>Updated</span>
-                <span className={styles.metaStaticChip}>{formatDateTime(entity.updated_at)}</span>
+                <span className={`${styles.metaStaticChip} ${styles.readOnlyChip}`} title="Not editable">{formatDateTime(entity.updated_at)}</span>
               </div>
             </div>
           </footer>
@@ -666,9 +666,9 @@ function InlineTextField({ value, onChange, onCommit, placeholder, ariaLabel, cl
     }
   }, [editing]);
 
-  function commit() {
+  function commit(event) {
     setEditing(false);
-    if (onCommit) onCommit(value);
+    if (onCommit) onCommit(event.target.value);
   }
 
   function cancel() {

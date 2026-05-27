@@ -724,6 +724,11 @@
   white-space: nowrap;
 }
 
+.readOnlyChip {
+  color: var(--text-tertiary);
+  cursor: default;
+}
+
 .formActions {
   display: none;
 }
