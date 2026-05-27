@@ -213,8 +213,6 @@ export default function V4EntityDetail({ type: routeType }) {
 
   async function handleDelete() {
     setError('');
-    // eslint-disable-next-line no-alert
-    if (!window.confirm(`Delete "${entity.title || 'this item'}"? This cannot be undone.`)) return;
     try {
       await v4API.entities.delete(id);
       navigateBack(collectionPathForType(entity.type));
