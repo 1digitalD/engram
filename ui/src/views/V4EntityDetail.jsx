@@ -21,6 +21,7 @@ const priorityOptions = ['', 'low', 'medium', 'high', 'urgent'];
 
 const actionConfigs = {
   project: [
+    { key: 'area', sectionKeys: ['area'], title: 'Area', type: 'area', relationship: 'parent', direction: 'outgoing', primary: 'Create new area', existing: 'Move/link to area', size: 'narrow' },
     { key: 'task', sectionKeys: ['open_tasks', 'completed_tasks'], title: 'Tasks', type: 'task', relationship: 'parent', direction: 'incoming', primary: 'Add new task', existing: 'Add existing task', taskFields: true },
     { key: 'note', sectionKeys: ['notes'], title: 'Notes', type: 'note', relationship: 'related', direction: 'outgoing', primary: 'Add project note', existing: 'Link existing note' },
     { key: 'person', sectionKeys: ['people'], title: 'People', type: 'person', relationship: 'assigned_to', direction: 'outgoing', primary: 'Add new person', existing: 'Add existing person', size: 'narrow' },
@@ -35,7 +36,7 @@ const actionConfigs = {
   task: [
     { key: 'project', sectionKeys: ['project'], title: 'Project', type: 'project', relationship: 'parent', direction: 'outgoing', primary: 'Create new project', existing: 'Move/link to project' },
     { key: 'area', sectionKeys: ['area'], title: 'Area', type: 'area', relationship: 'parent', direction: 'outgoing', primary: 'Create new area', existing: 'Move/link to area', size: 'narrow' },
-    { key: 'person', sectionKeys: ['people'], title: 'Assignee', type: 'person', relationship: 'assigned_to', direction: 'outgoing', primary: 'Create and assign person', existing: 'Assign existing person', size: 'narrow' },
+    { key: 'person', sectionKeys: ['people_mentioned'], title: 'People', type: 'person', relationship: 'mentions', direction: 'outgoing', existing: 'Link existing person', size: 'narrow' },
     { key: 'note', sectionKeys: ['source_notes', 'related_notes'], title: 'Notes', type: 'note', relationship: 'derived_from', direction: 'outgoing', primary: 'Add source note', existing: 'Attach existing note' },
     { key: 'resource', sectionKeys: ['resources'], title: 'Resources', type: 'resource', relationship: 'references', direction: 'outgoing', primary: 'Add resource', existing: 'Attach existing resource' },
     { key: 'blocker', sectionKeys: ['blocking'], title: 'Blocked By', type: 'task', relationship: 'blocks', direction: 'incoming', primary: 'Create blocking task', existing: 'Add blocking task', taskFields: true },

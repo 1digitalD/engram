@@ -8,7 +8,7 @@ import styles from './CardActions.module.css';
  * Hover-revealed on the parent card via `.cardActionsParent:hover .cardActions { opacity: 1 }`.
  * Click handlers stop propagation so the parent <Link> doesn't navigate.
  */
-export default function CardActions({ entity, onChanged, confirmDelete = true }) {
+export default function CardActions({ entity, onChanged }) {
   async function archive(event) {
     event.preventDefault();
     event.stopPropagation();
@@ -24,12 +24,6 @@ export default function CardActions({ entity, onChanged, confirmDelete = true })
   async function remove(event) {
     event.preventDefault();
     event.stopPropagation();
-    if (confirmDelete) {
-      const title = entity.title || 'this item';
-      // eslint-disable-next-line no-alert
-      const ok = window.confirm(`Delete "${title}"? This cannot be undone.`);
-      if (!ok) return;
-    }
     try {
       await v4API.entities.delete(entity.id);
       onChanged?.({ kind: 'deleted', id: entity.id });

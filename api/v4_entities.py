@@ -1034,7 +1034,8 @@ def _task_detail_sections(entity, links):
     return [
         _section("project", "Project", _link_items(entity, links, "outgoing", {"parent"}, {"project"})),
         _section("area", "Area", _link_items(entity, links, "outgoing", {"parent"}, {"area"})),
-        _section("people", "People", _link_items(entity, links, "outgoing", {"assigned_to", "mentions"}, {"person"})),
+        _section("people", "People", _link_items(entity, links, "outgoing", {"assigned_to"}, {"person"})),
+        _section("people_mentioned", "People Mentioned", _link_items(entity, links, "outgoing", {"mentions"}, {"person"})),
         _section("source_notes", "Source Notes", _link_items(entity, links, "outgoing", {"derived_from"}, {"note"})),
         _section("related_notes", "Related Notes", _link_items(entity, links, "both", {"related"}, {"note"})),
         _section("resources", "Resources", _link_items(entity, links, "outgoing", {"references", "related"}, {"resource"})),
