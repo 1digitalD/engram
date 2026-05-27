@@ -36,10 +36,25 @@ do not change capitalization, do not pluralize.
 uses for "project" and "area". When extracting NEW projects or areas, follow the same shape \
 (scope, specificity, phrasing) as these examples.
 
+TASKS — DEDICATED RULE (highest priority extraction):
+Tasks are routinely missed when prompts are vague. Apply ALL of the following:
+  1. Any section titled "Action Items", "Action items", "Tasks", "TODO", "To do", "Next Steps", \
+"Next steps", "Follow-ups", or "Follow ups" — every bullet (or sub-bullet) inside it is a separate \
+task candidate. No exceptions, even when the section is long.
+  2. Any bullet formatted as "Name:" or "Name —" followed by an action description is a task. \
+The Name is the assignee; emit `assigned_to: "<Name>"` and also emit the Name as a `person` candidate.
+  3. Any sentence that begins with an imperative verb ("Ship", "Draft", "Send", "Schedule", \
+"Define", "Review", "Build"), or contains "needs to", "will", "should", "TODO", "follow up with", \
+"remind me", "let's", or "we should" describes a task. Emit each one as its own candidate.
+  4. Do NOT collapse multiple actions into a single task. "Ask Henry and follow up with Priya" is \
+two tasks. "Draft the doc and share by Friday" is one task with a due date; "Draft the doc; then \
+review with the team" is two tasks. When in doubt, split.
+  5. Each task title is concise (≤10 words), starts with a verb, uses sentence case. Put extra \
+detail in `content`, not the title.
+
 ENTITY TYPES — use exactly these strings:
-  "task"     — A discrete action item with a clear done state. Signals: action verbs, \
-"TODO", "need to", "follow up", "remind me", deadlines, assignments. Each distinct action \
-is its own task candidate.
+  "task"     — See dedicated TASKS rule above. Be aggressive: missing a task is a worse error than \
+emitting a duplicate (reconciliation handles dedup).
   "project"  — A named multi-step initiative with a defined outcome. Signals: named goals, \
 campaigns, products, deliverables, anything with multiple tasks beneath it.
   "area"     — An ongoing responsibility or life/work domain with no end date. Signals: \
@@ -88,6 +103,43 @@ No trailing punctuation. Sentence case. Concrete and specific (avoid 'Note about
     "evidence": "exact quote or brief rationale"
   }]
 }
+
+WORKED EXAMPLE — note → expected extraction (illustrative; follow the same granularity):
+
+Note (input):
+  Sync notes — agent convergence
+
+  Decisions:
+  - Python is the preferred stack for new agents.
+
+  Action Items
+  - Danish: write a standardized boilerplate skill for new agents
+  - Vignesh: document deal agent architecture for next week
+  - Kurt: facilitate alignment with Vaibhav and David on TypeScript convergence
+
+  Next Steps
+  - Build evals infrastructure with interaction logging from day one
+  - Review Vignesh's doc next week
+
+Expected entities (abbreviated):
+  - task "Write standardized boilerplate skill for new agents" assigned_to "Danish", evidence: \
+"Danish: write a standardized boilerplate skill for new agents"
+  - task "Document deal agent architecture" assigned_to "Vignesh", evidence: \
+"Vignesh: document deal agent architecture for next week"
+  - task "Facilitate TypeScript convergence alignment" assigned_to "Kurt", evidence: \
+"Kurt: facilitate alignment with Vaibhav and David on TypeScript convergence"
+  - task "Build evals infrastructure with interaction logging", evidence: "Build evals \
+infrastructure with interaction logging from day one"
+  - task "Review Vignesh's deal agent doc", evidence: "Review Vignesh's doc next week"
+  - person "Danish"
+  - person "Vignesh"
+  - person "Kurt"
+  - person "Vaibhav"
+  - person "David"
+  - project "Agent convergence"
+
+Note that EVERY action-items bullet became a task. EVERY named person became a person candidate. \
+Follow this density.
 """
 
 # Backwards-compatible alias for tests / other importers.
