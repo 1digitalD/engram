@@ -64,18 +64,18 @@ FOR "new" — include:
 Return a JSON object with a "decisions" array — one entry per candidate, \
 in the same order as the input:
 
-{
+{{
   "decisions": [
-    {
+    {{
       "action": "new" | "update" | "link",
       "target_id": null,
-      "fields": {},
+      "fields": {{}},
       "relationship_type": "related",
       "confidence": 0.0,
       "reason": "brief explanation"
-    }
+    }}
   ]
-}
+}}
 """
 
 
@@ -226,14 +226,23 @@ def _call_model(enriched):
             ],
         )
         raw = response.choices[0].message.content or "{}"
-        parsed = json.loads(raw)
-        if not isinstance(parsed, dict):
+        # Defensive: reject non-object top-level values before accessing
+        if raw.strip().startswith("["):
             logger.warning(
-                "reconciliation model returned non-dict response (type=%s). "
+                "reconciliation model returned an array (not an object). "
                 "Content snippet: %r. Falling back to heuristics.",
-                type(parsed).__name__, raw[:200],
+                raw[:200],
             )
             return _heuristic_decisions(enriched)
+        if not raw.strip().startswith("{"):
+            logger.warning(
+                "reconciliation model returned non-object response (type hint: %r). "
+                "Content snippet: %r. Falling back to heuristics.",
+                type(raw).__name__, raw[:200],
+            )
+            return _heuristic_decisions(enriched)
+        parsed = json.loads(raw)
+        logger.info("reconciliation raw response OK (type=%s, snippet=%r)", type(parsed).__name__, str(parsed)[:100])
         raw_decisions = parsed.get("decisions")
         if not isinstance(raw_decisions, list):
             logger.warning(
@@ -242,9 +251,7 @@ def _call_model(enriched):
                 type(raw_decisions).__name__, raw[:200],
             )
             return _heuristic_decisions(enriched)
-        logger.info(
-            "reconciliation model returned %d decisions", len(raw_decisions)
-        )
+        logger.info("reconciliation model returned %d decisions", len(raw_decisions))
         return raw_decisions
     except Exception as e:
         logger.error("reconciliation model call failed: %s", e)
