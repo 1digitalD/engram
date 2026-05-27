@@ -266,6 +266,51 @@ def test_ai_generated_title_replaces_placeholder_and_writes_event(client, app):
         assert title_event.new_value["title"] == "Resolve observability pipeline for agent telemetry"
 
 
+def test_duplicate_candidates_within_capture_are_deduped(client, app):
+    """Regression: model emits the same entity in both `links` and `entities`
+    arrays (or twice in one of them); without dedup we'd create / link it
+    twice in the same capture."""
+    extraction = {
+        "links": [
+            {
+                "target_type": "person",
+                "title": "Tomoko Watanabe",
+                "relationship_type": "mentions",
+                "confidence": 0.92,
+                "evidence": "Tomoko Watanabe will draft the RFC",
+            },
+        ],
+        "entities": [
+            {
+                "type": "person",
+                "title": "Tomoko Watanabe",
+                "confidence": 0.92,
+                "evidence": "Tomoko Watanabe will draft the RFC",
+            },
+            {
+                "type": "person",
+                "title": "tomoko watanabe",
+                "confidence": 0.88,
+                "evidence": "mentioned again later",
+            },
+        ],
+    }
+
+    with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction):
+        response = client.post(
+            "/api/v4/capture",
+            json={"content": "Working with Tomoko Watanabe on the RFC. Tomoko will draft it."},
+        )
+
+    assert response.status_code == 201
+    data = response.get_json()
+    person_creates = [c for c in data["applied_changes"] if c.get("entity_type") == "person"]
+    assert len(person_creates) == 1, f"expected 1 person create, got {len(person_creates)}: {person_creates}"
+
+    with app.app_context():
+        assert Entity.query.filter_by(type="person").count() == 1
+
+
 def test_user_supplied_title_is_not_overwritten_by_ai(client, app):
     """When the user supplies a title on capture, AI title is ignored."""
     extraction = {

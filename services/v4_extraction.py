@@ -27,6 +27,14 @@ RULES:
 - Be exhaustive: extract every actionable item, person, project, area, and resource mentioned.
 - Prefer over-extraction — the reconciliation layer decides what to apply.
 - Confidence: 0.9+ explicit/unambiguous, 0.7–0.9 strongly implied, 0.5–0.7 inferred, <0.5 speculative.
+- DEDUPE WITHIN THIS NOTE: each real-world entity must appear at most ONCE across the entire \
+output (combining the `links` and `entities` arrays). If a person, project, area, or resource \
+is mentioned multiple times in the note — even with different surface forms ("Priya", "Priya \
+Sharma", "she") — emit a single candidate using the most complete name as the title. Likewise, \
+do not emit two task candidates that describe the same action; if one action is a more specific \
+restatement of another, emit only the more specific one. The reconciliation layer handles \
+matches against EXISTING entities; it does NOT dedupe new candidates against each other, so the \
+responsibility is yours.
 - EXISTING_ENTITIES below lists real projects and areas already in the workspace. \
 Treat them two ways at once:
     (a) Direct references: if the note refers to one of these (even loosely / paraphrased), \
@@ -138,8 +146,9 @@ infrastructure with interaction logging from day one"
   - person "David"
   - project "Agent convergence"
 
-Note that EVERY action-items bullet became a task. EVERY named person became a person candidate. \
-Follow this density.
+Note that EVERY action-items bullet became a task. EVERY named person became a person candidate \
+(exactly once each, even though Vaibhav and David are mentioned inside another task's description). \
+Follow this density and dedup discipline.
 """
 
 # Backwards-compatible alias for tests / other importers.

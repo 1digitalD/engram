@@ -1174,6 +1174,28 @@ def _reconcile_capture_candidates(note, extraction):
             continue
         all_candidates.append({**ec, "_source": "entity"})
 
+    # Dedup within this capture by (type, normalized title). The model is
+    # supposed to handle this itself (prompt rule), but defense-in-depth: a
+    # link candidate and an entity candidate for the same real-world thing
+    # would otherwise each trigger a create/update path independently. We
+    # keep the link-sourced candidate when both exist (it carries an explicit
+    # relationship_type from extraction); otherwise the first seen wins.
+    deduped = []
+    seen = {}
+    for cand in all_candidates:
+        title = _candidate_value(cand, "title") or ""
+        ctype = _candidate_value(cand, "type") or ""
+        key = (ctype, title.casefold())
+        if not title or not ctype:
+            deduped.append(cand)
+            continue
+        if key not in seen:
+            seen[key] = len(deduped)
+            deduped.append(cand)
+        elif cand.get("_source") == "link" and deduped[seen[key]].get("_source") != "link":
+            deduped[seen[key]] = cand
+    all_candidates = deduped
+
     if all_candidates:
         from services.v4_reconciliation import reconcile_candidates
         decisions = reconcile_candidates(all_candidates)
