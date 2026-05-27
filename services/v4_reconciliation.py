@@ -227,10 +227,25 @@ def _call_model(enriched):
         )
         raw = response.choices[0].message.content or "{}"
         parsed = json.loads(raw)
-        decisions = parsed.get("decisions") or []
-        if not isinstance(decisions, list):
+        if not isinstance(parsed, dict):
+            logger.warning(
+                "reconciliation model returned non-dict response (type=%s). "
+                "Content snippet: %r. Falling back to heuristics.",
+                type(parsed).__name__, raw[:200],
+            )
             return _heuristic_decisions(enriched)
-        return decisions
+        raw_decisions = parsed.get("decisions")
+        if not isinstance(raw_decisions, list):
+            logger.warning(
+                "reconciliation model response has no 'decisions' list (got %s). "
+                "Content snippet: %r. Falling back to heuristics.",
+                type(raw_decisions).__name__, raw[:200],
+            )
+            return _heuristic_decisions(enriched)
+        logger.info(
+            "reconciliation model returned %d decisions", len(raw_decisions)
+        )
+        return raw_decisions
     except Exception as e:
         logger.error("reconciliation model call failed: %s", e)
         return _heuristic_decisions(enriched)

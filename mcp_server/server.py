@@ -1,5 +1,17 @@
 #!/usr/bin/env python3
-"""Engram v4 MCP server — read and write access to the personal workspace."""
+"""Engram v4 MCP server — read and write access to the personal workspace.
+
+V4 MCP exposes both read and write tools. All write tools call through to the
+Engram /api/v4 REST API. The MCP is not a separate authority — it is a thin
+proxy that translates MCP tool calls into API calls.
+
+Read tools:  search_entities, get_entity, list_recent, get_today, list_suggestions
+Write tools: capture, create_entity, update_entity, link_entities,
+             accept_suggestion, dismiss_suggestion, submit_candidates
+
+All tools use the same API base (ENGRAM_API_BASE). The MCP server itself
+holds no separate state or permissions.
+"""
 
 import os
 import sys
@@ -35,12 +47,11 @@ mcp = FastMCP(
     name="engram",
     version="4.0.0",
     instructions=(
-        "Engram v4 is a personal knowledge workspace. "
-        "Read: search_entities, get_entity, list_recent, get_today, list_suggestions. "
-        "Write: capture (raw text → server-side extraction), create_entity (pre-classified), "
-        "update_entity, link_entities, accept_suggestion, dismiss_suggestion. "
-        "Optimization: submit_candidates bypasses the server-side LLM extraction step — "
-        "use it when you have already analyzed the note and can supply structured candidates directly."
+        "Engram v4 MCP — thin proxy for the /api/v4 REST API. "
+        "Read tools: search_entities, get_entity, list_recent, get_today, list_suggestions. "
+        "Write tools: capture, create_entity, update_entity, link_entities, "
+        "accept_suggestion, dismiss_suggestion, submit_candidates. "
+        "All tools are routed directly to /api/v4 endpoints."
     ),
 )
 
