@@ -222,6 +222,73 @@ def test_capture_auto_links_existing_project_and_person(client, app):
         assert EntityEvent.query.filter_by(entity_id=note_id, event_type="relationship_added").count() == 2
 
 
+def test_ai_generated_title_replaces_placeholder_and_writes_event(client, app):
+    """Regression: ai_title_set used a disallowed event_type and broke capture.
+
+    When no user title is supplied and extraction returns a title, the note's
+    placeholder title should be replaced, ai_meta.title_auto stays True, and
+    an ai_updated event with reason='ai_title_set' is written without
+    violating entity_events_event_type_check.
+    """
+    extraction = {
+        "title": "Resolve observability pipeline for agent telemetry",
+        "summary": "Notes on the observability work for the agent telemetry stack.",
+        "confidence": 0.9,
+    }
+
+    with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction):
+        response = client.post(
+            "/api/v4/capture",
+            json={"content": "Need to sort out the observability pipeline with Sai to make sure agent telemetry flows."},
+        )
+
+    assert response.status_code == 201, response.get_json()
+    data = response.get_json()
+    assert data["warnings"] == []
+    title_change = next((c for c in data["applied_changes"] if c["type"] == "title_updated"), None)
+    assert title_change is not None
+    assert title_change["title"] == "Resolve observability pipeline for agent telemetry"
+
+    note_id = data["source_note"]["id"]
+    with app.app_context():
+        from extensions import db
+        note = db.session.get(Entity, note_id)
+        assert note.title == "Resolve observability pipeline for agent telemetry"
+        assert (note.ai_meta or {}).get("title_auto") is True
+
+        events = EntityEvent.query.filter_by(entity_id=note_id).all()
+        title_event = next(
+            (e for e in events if e.actor == "agent:v4-capture" and e.reason == "ai_title_set"),
+            None,
+        )
+        assert title_event is not None, "expected ai_updated event with reason=ai_title_set"
+        assert title_event.event_type == "ai_updated"
+        assert title_event.new_value["title"] == "Resolve observability pipeline for agent telemetry"
+
+
+def test_user_supplied_title_is_not_overwritten_by_ai(client, app):
+    """When the user supplies a title on capture, AI title is ignored."""
+    extraction = {
+        "title": "AI would have called this something else",
+        "summary": "summary",
+        "confidence": 0.9,
+    }
+
+    with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction):
+        response = client.post(
+            "/api/v4/capture",
+            json={"title": "My own title", "content": "Body of the note."},
+        )
+
+    assert response.status_code == 201
+    note_id = response.get_json()["source_note"]["id"]
+    with app.app_context():
+        from extensions import db
+        note = db.session.get(Entity, note_id)
+        assert note.title == "My own title"
+        assert (note.ai_meta or {}).get("title_auto") is False
+
+
 def test_low_confidence_existing_link_is_suggested_not_applied(client, app):
     project_response = client.post(
         "/api/v4/entities",
