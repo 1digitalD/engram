@@ -256,4 +256,4 @@ if __name__ == "__main__":
     if transport == "stdio":
         mcp.run(transport="stdio")
     else:
-        mcp.run(transport="streamable-http", host="0.0.0.0", port=int(os.getenv("MCP_PORT", 8765)))
+        mcp.run(transport="streamable-http", host="127.0.0.1", port=int(os.getenv("MCP_PORT", 8765)))
