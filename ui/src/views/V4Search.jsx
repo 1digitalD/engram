@@ -1,9 +1,10 @@
 /* eslint-disable no-unused-vars */
 import React from 'react';
 import { useEffect, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { X } from 'lucide-react';
 import { v4API } from '../api/v4Client';
+import CardActions from '../components/CardActions';
 import styles from './V4Search.module.css';
 
 const entityTypes = ['', 'note', 'task', 'project', 'area', 'person', 'resource'];
@@ -16,6 +17,8 @@ function entityPath(entity) {
 }
 
 export default function V4Search() {
+  const location = useLocation();
+  const fromState = { from: location.pathname + location.search };
   const [searchParams, setSearchParams] = useSearchParams();
   const tagFilter = searchParams.get('tag') || '';
   const [query, setQuery] = useState('');
@@ -118,8 +121,12 @@ export default function V4Search() {
         ) : (
           <ul>
             {results.map((result) => (
-              <li key={result.entity.id}>
-                <Link to={entityPath(result.entity)}>
+              <li key={result.entity.id} className="cardActionsParent">
+                <CardActions
+                  entity={result.entity}
+                  onChanged={() => setResults((cur) => cur.filter((r) => r.entity.id !== result.entity.id))}
+                />
+                <Link to={entityPath(result.entity)} state={fromState}>
                   <span className={styles.type}>{result.entity.type}</span>
                   <strong>{result.entity.title || 'Untitled'}</strong>
                   <small>score {Number(result.score || 0).toFixed(3)}</small>

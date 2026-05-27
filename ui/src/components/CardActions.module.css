@@ -1,0 +1,54 @@
+.cardActions {
+  align-items: center;
+  display: inline-flex;
+  gap: 4px;
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  transition: opacity var(--duration-fast) var(--ease-out);
+  z-index: 2;
+}
+
+/* Reveal on hover or keyboard focus of any descendant of the parent card. */
+:global(.cardActionsParent):hover .cardActions,
+:global(.cardActionsParent):focus-within .cardActions,
+.cardActions:hover,
+.cardActions:focus-within {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+:global(.cardActionsParent) {
+  position: relative;
+}
+
+.actionButton {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border-faint);
+  border-radius: 4px;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: inline-flex;
+  height: 22px;
+  justify-content: center;
+  padding: 0;
+  transition: background-color var(--duration-fast) var(--ease-out),
+              border-color var(--duration-fast) var(--ease-out),
+              color var(--duration-fast) var(--ease-out);
+  width: 22px;
+}
+
+.actionButton:hover {
+  background: var(--hover);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.danger:hover {
+  background: color-mix(in oklch, var(--red) 12%, var(--surface));
+  border-color: color-mix(in oklch, var(--red) 40%, var(--border));
+  color: var(--red);
+}

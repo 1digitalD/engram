@@ -2,7 +2,7 @@
 import React from 'react';
 import { useEffect, useState } from 'react';
 import { Archive, Plus, RefreshCw, Save, Trash2, X } from 'lucide-react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { v4API } from '../api/v4Client';
 import MarkdownContent from '../components/MarkdownContent';
 import MarkdownEditor from '../components/MarkdownEditor';
@@ -98,6 +98,7 @@ function relationshipPayload(currentId, linkedId, config) {
 export default function V4EntityDetail({ type: routeType }) {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [detail, setDetail] = useState(null);
   const [draft, setDraft] = useState({
     title: '',
@@ -191,6 +192,15 @@ export default function V4EntityDetail({ type: routeType }) {
     }
   }
 
+  function navigateBack(fallback) {
+    const from = location.state?.from;
+    if (from && typeof from === 'string') {
+      navigate(from);
+    } else {
+      navigate(fallback);
+    }
+  }
+
   async function handleArchive() {
     setError('');
     try {
@@ -203,9 +213,11 @@ export default function V4EntityDetail({ type: routeType }) {
 
   async function handleDelete() {
     setError('');
+    // eslint-disable-next-line no-alert
+    if (!window.confirm(`Delete "${entity.title || 'this item'}"? This cannot be undone.`)) return;
     try {
       await v4API.entities.delete(id);
-      navigate(collectionPathForType(entity.type));
+      navigateBack(collectionPathForType(entity.type));
     } catch (err) {
       setError(err.message || 'Failed to delete entity');
     }

@@ -1,9 +1,10 @@
 /* eslint-disable no-unused-vars */
 import React from 'react';
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { X } from 'lucide-react';
 import { v4API } from '../api/v4Client';
+import CardActions from '../components/CardActions';
 import MarkdownContent from '../components/MarkdownContent';
 import MarkdownEditor from '../components/MarkdownEditor';
 import styles from './V4Inbox.module.css';
@@ -37,15 +38,16 @@ function formatTimestamp(value) {
   });
 }
 
-function NoteCard({ note }) {
+function NoteCard({ note, onChanged, fromState }) {
   const ts = note.created_at || note.updated_at;
   const pending = note.pending_suggestion_count || 0;
   const aiPending = note.ai?.status === 'pending';
   const aiError = note.ai?.status === 'failed';
   const tagList = note.tags || [];
   return (
-    <li className={styles.noteCard}>
-      <Link to={notePath(note)} className={styles.noteLink}>
+    <li className={`${styles.noteCard} cardActionsParent`}>
+      <CardActions entity={note} onChanged={onChanged} />
+      <Link to={notePath(note)} state={fromState} className={styles.noteLink}>
         <div className={styles.noteHeader}>
           <strong>{entityTitle(note)}</strong>
           {ts && (
@@ -84,6 +86,8 @@ function NoteCard({ note }) {
 }
 
 export default function V4Inbox() {
+  const location = useLocation();
+  const fromState = { from: location.pathname + location.search };
   const [content, setContent] = useState('');
   const [needsReview, setNeedsReview] = useState([]);
   const [recent, setRecent] = useState([]);
@@ -190,7 +194,7 @@ export default function V4Inbox() {
           </header>
           <ul className={styles.noteList}>
             {needsReview.map((n) => (
-              <NoteCard key={n.id} note={n} />
+              <NoteCard key={n.id} note={n} fromState={fromState} onChanged={loadInbox} />
             ))}
           </ul>
         </section>
@@ -207,7 +211,7 @@ export default function V4Inbox() {
           <>
             <ul className={styles.noteList}>
               {recent.slice(0, 10).map((n) => (
-                <NoteCard key={n.id} note={n} />
+                <NoteCard key={n.id} note={n} fromState={fromState} onChanged={loadInbox} />
               ))}
             </ul>
             {recent.length > 10 && (

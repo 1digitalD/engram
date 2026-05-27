@@ -1,8 +1,9 @@
 /* eslint-disable no-unused-vars */
 import React from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { v4API } from '../api/v4Client';
+import CardActions from '../components/CardActions';
 import MarkdownContent from '../components/MarkdownContent';
 import styles from './V4Today.module.css';
 
@@ -83,11 +84,12 @@ function shortDate(value) {
     : { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-function EntityRow({ entity, onQuickStatus, onUpdateField }) {
+function EntityRow({ entity, onQuickStatus, onUpdateField, onChanged, fromState }) {
   const isTask = entity.type === 'task';
   return (
-    <li className={styles.row}>
-      <Link to={entityPath(entity)} className={styles.rowLink}>
+    <li className={`${styles.row} cardActionsParent`}>
+      <CardActions entity={entity} onChanged={onChanged} />
+      <Link to={entityPath(entity)} state={fromState} className={styles.rowLink}>
         <strong>{entity.title || 'Untitled'}</strong>
         {entity.content && (
           <MarkdownContent content={entity.content} compact />
@@ -129,7 +131,7 @@ function EntityRow({ entity, onQuickStatus, onUpdateField }) {
   );
 }
 
-function EntitySection({ title, items, onQuickStatus, onUpdateField, accent }) {
+function EntitySection({ title, items, onQuickStatus, onUpdateField, onChanged, fromState, accent }) {
   if (items.length === 0) return null;
   return (
     <section className={`${styles.panel} ${accent ? styles[`panel_${accent}`] : ''}`}>
@@ -144,6 +146,8 @@ function EntitySection({ title, items, onQuickStatus, onUpdateField, accent }) {
             entity={entity}
             onQuickStatus={onQuickStatus}
             onUpdateField={onUpdateField}
+            onChanged={onChanged}
+            fromState={fromState}
           />
         ))}
       </ul>
@@ -152,6 +156,8 @@ function EntitySection({ title, items, onQuickStatus, onUpdateField, accent }) {
 }
 
 export default function V4Today() {
+  const location = useLocation();
+  const fromState = { from: location.pathname + location.search };
   const [today, setToday] = useState(null);
   const [error, setError] = useState('');
 
@@ -220,6 +226,8 @@ export default function V4Today() {
         items={overdue}
         onQuickStatus={handleQuickStatus}
         onUpdateField={handleUpdateField}
+        onChanged={load}
+        fromState={fromState}
         accent="overdue"
       />
       <EntitySection
@@ -227,6 +235,8 @@ export default function V4Today() {
         items={dueToday}
         onQuickStatus={handleQuickStatus}
         onUpdateField={handleUpdateField}
+        onChanged={load}
+        fromState={fromState}
         accent="due"
       />
       <EntitySection
@@ -234,6 +244,8 @@ export default function V4Today() {
         items={overdueFollowUps}
         onQuickStatus={handleQuickStatus}
         onUpdateField={handleUpdateField}
+        onChanged={load}
+        fromState={fromState}
         accent="overdue"
       />
       <EntitySection
@@ -241,24 +253,32 @@ export default function V4Today() {
         items={followUps}
         onQuickStatus={handleQuickStatus}
         onUpdateField={handleUpdateField}
+        onChanged={load}
+        fromState={fromState}
       />
       <EntitySection
         title="Upcoming follow-ups (next 7 days)"
         items={upcomingFollowUps}
         onQuickStatus={handleQuickStatus}
         onUpdateField={handleUpdateField}
+        onChanged={load}
+        fromState={fromState}
       />
       <EntitySection
         title="Blocked"
         items={blocked}
         onQuickStatus={handleQuickStatus}
         onUpdateField={handleUpdateField}
+        onChanged={load}
+        fromState={fromState}
       />
       <EntitySection
         title="Waiting"
         items={waiting}
         onQuickStatus={handleQuickStatus}
         onUpdateField={handleUpdateField}
+        onChanged={load}
+        fromState={fromState}
       />
 
       {suggestions.length > 0 && (

@@ -187,9 +187,11 @@ describe('v4 entity screens', () => {
     await waitFor(() => expect(v4API.entities.update).toHaveBeenCalledWith('n1', { lifecycle: 'archived' }));
     expect(v4API.entities.delete).not.toHaveBeenCalled();
 
+    vi.stubGlobal('confirm', vi.fn(() => true));
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
     await waitFor(() => expect(v4API.entities.delete).toHaveBeenCalledWith('n1'));
     expect(await screen.findByText('Notes index')).toBeInTheDocument();
+    vi.unstubAllGlobals();
   });
 
   it('creates a new task from a project detail and links it as parent', async () => {

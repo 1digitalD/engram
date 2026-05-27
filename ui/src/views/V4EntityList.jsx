@@ -1,9 +1,10 @@
 /* eslint-disable no-unused-vars */
 import React from 'react';
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { ArrowDown, ArrowUp, Plus, X } from 'lucide-react';
 import { v4API } from '../api/v4Client';
+import CardActions from '../components/CardActions';
 import MarkdownContent from '../components/MarkdownContent';
 import styles from './V4EntityScreens.module.css';
 
@@ -74,6 +75,8 @@ function sortEntities(entities, sortField, sortDir) {
 }
 
 export default function V4EntityList({ type }) {
+  const location = useLocation();
+  const fromState = { from: location.pathname + location.search };
   const [entities, setEntities] = useState([]);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -287,8 +290,12 @@ export default function V4EntityList({ type }) {
               const isOverdue = entity.due_at && new Date(entity.due_at).getTime() < Date.now()
                 && entity.status !== 'done' && entity.status !== 'completed' && entity.status !== 'cancelled';
               return (
-                <li key={entity.id}>
-                  <Link to={detailPath(entity)}>
+                <li key={entity.id} className="cardActionsParent">
+                  <CardActions
+                    entity={entity}
+                    onChanged={() => setEntities((cur) => cur.filter((e) => e.id !== entity.id))}
+                  />
+                  <Link to={detailPath(entity)} state={fromState}>
                     <strong>{entity.title || 'Untitled'}</strong>
                     {entity.content && (
                       <MarkdownContent content={entity.content} compact />
