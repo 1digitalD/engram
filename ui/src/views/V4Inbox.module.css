@@ -325,28 +325,6 @@
   color: var(--accent);
 }
 
-.processedButton {
-  align-items: center;
-  background: var(--surface);
-  border: 1px solid var(--border-faint);
-  border-radius: var(--radius-md);
-  color: var(--text-muted);
-  cursor: pointer;
-  display: inline-flex;
-  flex-shrink: 0;
-  justify-content: center;
-  padding: 4px 8px;
-  transition: background-color var(--duration-fast) var(--ease-out),
-              border-color var(--duration-fast) var(--ease-out),
-              color var(--duration-fast) var(--ease-out);
-}
-
-.processedButton:hover {
-  background: color-mix(in oklch, var(--green) 10%, var(--surface));
-  border-color: var(--green);
-  color: var(--green);
-}
-
 @media (max-width: 900px) {
   .inbox {
     grid-template-columns: 1fr;

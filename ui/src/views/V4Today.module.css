@@ -175,6 +175,63 @@
   font-size: var(--text-xs);
 }
 
+.inlineDateChip {
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: inline-flex;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  gap: 4px;
+  padding: 1px 6px;
+  transition: background-color var(--duration-fast) var(--ease-out),
+              border-color var(--duration-fast) var(--ease-out);
+}
+
+.inlineDateChip:hover,
+.inlineDateChip:focus-visible {
+  background: var(--surface);
+  border-color: var(--border-faint);
+  color: var(--text);
+  outline: none;
+}
+
+.inlineDateChipEmpty .inlineDateLabel {
+  color: var(--text-muted);
+}
+
+.inlineDateChipEmpty .inlineDateValue {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.inlineDateLabel {
+  color: var(--text-muted);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: lowercase;
+}
+
+.inlineDateValue {
+  color: var(--text);
+}
+
+.inlineDateInput {
+  background: var(--surface);
+  border: 1px solid var(--border-focus);
+  border-radius: 4px;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  padding: 1px 6px;
+  width: auto;
+  box-shadow: 0 0 0 2px var(--accent-dim);
+  outline: none;
+}
+
 /* Status pill that's also a select — same visual chip as .statusPill but clickable.
    Overrides the global `select { width: 100% }` rule that would otherwise stretch it. */
 .statusPillSelect {

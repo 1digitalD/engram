@@ -2,7 +2,7 @@
 import React from 'react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Check, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { v4API } from '../api/v4Client';
 import MarkdownContent from '../components/MarkdownContent';
 import MarkdownEditor from '../components/MarkdownEditor';
@@ -37,7 +37,7 @@ function formatTimestamp(value) {
   });
 }
 
-function NoteCard({ note, onMarkProcessed }) {
+function NoteCard({ note }) {
   const ts = note.created_at || note.updated_at;
   const pending = note.pending_suggestion_count || 0;
   const aiPending = note.ai?.status === 'pending';
@@ -79,17 +79,6 @@ function NoteCard({ note, onMarkProcessed }) {
           ))}
         </div>
       </Link>
-      {onMarkProcessed && (
-        <button
-          type="button"
-          className={styles.processedButton}
-          onClick={() => onMarkProcessed(note.id)}
-          aria-label="Mark processed"
-          title="Mark processed"
-        >
-          <Check size={14} strokeWidth={2.4} aria-hidden="true" />
-        </button>
-      )}
     </li>
   );
 }
@@ -138,15 +127,6 @@ export default function V4Inbox() {
 
   function dismissCaptureResult(id) {
     setCaptureLog((prev) => prev.filter((r) => r.id !== id));
-  }
-
-  async function markProcessed(noteId) {
-    try {
-      await v4API.entities.update(noteId, { status: 'processed' });
-      await loadInbox();
-    } catch (err) {
-      setError(err.message || 'Failed to mark processed');
-    }
   }
 
   return (
@@ -211,7 +191,7 @@ export default function V4Inbox() {
             </header>
             <ul className={styles.noteList}>
               {needsReview.map((n) => (
-                <NoteCard key={n.id} note={n} onMarkProcessed={markProcessed} />
+                <NoteCard key={n.id} note={n} />
               ))}
             </ul>
           </section>

@@ -1,12 +1,71 @@
 /* eslint-disable no-unused-vars */
 import React from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { v4API } from '../api/v4Client';
 import MarkdownContent from '../components/MarkdownContent';
 import styles from './V4Today.module.css';
 
 const TASK_STATUSES = ['open', 'in_progress', 'waiting', 'blocked', 'done', 'cancelled'];
+
+function toLocalInput(value) {
+  if (!value) return '';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function InlineDateChip({ value, label, ariaLabel, onSave }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(toLocalInput(value));
+  const ref = useRef(null);
+
+  useEffect(() => { setDraft(toLocalInput(value)); }, [value]);
+  useEffect(() => {
+    if (editing && ref.current) ref.current.focus();
+  }, [editing]);
+
+  async function commit() {
+    setEditing(false);
+    const next = draft || null;
+    const currentInput = toLocalInput(value);
+    if ((next || '') === currentInput) return;
+    await onSave(next);
+  }
+
+  if (editing) {
+    return (
+      <input
+        ref={ref}
+        type="datetime-local"
+        className={styles.inlineDateInput}
+        value={draft}
+        aria-label={ariaLabel}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') { e.preventDefault(); commit(); }
+          else if (e.key === 'Escape') { e.preventDefault(); setDraft(toLocalInput(value)); setEditing(false); }
+        }}
+      />
+    );
+  }
+
+  const display = value ? shortDate(value) : '—';
+  return (
+    <button
+      type="button"
+      className={`${styles.inlineDateChip} ${!value ? styles.inlineDateChipEmpty : ''}`}
+      onClick={() => setEditing(true)}
+      title={`Click to edit ${label.toLowerCase()}`}
+      aria-label={ariaLabel}
+    >
+      <span className={styles.inlineDateLabel}>{label}</span>
+      <span className={styles.inlineDateValue}>{display}</span>
+    </button>
+  );
+}
 
 function entityPath(entity) {
   if (!entity) return '#';
@@ -21,9 +80,7 @@ function shortDate(value) {
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
-function EntityRow({ entity, onQuickStatus }) {
-  const due = shortDate(entity.due_at);
-  const follow = shortDate(entity.follow_up_at);
+function EntityRow({ entity, onQuickStatus, onUpdateField }) {
   const isTask = entity.type === 'task';
   return (
     <li className={styles.row}>
@@ -52,14 +109,24 @@ function EntityRow({ entity, onQuickStatus }) {
         {entity.properties?.priority && (
           <span className={styles.priorityPill}>!{entity.properties.priority}</span>
         )}
-        {due && <span className={styles.mutedMeta}>Due {due}</span>}
-        {follow && <span className={styles.mutedMeta}>Follow-up {follow}</span>}
+        <InlineDateChip
+          value={entity.due_at}
+          label="Due"
+          ariaLabel={`Due date for ${entity.title || 'item'}`}
+          onSave={(val) => onUpdateField(entity.id, { due_at: val })}
+        />
+        <InlineDateChip
+          value={entity.follow_up_at}
+          label="Follow-up"
+          ariaLabel={`Follow-up date for ${entity.title || 'item'}`}
+          onSave={(val) => onUpdateField(entity.id, { follow_up_at: val })}
+        />
       </div>
     </li>
   );
 }
 
-function EntitySection({ title, items, onQuickStatus, accent }) {
+function EntitySection({ title, items, onQuickStatus, onUpdateField, accent }) {
   if (items.length === 0) return null;
   return (
     <section className={`${styles.panel} ${accent ? styles[`panel_${accent}`] : ''}`}>
@@ -69,7 +136,12 @@ function EntitySection({ title, items, onQuickStatus, accent }) {
       </header>
       <ul className={styles.list}>
         {items.map((entity) => (
-          <EntityRow key={entity.id} entity={entity} onQuickStatus={onQuickStatus} />
+          <EntityRow
+            key={entity.id}
+            entity={entity}
+            onQuickStatus={onQuickStatus}
+            onUpdateField={onUpdateField}
+          />
         ))}
       </ul>
     </section>
@@ -97,6 +169,15 @@ export default function V4Today() {
       await load();
     } catch (err) {
       setError(err.message || 'Failed to update status');
+    }
+  }
+
+  async function handleUpdateField(entityId, partial) {
+    try {
+      await v4API.entities.update(entityId, partial);
+      await load();
+    } catch (err) {
+      setError(err.message || 'Failed to update');
     }
   }
 
@@ -133,28 +214,33 @@ export default function V4Today() {
         title="Overdue"
         items={overdue}
         onQuickStatus={handleQuickStatus}
+        onUpdateField={handleUpdateField}
         accent="overdue"
       />
       <EntitySection
         title="Due today"
         items={dueToday}
         onQuickStatus={handleQuickStatus}
+        onUpdateField={handleUpdateField}
         accent="due"
       />
       <EntitySection
         title="Follow up today"
         items={followUps}
         onQuickStatus={handleQuickStatus}
+        onUpdateField={handleUpdateField}
       />
       <EntitySection
         title="Blocked"
         items={blocked}
         onQuickStatus={handleQuickStatus}
+        onUpdateField={handleUpdateField}
       />
       <EntitySection
         title="Waiting"
         items={waiting}
         onQuickStatus={handleQuickStatus}
+        onUpdateField={handleUpdateField}
       />
 
       {suggestions.length > 0 && (
