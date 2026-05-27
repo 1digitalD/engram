@@ -36,14 +36,17 @@ const SORT_FIELDS = [
   { value: 'status', label: 'Status', getter: (e) => e.status || '', type: 'text', defaultDir: 'asc' },
 ];
 
-const SESSION_KEY = (type) => `v4_entity_list_${type}`;
+const SESSION_KEY = (() => {
+  // Scope storage to this tab so multiple tabs don't interfere with each other.
+  const tabId = Math.random().toString(36).slice(2);
+  return (type) => `v4_list_${type}_${tabId}`;
+})();
 
-function loadPersistedState(type) {
+function loadListState(type) {
   try {
     const raw = sessionStorage.getItem(SESSION_KEY(type));
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    // Validate it matches known shape to avoid stale/invalid state
     if (!parsed || typeof parsed.sortField !== 'string') return null;
     return parsed;
   } catch {
@@ -51,17 +54,13 @@ function loadPersistedState(type) {
   }
 }
 
-function persistState(type, state) {
+function persistListState(type, state) {
   try {
     sessionStorage.setItem(SESSION_KEY(type), JSON.stringify(state));
   } catch {
     // Storage unavailable — ignore.
   }
 }
-
-// Aliases for the names used in the component body.
-function loadListState(type) { return loadPersistedState(type); }
-function persistListState(type, state) { persistState(type, state); }
 
 function parseLifetime(value) {
   if (value === 'active' || value === 'archived' || value === 'all') return value;
