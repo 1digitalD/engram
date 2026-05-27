@@ -1,7 +1,8 @@
 /* eslint-disable no-unused-vars */
 import React from 'react';
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { X } from 'lucide-react';
 import { v4API } from '../api/v4Client';
 import styles from './V4Search.module.css';
 
@@ -15,6 +16,8 @@ function entityPath(entity) {
 }
 
 export default function V4Search() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tagFilter = searchParams.get('tag') || '';
   const [query, setQuery] = useState('');
   const [type, setType] = useState('');
   const [mode, setMode] = useState('hybrid');
@@ -22,14 +25,14 @@ export default function V4Search() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  async function handleSearch(event) {
-    event.preventDefault();
-    if (!query.trim() || loading) return;
+  async function runSearch({ q, tag } = {}) {
+    if (!q && !tag) return;
     setLoading(true);
     setError('');
     try {
       const response = await v4API.search({
-        q: query.trim(),
+        q: q || undefined,
+        tag: tag || undefined,
         type: type || undefined,
         mode,
         limit: 25,
@@ -43,9 +46,38 @@ export default function V4Search() {
     }
   }
 
+  // Auto-run when ?tag= changes in the URL (e.g. clicking a tag chip elsewhere).
+  useEffect(() => {
+    if (tagFilter) {
+      runSearch({ tag: tagFilter });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tagFilter]);
+
+  async function handleSearch(event) {
+    event.preventDefault();
+    if (!query.trim() || loading) return;
+    if (tagFilter) setSearchParams({});
+    await runSearch({ q: query.trim() });
+  }
+
+  function clearTagFilter() {
+    setSearchParams({});
+    setResults([]);
+  }
+
   return (
     <main className={styles.search}>
       <section className={styles.hero}>
+        {tagFilter && (
+          <div className={styles.tagFilterChip} role="status">
+            <span>Filtered by tag</span>
+            <strong>#{tagFilter}</strong>
+            <button type="button" onClick={clearTagFilter} aria-label="Clear tag filter" title="Clear">
+              <X size={12} strokeWidth={2.4} aria-hidden="true" />
+            </button>
+          </div>
+        )}
         <form onSubmit={handleSearch} className={styles.form} aria-label="Search entities">
           <label className={styles.field}>
             <span className={styles.fieldLabel}>Query</span>

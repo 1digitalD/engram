@@ -205,6 +205,21 @@ export default function V4EntityList({ type }) {
                       )}
                     </span>
                   </Link>
+                  {(entity.tags || []).length > 0 && (
+                    <span className={styles.cardTagRow}>
+                      {entity.tags.map((tag) => (
+                        <Link
+                          key={tag.id || tag.name}
+                          to={`/search?tag=${encodeURIComponent(tag.name)}`}
+                          className={styles.cardTagChip}
+                          title={`Find all items tagged #${tag.name}`}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {tag.name}
+                        </Link>
+                      ))}
+                    </span>
+                  )}
                 </li>
               );
             })}

@@ -41,6 +41,7 @@ describe('V4Search', () => {
 
     await waitFor(() => expect(v4API.search).toHaveBeenCalledWith({
       q: 'memory',
+      tag: undefined,
       type: 'project',
       mode: 'keyword',
       limit: 25,

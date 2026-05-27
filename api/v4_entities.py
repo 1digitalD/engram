@@ -137,8 +137,9 @@ def list_entities():
 @api_v4_bp.route("/search", methods=["GET"])
 def search():
     q = request.args.get("q", "").strip()
-    if not q:
-        return _error("q parameter is required")
+    tag = (request.args.get("tag") or "").strip().lower() or None
+    if not q and not tag:
+        return _error("either q or tag parameter is required")
     mode = request.args.get("mode", "hybrid")
     entity_type = request.args.get("type")
     status = request.args.get("status")
@@ -150,7 +151,17 @@ def search():
     if lifecycle and lifecycle not in VALID_LIFECYCLE:
         return _error(f"invalid lifecycle: {lifecycle}")
 
-    from services.v4_search import search_entities
+    from services.v4_search import search_entities, list_by_tag
+    if not q and tag:
+        results = list_by_tag(
+            tag,
+            entity_type=entity_type,
+            status=status,
+            lifecycle=lifecycle,
+            limit=limit,
+        )
+        return jsonify({"query": "", "tag": tag, "mode": "tag", "results": results})
+
     results = search_entities(
         q,
         mode=mode,
@@ -158,9 +169,10 @@ def search():
         status=status,
         lifecycle=lifecycle,
         limit=limit,
+        tag=tag,
     )
     resolved_mode = mode if mode in {"keyword", "semantic", "hybrid"} else "hybrid"
-    return jsonify({"query": q, "mode": resolved_mode, "results": results})
+    return jsonify({"query": q, "tag": tag, "mode": resolved_mode, "results": results})
 
 
 @api_v4_bp.route("/today", methods=["GET"])

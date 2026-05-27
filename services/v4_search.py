@@ -5,17 +5,17 @@ import logging
 from sqlalchemy import or_, text as sql_text
 
 from extensions import db
-from models import Entity, EntityChunk
+from models import Entity, EntityChunk, EntityTag, Tag
 
 logger = logging.getLogger(__name__)
 
 TITLE_BOOST = 4.0
 
 
-def search_entities(query, mode="hybrid", entity_type=None, status=None, lifecycle="active", limit=20):
+def search_entities(query, mode="hybrid", entity_type=None, status=None, lifecycle="active", limit=20, tag=None):
     mode = mode if mode in {"keyword", "semantic", "hybrid"} else "hybrid"
     limit = max(1, min(int(limit or 20), 100))
-    filters = dict(entity_type=entity_type, status=status, lifecycle=lifecycle)
+    filters = dict(entity_type=entity_type, status=status, lifecycle=lifecycle, tag=tag)
 
     keyword_ranked = _keyword_search(query, filters, limit) if mode in {"keyword", "hybrid"} else []
     semantic_ranked = _semantic_search(query, filters, limit) if mode in {"semantic", "hybrid"} else []
@@ -27,6 +27,37 @@ def search_entities(query, mode="hybrid", entity_type=None, status=None, lifecyc
     return _format_results(_rrf(keyword_ranked, semantic_ranked), keyword_ranked, semantic_ranked, limit)
 
 
+def list_by_tag(tag_name, entity_type=None, status=None, lifecycle="active", limit=50):
+    """Return entities with the given tag, no text query. Sorted by recency."""
+    limit = max(1, min(int(limit or 50), 200))
+    name = (tag_name or "").strip().lower()
+    if not name:
+        return []
+
+    query = (
+        Entity.query
+        .join(EntityTag, EntityTag.entity_id == Entity.id)
+        .join(Tag, Tag.id == EntityTag.tag_id)
+        .filter(Tag.name == name)
+    )
+    if entity_type:
+        query = query.filter(Entity.type == entity_type)
+    if status:
+        query = query.filter(Entity.status == status)
+    if lifecycle:
+        query = query.filter(Entity.lifecycle == lifecycle)
+
+    entities = query.order_by(Entity.updated_at.desc()).limit(limit).all()
+    return [
+        {
+            "entity": e.to_dict(),
+            "score": 1.0,
+            "match": {"source": "tag", "tag": name},
+        }
+        for e in entities
+    ]
+
+
 def _base_query(filters):
     query = Entity.query
     if filters.get("entity_type"):
@@ -35,6 +66,15 @@ def _base_query(filters):
         query = query.filter(Entity.status == filters["status"])
     if filters.get("lifecycle"):
         query = query.filter(Entity.lifecycle == filters["lifecycle"])
+    if filters.get("tag"):
+        tag_name = filters["tag"].strip().lower()
+        if tag_name:
+            query = (
+                query
+                .join(EntityTag, EntityTag.entity_id == Entity.id)
+                .join(Tag, Tag.id == EntityTag.tag_id)
+                .filter(Tag.name == tag_name)
+            )
     return query
 
 
@@ -78,6 +118,7 @@ def _semantic_search(search_query, filters, limit):
 
     conds = []
     params = {"qvec": vec_str, "prelimit": prelimit}
+    extra_joins = ""
     if filters.get("lifecycle"):
         conds.append("e.lifecycle = :lifecycle")
         params["lifecycle"] = filters["lifecycle"]
@@ -87,12 +128,18 @@ def _semantic_search(search_query, filters, limit):
     if filters.get("status"):
         conds.append("e.status = :status")
         params["status"] = filters["status"]
+    if filters.get("tag"):
+        tag_name = filters["tag"].strip().lower()
+        if tag_name:
+            extra_joins += " JOIN entity_tags et ON et.entity_id = e.id JOIN tags t ON t.id = et.tag_id"
+            conds.append("t.name = :tag_name")
+            params["tag_name"] = tag_name
 
     where = ("WHERE " + " AND ".join(conds)) if conds else ""
     sql = sql_text(f"""
         SELECT ec.entity_id, ec.chunk_text, 1 - (ec.embedding <=> CAST(:qvec AS vector)) AS score
         FROM entity_chunks ec
-        JOIN entities e ON e.id = ec.entity_id
+        JOIN entities e ON e.id = ec.entity_id{extra_joins}
         {where}
         ORDER BY ec.embedding <=> CAST(:qvec AS vector)
         LIMIT :prelimit

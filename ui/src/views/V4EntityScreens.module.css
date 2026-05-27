@@ -517,6 +517,46 @@
   padding: 2px 4px 2px 8px;
 }
 
+.cardTagRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.cardTagChip {
+  background: color-mix(in oklch, var(--accent) 6%, var(--surface));
+  border: 1px solid color-mix(in oklch, var(--accent) 18%, var(--border-faint));
+  border-radius: 4px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  padding: 1px 6px;
+  text-decoration: none;
+}
+
+.cardTagChip:hover {
+  background: color-mix(in oklch, var(--accent) 14%, var(--surface));
+  color: var(--accent);
+}
+
+.tagChipLink {
+  color: inherit;
+  cursor: pointer;
+  text-decoration: none;
+  border-radius: 3px;
+  padding: 0 2px;
+}
+
+.tagChipLink:hover {
+  background: color-mix(in oklch, var(--accent) 14%, transparent);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in oklch, var(--accent) 60%, transparent);
+  text-underline-offset: 2px;
+}
+
 .tagChipRemove {
   align-items: center;
   background: transparent;

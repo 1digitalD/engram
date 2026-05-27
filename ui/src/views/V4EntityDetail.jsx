@@ -814,7 +814,13 @@ function TagsField({ value, onChange }) {
     <div className={styles.tagChipRow}>
       {list.map((tag, index) => (
         <span key={`${tag}-${index}`} className={styles.tagChip}>
-          <span>{tag}</span>
+          <Link
+            to={`/search?tag=${encodeURIComponent(tag)}`}
+            className={styles.tagChipLink}
+            title={`Find all items tagged #${tag}`}
+          >
+            {tag}
+          </Link>
           <button
             type="button"
             className={styles.tagChipRemove}
