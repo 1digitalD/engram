@@ -204,11 +204,18 @@ export default function V4Inbox() {
         {recent.length === 0 ? (
           <p className={styles.empty}>No notes yet.</p>
         ) : (
-          <ul className={styles.noteList}>
-            {recent.map((n) => (
-              <NoteCard key={n.id} note={n} />
-            ))}
-          </ul>
+          <>
+            <ul className={styles.noteList}>
+              {recent.slice(0, 10).map((n) => (
+                <NoteCard key={n.id} note={n} />
+              ))}
+            </ul>
+            {recent.length > 10 && (
+              <Link to="/notes" className={styles.showAllLink}>
+                Show all {recent.length} notes →
+              </Link>
+            )}
+          </>
         )}
       </section>
     </main>

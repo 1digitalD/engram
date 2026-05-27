@@ -204,6 +204,21 @@
   text-align: center;
 }
 
+.showAllLink {
+  align-self: center;
+  color: var(--accent);
+  display: inline-block;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  margin-top: var(--space-2);
+  padding: 6px 12px;
+  text-decoration: none;
+}
+
+.showAllLink:hover {
+  text-decoration: underline;
+}
+
 /* ── Note cards (in needs-review and recent lists) ────────────────────── */
 
 .noteList {

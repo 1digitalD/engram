@@ -256,6 +256,33 @@
   line-height: 1.25;
 }
 
+.aiSummary {
+  align-items: flex-start;
+  background: color-mix(in oklch, var(--accent) 5%, var(--surface));
+  border: 1px solid color-mix(in oklch, var(--accent) 18%, var(--border-faint));
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+}
+
+.aiSummaryLabel {
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.aiSummary p {
+  color: var(--text);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  margin: 0;
+}
+
 .detailContent {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);

@@ -417,6 +417,12 @@ export default function V4EntityDetail({ type: routeType }) {
             ariaLabel="Title"
             className={styles.detailTitle}
           />
+          {(entity.ai?.summary || entity.ai?.entity_summary) && (
+            <aside className={styles.aiSummary} aria-label="AI summary">
+              <span className={styles.aiSummaryLabel}>AI summary</span>
+              <p>{entity.ai?.entity_summary || entity.ai?.summary}</p>
+            </aside>
+          )}
           <InlineMarkdownField
             value={draft.content || ''}
             onChange={(val) => setDraft((current) => ({ ...current, content: val }))}
