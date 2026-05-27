@@ -24,6 +24,7 @@ function shortDate(value) {
 function EntityRow({ entity, onQuickStatus }) {
   const due = shortDate(entity.due_at);
   const follow = shortDate(entity.follow_up_at);
+  const isTask = entity.type === 'task';
   return (
     <li className={styles.row}>
       <Link to={entityPath(entity)} className={styles.rowLink}>
@@ -31,29 +32,29 @@ function EntityRow({ entity, onQuickStatus }) {
         {entity.content && (
           <MarkdownContent content={entity.content} compact />
         )}
-        <span className={styles.metaRow}>
-          <span className={styles.typePill}>{entity.type}</span>
-          <span className={styles.statusPill}>{entity.status}</span>
-          {entity.properties?.priority && (
-            <span className={styles.priorityPill}>!{entity.properties.priority}</span>
-          )}
-          {due && <span className={styles.mutedMeta}>Due {due}</span>}
-          {follow && <span className={styles.mutedMeta}>Follow-up {follow}</span>}
-        </span>
       </Link>
-      {entity.type === 'task' && (
-        <select
-          className={styles.rowStatus}
-          value={entity.status}
-          onChange={(event) => onQuickStatus(entity.id, event.target.value)}
-          aria-label={`Status of ${entity.title || 'task'}`}
-          onClick={(event) => event.stopPropagation()}
-        >
-          {TASK_STATUSES.map((s) => (
-            <option key={s} value={s}>{s}</option>
-          ))}
-        </select>
-      )}
+      <div className={styles.metaRow}>
+        <span className={styles.typePill}>{entity.type}</span>
+        {isTask ? (
+          <select
+            className={styles.statusPillSelect}
+            value={entity.status}
+            onChange={(event) => onQuickStatus(entity.id, event.target.value)}
+            aria-label={`Status of ${entity.title || 'task'}`}
+          >
+            {TASK_STATUSES.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        ) : (
+          <span className={styles.statusPill}>{entity.status}</span>
+        )}
+        {entity.properties?.priority && (
+          <span className={styles.priorityPill}>!{entity.properties.priority}</span>
+        )}
+        {due && <span className={styles.mutedMeta}>Due {due}</span>}
+        {follow && <span className={styles.mutedMeta}>Follow-up {follow}</span>}
+      </div>
     </li>
   );
 }

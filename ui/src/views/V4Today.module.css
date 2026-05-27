@@ -1,15 +1,13 @@
 .today {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  display: flex;
+  flex-direction: column;
   gap: var(--space-3);
   height: 100vh;
   overflow: auto;
   padding: var(--space-4);
-  align-content: start;
 }
 
 .dateHeader {
-  grid-column: 1 / -1;
   padding: var(--space-1) var(--space-1) var(--space-2);
 }
 
@@ -38,13 +36,11 @@
 .panel_overdue {
   border-color: color-mix(in oklch, var(--red) 35%, var(--border-faint));
   background: linear-gradient(180deg, color-mix(in oklch, var(--red) 4%, var(--surface)), var(--surface));
-  grid-column: 1 / -1;
 }
 
 .panel_due {
   border-color: color-mix(in oklch, var(--accent) 35%, var(--border-faint));
   background: linear-gradient(180deg, color-mix(in oklch, var(--accent) 4%, var(--surface)), var(--surface));
-  grid-column: 1 / -1;
 }
 
 .panelHeader {
@@ -101,29 +97,29 @@
 }
 
 .row {
-  align-items: stretch;
-  display: flex;
-  gap: 6px;
-}
-
-.rowLink {
+  background: var(--surface);
   border: 1px solid var(--border-faint);
   border-radius: var(--radius-md);
-  color: var(--text);
   display: flex;
-  flex: 1 1 auto;
   flex-direction: column;
-  gap: 3px;
-  min-width: 0;
-  padding: 6px 10px;
-  text-decoration: none;
+  gap: 4px;
+  padding: 8px 10px;
   transition: background-color var(--duration-fast) var(--ease-out),
               border-color var(--duration-fast) var(--ease-out);
 }
 
-.rowLink:hover {
+.row:hover {
   background: var(--surface2);
   border-color: var(--border);
+}
+
+.rowLink {
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  text-decoration: none;
 }
 
 .rowLink strong {
@@ -179,30 +175,44 @@
   font-size: var(--text-xs);
 }
 
-.rowStatus {
-  background: var(--surface);
-  border: 1px solid var(--border-faint);
-  border-radius: var(--radius-md);
-  color: var(--text);
+/* Status pill that's also a select — same visual chip as .statusPill but clickable.
+   Overrides the global `select { width: 100% }` rule that would otherwise stretch it. */
+.statusPillSelect {
+  appearance: none;
+  -webkit-appearance: none;
+  background: color-mix(in oklch, var(--accent) 8%, var(--surface));
+  border: 1px solid color-mix(in oklch, var(--accent) 22%, var(--border));
+  border-radius: var(--radius-full);
+  color: var(--accent);
   cursor: pointer;
-  flex: 0 0 auto;
   font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  max-width: 140px;
-  min-width: 110px;
-  padding: 4px 6px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 1px 16px 1px 8px;
+  text-transform: lowercase;
   width: auto;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+                    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: calc(100% - 7px) 55%, calc(100% - 4px) 55%;
+  background-size: 3px 3px, 3px 3px;
+  background-repeat: no-repeat;
 }
 
-.rowStatus:hover {
+.statusPillSelect:hover {
+  background-color: color-mix(in oklch, var(--accent) 14%, var(--surface));
   border-color: var(--accent);
+}
+
+.statusPillSelect:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-dim);
 }
 
 .collapsible {
   border: 1px dashed var(--border-faint);
   border-radius: var(--radius-md);
   color: var(--text-muted);
-  grid-column: 1 / -1;
   padding: var(--space-2) var(--space-3);
 }
 
