@@ -185,11 +185,13 @@
   border-radius: var(--radius-md);
   color: var(--text);
   cursor: pointer;
-  flex-shrink: 1;
+  flex: 0 0 auto;
   font-family: var(--font-mono);
   font-size: var(--text-xs);
-  min-width: 80px;
+  max-width: 140px;
+  min-width: 110px;
   padding: 4px 6px;
+  width: auto;
 }
 
 .rowStatus:hover {
