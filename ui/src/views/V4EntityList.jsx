@@ -36,6 +36,35 @@ const SORT_FIELDS = [
   { value: 'status', label: 'Status', getter: (e) => e.status || '', type: 'text', defaultDir: 'asc' },
 ];
 
+const SESSION_KEY = (type) => `v4_entity_list_${type}`;
+
+function loadPersistedState(type) {
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY(type));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    // Validate it matches known shape to avoid stale/invalid state
+    if (!parsed || typeof parsed.sortField !== 'string') return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function persistState(type, state) {
+  try {
+    sessionStorage.setItem(SESSION_KEY(type), JSON.stringify(state));
+  } catch {
+    // Storage unavailable — ignore.
+  }
+}
+
+function parseLifetime(value) {
+  if (value === 'active' || value === 'archived' || value === 'all') return value;
+  return 'active';
+}
+
+
 function detailPath(entity) {
   const base = entity.type === 'person' ? 'people' : `${entity.type}s`;
   return `/${base}/${entity.id}`;
@@ -83,11 +112,12 @@ export default function V4EntityList({ type }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
-  const [sortField, setSortField] = useState('updated');
-  const [sortDir, setSortDir] = useState('desc');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [priorityFilter, setPriorityFilter] = useState('');
-  const [lifecycleFilter, setLifecycleFilter] = useState('active');
+  const _init = loadListState(type);
+  const [sortField, setSortField] = useState(_init?.sortField ?? 'updated');
+  const [sortDir, setSortDir] = useState(_init?.sortDir ?? 'desc');
+  const [statusFilter, setStatusFilter] = useState(_init?.statusFilter ?? '');
+  const [priorityFilter, setPriorityFilter] = useState(_init?.priorityFilter ?? '');
+  const [lifecycleFilter, setLifecycleFilter] = useState(parseLifetime(_init?.lifecycleFilter));
 
   useEffect(() => {
     let active = true;
@@ -104,6 +134,11 @@ export default function V4EntityList({ type }) {
       active = false;
     };
   }, [type, lifecycleFilter]);
+
+  // Persist sort/filter state on every change.
+  useEffect(() => {
+    persistListState(type, { sortField, sortDir, statusFilter, priorityFilter, lifecycleFilter });
+  }, [type, sortField, sortDir, statusFilter, priorityFilter, lifecycleFilter]);
 
   const statusOptions = STATUS_BY_TYPE[type] || [];
 
