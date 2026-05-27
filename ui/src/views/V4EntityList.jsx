@@ -59,6 +59,10 @@ function persistState(type, state) {
   }
 }
 
+// Aliases for the names used in the component body.
+function loadListState(type) { return loadPersistedState(type); }
+function persistListState(type, state) { persistState(type, state); }
+
 function parseLifetime(value) {
   if (value === 'active' || value === 'archived' || value === 'all') return value;
   return 'active';
