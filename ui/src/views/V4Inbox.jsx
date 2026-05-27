@@ -201,36 +201,38 @@ export default function V4Inbox() {
         )}
       </section>
 
-      {needsReview.length > 0 && (
+      <div className={styles.notesColumn}>
+        {needsReview.length > 0 && (
+          <section className={`${styles.recentPanel} ${styles.recentPanel_review}`}>
+            <header className={styles.sectionHeader}>
+              <h2>Needs review</h2>
+              <span className={styles.sectionHint}>Pending suggestions or processing</span>
+              <span className={styles.countPill}>{needsReview.length}</span>
+            </header>
+            <ul className={styles.noteList}>
+              {needsReview.map((n) => (
+                <NoteCard key={n.id} note={n} onMarkProcessed={markProcessed} />
+              ))}
+            </ul>
+          </section>
+        )}
+
         <section className={styles.recentPanel}>
           <header className={styles.sectionHeader}>
-            <h2>Needs review</h2>
-            <span className={styles.sectionHint}>Notes still processing or with pending suggestions</span>
-            <span className={styles.countPill}>{needsReview.length}</span>
+            <h2>Captured recently</h2>
+            <span className={styles.countPill}>{recent.length}</span>
           </header>
-          <ul className={styles.noteList}>
-            {needsReview.map((n) => (
-              <NoteCard key={n.id} note={n} onMarkProcessed={markProcessed} />
-            ))}
-          </ul>
+          {recent.length === 0 ? (
+            <p className={styles.empty}>No notes yet.</p>
+          ) : (
+            <ul className={styles.noteList}>
+              {recent.map((n) => (
+                <NoteCard key={n.id} note={n} />
+              ))}
+            </ul>
+          )}
         </section>
-      )}
-
-      <section className={styles.recentPanel}>
-        <header className={styles.sectionHeader}>
-          <h2>Captured recently</h2>
-          <span className={styles.countPill}>{recent.length}</span>
-        </header>
-        {recent.length === 0 ? (
-          <p className={styles.empty}>No notes yet.</p>
-        ) : (
-          <ul className={styles.noteList}>
-            {recent.map((n) => (
-              <NoteCard key={n.id} note={n} />
-            ))}
-          </ul>
-        )}
-      </section>
+      </div>
     </main>
   );
 }
