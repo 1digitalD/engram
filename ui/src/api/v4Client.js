@@ -68,4 +68,5 @@ export const v4API = {
   search: (params = {}) => v4Request('GET', '/search', null, params),
   today: () => v4Request('GET', '/today'),
   recent: (params = {}) => v4Request('GET', '/recent', null, params),
+  inbox: (params = {}) => v4Request('GET', '/inbox', null, params),
 };

@@ -29,8 +29,10 @@ def _link(client, source_id, target_id, relationship_type):
 def test_v4_today_returns_execution_sections(client, app):
     yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
     today = datetime.now(timezone.utc).isoformat()
-    overdue_task = _create_entity(client, "task", "Overdue follow-up", follow_up_at=yesterday)
-    today_note = _create_entity(client, "note", "Today note", follow_up_at=today)
+    overdue_followup_task = _create_entity(client, "task", "Overdue follow-up", follow_up_at=yesterday)
+    today_followup_note = _create_entity(client, "note", "Today note", follow_up_at=today)
+    overdue_due_task = _create_entity(client, "task", "Overdue by due", due_at=yesterday)
+    due_today_task = _create_entity(client, "task", "Due today", due_at=today)
     waiting_task = _create_entity(client, "task", "Waiting task", status="waiting")
     blocked_task = _create_entity(client, "task", "Blocked task", status="blocked")
     project_without_tasks = _create_entity(client, "project", "Needs next task")
@@ -55,8 +57,47 @@ def test_v4_today_returns_execution_sections(client, app):
 
     assert response.status_code == 200
     data = response.get_json()
-    assert {item["id"] for item in data["follow_ups"]} == {overdue_task["id"], today_note["id"]}
+    assert {item["id"] for item in data["follow_ups"]} == {overdue_followup_task["id"], today_followup_note["id"]}
+    assert {item["id"] for item in data["overdue"]} == {overdue_due_task["id"]}
+    assert {item["id"] for item in data["due_today"]} == {due_today_task["id"]}
+    assert {item["id"] for item in data["blocked_tasks"]} == {blocked_task["id"]}
+    assert {item["id"] for item in data["waiting_tasks"]} == {waiting_task["id"]}
     assert {item["id"] for item in data["blocked_or_waiting_tasks"]} == {waiting_task["id"], blocked_task["id"]}
     assert [item["id"] for item in data["projects_without_open_tasks"]] == [project_without_tasks["id"]]
-    assert recent_note["id"] in {item["id"] for item in data["recent_notes"]}
+    assert "recent_notes" not in data
     assert data["pending_suggestions"][0]["payload"]["title"] == "Suggested task"
+
+
+def test_v4_inbox_separates_needs_review_from_recent(client, app):
+    needs_pending = _create_entity(client, "note", "Needs review (pending)")
+    processed = _create_entity(client, "note", "Already processed")
+    with_suggestion = _create_entity(client, "note", "Has open suggestion")
+
+    with app.app_context():
+        note = db.session.get(Entity, processed["id"])
+        note.ai_status = "done"
+        db.session.add(AiSuggestion(
+            source_entity_id=with_suggestion["id"],
+            suggestion_type="create_task",
+            operation_type="create_entity",
+            payload={"title": "Suggested task"},
+            status="pending",
+        ))
+        db.session.commit()
+
+    response = client.get("/api/v4/inbox")
+    assert response.status_code == 200
+    data = response.get_json()
+
+    needs_ids = {n["id"] for n in data["needs_review"]}
+    recent_ids = {n["id"] for n in data["recent"]}
+
+    assert needs_pending["id"] in needs_ids  # ai_status defaults to "pending"
+    assert with_suggestion["id"] in needs_ids  # has pending AiSuggestion
+    assert processed["id"] in recent_ids
+    assert processed["id"] not in needs_ids
+
+    # pending_suggestion_count annotation
+    by_id = {n["id"]: n for n in data["needs_review"] + data["recent"]}
+    assert by_id[with_suggestion["id"]]["pending_suggestion_count"] == 1
+    assert by_id[processed["id"]]["pending_suggestion_count"] == 0

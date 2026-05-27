@@ -10,12 +10,23 @@ vi.mock('../components/MarkdownContent', () => ({
   default: ({ content }) => content || null,
 }));
 
+// Mock MarkdownEditor as a plain textarea so tests can drive it with fireEvent.
+vi.mock('../components/MarkdownEditor', () => ({
+  default: ({ value, onChange, placeholder }) => (
+    <textarea
+      aria-label="Capture text"
+      placeholder={placeholder}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+    />
+  ),
+}));
+
 vi.mock('../api/v4Client', () => ({
   v4API: {
     capture: vi.fn(),
-    entities: {
-      list: vi.fn(),
-    },
+    inbox: vi.fn(),
+    entities: { update: vi.fn() },
   },
 }));
 
@@ -25,12 +36,16 @@ function renderInbox() {
 
 describe('V4Inbox', () => {
   beforeEach(() => {
-    v4API.entities.list.mockResolvedValue({
-      data: [{ id: 'n-old', title: 'Older note', content: 'Already captured' }],
+    vi.clearAllMocks();
+    v4API.inbox.mockResolvedValue({
+      needs_review: [],
+      recent: [
+        { id: 'n-old', title: 'Older note', content: 'Already captured', created_at: '2026-05-20T09:00:00Z', tags: [], pending_suggestion_count: 0 },
+      ],
     });
   });
 
-  it('captures text and shows the saved note, warnings, and suggestions', async () => {
+  it('captures text and surfaces the result in the capture log', async () => {
     v4API.capture.mockResolvedValue({
       source_note: { id: 'n1', title: 'Captured note', content: 'Ask Henry about rollout' },
       applied_changes: [{ type: 'summary_updated' }],
@@ -39,6 +54,7 @@ describe('V4Inbox', () => {
     });
 
     renderInbox();
+    await screen.findByText('Older note');
 
     fireEvent.change(screen.getByLabelText(/capture text/i), {
       target: { value: 'Ask Henry about rollout' },
@@ -52,16 +68,32 @@ describe('V4Inbox', () => {
         mode: 'auto',
       });
     });
-    expect(await screen.findAllByText('Captured note')).toHaveLength(2);
+    // Capture log surfaces the saved note, warning, applied count, and suggestion link.
+    expect(await screen.findByText(/Saved · Captured note/)).toBeInTheDocument();
     expect(screen.getByText('AI extraction degraded')).toBeInTheDocument();
-    expect(screen.getByText(/suggestion.*pending/i)).toBeInTheDocument();
-    expect(screen.getByText(/applied/i)).toBeInTheDocument();
+    expect(screen.getByText(/1 applied/)).toBeInTheDocument();
+    expect(screen.getByText(/1 suggestion pending/)).toBeInTheDocument();
   });
 
-  it('lists recent notes from the v4 entity API', async () => {
+  it('lists recent notes from the v4 inbox API', async () => {
     renderInbox();
-
     expect(await screen.findByText('Older note')).toBeInTheDocument();
-    expect(v4API.entities.list).toHaveBeenCalledWith({ type: 'note', limit: 20 });
+    expect(v4API.inbox).toHaveBeenCalledWith({ limit: 30 });
+  });
+
+  it('surfaces notes that need review separately from recent', async () => {
+    v4API.inbox.mockResolvedValue({
+      needs_review: [
+        { id: 'n-review', title: 'Has pending suggestion', content: 'body', tags: [], pending_suggestion_count: 2, ai: { status: 'done' } },
+      ],
+      recent: [
+        { id: 'n-recent', title: 'Already processed', content: 'body', tags: [], pending_suggestion_count: 0 },
+      ],
+    });
+    renderInbox();
+    expect(await screen.findByText('Needs review')).toBeInTheDocument();
+    expect(screen.getByText('Has pending suggestion')).toBeInTheDocument();
+    expect(screen.getByText(/2 suggestions/)).toBeInTheDocument();
+    expect(screen.getByText('Already processed')).toBeInTheDocument();
   });
 });

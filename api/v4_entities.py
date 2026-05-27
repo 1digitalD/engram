@@ -3,7 +3,7 @@
 from datetime import datetime, time, timezone
 
 from flask import jsonify, request
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.orm import selectinload
 
@@ -175,10 +175,41 @@ def search():
     return jsonify({"query": q, "tag": tag, "mode": resolved_mode, "results": results})
 
 
+DONE_TASK_STATUSES = {"done", "completed", "cancelled"}
+OPEN_TASK_STATUSES = {"open", "in_progress", "waiting", "blocked"}
+
+
 @api_v4_bp.route("/today", methods=["GET"])
 def today():
     now = datetime.now(timezone.utc)
+    start_of_today = datetime.combine(now.date(), time.min, tzinfo=timezone.utc)
     end_of_today = datetime.combine(now.date(), time.max, tzinfo=timezone.utc)
+
+    overdue = (
+        _entity_query()
+        .filter(
+            Entity.lifecycle == "active",
+            Entity.due_at.isnot(None),
+            Entity.due_at < start_of_today,
+            ~Entity.status.in_(DONE_TASK_STATUSES),
+        )
+        .order_by(Entity.due_at.asc())
+        .limit(50)
+        .all()
+    )
+    due_today = (
+        _entity_query()
+        .filter(
+            Entity.lifecycle == "active",
+            Entity.due_at.isnot(None),
+            Entity.due_at >= start_of_today,
+            Entity.due_at <= end_of_today,
+            ~Entity.status.in_(DONE_TASK_STATUSES),
+        )
+        .order_by(Entity.due_at.asc())
+        .limit(50)
+        .all()
+    )
     follow_ups = (
         _entity_query()
         .filter(
@@ -190,33 +221,43 @@ def today():
         .limit(50)
         .all()
     )
-    blocked_or_waiting_tasks = (
+    blocked_tasks = (
         _entity_query()
-        .filter(
-            Entity.type == "task",
-            Entity.lifecycle == "active",
-            Entity.status.in_(["blocked", "waiting"]),
-        )
+        .filter(Entity.type == "task", Entity.lifecycle == "active", Entity.status == "blocked")
         .order_by(Entity.updated_at.desc())
         .limit(50)
         .all()
     )
-    projects = (
+    waiting_tasks = (
         _entity_query()
-        .filter(Entity.type == "project", Entity.lifecycle == "active", Entity.status == "active")
+        .filter(Entity.type == "task", Entity.lifecycle == "active", Entity.status == "waiting")
         .order_by(Entity.updated_at.desc())
-        .limit(100)
+        .limit(50)
         .all()
     )
-    projects_without_open_tasks = [
-        project for project in projects
-        if not _project_has_open_task(project.id)
-    ][:25]
-    recent_notes = (
+    # Single query: which active projects have at least one open task parent-linked.
+    projects_with_open_subquery = (
+        db.session.query(EntityLink.target_entity_id)
+        .join(Entity, Entity.id == EntityLink.source_entity_id)
+        .filter(
+            EntityLink.relationship_type == "parent",
+            Entity.type == "task",
+            Entity.lifecycle == "active",
+            Entity.status.in_(OPEN_TASK_STATUSES),
+        )
+        .distinct()
+        .subquery()
+    )
+    projects_without_open_tasks = (
         _entity_query()
-        .filter(Entity.type == "note", Entity.lifecycle == "active")
-        .order_by(Entity.updated_at.desc(), Entity.created_at.desc())
-        .limit(10)
+        .filter(
+            Entity.type == "project",
+            Entity.lifecycle == "active",
+            Entity.status == "active",
+            ~Entity.id.in_(db.session.query(projects_with_open_subquery.c.target_entity_id)),
+        )
+        .order_by(Entity.updated_at.desc())
+        .limit(25)
         .all()
     )
     pending_suggestions = (
@@ -227,11 +268,78 @@ def today():
     )
 
     return jsonify({
+        "overdue": [entity.to_dict() for entity in overdue],
+        "due_today": [entity.to_dict() for entity in due_today],
         "follow_ups": [entity.to_dict() for entity in follow_ups],
-        "blocked_or_waiting_tasks": [entity.to_dict() for entity in blocked_or_waiting_tasks],
+        "blocked_tasks": [entity.to_dict() for entity in blocked_tasks],
+        "waiting_tasks": [entity.to_dict() for entity in waiting_tasks],
         "projects_without_open_tasks": [entity.to_dict() for entity in projects_without_open_tasks],
-        "recent_notes": [entity.to_dict() for entity in recent_notes],
         "pending_suggestions": [suggestion.to_dict() for suggestion in pending_suggestions],
+        # Retained for any external callers; matches the new bucket structure semantically.
+        "blocked_or_waiting_tasks": [e.to_dict() for e in (blocked_tasks + waiting_tasks)],
+    })
+
+
+@api_v4_bp.route("/inbox", methods=["GET"])
+def inbox():
+    limit = max(1, min(request.args.get("limit", 30, type=int), 200))
+
+    # Notes with pending AI suggestions linked to them.
+    notes_with_suggestions = {
+        row[0] for row in db.session.query(AiSuggestion.source_entity_id)
+        .filter(AiSuggestion.status == "pending")
+        .distinct().all()
+    }
+
+    needs_review = (
+        _entity_query()
+        .filter(
+            Entity.type == "note",
+            Entity.lifecycle == "active",
+            or_(
+                Entity.ai_status == "pending",
+                Entity.ai_status == "error",
+                Entity.id.in_(notes_with_suggestions) if notes_with_suggestions else Entity.id.is_(None),
+            ),
+        )
+        .order_by(Entity.updated_at.desc(), Entity.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+    needs_review_ids = {n.id for n in needs_review}
+
+    recent = (
+        _entity_query()
+        .filter(
+            Entity.type == "note",
+            Entity.lifecycle == "active",
+            ~Entity.id.in_(needs_review_ids) if needs_review_ids else Entity.id.is_not(None),
+        )
+        .order_by(Entity.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+
+    # Single query: pending-suggestion counts per source note in this page.
+    note_ids = [n.id for n in needs_review] + [n.id for n in recent]
+    pending_counts = {}
+    if note_ids:
+        rows = (
+            db.session.query(AiSuggestion.source_entity_id, func.count(AiSuggestion.id))
+            .filter(AiSuggestion.source_entity_id.in_(note_ids), AiSuggestion.status == "pending")
+            .group_by(AiSuggestion.source_entity_id)
+            .all()
+        )
+        pending_counts = {sid: cnt for sid, cnt in rows}
+
+    def annotate(note):
+        d = note.to_dict()
+        d["pending_suggestion_count"] = pending_counts.get(note.id, 0)
+        return d
+
+    return jsonify({
+        "needs_review": [annotate(n) for n in needs_review],
+        "recent": [annotate(n) for n in recent],
     })
 
 

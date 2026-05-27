@@ -1,17 +1,20 @@
 .inbox {
-  display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
+  display: flex;
+  flex-direction: column;
   gap: var(--space-3);
   height: 100vh;
   overflow: auto;
   padding: var(--space-4);
+  max-width: 1100px;
+  margin: 0 auto;
+  width: 100%;
 }
 
 .capturePanel,
 .recentPanel {
   border: 1px solid var(--border-faint);
   border-radius: var(--radius-lg);
-  background: color-mix(in oklch, var(--surface) 96%, transparent);
+  background: var(--surface);
   box-shadow: var(--shadow-sm);
   padding: var(--space-3);
   display: flex;
@@ -20,95 +23,9 @@
 }
 
 .capturePanel .form {
-  flex: 1 1 auto;
-  min-height: 0;
-}
-
-.capturePanel textarea {
-  flex: 1 1 auto;
-  min-height: 200px;
-}
-
-.recentPanel {
-  overflow: hidden;
-}
-
-.recentPanel .noteList {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-}
-
-.capturePanel h1,
-.recentPanel h2 {
-  font-size: var(--text-md);
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  margin-bottom: var(--space-3);
-}
-
-.form {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-}
-
-.editorTabs {
-  display: flex;
-  gap: 2px;
-}
-
-.editorTab {
-  background: transparent;
-  border: none;
-  border-bottom: 2px solid transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  font: inherit;
-  font-size: var(--text-sm);
-  font-weight: 500;
-  padding: 2px 10px 4px;
-  transition: color var(--duration-fast) var(--ease-out),
-              border-color var(--duration-fast) var(--ease-out);
-}
-
-.editorTab:hover:not(:disabled) {
-  color: var(--text);
-}
-
-.editorTab:disabled {
-  cursor: not-allowed;
-  opacity: 0.35;
-}
-
-.editorTabActive {
-  border-bottom-color: var(--accent);
-  color: var(--text);
-}
-
-.previewPane {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface);
-  min-height: 148px;
-  overflow-y: auto;
-  padding: var(--space-3);
-}
-
-.form textarea {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface);
-  color: var(--text);
-  font: inherit;
-  padding: var(--space-3);
-  resize: vertical;
-}
-
-.form textarea:focus {
-  border-color: var(--border-focus);
-  outline: none;
-  box-shadow: 0 0 0 2px var(--accent-dim);
 }
 
 .captureButton {
@@ -135,44 +52,6 @@
   opacity: 0.45;
 }
 
-.resultPanel {
-  border: 1px solid var(--border-faint);
-  border-radius: var(--radius-md);
-  background: color-mix(in oklch, var(--green) 6%, var(--surface));
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  margin-top: var(--space-3);
-  padding: var(--space-3);
-}
-
-.resultHead {
-  color: var(--green);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.resultMeta {
-  color: var(--text-muted);
-  font-size: var(--text-xs);
-}
-
-.resultMeta a {
-  color: var(--accent);
-  font-weight: 600;
-}
-
-.warning {
-  border: 1px solid color-mix(in oklch, var(--yellow) 35%, var(--border));
-  border-radius: var(--radius-md);
-  color: var(--text-secondary);
-  font-size: var(--text-xs);
-  padding: var(--space-2) var(--space-3);
-}
-
 .error {
   border-radius: var(--radius-md);
   background: color-mix(in oklch, var(--red) 12%, var(--surface));
@@ -182,40 +61,174 @@
   padding: var(--space-2) var(--space-3);
 }
 
-.srOnly {
-  position: absolute;
-  width: 1px;
-  height: 1px;
+/* ── Capture log (persistent feedback strip) ─────────────────────────── */
+
+.captureLog {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  list-style: none;
+  margin: var(--space-3) 0 0;
   padding: 0;
-  margin: -1px;
+}
+
+.captureLogItem {
+  align-items: flex-start;
+  background: color-mix(in oklch, var(--green) 5%, var(--surface));
+  border: 1px solid color-mix(in oklch, var(--green) 25%, var(--border-faint));
+  border-radius: var(--radius-md);
+  display: flex;
+  gap: var(--space-2);
+  padding: 8px 10px;
+}
+
+.captureLogBody {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  gap: 3px;
+  min-width: 0;
+}
+
+.captureLogBody strong {
+  color: var(--text);
+  font-size: var(--text-sm);
+  font-weight: 600;
   overflow: hidden;
-  clip: rect(0, 0, 0, 0);
+  text-overflow: ellipsis;
   white-space: nowrap;
-  border: 0;
+}
+
+.captureLogMeta {
+  align-items: center;
+  color: var(--text-muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: var(--text-xs);
+  gap: 8px;
+}
+
+.captureLogMeta a {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.warning {
+  color: color-mix(in oklch, var(--yellow) 70%, var(--text));
+  font-size: var(--text-xs);
+}
+
+.dismiss {
+  align-items: center;
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: inline-flex;
+  flex-shrink: 0;
+  height: 20px;
+  justify-content: center;
+  padding: 0;
+  width: 20px;
+}
+
+.dismiss:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+/* ── Section headers ───────────────────────────────────────────────── */
+
+.sectionHeader {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border-faint);
+}
+
+.sectionHeader h2 {
+  color: var(--text);
+  font-size: var(--text-base);
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.sectionHint {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  flex: 1 1 auto;
+}
+
+.countPill {
+  align-items: center;
+  background: color-mix(in oklch, var(--accent) 9%, var(--surface));
+  border: 1px solid color-mix(in oklch, var(--accent) 22%, var(--border));
+  border-radius: var(--radius-full);
+  color: var(--accent);
+  display: inline-flex;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  justify-content: center;
+  min-height: 18px;
+  min-width: 22px;
+  padding: 2px 6px;
 }
 
 .empty {
   color: var(--text-muted);
   font-size: var(--text-sm);
+  padding: var(--space-3) 0;
+  text-align: center;
 }
+
+/* ── Note cards (in needs-review and recent lists) ────────────────────── */
 
 .noteList {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 6px;
   list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+}
+
+.noteCard {
+  align-items: stretch;
+  display: flex;
+  gap: 8px;
 }
 
 .noteLink {
+  border: 1px solid var(--border-faint);
   border-radius: var(--radius-md);
+  color: var(--text);
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
-  gap: 2px;
-  padding: var(--space-2);
+  gap: 4px;
+  min-width: 0;
+  padding: 8px 12px;
+  text-decoration: none;
+  transition: background-color var(--duration-fast) var(--ease-out),
+              border-color var(--duration-fast) var(--ease-out);
 }
 
 .noteLink:hover {
   background: var(--surface2);
+  border-color: var(--border);
+}
+
+.noteHeader {
+  align-items: baseline;
+  display: flex;
+  gap: var(--space-2);
+  justify-content: space-between;
+  min-width: 0;
 }
 
 .noteLink strong {
@@ -228,14 +241,6 @@
   white-space: nowrap;
 }
 
-.noteHeader {
-  align-items: baseline;
-  display: flex;
-  gap: var(--space-2);
-  justify-content: space-between;
-  min-width: 0;
-}
-
 .noteTimestamp {
   color: var(--text-muted);
   flex-shrink: 0;
@@ -244,18 +249,82 @@
   letter-spacing: 0.02em;
 }
 
-.noteLink span {
+.noteBadges {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 2px;
+}
+
+.badge {
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 1px 6px;
+}
+
+.badge_warn {
+  background: color-mix(in oklch, var(--yellow) 14%, var(--surface));
+  border: 1px solid color-mix(in oklch, var(--yellow) 35%, var(--border));
+  color: color-mix(in oklch, var(--yellow) 70%, var(--text));
+}
+
+.badge_error {
+  background: color-mix(in oklch, var(--red) 14%, var(--surface));
+  border: 1px solid color-mix(in oklch, var(--red) 35%, var(--border));
+  color: var(--red);
+}
+
+.badge_accent {
+  background: color-mix(in oklch, var(--accent) 12%, var(--surface));
+  border: 1px solid color-mix(in oklch, var(--accent) 30%, var(--border));
+  color: var(--accent);
+}
+
+.tagChip {
+  background: color-mix(in oklch, var(--accent) 6%, var(--surface));
+  border: 1px solid color-mix(in oklch, var(--accent) 18%, var(--border-faint));
+  border-radius: 4px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  text-decoration: none;
+}
+
+.tagChip:hover {
+  background: color-mix(in oklch, var(--accent) 14%, var(--surface));
+  color: var(--accent);
+}
+
+.processedButton {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-md);
   color: var(--text-muted);
-  font-size: var(--text-xs);
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  cursor: pointer;
+  display: inline-flex;
+  flex-shrink: 0;
+  justify-content: center;
+  padding: 6px 8px;
+  transition: background-color var(--duration-fast) var(--ease-out),
+              border-color var(--duration-fast) var(--ease-out),
+              color var(--duration-fast) var(--ease-out);
+}
+
+.processedButton:hover {
+  background: color-mix(in oklch, var(--green) 10%, var(--surface));
+  border-color: var(--green);
+  color: var(--green);
 }
 
 @media (max-width: 900px) {
   .inbox {
-    grid-template-columns: 1fr;
     height: auto;
     padding: var(--space-3);
   }

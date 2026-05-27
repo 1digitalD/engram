@@ -2,6 +2,7 @@
 import React from 'react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Check, X } from 'lucide-react';
 import { v4API } from '../api/v4Client';
 import MarkdownContent from '../components/MarkdownContent';
 import MarkdownEditor from '../components/MarkdownEditor';
@@ -36,31 +37,82 @@ function formatTimestamp(value) {
   });
 }
 
-function suggestionLabel(suggestion) {
-  const payload = suggestion?.payload || {};
-  return payload.title || suggestion?.suggestion_type || 'Suggestion';
+function NoteCard({ note, onMarkProcessed }) {
+  const ts = note.created_at || note.updated_at;
+  const pending = note.pending_suggestion_count || 0;
+  const aiPending = note.ai?.status === 'pending';
+  const aiError = note.ai?.status === 'error';
+  const tagList = note.tags || [];
+  return (
+    <li className={styles.noteCard}>
+      <Link to={notePath(note)} className={styles.noteLink}>
+        <div className={styles.noteHeader}>
+          <strong>{entityTitle(note)}</strong>
+          {ts && (
+            <time
+              className={styles.noteTimestamp}
+              dateTime={ts}
+              title={new Date(ts).toLocaleString()}
+            >
+              {formatTimestamp(ts)}
+            </time>
+          )}
+        </div>
+        {note.content && (
+          <MarkdownContent content={note.content} compact />
+        )}
+        <div className={styles.noteBadges}>
+          {aiPending && <span className={`${styles.badge} ${styles.badge_warn}`}>AI pending</span>}
+          {aiError && <span className={`${styles.badge} ${styles.badge_error}`}>AI error</span>}
+          {pending > 0 && (
+            <span className={`${styles.badge} ${styles.badge_accent}`}>{pending} suggestion{pending === 1 ? '' : 's'}</span>
+          )}
+          {tagList.slice(0, 4).map((tag) => (
+            <Link
+              key={tag.id || tag.name}
+              to={`/search?tag=${encodeURIComponent(tag.name)}`}
+              className={styles.tagChip}
+              onClick={(e) => e.stopPropagation()}
+            >
+              #{tag.name}
+            </Link>
+          ))}
+        </div>
+      </Link>
+      {onMarkProcessed && (
+        <button
+          type="button"
+          className={styles.processedButton}
+          onClick={() => onMarkProcessed(note.id)}
+          aria-label="Mark processed"
+          title="Mark processed"
+        >
+          <Check size={14} strokeWidth={2.4} aria-hidden="true" />
+        </button>
+      )}
+    </li>
+  );
 }
 
 export default function V4Inbox() {
   const [content, setContent] = useState('');
-  const [notes, setNotes] = useState([]);
-  const [result, setResult] = useState(null);
+  const [needsReview, setNeedsReview] = useState([]);
+  const [recent, setRecent] = useState([]);
+  const [captureLog, setCaptureLog] = useState([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    let active = true;
-    v4API.entities.list({ type: 'note', limit: 20 })
-      .then((response) => {
-        if (active) setNotes(response.data || []);
-      })
-      .catch((err) => {
-        if (active) setError(err.message);
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
+  async function loadInbox() {
+    try {
+      const data = await v4API.inbox({ limit: 30 });
+      setNeedsReview(data.needs_review || []);
+      setRecent(data.recent || []);
+    } catch (err) {
+      setError(err.message || 'Failed to load inbox');
+    }
+  }
+
+  useEffect(() => { loadInbox(); /* eslint-disable-next-line */ }, []);
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -74,18 +126,26 @@ export default function V4Inbox() {
         source: 'ui',
         mode: 'auto',
       });
-      setResult(captureResult);
       setContent('');
-      if (captureResult.source_note) {
-        setNotes((current) => [
-          captureResult.source_note,
-          ...current.filter((note) => note.id !== captureResult.source_note.id),
-        ]);
-      }
+      setCaptureLog((prev) => [{ id: captureResult.source_note?.id || Date.now(), ...captureResult }, ...prev].slice(0, 5));
+      await loadInbox();
     } catch (err) {
       setError(err.message || 'Capture failed');
     } finally {
       setLoading(false);
+    }
+  }
+
+  function dismissCaptureResult(id) {
+    setCaptureLog((prev) => prev.filter((r) => r.id !== id));
+  }
+
+  async function markProcessed(noteId) {
+    try {
+      await v4API.entities.update(noteId, { status: 'processed' });
+      await loadInbox();
+    } catch (err) {
+      setError(err.message || 'Failed to mark processed');
     }
   }
 
@@ -95,7 +155,7 @@ export default function V4Inbox() {
         <form onSubmit={handleSubmit} className={styles.form}>
           <MarkdownEditor
             value={content}
-            onChange={(val) => { setContent(val); setResult(null); }}
+            onChange={setContent}
             placeholder="Paste a note, reminder, task idea, person mention, or project update…"
             minRows={6}
             autoFocus
@@ -106,61 +166,67 @@ export default function V4Inbox() {
         </form>
         {error && <div className={styles.error}>{error}</div>}
 
-        {result && (
-          <div className={styles.resultPanel} aria-label="Capture result">
-            <p className={styles.resultHead}>Saved</p>
-            <strong>{entityTitle(result.source_note)}</strong>
-
-            {!!result.warnings?.length && (
-              <div className={styles.warning}>
-                {result.warnings.map((warning) => (
-                  <p key={warning}>{warning}</p>
-                ))}
-              </div>
-            )}
-
-            {!!result.applied_changes?.length && (
-              <p className={styles.resultMeta}>
-                Applied: {result.applied_changes.map((c) => c.type).join(', ')}
-              </p>
-            )}
-
-            {!!result.suggestions?.length && (
-              <p className={styles.resultMeta}>
-                {result.suggestions.length} suggestion{result.suggestions.length !== 1 ? 's' : ''} pending &rarr;{' '}
-                <Link to="/suggestions">Review</Link>
-              </p>
-            )}
-          </div>
+        {captureLog.length > 0 && (
+          <ul className={styles.captureLog} aria-label="Recent captures">
+            {captureLog.map((r) => {
+              const applied = (r.applied_changes || []).length;
+              const suggested = (r.suggestions || []).length;
+              return (
+                <li key={r.id} className={styles.captureLogItem}>
+                  <div className={styles.captureLogBody}>
+                    <strong>Saved · {entityTitle(r.source_note)}</strong>
+                    <span className={styles.captureLogMeta}>
+                      {applied > 0 && <span>{applied} applied</span>}
+                      {suggested > 0 && (
+                        <Link to="/suggestions">{suggested} suggestion{suggested === 1 ? '' : 's'} pending</Link>
+                      )}
+                      {(r.warnings || []).map((w) => (
+                        <span key={w} className={styles.warning}>{w}</span>
+                      ))}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className={styles.dismiss}
+                    onClick={() => dismissCaptureResult(r.id)}
+                    aria-label="Dismiss"
+                    title="Dismiss"
+                  >
+                    <X size={12} strokeWidth={2.4} aria-hidden="true" />
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
         )}
       </section>
 
+      {needsReview.length > 0 && (
+        <section className={styles.recentPanel}>
+          <header className={styles.sectionHeader}>
+            <h2>Needs review</h2>
+            <span className={styles.sectionHint}>Notes still processing or with pending suggestions</span>
+            <span className={styles.countPill}>{needsReview.length}</span>
+          </header>
+          <ul className={styles.noteList}>
+            {needsReview.map((n) => (
+              <NoteCard key={n.id} note={n} onMarkProcessed={markProcessed} />
+            ))}
+          </ul>
+        </section>
+      )}
+
       <section className={styles.recentPanel}>
-        <h2>Recent notes</h2>
-        {notes.length === 0 ? (
-          <p className={styles.empty}>No notes captured yet.</p>
+        <header className={styles.sectionHeader}>
+          <h2>Captured recently</h2>
+          <span className={styles.countPill}>{recent.length}</span>
+        </header>
+        {recent.length === 0 ? (
+          <p className={styles.empty}>No notes yet.</p>
         ) : (
           <ul className={styles.noteList}>
-            {notes.map((note) => (
-              <li key={note.id}>
-                <Link to={notePath(note)} className={styles.noteLink}>
-                  <div className={styles.noteHeader}>
-                    <strong>{entityTitle(note)}</strong>
-                    {(note.created_at || note.updated_at) && (
-                      <time
-                        className={styles.noteTimestamp}
-                        dateTime={note.created_at || note.updated_at}
-                        title={new Date(note.created_at || note.updated_at).toLocaleString()}
-                      >
-                        {formatTimestamp(note.created_at || note.updated_at)}
-                      </time>
-                    )}
-                  </div>
-                  {note.content && (
-                    <MarkdownContent content={note.content} compact />
-                  )}
-                </Link>
-              </li>
+            {recent.map((n) => (
+              <NoteCard key={n.id} note={n} />
             ))}
           </ul>
         )}

@@ -1,15 +1,17 @@
 .today {
   display: grid;
-  grid-template-columns: repeat(2, minmax(280px, 1fr));
+  grid-template-columns: 1fr;
   gap: var(--space-3);
   height: 100vh;
   overflow: auto;
   padding: var(--space-4);
   align-content: start;
+  max-width: 1100px;
+  margin: 0 auto;
+  width: 100%;
 }
 
 .dateHeader {
-  grid-column: 1 / -1;
   padding: var(--space-2) var(--space-1);
 }
 
@@ -21,22 +23,48 @@
   color: var(--text);
 }
 
+.dateSub {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  margin: 4px 0 0;
+}
+
 .panel {
   border: 1px solid var(--border-faint);
   border-radius: var(--radius-lg);
-  background: color-mix(in oklch, var(--surface) 96%, transparent);
+  background: var(--surface);
   box-shadow: var(--shadow-sm);
   padding: var(--space-3);
 }
 
-.panel h2 {
+.panel_overdue {
+  border-color: color-mix(in oklch, var(--red) 35%, var(--border-faint));
+  background: linear-gradient(180deg, color-mix(in oklch, var(--red) 4%, var(--surface)), var(--surface));
+}
+
+.panel_due {
+  border-color: color-mix(in oklch, var(--accent) 35%, var(--border-faint));
+  background: linear-gradient(180deg, color-mix(in oklch, var(--accent) 4%, var(--surface)), var(--surface));
+}
+
+.panelHeader {
   align-items: center;
   display: flex;
-  font-size: var(--text-md);
-  font-weight: 700;
   gap: var(--space-2);
-  letter-spacing: -0.02em;
-  margin-bottom: var(--space-2);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border-faint);
+}
+
+.panelHeader h2 {
+  color: var(--text);
+  font-size: var(--text-base);
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.panel_overdue .panelHeader h2 {
+  color: var(--red);
 }
 
 .count {
@@ -55,69 +83,134 @@
   padding: 2px 6px;
 }
 
-.empty {
-  color: var(--text-muted);
-  font-size: var(--text-sm);
-}
-
-.emptyRow {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  grid-column: 1 / -1;
-  padding: var(--space-2) var(--space-1) 0;
-}
-
-.emptyStub {
-  align-items: center;
-  background: color-mix(in oklch, var(--surface) 80%, transparent);
-  border: 1px dashed var(--border);
-  border-radius: var(--radius-full);
-  color: var(--text-muted);
-  display: inline-flex;
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  letter-spacing: 0.04em;
-  padding: 3px 10px;
-}
-
-.emptyStub::before {
-  content: '✓';
-  color: var(--green);
-  margin-right: 6px;
+.panel_overdue .count {
+  background: color-mix(in oklch, var(--red) 10%, var(--surface));
+  border-color: color-mix(in oklch, var(--red) 28%, var(--border));
+  color: var(--red);
 }
 
 .list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: 6px;
   list-style: none;
+  margin: 0;
   margin-top: var(--space-2);
+  padding: 0;
 }
 
-.list a {
+.row {
+  align-items: stretch;
+  display: flex;
+  gap: 8px;
+}
+
+.rowLink {
   border: 1px solid var(--border-faint);
   border-radius: var(--radius-md);
+  color: var(--text);
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
-  gap: 2px;
-  padding: var(--space-2) var(--space-3);
+  gap: 4px;
+  min-width: 0;
+  padding: 8px 12px;
+  text-decoration: none;
+  transition: background-color var(--duration-fast) var(--ease-out),
+              border-color var(--duration-fast) var(--ease-out);
 }
 
-.list a:hover {
+.rowLink:hover {
   background: var(--surface2);
+  border-color: var(--border);
 }
 
-.list span {
+.rowLink strong {
+  color: var(--text);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.metaRow {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 2px;
+}
+
+.typePill,
+.statusPill,
+.priorityPill {
+  border-radius: var(--radius-full);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 1px 8px;
+  text-transform: lowercase;
+}
+
+.typePill {
+  background: color-mix(in oklch, var(--surface) 60%, var(--surface2));
+  border: 1px solid var(--border-faint);
+  color: var(--text-secondary);
+}
+
+.statusPill {
+  background: color-mix(in oklch, var(--accent) 8%, var(--surface));
+  border: 1px solid color-mix(in oklch, var(--accent) 22%, var(--border));
+  color: var(--accent);
+}
+
+.priorityPill {
+  background: color-mix(in oklch, var(--yellow) 14%, var(--surface));
+  border: 1px solid color-mix(in oklch, var(--yellow) 35%, var(--border));
+  color: color-mix(in oklch, var(--yellow) 70%, var(--text));
+}
+
+.mutedMeta {
   color: var(--text-muted);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
 }
 
+.rowStatus {
+  background: var(--surface);
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-md);
+  color: var(--text);
+  cursor: pointer;
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  padding: 4px 8px;
+}
+
+.rowStatus:hover {
+  border-color: var(--accent);
+}
+
+.collapsible {
+  border: 1px dashed var(--border-faint);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+  color: var(--text-muted);
+}
+
+.collapsibleSummary {
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.02em;
+}
+
+.collapsible[open] .collapsibleSummary {
+  margin-bottom: var(--space-2);
+}
+
 @media (max-width: 900px) {
   .today {
-    grid-template-columns: 1fr;
     height: auto;
     padding: var(--space-3);
   }
