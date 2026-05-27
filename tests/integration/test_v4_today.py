@@ -31,6 +31,10 @@ def test_v4_today_returns_execution_sections(client, app):
     today = datetime.now(timezone.utc).isoformat()
     overdue_followup_task = _create_entity(client, "task", "Overdue follow-up", follow_up_at=yesterday)
     today_followup_note = _create_entity(client, "note", "Today note", follow_up_at=today)
+    upcoming_followup_task = _create_entity(
+        client, "task", "Upcoming follow-up",
+        follow_up_at=(datetime.now(timezone.utc) + timedelta(days=3)).isoformat(),
+    )
     overdue_due_task = _create_entity(client, "task", "Overdue by due", due_at=yesterday)
     due_today_task = _create_entity(client, "task", "Due today", due_at=today)
     done_with_followup = _create_entity(client, "task", "Done w/ followup", follow_up_at=yesterday, status="done")
@@ -60,6 +64,7 @@ def test_v4_today_returns_execution_sections(client, app):
     data = response.get_json()
     assert {item["id"] for item in data["overdue_follow_ups"]} == {overdue_followup_task["id"]}
     assert {item["id"] for item in data["follow_ups"]} == {today_followup_note["id"]}
+    assert {item["id"] for item in data["upcoming_follow_ups"]} == {upcoming_followup_task["id"]}
     # done_with_followup should NOT appear in either follow-up bucket (status filter).
     assert done_with_followup["id"] not in {i["id"] for i in data["overdue_follow_ups"]}
     assert done_with_followup["id"] not in {i["id"] for i in data["follow_ups"]}

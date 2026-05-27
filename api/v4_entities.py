@@ -1,6 +1,6 @@
 """Engram v4 canonical entity API."""
 
-from datetime import datetime, time, timezone
+from datetime import datetime, time, timezone, timedelta
 
 from flask import jsonify, request
 from sqlalchemy import func, or_
@@ -236,6 +236,20 @@ def today():
         .limit(50)
         .all()
     )
+    end_of_week = end_of_today + timedelta(days=7)
+    upcoming_follow_ups = (
+        _entity_query()
+        .filter(
+            Entity.lifecycle == "active",
+            Entity.follow_up_at.isnot(None),
+            Entity.follow_up_at > end_of_today,
+            Entity.follow_up_at <= end_of_week,
+            ~Entity.status.in_(DONE_TASK_STATUSES),
+        )
+        .order_by(Entity.follow_up_at.asc())
+        .limit(50)
+        .all()
+    )
     blocked_tasks = (
         _entity_query()
         .filter(Entity.type == "task", Entity.lifecycle == "active", Entity.status == "blocked")
@@ -287,6 +301,7 @@ def today():
         "due_today": [entity.to_dict() for entity in due_today],
         "overdue_follow_ups": [entity.to_dict() for entity in overdue_follow_ups],
         "follow_ups": [entity.to_dict() for entity in follow_ups],
+        "upcoming_follow_ups": [entity.to_dict() for entity in upcoming_follow_ups],
         "blocked_tasks": [entity.to_dict() for entity in blocked_tasks],
         "waiting_tasks": [entity.to_dict() for entity in waiting_tasks],
         "projects_without_open_tasks": [entity.to_dict() for entity in projects_without_open_tasks],

@@ -24,6 +24,7 @@ describe('V4Today', () => {
       due_today: [{ id: 'dt1', type: 'task', title: 'Due today task', status: 'open', due_at: '2026-05-27T17:00:00Z' }],
       overdue_follow_ups: [{ id: 'of1', type: 'task', title: 'Overdue follow-up', status: 'open' }],
       follow_ups: [{ id: 't1', type: 'task', title: 'Follow up today task', status: 'open' }],
+      upcoming_follow_ups: [{ id: 'uf1', type: 'task', title: 'Upcoming followup', status: 'open' }],
       blocked_tasks: [{ id: 'b1', type: 'task', title: 'Blocked work', status: 'blocked' }],
       waiting_tasks: [{ id: 'w1', type: 'task', title: 'Waiting work', status: 'waiting' }],
       projects_without_open_tasks: [{ id: 'p1', type: 'project', title: 'Needs next task', status: 'active' }],
@@ -40,6 +41,7 @@ describe('V4Today', () => {
     expect(screen.getByText('Due today task')).toBeInTheDocument();
     expect(screen.getByText('Overdue follow-up')).toBeInTheDocument();
     expect(screen.getByText('Follow up today task')).toBeInTheDocument();
+    expect(screen.getByText('Upcoming followup')).toBeInTheDocument();
     expect(screen.getByText('Blocked work')).toBeInTheDocument();
     expect(screen.getByText('Waiting work')).toBeInTheDocument();
     expect(screen.getByText('Needs next task')).toBeInTheDocument();

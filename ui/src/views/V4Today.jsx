@@ -77,7 +77,10 @@ function shortDate(value) {
   if (!value) return null;
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return null;
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  const sameYear = d.getFullYear() === new Date().getFullYear();
+  return d.toLocaleDateString(undefined, sameYear
+    ? { month: 'short', day: 'numeric' }
+    : { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 function EntityRow({ entity, onQuickStatus, onUpdateField }) {
@@ -193,6 +196,7 @@ export default function V4Today() {
   const dueToday = today.due_today || [];
   const overdueFollowUps = today.overdue_follow_ups || [];
   const followUps = today.follow_ups || [];
+  const upcomingFollowUps = today.upcoming_follow_ups || [];
   const blocked = today.blocked_tasks || [];
   const waiting = today.waiting_tasks || [];
   const idleProjects = today.projects_without_open_tasks || [];
@@ -235,6 +239,12 @@ export default function V4Today() {
       <EntitySection
         title="Follow up today"
         items={followUps}
+        onQuickStatus={handleQuickStatus}
+        onUpdateField={handleUpdateField}
+      />
+      <EntitySection
+        title="Upcoming follow-ups (next 7 days)"
+        items={upcomingFollowUps}
         onQuickStatus={handleQuickStatus}
         onUpdateField={handleUpdateField}
       />
