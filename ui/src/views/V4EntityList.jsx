@@ -1,8 +1,8 @@
 /* eslint-disable no-unused-vars */
 import React from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Plus, X } from 'lucide-react';
 import { v4API } from '../api/v4Client';
 import MarkdownContent from '../components/MarkdownContent';
 import styles from './V4EntityScreens.module.css';
@@ -16,6 +16,25 @@ const pluralTitle = {
   resource: 'Resources',
 };
 
+const STATUS_BY_TYPE = {
+  note: ['active', 'processed', 'archived'],
+  task: ['open', 'in_progress', 'waiting', 'blocked', 'done', 'cancelled'],
+  project: ['active', 'on_hold', 'completed', 'cancelled'],
+  area: ['active', 'archived'],
+  person: ['active', 'archived'],
+  resource: ['active', 'archived'],
+};
+
+const PRIORITY_OPTIONS = ['urgent', 'high', 'medium', 'low'];
+
+const SORT_FIELDS = [
+  { value: 'updated', label: 'Updated', getter: (e) => e.updated_at, type: 'date', defaultDir: 'desc' },
+  { value: 'created', label: 'Created', getter: (e) => e.created_at, type: 'date', defaultDir: 'desc' },
+  { value: 'due', label: 'Due', getter: (e) => e.due_at, type: 'date', defaultDir: 'asc' },
+  { value: 'title', label: 'Title', getter: (e) => e.title || '', type: 'text', defaultDir: 'asc' },
+  { value: 'status', label: 'Status', getter: (e) => e.status || '', type: 'text', defaultDir: 'asc' },
+];
+
 function detailPath(entity) {
   const base = entity.type === 'person' ? 'people' : `${entity.type}s`;
   return `/${base}/${entity.id}`;
@@ -28,34 +47,30 @@ function formatShortDate(value) {
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-const SORT_OPTIONS = [
-  { value: 'updated_desc', label: 'Recently updated' },
-  { value: 'created_desc', label: 'Recently created' },
-  { value: 'due_asc', label: 'Due date (soonest)' },
-  { value: 'title_asc', label: 'Title (A–Z)' },
-  { value: 'status_asc', label: 'Status' },
-];
-
-function sortEntities(entities, sortBy) {
+function sortEntities(entities, sortField, sortDir) {
+  const field = SORT_FIELDS.find((f) => f.value === sortField) || SORT_FIELDS[0];
+  const sign = sortDir === 'asc' ? 1 : -1;
+  const dateVal = (v) => (v ? new Date(v).getTime() : null);
   const sorted = [...entities];
-  const dateVal = (v) => (v ? new Date(v).getTime() : 0);
-  switch (sortBy) {
-    case 'created_desc':
-      return sorted.sort((a, b) => dateVal(b.created_at) - dateVal(a.created_at));
-    case 'due_asc':
-      return sorted.sort((a, b) => {
-        const av = a.due_at ? dateVal(a.due_at) : Infinity;
-        const bv = b.due_at ? dateVal(b.due_at) : Infinity;
-        return av - bv;
-      });
-    case 'title_asc':
-      return sorted.sort((a, b) => (a.title || '').localeCompare(b.title || '', undefined, { sensitivity: 'base' }));
-    case 'status_asc':
-      return sorted.sort((a, b) => (a.status || '').localeCompare(b.status || '') || dateVal(b.updated_at) - dateVal(a.updated_at));
-    case 'updated_desc':
-    default:
-      return sorted.sort((a, b) => dateVal(b.updated_at) - dateVal(a.updated_at));
+
+  if (field.type === 'date') {
+    // Null dates sort to the bottom regardless of direction.
+    sorted.sort((a, b) => {
+      const av = dateVal(field.getter(a));
+      const bv = dateVal(field.getter(b));
+      if (av === null && bv === null) return 0;
+      if (av === null) return 1;
+      if (bv === null) return -1;
+      return (av - bv) * sign;
+    });
+  } else {
+    sorted.sort((a, b) => {
+      const av = String(field.getter(a) || '');
+      const bv = String(field.getter(b) || '');
+      return av.localeCompare(bv, undefined, { sensitivity: 'base' }) * sign;
+    });
   }
+  return sorted;
 }
 
 export default function V4EntityList({ type }) {
@@ -65,11 +80,17 @@ export default function V4EntityList({ type }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
-  const [sortBy, setSortBy] = useState('updated_desc');
+  const [sortField, setSortField] = useState('updated');
+  const [sortDir, setSortDir] = useState('desc');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [priorityFilter, setPriorityFilter] = useState('');
+  const [lifecycleFilter, setLifecycleFilter] = useState('active');
 
   useEffect(() => {
     let active = true;
-    v4API.entities.list({ type, limit: 100 })
+    const params = { type, limit: 100 };
+    if (lifecycleFilter && lifecycleFilter !== 'all') params.lifecycle = lifecycleFilter;
+    v4API.entities.list(params)
       .then((response) => {
         if (active) setEntities(response.data || []);
       })
@@ -79,7 +100,33 @@ export default function V4EntityList({ type }) {
     return () => {
       active = false;
     };
-  }, [type]);
+  }, [type, lifecycleFilter]);
+
+  const statusOptions = STATUS_BY_TYPE[type] || [];
+
+  const visibleEntities = useMemo(() => {
+    let list = entities;
+    if (statusFilter) list = list.filter((e) => e.status === statusFilter);
+    if (priorityFilter) {
+      list = list.filter((e) => {
+        const p = e.properties?.priority || '';
+        return priorityFilter === '__none__' ? !p : p === priorityFilter;
+      });
+    }
+    return sortEntities(list, sortField, sortDir);
+  }, [entities, statusFilter, priorityFilter, sortField, sortDir]);
+
+  function toggleSortDir() {
+    setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+  }
+
+  function onSortFieldChange(value) {
+    const next = SORT_FIELDS.find((f) => f.value === value);
+    setSortField(value);
+    if (next) setSortDir(next.defaultDir);
+  }
+
+  const activeFilterCount = [statusFilter, priorityFilter, lifecycleFilter !== 'active' ? '1' : ''].filter(Boolean).length;
 
   async function handleCreate(event) {
     event.preventDefault();
@@ -120,20 +167,74 @@ export default function V4EntityList({ type }) {
       <section className={styles.listHeaderPanel}>
         <div className={styles.listHeading}>
           <h1>{pluralTitle[type]}</h1>
-          <span className={styles.countPill}>{entities.length}</span>
+          <span className={styles.countPill}>{visibleEntities.length}{activeFilterCount > 0 && entities.length !== visibleEntities.length ? ` / ${entities.length}` : ''}</span>
           <div className={styles.listHeadingSpacer} />
-          <label className={styles.sortControl}>
-            <span className={styles.sortLabel}>Sort</span>
-            <select
-              value={sortBy}
-              onChange={(event) => setSortBy(event.target.value)}
-              aria-label={`Sort ${pluralTitle[type].toLowerCase()}`}
-            >
-              {SORT_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
-          </label>
+          <div className={styles.listToolbar}>
+            <label className={styles.filterControl}>
+              <span className={styles.sortLabel}>Status</span>
+              <select
+                value={statusFilter}
+                onChange={(event) => setStatusFilter(event.target.value)}
+                aria-label={`Filter ${pluralTitle[type].toLowerCase()} by status`}
+              >
+                <option value="">all</option>
+                {statusOptions.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </label>
+            {type === 'task' && (
+              <label className={styles.filterControl}>
+                <span className={styles.sortLabel}>Priority</span>
+                <select
+                  value={priorityFilter}
+                  onChange={(event) => setPriorityFilter(event.target.value)}
+                  aria-label="Filter tasks by priority"
+                >
+                  <option value="">all</option>
+                  {PRIORITY_OPTIONS.map((p) => (
+                    <option key={p} value={p}>{p}</option>
+                  ))}
+                  <option value="__none__">no priority</option>
+                </select>
+              </label>
+            )}
+            <label className={styles.filterControl}>
+              <span className={styles.sortLabel}>Lifecycle</span>
+              <select
+                value={lifecycleFilter}
+                onChange={(event) => setLifecycleFilter(event.target.value)}
+                aria-label={`Lifecycle filter for ${pluralTitle[type].toLowerCase()}`}
+              >
+                <option value="active">active</option>
+                <option value="archived">archived</option>
+                <option value="all">all</option>
+              </select>
+            </label>
+            <label className={styles.sortControl}>
+              <span className={styles.sortLabel}>Sort</span>
+              <select
+                value={sortField}
+                onChange={(event) => onSortFieldChange(event.target.value)}
+                aria-label={`Sort ${pluralTitle[type].toLowerCase()}`}
+              >
+                {SORT_FIELDS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                className={styles.sortDirButton}
+                onClick={toggleSortDir}
+                aria-label={`Sort direction: ${sortDir === 'asc' ? 'ascending' : 'descending'} (click to flip)`}
+                title={sortDir === 'asc' ? 'Ascending — click to descend' : 'Descending — click to ascend'}
+              >
+                {sortDir === 'asc'
+                  ? <ArrowUp size={13} strokeWidth={2.4} aria-hidden="true" />
+                  : <ArrowDown size={13} strokeWidth={2.4} aria-hidden="true" />}
+              </button>
+            </label>
+          </div>
           <button
             type="button"
             className={`${styles.addButton} ${styles.addButtonIcon}`}
@@ -172,11 +273,15 @@ export default function V4EntityList({ type }) {
       </section>
 
       <section className={styles.listPanel}>
-        {entities.length === 0 ? (
-          <p className={styles.emptyText}>No {pluralTitle[type].toLowerCase()} yet.</p>
+        {visibleEntities.length === 0 ? (
+          <p className={styles.emptyText}>
+            {entities.length === 0
+              ? `No ${pluralTitle[type].toLowerCase()} yet.`
+              : `No ${pluralTitle[type].toLowerCase()} match the current filters.`}
+          </p>
         ) : (
           <ul className={styles.cards}>
-            {sortEntities(entities, sortBy).map((entity) => {
+            {visibleEntities.map((entity) => {
               const created = formatShortDate(entity.created_at);
               const due = formatShortDate(entity.due_at);
               const isOverdue = entity.due_at && new Date(entity.due_at).getTime() < Date.now()
