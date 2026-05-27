@@ -191,13 +191,14 @@ export default function V4Today() {
   const dateLabel = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
   const overdue = today.overdue || [];
   const dueToday = today.due_today || [];
+  const overdueFollowUps = today.overdue_follow_ups || [];
   const followUps = today.follow_ups || [];
   const blocked = today.blocked_tasks || [];
   const waiting = today.waiting_tasks || [];
   const idleProjects = today.projects_without_open_tasks || [];
   const suggestions = today.pending_suggestions || [];
 
-  const totalActionable = overdue.length + dueToday.length + followUps.length + blocked.length + waiting.length;
+  const totalActionable = overdue.length + dueToday.length + overdueFollowUps.length + followUps.length + blocked.length + waiting.length;
 
   return (
     <main className={styles.today}>
@@ -223,6 +224,13 @@ export default function V4Today() {
         onQuickStatus={handleQuickStatus}
         onUpdateField={handleUpdateField}
         accent="due"
+      />
+      <EntitySection
+        title="Overdue follow-ups"
+        items={overdueFollowUps}
+        onQuickStatus={handleQuickStatus}
+        onUpdateField={handleUpdateField}
+        accent="overdue"
       />
       <EntitySection
         title="Follow up today"

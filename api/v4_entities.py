@@ -211,12 +211,26 @@ def today():
         .limit(50)
         .all()
     )
+    overdue_follow_ups = (
+        _entity_query()
+        .filter(
+            Entity.lifecycle == "active",
+            Entity.follow_up_at.isnot(None),
+            Entity.follow_up_at < start_of_today,
+            ~Entity.status.in_(DONE_TASK_STATUSES),
+        )
+        .order_by(Entity.follow_up_at.asc())
+        .limit(50)
+        .all()
+    )
     follow_ups = (
         _entity_query()
         .filter(
             Entity.lifecycle == "active",
             Entity.follow_up_at.isnot(None),
+            Entity.follow_up_at >= start_of_today,
             Entity.follow_up_at <= end_of_today,
+            ~Entity.status.in_(DONE_TASK_STATUSES),
         )
         .order_by(Entity.follow_up_at.asc())
         .limit(50)
@@ -271,6 +285,7 @@ def today():
     return jsonify({
         "overdue": [entity.to_dict() for entity in overdue],
         "due_today": [entity.to_dict() for entity in due_today],
+        "overdue_follow_ups": [entity.to_dict() for entity in overdue_follow_ups],
         "follow_ups": [entity.to_dict() for entity in follow_ups],
         "blocked_tasks": [entity.to_dict() for entity in blocked_tasks],
         "waiting_tasks": [entity.to_dict() for entity in waiting_tasks],
