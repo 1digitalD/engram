@@ -668,7 +668,7 @@ function InlineTextField({ value, onChange, onCommit, placeholder, ariaLabel, cl
 
   function commit(event) {
     setEditing(false);
-    if (onCommit) onCommit(event.target.value);
+    if (onCommit) onCommit(event?.target?.value ?? value);
   }
 
   function cancel() {
@@ -690,7 +690,7 @@ function InlineTextField({ value, onChange, onCommit, placeholder, ariaLabel, cl
         onKeyDown={(event) => {
           if (event.key === 'Enter' && type !== 'textarea') {
             event.preventDefault();
-            commit();
+            commit(event);
           } else if (event.key === 'Escape') {
             event.preventDefault();
             cancel();
