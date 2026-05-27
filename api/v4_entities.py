@@ -99,6 +99,7 @@ def capture():
         suggestions.extend(extraction_suggestions)
     except Exception as exc:
         warnings.append(str(exc))
+        note.ai_status = "error"
 
     db.session.commit()
     return jsonify({
@@ -805,12 +806,19 @@ def reprocess_entity(entity_id):
         s.resolved_at = datetime.utcnow()
     db.session.flush()
 
+    # Reset AI status so reconciliation's normal pending→done transition fires
+    # cleanly. (Without this, an entity in `done` would stay `done` even if the
+    # reprocess pass set no summary, which would still be fine, but resetting
+    # makes the lifecycle explicit.)
+    entity.ai_status = "pending"
+
     applied_changes = []
     suggestions = []
     try:
         result = _run_basic_capture_extraction(entity, "auto")
         applied_changes, suggestions = _reconcile_capture_candidates(entity, result or {})
     except Exception as exc:
+        entity.ai_status = "error"
         db.session.commit()
         return _error(f"extraction failed: {exc}", 500)
 
@@ -1321,6 +1329,13 @@ def _reconcile_capture_candidates(note, extraction):
         decisions = reconcile_candidates(all_candidates)
         for candidate, decision in zip(all_candidates, decisions):
             _apply_reconciliation_decision(note, candidate, decision, applied_changes, suggestions)
+
+    # Reconciliation ran to completion — mark the note as AI-processed regardless
+    # of whether extraction produced a summary. Previously notes with empty
+    # extraction stayed `ai_status="pending"` forever, polluting the Needs review
+    # queue indefinitely.
+    if note.ai_status == "pending":
+        note.ai_status = "done"
 
     return applied_changes, suggestions
 

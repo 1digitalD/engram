@@ -1,11 +1,13 @@
 .inbox {
-  display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(340px, 0.9fr);
+  display: flex;
+  flex-direction: column;
   gap: var(--space-3);
   padding: var(--space-4);
-  align-items: start;
   height: 100vh;
   overflow: auto;
+  max-width: 920px;
+  margin: 0 auto;
+  width: 100%;
 }
 
 .capturePanel {
@@ -17,14 +19,6 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  position: sticky;
-  top: var(--space-4);
-}
-
-.notesColumn {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
 }
 
 .recentPanel {
@@ -49,7 +43,7 @@
 }
 
 .form > div:first-child {
-  min-height: 200px;
+  min-height: 110px;
 }
 
 .captureButton {
