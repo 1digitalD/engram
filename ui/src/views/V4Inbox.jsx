@@ -41,7 +41,7 @@ function NoteCard({ note }) {
   const ts = note.created_at || note.updated_at;
   const pending = note.pending_suggestion_count || 0;
   const aiPending = note.ai?.status === 'pending';
-  const aiError = note.ai?.status === 'error';
+  const aiError = note.ai?.status === 'failed';
   const tagList = note.tags || [];
   return (
     <li className={styles.noteCard}>

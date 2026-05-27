@@ -99,7 +99,7 @@ def capture():
         suggestions.extend(extraction_suggestions)
     except Exception as exc:
         warnings.append(str(exc))
-        note.ai_status = "error"
+        note.ai_status = "failed"
 
     db.session.commit()
     return jsonify({
@@ -314,7 +314,7 @@ def inbox():
             Entity.lifecycle == "active",
             or_(
                 Entity.ai_status == "pending",
-                Entity.ai_status == "error",
+                Entity.ai_status == "failed",
                 Entity.id.in_(notes_with_suggestions) if notes_with_suggestions else Entity.id.is_(None),
             ),
         )
@@ -833,7 +833,7 @@ def reprocess_entity(entity_id):
         result = _run_basic_capture_extraction(entity, "auto")
         applied_changes, suggestions = _reconcile_capture_candidates(entity, result or {})
     except Exception as exc:
-        entity.ai_status = "error"
+        entity.ai_status = "failed"
         db.session.commit()
         return _error(f"extraction failed: {exc}", 500)
 
