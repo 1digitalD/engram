@@ -15,7 +15,7 @@ The active implementation is Engram v4. v4 is a fresh clean cutover.
 | `docs/V4_PRINCIPLES.md` | Non-negotiable v4 product and architecture rules |
 | `docs/V4_IMPLEMENTATION_PLAN.md` | v4 cycle plan and acceptance criteria |
 | `docs/SCHEMA.sql` | Canonical fresh v4 Postgres schema |
-| `mcp_server/README_V4.md` | v4 read-only MCP behavior |
+| `mcp_server/README_V4.md` | v4 MCP tools (read + write) |
 | `EXECUTION-TRACKER.md` | Historical and current execution log |
 
 Historical plans and PRDs are not active sources of truth for v4 work.

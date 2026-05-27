@@ -2,7 +2,7 @@
 
 This is a historical execution log. The active implementation is Engram v4, a fresh clean cutover with `/api/v4` as the only runtime API.
 
-Last updated: 2026-05-18
+Last updated: 2026-05-27
 Branch: `main`
 Architecture: Fresh Postgres + pgvector v4 schema. No migration or backward compatibility is required.
 
@@ -21,7 +21,7 @@ Architecture: Fresh Postgres + pgvector v4 schema. No migration or backward comp
 | `docs/V4_PRINCIPLES.md` | Non-negotiable v4 product and architecture rules |
 | `docs/V4_IMPLEMENTATION_PLAN.md` | v4 cycle plan and acceptance criteria |
 | `docs/SCHEMA.sql` | Canonical fresh v4 Postgres schema |
-| `mcp_server/README_V4.md` | v4 read-only MCP behavior |
+| `mcp_server/README_V4.md` | v4 MCP tools (read + write) |
 
 ## Task log
 
