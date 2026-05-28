@@ -67,6 +67,12 @@ function parseLifetime(value) {
   return 'active';
 }
 
+function parseStatusFilter(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+  return [value];
+}
+
 
 function detailPath(entity) {
   const base = entity.type === 'person' ? 'people' : `${entity.type}s`;
@@ -118,7 +124,7 @@ export default function V4EntityList({ type }) {
   const _init = loadListState(type);
   const [sortField, setSortField] = useState(_init?.sortField ?? 'updated');
   const [sortDir, setSortDir] = useState(_init?.sortDir ?? 'desc');
-  const [statusFilter, setStatusFilter] = useState(_init?.statusFilter ?? '');
+  const [statusFilter, setStatusFilter] = useState(_init?.statusFilter ?? []);
   const [priorityFilter, setPriorityFilter] = useState(_init?.priorityFilter ?? '');
   const [lifecycleFilter, setLifecycleFilter] = useState(parseLifetime(_init?.lifecycleFilter));
 
@@ -147,7 +153,7 @@ export default function V4EntityList({ type }) {
 
   const visibleEntities = useMemo(() => {
     let list = entities;
-    if (statusFilter) list = list.filter((e) => e.status === statusFilter);
+    if (statusFilter.length > 0) list = list.filter((e) => statusFilter.includes(e.status));
     if (priorityFilter) {
       list = list.filter((e) => {
         const p = e.properties?.priority || '';
@@ -167,7 +173,7 @@ export default function V4EntityList({ type }) {
     if (next) setSortDir(next.defaultDir);
   }
 
-  const activeFilterCount = [statusFilter, priorityFilter, lifecycleFilter !== 'active' ? '1' : ''].filter(Boolean).length;
+  const activeFilterCount = [statusFilter.length > 0, priorityFilter, lifecycleFilter !== 'active'].filter(Boolean).length;
 
   async function handleCreate(event) {
     event.preventDefault();
@@ -211,14 +217,15 @@ export default function V4EntityList({ type }) {
           <span className={styles.countPill}>{visibleEntities.length}{activeFilterCount > 0 && entities.length !== visibleEntities.length ? ` / ${entities.length}` : ''}</span>
           <div className={styles.listHeadingSpacer} />
           <div className={styles.listToolbar}>
-            <label className={styles.filterControl}>
-              <span className={styles.sortLabel}>Status</span>
+            <label className={styles.filterControlMulti}>
+              <span className={styles.sortLabel}>Status{statusFilter.length > 0 && <span className={styles.filterBadge}>{statusFilter.length}</span>}</span>
               <select
+                multiple
                 value={statusFilter}
-                onChange={(event) => setStatusFilter(event.target.value)}
+                onChange={(event) => setStatusFilter(Array.from(event.target.selectedOptions).map(o => o.value))}
                 aria-label={`Filter ${pluralTitle[type].toLowerCase()} by status`}
+                title="Hold Cmd/Ctrl to select multiple"
               >
-                <option value="">all</option>
                 {statusOptions.map((s) => (
                   <option key={s} value={s}>{s}</option>
                 ))}
@@ -368,6 +375,11 @@ export default function V4EntityList({ type }) {
                           {tag.name}
                         </Link>
                       ))}
+                    </span>
+                  )}
+                  {type === 'project' && entity.task_counts && (
+                    <span className={styles.taskCountBadge}>
+                      <span>{entity.task_counts.open}</span> open / {entity.task_counts.total} total
                     </span>
                   )}
                 </li>

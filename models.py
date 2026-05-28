@@ -338,6 +338,7 @@ class Entity(BaseModel):
                 "entity_summarized_at": _iso(self.ai_summarized_at),
             },
             "relationship_counts": relationship_counts,
+            "task_counts": getattr(self, "_task_counts", None) or {"open": 0, "total": 0},
             "created_at": _iso(self.created_at),
             "updated_at": _iso(self.updated_at),
         }

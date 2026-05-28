@@ -11,6 +11,14 @@ from api import api_v4_bp
 from extensions import db
 from models import AiSuggestion, Entity, EntityEvent, EntityLink, EntityTag, Job, Tag
 
+STATUS_BY_TYPE = {
+    "note": ["active", "processed", "archived"],
+    "task": ["open", "in_progress", "waiting", "blocked", "done", "cancelled"],
+    "project": ["active", "on_hold", "completed", "cancelled"],
+    "area": ["active", "archived"],
+    "person": ["active", "archived"],
+    "resource": ["active", "archived"],
+}
 
 ENTITY_TYPES = {"note", "task", "project", "area", "resource", "person"}
 DEFAULT_STATUS = {
@@ -114,7 +122,7 @@ def capture():
 def list_entities():
     query = _entity_query()
     entity_type = request.args.get("type")
-    status = request.args.get("status")
+    status_values = request.args.getlist("status")
     lifecycle = request.args.get("lifecycle")
     limit = max(1, min(request.args.get("limit", 50, type=int), 200))
 
@@ -122,8 +130,11 @@ def list_entities():
         if entity_type not in ENTITY_TYPES:
             return _error(f"invalid entity type: {entity_type}")
         query = query.filter(Entity.type == entity_type)
-    if status:
-        query = query.filter(Entity.status == status)
+    if status_values:
+        valid_statuses = set(STATUS_BY_TYPE.get(entity_type, []))
+        filtered = [s for s in status_values if s in valid_statuses]
+        if filtered:
+            query = query.filter(Entity.status.in_(filtered))
     if lifecycle:
         if lifecycle not in VALID_LIFECYCLE:
             return _error(f"invalid lifecycle: {lifecycle}")
@@ -132,6 +143,20 @@ def list_entities():
         query = query.filter(Entity.lifecycle != "deleted")
 
     rows = query.order_by(Entity.updated_at.desc(), Entity.created_at.desc()).limit(limit).all()
+    open_statuses = {"open", "in_progress", "waiting", "blocked"}
+    for entity in rows:
+        if entity.type == "project":
+            open_count = 0
+            total_count = 0
+            for link in entity.incoming_links:
+                if link.relationship_type != "parent":
+                    continue
+                task = db.session.get(Entity, link.source_entity_id)
+                if task is not None and task.type == "task" and task.lifecycle == "active":
+                    total_count += 1
+                    if task.status in open_statuses:
+                        open_count += 1
+            entity._task_counts = {"open": open_count, "total": total_count}
     return jsonify({"data": [row.to_dict() for row in rows]})
 
 
@@ -1001,14 +1026,18 @@ def _load_entity(entity_id):
     return _entity_query().filter(Entity.id == entity_id).first()
 
 
-def _project_has_open_task(entity_id):
     open_statuses = {"open", "in_progress", "waiting", "blocked"}
-    links = EntityLink.query.filter_by(target_entity_id=entity_id, relationship_type="parent").all()
-    for link in links:
+    open_count = 0
+    total_count = 0
+    for link in entity.incoming_links:
+        if link.relationship_type != "parent":
+            continue
         task = db.session.get(Entity, link.source_entity_id)
-        if task is not None and task.type == "task" and task.lifecycle == "active" and task.status in open_statuses:
-            return True
-    return False
+        if task is not None and task.type == "task" and task.lifecycle == "active":
+            total_count += 1
+            if task.status in open_statuses:
+                open_count += 1
+    entity._task_counts = {"open": open_count, "total": total_count}
 
 
 def _relationship_detail_sections(entity):

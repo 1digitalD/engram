@@ -1227,6 +1227,52 @@
   border-color: var(--border);
 }
 
+.filterControlMulti {
+  align-items: center;
+  display: inline-flex;
+  flex-direction: column;
+  font-size: var(--text-xs);
+  gap: 4px;
+}
+
+.filterControlMulti select {
+  background: var(--surface);
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-md);
+  color: var(--text);
+  cursor: pointer;
+  font-size: var(--text-xs);
+  font-weight: 500;
+  min-width: 120px;
+  padding: 4px 8px;
+}
+
+.filterControlMulti select:hover {
+  border-color: var(--border);
+}
+
+.filterBadge {
+  background: var(--accent);
+  border-radius: var(--radius-full);
+  color: var(--surface);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 2px 6px;
+}
+
+.taskCountBadge {
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  margin-left: 6px;
+}
+
+.taskCountBadge span {
+  color: var(--text);
+  font-weight: 600;
+}
+
 .sortDirButton {
   align-items: center;
   background: var(--surface);
