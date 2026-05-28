@@ -42,7 +42,7 @@ const actionConfigs = {
     { key: 'blocker', sectionKeys: ['blocking'], title: 'Blocked By', type: 'task', relationship: 'blocks', direction: 'incoming', primary: 'Create blocking task', existing: 'Add blocking task', taskFields: true },
   ],
   note: [
-    { key: 'task', sectionKeys: ['derived_tasks'], title: 'Derived Tasks', type: 'task', relationship: 'derived_from', direction: 'incoming', primary: 'Create task from note', existing: 'Link existing task', taskFields: true },
+    { key: 'task', sectionKeys: ['derived_tasks'], title: 'Derived Tasks', type: 'task', relationship: 'derived_from', direction: 'outgoing', primary: 'Create task from note', existing: 'Link existing task', taskFields: true },
     { key: 'project', sectionKeys: ['projects'], title: 'Projects', type: 'project', relationship: 'related', direction: 'outgoing', primary: 'Add new project', existing: 'Link existing project' },
     { key: 'area', sectionKeys: ['areas'], title: 'Areas', type: 'area', relationship: 'related', direction: 'outgoing', existing: 'Link existing area', size: 'narrow' },
     { key: 'person', sectionKeys: ['people_mentioned'], title: 'People Mentioned', type: 'person', relationship: 'mentions', direction: 'outgoing', primary: 'Add mentioned person', existing: 'Link existing person', size: 'narrow' },

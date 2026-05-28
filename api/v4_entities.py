@@ -1080,7 +1080,7 @@ def _note_detail_sections(entity, links):
         _section("projects", "Projects", _link_items(entity, links, "outgoing", {"related", "mentions"}, {"project"})),
         _section("areas", "Areas", _link_items(entity, links, "outgoing", {"related", "mentions"}, {"area"})),
         _section("people_mentioned", "People Mentioned", _link_items(entity, links, "outgoing", {"mentions"}, {"person"})),
-        _section("derived_tasks", "Derived Tasks", _link_items(entity, links, "incoming", {"derived_from"}, {"task"})),
+        _section("derived_tasks", "Derived Tasks", _link_items(entity, links, "outgoing", {"derived_from"}, {"task"})),
         _section("referenced_resources", "Referenced Resources", _link_items(entity, links, "outgoing", {"references"}, {"resource"})),
         _section("related_notes", "Related Notes", _link_items(entity, links, "both", {"related"}, {"note"})),
     ]
@@ -1377,7 +1377,15 @@ def _apply_reconciliation_decision(note, candidate, decision, applied_changes, s
     evidence = _candidate_value(candidate, "evidence")
     entity_type = _candidate_value(candidate, "type")
     title = _candidate_value(candidate, "title")
-    relationship_type = decision.get("relationship_type") or _default_relationship_type(entity_type)
+    rel_from_decision = decision.get("relationship_type")
+    if action == "new" and entity_type == "task":
+        # Tasks extracted from notes always use derived_from so they appear
+        # in the Derived Tasks section on the note detail view.
+        relationship_type = "derived_from"
+    elif rel_from_decision is not None:
+        relationship_type = rel_from_decision
+    else:
+        relationship_type = _default_relationship_type(entity_type)
     if relationship_type not in RELATIONSHIP_TYPES:
         relationship_type = _default_relationship_type(entity_type)
 
