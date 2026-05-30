@@ -1,13 +1,9 @@
 {
-  "version": "2",
-  "project": "engram",
-  "slug": "engram",
-  "description": "Add activity_update notes: raw notes appended to entities with no AI extraction, linked by a new relationship type, with cascade delete/archive. Exposed via MCP tool and UI.",
-  "features": [
+  "tasks": [
     {
       "id": "activity-update-note",
       "title": "Activity Update Notes",
-      "description": "A raw note appended directly to an entity (project, task, area, etc.) with no AI extraction pipeline. The note is linked via a new `activity_update` relationship type and is used only for summary context.",
+      "description": "A raw note appended directly to an entity (project, task, area, etc.) with no AI extraction pipeline. The note is linked via a new `activity_update` relationship type and is used only for summary context. Creates: new API endpoint, new MCP tool, UI section and input.",
       "acceptanceCriteria": [
         "POST /api/v4/entities/<id>/activity_updates creates a note with source='activity_update', links it with relationship_type='activity_update', and touches the target entity's updated_at",
         "The same content within 24h on the same target entity is skipped (duplicate prevention)",
@@ -16,7 +12,7 @@
         "MCP tool append_activity_update(entity_id, content) calls the new API endpoint",
         "UI shows an 'Activity Updates' section in entity detail for types that support it (project, task, area)",
         "UI has an 'Add activity update' input/textarea in the Activity Updates section",
-        "Validation: pytest -q passes, cd ui && npm run build passes"
+        "Validation: PYTHONPATH=. ./venv/bin/pytest -q passes; cd ui && npm run build passes"
       ],
       "validationCommands": [
         "PYTHONPATH=. ./venv/bin/pytest -q",
