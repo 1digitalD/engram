@@ -19,9 +19,9 @@
         "cd ui && npm install && npm run build"
       ],
       "blocked": false,
-      "passes": false,
-      "attempts": 0,
-      "commit": null
+      "passes": true,
+      "attempts": 1,
+      "commit": "29c9ff5a"
     }
   ]
 }
