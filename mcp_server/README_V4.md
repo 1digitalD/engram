@@ -20,6 +20,7 @@ requests and returns formatted text. It has no separate permissions or state.
 - `accept_suggestion(suggestion_id)` — accept AI suggestion, creating the suggested entity
 - `dismiss_suggestion(suggestion_id)` — dismiss AI suggestion without acting
 - `submit_candidates(note_id, summary?, tags?, entities?, links?)` — submit pre-extracted candidates, bypassing LLM extraction
+- `append_activity_update(entity_id, content)` — append an activity update note to a project, task, or area (summary context only; duplicates within 24h skipped; max 30 per entity)
 
 ## Transport
 

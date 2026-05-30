@@ -129,7 +129,7 @@ class EntityLink(BaseModel):
         CheckConstraint(
             "relationship_type IN ("
             "'parent', 'related', 'derived_from', 'mentions', "
-            "'assigned_to', 'references', 'blocks'"
+            "'assigned_to', 'references', 'blocks', 'activity_update'"
             ")",
             name="chk_entity_links_relationship_type",
         ),

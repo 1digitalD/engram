@@ -48,10 +48,10 @@ CREATE TABLE IF NOT EXISTS entity_links (
     source_entity_id   TEXT NOT NULL REFERENCES entities (id) ON DELETE CASCADE,
     target_entity_id   TEXT NOT NULL REFERENCES entities (id) ON DELETE CASCADE,
     relationship_type  TEXT NOT NULL DEFAULT 'related'
-                       CHECK (relationship_type IN (
-                           'parent', 'related', 'derived_from', 'mentions',
-                           'assigned_to', 'references', 'blocks'
-                       )),
+CHECK (relationship_type IN (
+                            'parent', 'related', 'derived_from', 'mentions',
+                            'assigned_to', 'references', 'blocks', 'activity_update'
+                        )),
     source             TEXT NOT NULL DEFAULT 'manual',
     confidence         FLOAT,
     evidence           TEXT,
@@ -110,7 +110,7 @@ CREATE TABLE IF NOT EXISTS entity_events (
                     'created', 'updated', 'status_changed', 'archived', 'deleted',
                     'relationship_added', 'relationship_removed',
                     'tag_added', 'tag_removed', 'ai_processed', 'ai_updated', 'ai_summarized',
-                    'suggestion_accepted', 'suggestion_dismissed'
+                    'suggestion_accepted', 'suggestion_dismissed', 'activity_update_added'
                   )),
     actor       TEXT NOT NULL,
     old_value   JSONB,

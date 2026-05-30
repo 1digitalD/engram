@@ -526,8 +526,90 @@ export default function V4EntityDetail({ type: routeType }) {
             onQuickStatus={handleQuickStatus}
           />
         )}
+        {['project', 'task', 'area'].includes(entity.type) && (
+          <ActivityUpdatesSection entityId={entity.id} />
+        )}
       </section>
     </main>
+  );
+}
+
+function ActivityUpdatesSection({ entityId }) {
+  const [updates, setUpdates] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [draft, setDraft] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    v4API.activityUpdates.list(entityId)
+      .then((response) => { if (active) { setUpdates(response.data || []); setLoading(false); } })
+      .catch(() => { if (active) { setError('Failed to load activity updates'); setLoading(false); } });
+    return () => { active = false; };
+  }, [entityId]);
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    const content = draft.trim();
+    if (!content || submitting) return;
+    setSubmitting(true);
+    setError('');
+    try {
+      await v4API.activityUpdates.create(entityId, content);
+      const response = await v4API.activityUpdates.list(entityId);
+      setUpdates(response.data || []);
+      setDraft('');
+    } catch (err) {
+      setError(err.message || 'Failed to add activity update');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <section className={styles.segmentPanel} aria-label="Activity Updates">
+      <header className={styles.segmentHeader}>
+        <h2>Activity Updates</h2>
+        <div className={styles.segmentHeaderRight}>
+          <span className={styles.countPill}>{updates.length}</span>
+        </div>
+      </header>
+      <form onSubmit={handleSubmit} className={styles.activityUpdateForm}>
+        <textarea
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          placeholder="Add an activity update…"
+          aria-label="Activity update"
+          rows={2}
+          disabled={submitting}
+        />
+        <button
+          className={styles.primaryButton}
+          type="submit"
+          disabled={!draft.trim() || submitting}
+        >
+          {submitting ? 'Adding…' : 'Add update'}
+        </button>
+      </form>
+      {error && <div className={styles.error} role="alert">{error}</div>}
+      {loading ? (
+        <p className={styles.muted}>Loading…</p>
+      ) : updates.length === 0 ? (
+        <p className={styles.muted}>No activity updates yet.</p>
+      ) : (
+        <ul className={styles.activityUpdatesList}>
+          {updates.map((note) => (
+            <li key={note.id} className={styles.activityUpdateItem}>
+              <p className={styles.activityUpdateContent}>{note.content}</p>
+              <span className={styles.activityUpdateMeta}>
+                {formatDateTime(note.updated_at)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 

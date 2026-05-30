@@ -69,4 +69,8 @@ export const v4API = {
   today: () => v4Request('GET', '/today'),
   recent: (params = {}) => v4Request('GET', '/recent', null, params),
   inbox: (params = {}) => v4Request('GET', '/inbox', null, params),
+  activityUpdates: {
+    list: (entityId) => v4Request('GET', `/entities/${encodeURIComponent(entityId)}/activity_updates`),
+    create: (entityId, content) => v4Request('POST', `/entities/${encodeURIComponent(entityId)}/activity_updates`, { content }),
+  },
 };

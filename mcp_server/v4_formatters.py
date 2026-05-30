@@ -200,3 +200,15 @@ def format_suggestion_action(payload, action):
             f" --[{relationship.get('relationship_type')}]--> `{relationship.get('target_entity_id')}`"
         )
     return "\n".join(lines)
+
+
+def format_activity_update(payload):
+    note = payload.get("data") or {}
+    skipped = payload.get("skipped")
+    if skipped:
+        return f"Activity update skipped: {payload.get('reason', 'duplicate')}"
+    if not note:
+        return "Activity update failed."
+    preview = (note.get("content") or "")[:200]
+    suffix = "…" if len(note.get("content") or "") > 200 else ""
+    return f"Activity update appended: {preview}{suffix}"

@@ -28,6 +28,7 @@ except ImportError:
     sys.exit(1)
 
 from mcp_server.v4_formatters import (
+    format_activity_update,
     format_capture_result,
     format_entity,
     format_entity_write,
@@ -50,7 +51,7 @@ mcp = FastMCP(
         "Engram v4 MCP — thin proxy for the /api/v4 REST API. "
         "Read tools: search_entities, get_entity, list_recent, get_today, list_suggestions. "
         "Write tools: capture, create_entity, update_entity, link_entities, "
-        "accept_suggestion, dismiss_suggestion, submit_candidates. "
+        "accept_suggestion, dismiss_suggestion, submit_candidates, append_activity_update. "
         "All tools are routed directly to /api/v4 endpoints."
     ),
 )
@@ -260,6 +261,12 @@ def submit_candidates(
     }
     payload = _api("POST", f"/entities/{note_id}/ingest_candidates", json=body)
     return format_capture_result(payload)
+
+
+@mcp.tool(description="Append an activity update note to a project, task, or area. Used for summary context. Duplicate content within 24h is skipped; max 30 updates per entity.")
+def append_activity_update(entity_id: str, content: str) -> str:
+    payload = _api("POST", f"/entities/{entity_id}/activity_updates", json={"content": content})
+    return format_activity_update(payload)
 
 
 if __name__ == "__main__":

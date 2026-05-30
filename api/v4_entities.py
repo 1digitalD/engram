@@ -62,6 +62,7 @@ RELATIONSHIP_TYPES = {
     "assigned_to",
     "references",
     "blocks",
+    "activity_update",
 }
 AUTO_APPLY_CONFIDENCE = 0.8
 RISKY_ENTITY_CREATION_TYPES = {"task", "project", "area", "resource", "person"}
@@ -549,6 +550,7 @@ def update_entity(entity_id):
             new_value={"status": entity.status},
         )
     if archived:
+        _archive_incoming_activity_updates(entity)
         _write_event(
             entity,
             "archived",
@@ -569,6 +571,7 @@ def delete_entity(entity_id):
     old_snapshot = entity.to_dict()
     entity.lifecycle = "deleted"
     db.session.flush()
+    _delete_incoming_activity_updates(entity)
     _write_event(
         entity,
         "deleted",
@@ -591,6 +594,117 @@ def get_entity_events(entity_id):
         .all()
     )
     return jsonify({"data": [event.to_dict() for event in events]})
+
+
+MAX_ACTIVITY_UPDATES_PER_TARGET = 30
+
+
+@api_v4_bp.route("/entities/<entity_id>/activity_updates", methods=["GET"])
+def get_activity_updates(entity_id):
+    target = db.session.get(Entity, entity_id)
+    if target is None:
+        return _error("entity not found", 404)
+
+    notes = (
+        Entity.query.join(
+            EntityLink,
+            (EntityLink.source_entity_id == Entity.id) & (EntityLink.target_entity_id == entity_id),
+        )
+        .filter(
+            Entity.type == "note",
+            Entity.source == "activity_update",
+            EntityLink.relationship_type == "activity_update",
+        )
+        .order_by(Entity.updated_at.desc())
+        .limit(MAX_ACTIVITY_UPDATES_PER_TARGET)
+        .all()
+    )
+    return jsonify({"data": [note.to_dict() for note in notes]})
+
+
+@api_v4_bp.route("/entities/<entity_id>/activity_updates", methods=["POST"])
+def create_activity_update(entity_id):
+    target = db.session.get(Entity, entity_id)
+    if target is None:
+        return _error("entity not found", 404)
+
+    data = request.get_json(silent=True) or {}
+    content = (data.get("content") or "").strip()
+    if not content:
+        return _error("content is required")
+
+    existing = (
+        Entity.query.join(
+            EntityLink,
+            (EntityLink.source_entity_id == Entity.id) & (EntityLink.target_entity_id == entity_id),
+        )
+        .filter(
+            Entity.type == "note",
+            Entity.source == "activity_update",
+            EntityLink.relationship_type == "activity_update",
+            Entity.content == content,
+            Entity.updated_at >= datetime.now(timezone.utc) - timedelta(hours=24),
+        )
+        .first()
+    )
+    if existing is not None:
+        return jsonify({"data": existing.to_dict(), "skipped": True, "reason": "duplicate within 24h"})
+
+    count = (
+        Entity.query.join(
+            EntityLink,
+            (EntityLink.source_entity_id == Entity.id) & (EntityLink.target_entity_id == entity_id),
+        )
+        .filter(
+            Entity.type == "note",
+            Entity.source == "activity_update",
+            EntityLink.relationship_type == "activity_update",
+        )
+        .count()
+    )
+    if count >= MAX_ACTIVITY_UPDATES_PER_TARGET:
+        return _error(
+            f"maximum {MAX_ACTIVITY_UPDATES_PER_TARGET} activity updates per entity",
+            409,
+        )
+
+    note = Entity(
+        type="note",
+        title=_title_from_content(content),
+        content=content,
+        status="active",
+        source="activity_update",
+    )
+    db.session.add(note)
+    db.session.flush()
+
+    link = EntityLink(
+        source_entity_id=note.id,
+        target_entity_id=entity_id,
+        relationship_type="activity_update",
+        source="activity_update",
+    )
+    db.session.add(link)
+
+    old_updated = target.updated_at
+    target.updated_at = datetime.now(timezone.utc)
+    db.session.flush()
+
+    _write_event(
+        target,
+        "updated",
+        old_value={"updated_at": old_updated.isoformat() if old_updated else None},
+        new_value={"updated_at": target.updated_at.isoformat()},
+    )
+    _write_event(
+        target,
+        "activity_update_added",
+        new_value={"note_id": note.id, "content_preview": content[:120]},
+        actor="user",
+    )
+    db.session.commit()
+
+    return jsonify({"data": _load_entity(note.id).to_dict()}), 201
 
 
 @api_v4_bp.route("/suggestions", methods=["GET"])
@@ -1692,3 +1806,45 @@ def _clean_text(value):
         return None
     text = str(value).strip()
     return text or None
+
+
+def _archive_incoming_activity_updates(entity):
+    activity_notes = (
+        Entity.query.join(
+            EntityLink,
+            (EntityLink.source_entity_id == Entity.id) & (EntityLink.target_entity_id == entity.id),
+        )
+        .filter(
+            Entity.type == "note",
+            Entity.source == "activity_update",
+            EntityLink.relationship_type == "activity_update",
+            Entity.lifecycle == "active",
+        )
+        .all()
+    )
+    for note in activity_notes:
+        note.lifecycle = "archived"
+        _write_event(
+            note,
+            "archived",
+            old_value={"lifecycle": "active"},
+            new_value={"lifecycle": "archived"},
+        )
+
+
+def _delete_incoming_activity_updates(entity):
+    activity_note_ids = (
+        Entity.query.join(
+            EntityLink,
+            (EntityLink.source_entity_id == Entity.id) & (EntityLink.target_entity_id == entity.id),
+        )
+        .filter(
+            Entity.type == "note",
+            Entity.source == "activity_update",
+            EntityLink.relationship_type == "activity_update",
+        )
+        .with_entities(Entity.id)
+        .all()
+    )
+    for (note_id,) in activity_note_ids:
+        db.session.delete(db.session.get(Entity, note_id))
