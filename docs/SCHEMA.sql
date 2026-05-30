@@ -3,6 +3,7 @@
 -- Requires: PostgreSQL 16+, pgvector extension
 -- Run: psql $DATABASE_URL -f docs/SCHEMA.sql
 
+-- WARNING: truncate_all_tables() contains a safety guard that refuses to run on the 'engram' database.
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 CREATE EXTENSION IF NOT EXISTS "vector";
 
@@ -211,6 +212,14 @@ CREATE OR REPLACE TRIGGER jobs_updated_at
 CREATE OR REPLACE FUNCTION truncate_all_tables()
 RETURNS VOID AS $$
 BEGIN
+    -- Safety guard: truncate_all_tables() is a test-isolation tool.
+    -- It MUST NOT run against the production 'engram' database.
+    -- This check is a last-resort failsafe; the real protection is
+    -- TEST_DATABASE_URL pointing to an isolated test instance.
+    IF current_database() = 'engram' THEN
+        RAISE EXCEPTION 'FATAL: truncate_all_tables() refused on production database "engram". This function is for test isolation only.';
+    END IF;
+
     TRUNCATE TABLE
         ai_suggestions,
         change_batches,
@@ -224,3 +233,4 @@ BEGIN
     RESTART IDENTITY CASCADE;
 END;
 $$ LANGUAGE plpgsql;
+
