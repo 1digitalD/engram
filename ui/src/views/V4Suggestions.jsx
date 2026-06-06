@@ -1,8 +1,10 @@
 /* eslint-disable no-unused-vars */
 import React from 'react';
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Check, Pencil, RefreshCw, RotateCcw, X } from 'lucide-react';
 import { v4API } from '../api/v4Client';
+import MarkdownContent from '../components/MarkdownContent';
 import MarkdownEditor from '../components/MarkdownEditor';
 import styles from './V4Suggestions.module.css';
 
@@ -19,6 +21,10 @@ function suggestionDetail(suggestion) {
     return `Link to ${payload.target_type || 'entity'} · ${payload.relationship_type || 'related'}`;
   }
   return `${payload.type || suggestion.operation_type} · ${payload.status || 'review required'}`;
+}
+
+function sourceNotePath(entityId) {
+  return `/notes/${entityId}`;
 }
 
 function SuggestionCard({ suggestion, onAccept, onDismiss, onUpdate, onReprocess, busy }) {
@@ -169,6 +175,7 @@ function SuggestionCard({ suggestion, onAccept, onDismiss, onUpdate, onReprocess
 
 export default function V4Suggestions() {
   const [suggestions, setSuggestions] = useState([]);
+  const [sourceNotes, setSourceNotes] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [busyId, setBusyId] = useState('');
@@ -178,7 +185,22 @@ export default function V4Suggestions() {
     setLoading(true);
     try {
       const response = await v4API.suggestions.list({ status: 'pending' });
-      setSuggestions(response.data || []);
+      const nextSuggestions = response.data || [];
+      setSuggestions(nextSuggestions);
+      const sourceIds = [...new Set(nextSuggestions.map((s) => s.source_entity_id).filter(Boolean))];
+      if (sourceIds.length === 0) {
+        setSourceNotes({});
+      } else {
+        const noteResults = await Promise.allSettled(sourceIds.map((sourceId) => v4API.entities.get(sourceId)));
+        const nextNotes = {};
+        sourceIds.forEach((sourceId, index) => {
+          const result = noteResults[index];
+          if (result.status === 'fulfilled' && result.value?.data) {
+            nextNotes[sourceId] = result.value.data;
+          }
+        });
+        setSourceNotes(nextNotes);
+      }
     } catch (err) {
       setError(err.message || 'Failed to load suggestions');
     } finally {
@@ -240,6 +262,49 @@ export default function V4Suggestions() {
     }
   }
 
+  async function handleBatch(groupKey, action) {
+    if (busyId) return;
+    setBusyId(`group-${groupKey}-${action}`);
+    setError('');
+    const groupSuggestions = groupedSuggestions.find((group) => group.key === groupKey)?.suggestions || [];
+    try {
+      for (const suggestion of groupSuggestions) {
+        if (action === 'accept') {
+          // eslint-disable-next-line no-await-in-loop
+          await v4API.suggestions.accept(suggestion.id);
+        } else {
+          // eslint-disable-next-line no-await-in-loop
+          await v4API.suggestions.dismiss(suggestion.id);
+        }
+      }
+      setSuggestions((current) =>
+        current.filter((suggestion) => !groupSuggestions.some((item) => item.id === suggestion.id))
+      );
+    } catch (err) {
+      setError(err.message || `Failed to ${action} suggestions`);
+    } finally {
+      setBusyId('');
+    }
+  }
+
+  const groupedSuggestions = (() => {
+    const grouped = new Map();
+    suggestions.forEach((suggestion) => {
+      const key = suggestion.source_entity_id || `ungrouped-${suggestion.id}`;
+      const existing = grouped.get(key) || {
+        key,
+        sourceEntityId: suggestion.source_entity_id || null,
+        sourceNote: suggestion.source_entity_id ? sourceNotes[suggestion.source_entity_id] : null,
+        sourceTitle: suggestion.source_note_title || sourceNotes[suggestion.source_entity_id]?.title || 'Review queue',
+        suggestions: [],
+      };
+      existing.sourceNote = existing.sourceEntityId ? (sourceNotes[existing.sourceEntityId] || existing.sourceNote) : null;
+      existing.suggestions.push(suggestion);
+      grouped.set(key, existing);
+    });
+    return [...grouped.values()];
+  })();
+
   return (
     <main className={styles.suggestions}>
       <section className={styles.panel}>
@@ -263,19 +328,65 @@ export default function V4Suggestions() {
         ) : suggestions.length === 0 ? (
           <p>No pending suggestions.</p>
         ) : (
-          <ul className={styles.list}>
-            {suggestions.map((suggestion) => (
-              <SuggestionCard
-                key={suggestion.id}
-                suggestion={suggestion}
-                onAccept={handleAccept}
-                onDismiss={handleDismiss}
-                onUpdate={handleUpdate}
-                onReprocess={handleReprocess}
-                busy={!!busyId}
-              />
+          <div className={styles.groupStack}>
+            {groupedSuggestions.map((group) => (
+              <section key={group.key} className={styles.groupCard}>
+                <header className={styles.groupHeader}>
+                  <div className={styles.groupHeaderBody}>
+                    <strong>{group.sourceNote?.title || group.sourceTitle}</strong>
+                    {group.sourceEntityId ? (
+                      <span className={styles.sourceNote}>
+                        from note · <Link to={sourceNotePath(group.sourceEntityId)}>open source</Link>
+                      </span>
+                    ) : (
+                      <span className={styles.sourceNote}>ungrouped review</span>
+                    )}
+                    {group.sourceNote?.ai?.summary || group.sourceNote?.ai?.entity_summary ? (
+                      <p className={styles.sourceSummary}>
+                        {group.sourceNote.ai.entity_summary || group.sourceNote.ai.summary}
+                      </p>
+                    ) : null}
+                    {group.sourceNote?.content ? (
+                      <div className={styles.sourceExcerpt}>
+                        <MarkdownContent content={group.sourceNote.content} compact />
+                      </div>
+                    ) : null}
+                  </div>
+                  <div className={styles.groupActions}>
+                    <button
+                      type="button"
+                      className={styles.groupActionButton}
+                      onClick={() => handleBatch(group.key, 'accept')}
+                      disabled={!!busyId}
+                    >
+                      Accept all
+                    </button>
+                    <button
+                      type="button"
+                      className={`${styles.groupActionButton} ${styles.groupActionButtonDanger}`}
+                      onClick={() => handleBatch(group.key, 'dismiss')}
+                      disabled={!!busyId}
+                    >
+                      Dismiss all
+                    </button>
+                  </div>
+                </header>
+                <ul className={styles.list}>
+                  {group.suggestions.map((suggestion) => (
+                    <SuggestionCard
+                      key={suggestion.id}
+                      suggestion={suggestion}
+                      onAccept={handleAccept}
+                      onDismiss={handleDismiss}
+                      onUpdate={handleUpdate}
+                      onReprocess={handleReprocess}
+                      busy={!!busyId}
+                    />
+                  ))}
+                </ul>
+              </section>
             ))}
-          </ul>
+          </div>
         )}
       </section>
     </main>
