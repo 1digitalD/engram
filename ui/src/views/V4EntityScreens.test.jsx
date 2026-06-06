@@ -2,7 +2,7 @@
 import React from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { v4API } from '../api/v4Client';
 import V4EntityList from './V4EntityList';
 import V4EntityDetail from './V4EntityDetail';
@@ -17,6 +17,7 @@ vi.mock('../api/v4Client', () => ({
       list: vi.fn(),
       create: vi.fn(),
       detail: vi.fn(),
+      events: vi.fn(),
       update: vi.fn(),
       delete: vi.fn(),
     },
@@ -36,6 +37,7 @@ describe('v4 entity screens', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     v4API.entities.list.mockResolvedValue({ data: [] });
+    v4API.entities.events.mockResolvedValue({ data: [] });
     v4API.activityUpdates.list.mockResolvedValue({ data: [] });
   });
 
@@ -120,6 +122,18 @@ describe('v4 entity screens', () => {
         }],
       }],
     };
+    v4API.entities.events.mockResolvedValue({
+      data: [
+        {
+          id: 'e1',
+          event_type: 'ai_updated',
+          actor: 'agent:v4-capture',
+          reason: 'Detected a follow-up action',
+          confidence: 0.91,
+          created_at: '2026-05-20T10:30:00+00:00',
+        },
+      ],
+    });
     v4API.entities.detail.mockResolvedValue(detail);
     v4API.entities.update.mockResolvedValue({ data: { ...detail.entity, status: 'done' } });
     v4API.relationships.create.mockResolvedValue({ data: { id: 'r2' } });
@@ -134,6 +148,9 @@ describe('v4 entity screens', () => {
     );
 
     expect(await screen.findByText('Memory Lookup')).toBeInTheDocument();
+    expect(screen.getByText('Trust and recent changes')).toBeInTheDocument();
+    expect(screen.getByText('91% confidence')).toBeInTheDocument();
+    expect(screen.getByText('Detected a follow-up action')).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'done' } });
     // Due date is an inline button until clicked; click to enter edit mode, then change.
     fireEvent.click(screen.getByRole('button', { name: 'Due date' }));
@@ -174,6 +191,7 @@ describe('v4 entity screens', () => {
       sections: [],
     };
     v4API.entities.detail.mockResolvedValue(detail);
+    v4API.entities.events.mockResolvedValue({ data: [] });
     v4API.entities.update.mockResolvedValue({ data: { ...detail.entity, lifecycle: 'archived' } });
     v4API.entities.delete.mockResolvedValue({ data: { ...detail.entity, lifecycle: 'deleted' } });
 
@@ -245,6 +263,26 @@ describe('v4 entity screens', () => {
       ],
     };
     v4API.entities.detail.mockResolvedValue(detail);
+    v4API.entities.events.mockResolvedValue({
+      data: [
+        {
+          id: 'e2',
+          event_type: 'status_changed',
+          actor: 'user',
+          old_value: { status: 'open' },
+          new_value: { status: 'in_progress' },
+          created_at: '2026-05-20T11:00:00+00:00',
+        },
+        {
+          id: 'e3',
+          event_type: 'updated',
+          actor: 'user',
+          old_value: { status: 'open', updated_at: '2026-05-20T10:00:00+00:00' },
+          new_value: { status: 'in_progress', updated_at: '2026-05-20T11:30:00+00:00' },
+          created_at: '2026-05-20T11:30:00+00:00',
+        },
+      ],
+    });
 
     render(
       <MemoryRouter initialEntries={['/projects/p1']}>
@@ -255,6 +293,10 @@ describe('v4 entity screens', () => {
     );
 
     expect(await screen.findByText('Momentum at a glance')).toBeInTheDocument();
+    expect(screen.getByText('Status changed')).toBeInTheDocument();
+    expect(screen.getByText('open -> in progress')).toBeInTheDocument();
+    const historyPanel = screen.getByText('Recent history').closest('section');
+    expect(within(historyPanel).queryByText(/^Updated$/)).not.toBeInTheDocument();
     expect(screen.getByText('open tasks')).toBeInTheDocument();
     expect(screen.getAllByRole('link', { name: /Ship rollout memo/i })[0]).toHaveAttribute('href', '/tasks/t1');
     expect(screen.getByText('No review date set')).toBeInTheDocument();

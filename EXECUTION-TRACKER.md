@@ -52,7 +52,7 @@ Non-authoritative historical artifacts:
   5. Planner Upgrade
   6. Project Workspace
   7. Inspection + Trust
-- Active iteration contract: `docs/iterations/ITERATION_0_INTERACTION_CONSISTENCY.md`
+- Active iteration contract: `docs/iterations/ITERATION_6_INSPECTION_TRUST.md`
 - Iteration 0 implementation status:
   - entity detail save semantics were changed to an explicit-save model
   - sidebar `Today` count now uses the same actionable buckets as the `Today` screen
@@ -96,7 +96,15 @@ Non-authoritative historical artifacts:
   - focused and full frontend tests passed
   - frontend build passed
   - live manual QA on a populated project detail is still recommended
-- Immediate next step: validate the live project workspace UX, then decide whether to continue into inspection/trust surfaces or tighten the project slice further.
+- Iteration 6 implementation status:
+  - entity detail now includes a compact inspection panel powered by existing detail and event history endpoints
+  - the panel surfaces AI status/confidence, source, timestamps, and recent entity events without leaving the page
+  - suggestion review now shows explicit confidence and note-level provenance context before risky accept/dismiss actions
+  - live QA tightened the inspection panel by filtering low-signal duplicate history rows and reducing dead space in the trust surface
+  - focused and full frontend tests passed
+  - frontend build passed
+  - live QA was run on task detail and Suggestions; note and project detail are still worth a quick visual pass on populated data
+- Immediate next step: do a final populated note/project visual pass if desired, then decide whether to keep refining trust/provenance presentation or start the next major UI direction beyond the current recommendation stack.
 
 ## Validation Commands
 

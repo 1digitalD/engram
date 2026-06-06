@@ -41,7 +41,9 @@ describe('V4Suggestions', () => {
           source_entity_id: 'n1',
           source_note_title: 'Weekly note',
           payload: { type: 'task', title: 'Follow up with Henry' },
+          confidence: 0.91,
           reason: 'follow up',
+          created_at: '2026-05-20T09:00:00+00:00',
         },
         {
           id: 's2',
@@ -55,7 +57,14 @@ describe('V4Suggestions', () => {
       ],
     });
     v4API.entities.get.mockResolvedValue({
-      data: { id: 'n1', type: 'note', title: 'Weekly note', content: 'Ask Henry about rollout' },
+      data: {
+        id: 'n1',
+        type: 'note',
+        title: 'Weekly note',
+        content: 'Ask Henry about rollout',
+        updated_at: '2026-05-20T10:00:00+00:00',
+        ai: { status: 'done', confidence: 0.88 },
+      },
     });
     v4API.suggestions.accept.mockResolvedValue({ suggestion: { id: 's1', status: 'accepted' } });
 
@@ -65,6 +74,9 @@ describe('V4Suggestions', () => {
     expect(screen.getByText('Ask Henry about rollout')).toBeInTheDocument();
     expect(screen.getByText('Follow up with Henry')).toBeInTheDocument();
     expect(screen.getByText('Memory Lookup')).toBeInTheDocument();
+    expect(screen.getByText('91% confidence')).toBeInTheDocument();
+    expect(screen.getByText('AI · done')).toBeInTheDocument();
+    expect(screen.getByText('88% confidence')).toBeInTheDocument();
 
     const card = screen.getByText('Follow up with Henry').closest('li');
     await userEvent.click(within(card).getByRole('button', { name: 'Accept' }));

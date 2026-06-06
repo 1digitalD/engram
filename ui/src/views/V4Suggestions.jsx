@@ -10,6 +10,18 @@ import styles from './V4Suggestions.module.css';
 
 const ENTITY_TYPES = ['task', 'project', 'area', 'resource', 'person'];
 
+function formatDateTime(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleString();
+}
+
+function formatConfidence(value) {
+  if (typeof value !== 'number' || Number.isNaN(value)) return '';
+  return `${Math.round(value * 100)}% confidence`;
+}
+
 function suggestionTitle(suggestion) {
   const payload = suggestion?.payload || {};
   return payload.title || suggestion?.suggestion_type || 'Suggestion';
@@ -116,6 +128,14 @@ function SuggestionCard({ suggestion, onAccept, onDismiss, onUpdate, onReprocess
           <div className={styles.cardBody}>
             <strong>{suggestionTitle(suggestion)}</strong>
             <span>{suggestionDetail(suggestion)}</span>
+            <div className={styles.cardMeta}>
+              {formatConfidence(suggestion.confidence) ? (
+                <span className={styles.metaPill}>{formatConfidence(suggestion.confidence)}</span>
+              ) : null}
+              {suggestion.created_at ? (
+                <span className={styles.metaPill}>suggested · {formatDateTime(suggestion.created_at)}</span>
+              ) : null}
+            </div>
             {suggestion.source_note_title && (
               <span className={styles.sourceNote}>from · {suggestion.source_note_title}</span>
             )}
@@ -341,6 +361,17 @@ export default function V4Suggestions() {
                     ) : (
                       <span className={styles.sourceNote}>ungrouped review</span>
                     )}
+                    <div className={styles.groupMeta}>
+                      {group.sourceNote?.ai?.status ? (
+                        <span className={styles.metaPill}>AI · {String(group.sourceNote.ai.status).replace(/_/g, ' ')}</span>
+                      ) : null}
+                      {formatConfidence(group.sourceNote?.ai?.confidence) ? (
+                        <span className={styles.metaPill}>{formatConfidence(group.sourceNote.ai.confidence)}</span>
+                      ) : null}
+                      {group.sourceNote?.updated_at ? (
+                        <span className={styles.metaPill}>updated · {formatDateTime(group.sourceNote.updated_at)}</span>
+                      ) : null}
+                    </div>
                     {group.sourceNote?.ai?.summary || group.sourceNote?.ai?.entity_summary ? (
                       <p className={styles.sourceSummary}>
                         {group.sourceNote.ai.entity_summary || group.sourceNote.ai.summary}

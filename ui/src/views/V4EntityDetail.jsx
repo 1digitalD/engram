@@ -85,6 +85,108 @@ function formatDateTime(value) {
   return date.toLocaleString();
 }
 
+function humanizeToken(value) {
+  if (!value) return '';
+  return String(value).replace(/_/g, ' ').replace(/:/g, ' · ');
+}
+
+function formatConfidence(value) {
+  if (typeof value !== 'number' || Number.isNaN(value)) return '';
+  return `${Math.round(value * 100)}% confidence`;
+}
+
+function buildDraft(entity) {
+  return {
+    title: entity.title || '',
+    content: entity.content || '',
+    status: entity.status || 'active',
+    due_at: toInputDateTime(entity.due_at),
+    follow_up_at: toInputDateTime(entity.follow_up_at),
+    reference_url: entity.reference_url || '',
+    tags: (entity.tags || []).map((tag) => tag.name),
+    priority: entity.properties?.priority || '',
+  };
+}
+
+function eventTitle(event) {
+  const labels = {
+    created: 'Created',
+    updated: 'Updated',
+    status_changed: 'Status changed',
+    archived: 'Archived',
+    deleted: 'Deleted',
+    relationship_added: 'Relationship added',
+    relationship_updated: 'Relationship updated',
+    relationship_removed: 'Relationship removed',
+    tag_added: 'Tag added',
+    tag_removed: 'Tag removed',
+    ai_processed: 'AI processed',
+    ai_updated: 'AI updated',
+    suggestion_accepted: 'Suggestion accepted',
+    suggestion_dismissed: 'Suggestion dismissed',
+    activity_update_added: 'Activity update added',
+  };
+  return labels[event.event_type] || humanizeToken(event.event_type);
+}
+
+function eventReason(event) {
+  if (event.reason) return event.reason;
+  if (event.event_type === 'status_changed') {
+    const from = event.old_value?.status;
+    const to = event.new_value?.status;
+    if (from && to) return `${humanizeToken(from)} -> ${humanizeToken(to)}`;
+  }
+  if (event.event_type === 'updated') {
+    const ignoredKeys = new Set(['id', 'created_at', 'updated_at', 'relationship_counts']);
+    const changedKeys = [
+      ...new Set([
+        ...Object.keys(event.old_value || {}),
+        ...Object.keys(event.new_value || {}),
+      ]),
+    ].filter((key) => (
+      !ignoredKeys.has(key)
+      && JSON.stringify(event.old_value?.[key]) !== JSON.stringify(event.new_value?.[key])
+    ));
+
+    if (changedKeys.length === 0) return '';
+    if (changedKeys.length === 1 && changedKeys[0] === 'status') return '';
+
+    const labels = changedKeys.map((key) => {
+      if (key === 'follow_up_at') return 'follow-up';
+      if (key === 'due_at') return 'due date';
+      if (key === 'reference_url') return 'reference URL';
+      if (key === 'properties') {
+        const propertyKeys = [
+          ...new Set([
+            ...Object.keys(event.old_value?.properties || {}),
+            ...Object.keys(event.new_value?.properties || {}),
+          ]),
+        ].filter((propertyKey) => (
+          JSON.stringify(event.old_value?.properties?.[propertyKey]) !== JSON.stringify(event.new_value?.properties?.[propertyKey])
+        ));
+        return propertyKeys.length ? propertyKeys.map(humanizeToken).join(', ') : 'properties';
+      }
+      return humanizeToken(key);
+    });
+
+    return `changed · ${labels.join(', ')}`;
+  }
+  if (event.event_type === 'relationship_added' || event.event_type === 'relationship_updated') {
+    const relationship = event.new_value?.relationship_type;
+    if (relationship) return `relationship · ${humanizeToken(relationship)}`;
+  }
+  if (event.event_type === 'tag_added' && event.new_value?.name) {
+    return `tag · ${event.new_value.name}`;
+  }
+  return '';
+}
+
+function shouldShowEvent(event) {
+  if (!event) return false;
+  if (event.event_type !== 'updated') return true;
+  return Boolean(eventReason(event));
+}
+
 function cleanPayload(payload) {
   return Object.fromEntries(Object.entries(payload).filter(([, value]) => value !== '' && value !== undefined));
 }
@@ -116,45 +218,68 @@ export default function V4EntityDetail({ type: routeType }) {
     priority: '',
   });
   const [error, setError] = useState('');
+  const [events, setEvents] = useState([]);
+  const [eventsLoading, setEventsLoading] = useState(true);
+  const [eventsError, setEventsError] = useState('');
   const [reprocessing, setReprocessing] = useState(false);
   const [reprocessStatus, setReprocessStatus] = useState('');
   const [saveStatus, setSaveStatus] = useState('');
 
-  async function loadDetail() {
-    const response = await v4API.entities.detail(id);
+  function applyDetailResponse(response) {
     setDetail(response);
     setError('');
-    setDraft({
-      title: response.entity.title || '',
-      content: response.entity.content || '',
-      status: response.entity.status || 'active',
-      due_at: toInputDateTime(response.entity.due_at),
-      follow_up_at: toInputDateTime(response.entity.follow_up_at),
-      reference_url: response.entity.reference_url || '',
-      tags: (response.entity.tags || []).map((tag) => tag.name),
-      priority: response.entity.properties?.priority || '',
-    });
+    setDraft(buildDraft(response.entity));
+  }
+
+  async function loadDetail() {
+    setEventsLoading(true);
+    const [detailResponse, eventsResponse] = await Promise.allSettled([
+      v4API.entities.detail(id),
+      v4API.entities.events(id),
+    ]);
+    if (detailResponse.status !== 'fulfilled') {
+      throw detailResponse.reason;
+    }
+    applyDetailResponse(detailResponse.value);
+    if (eventsResponse.status === 'fulfilled') {
+      setEvents(eventsResponse.value.data || []);
+      setEventsError('');
+    } else {
+      setEvents([]);
+      setEventsError(eventsResponse.reason?.message || 'Failed to load history');
+    }
+    setEventsLoading(false);
   }
 
   useEffect(() => {
     let active = true;
-    v4API.entities.detail(id)
-      .then((response) => {
+    setEventsLoading(true);
+    Promise.allSettled([
+      v4API.entities.detail(id),
+      v4API.entities.events(id),
+    ])
+      .then(([detailResponse, eventsResponse]) => {
         if (!active) return;
-        setDetail(response);
-        setDraft({
-          title: response.entity.title || '',
-          content: response.entity.content || '',
-          status: response.entity.status || 'active',
-          due_at: toInputDateTime(response.entity.due_at),
-          follow_up_at: toInputDateTime(response.entity.follow_up_at),
-          reference_url: response.entity.reference_url || '',
-          tags: (response.entity.tags || []).map((tag) => tag.name),
-          priority: response.entity.properties?.priority || '',
-        });
+        if (detailResponse.status !== 'fulfilled') {
+          setError(detailResponse.reason?.message || 'Failed to load entity');
+          setEventsLoading(false);
+          return;
+        }
+        applyDetailResponse(detailResponse.value);
+        if (eventsResponse.status === 'fulfilled') {
+          setEvents(eventsResponse.value.data || []);
+          setEventsError('');
+        } else {
+          setEvents([]);
+          setEventsError(eventsResponse.reason?.message || 'Failed to load history');
+        }
+        setEventsLoading(false);
       })
       .catch((err) => {
-        if (active) setError(err.message);
+        if (active) {
+          setError(err.message);
+          setEventsLoading(false);
+        }
       });
     return () => {
       active = false;
@@ -530,6 +655,13 @@ export default function V4EntityDetail({ type: routeType }) {
         <ProjectWorkspacePanel detail={detail} />
       )}
 
+      <EntityInspectionPanel
+        entity={entity}
+        events={events}
+        loading={eventsLoading}
+        error={eventsError}
+      />
+
       <section className={styles.segmentsStack} aria-label={`${entityType} relationship segments`}>
         {configs.map((config) => (
           <RelationshipSegment
@@ -645,6 +777,74 @@ function ProjectWorkspacePanel({ detail }) {
             </ul>
           ) : (
             <p className={styles.muted}>No obvious project hygiene gaps right now.</p>
+          )}
+        </section>
+      </div>
+    </section>
+  );
+}
+
+function EntityInspectionPanel({ entity, events, loading, error }) {
+  const aiSummary = entity.ai?.entity_summary || entity.ai?.summary;
+  const aiStatus = humanizeToken(entity.ai?.status || 'pending');
+  const confidence = formatConfidence(entity.ai?.confidence);
+  const recentEvents = events.filter(shouldShowEvent).slice(0, 6);
+
+  return (
+    <section className={styles.inspectionPanel} aria-label="Inspection and trust">
+      <header className={styles.inspectionHeader}>
+        <div>
+          <p className={styles.eyebrow}>Inspection</p>
+          <h2>Trust and recent changes</h2>
+        </div>
+        <div className={styles.metaStrip}>
+          <span className={styles.metaStaticChip}>Source · {humanizeToken(entity.source || 'manual')}</span>
+          <span className={styles.metaStaticChip}>AI · {aiStatus || 'pending'}</span>
+          {confidence ? <span className={styles.metaStaticChip}>{confidence}</span> : null}
+        </div>
+      </header>
+
+      <div className={styles.inspectionGrid}>
+        <section className={styles.inspectionCard}>
+          <h3>Signals</h3>
+          <div className={styles.inspectionChips}>
+            <span className={styles.metaStaticChip}>Created · {formatDateTime(entity.created_at)}</span>
+            <span className={styles.metaStaticChip}>Updated · {formatDateTime(entity.updated_at)}</span>
+            {entity.properties?.priority ? <span className={styles.metaStaticChip}>Priority · {entity.properties.priority}</span> : null}
+          </div>
+          {aiSummary ? (
+            <p className={styles.inspectionBody}>{aiSummary}</p>
+          ) : (
+            <p className={styles.muted}>No AI summary available yet.</p>
+          )}
+        </section>
+
+        <section className={styles.inspectionCard}>
+          <h3>Recent history</h3>
+          {loading ? (
+            <p className={styles.muted}>Loading history…</p>
+          ) : error ? (
+            <p className={styles.muted}>{error}</p>
+          ) : recentEvents.length === 0 ? (
+            <p className={styles.muted}>No recorded events yet.</p>
+          ) : (
+            <ul className={styles.eventList}>
+              {recentEvents.map((event) => (
+                <li key={event.id} className={styles.eventItem}>
+                  <div className={styles.eventHeader}>
+                    <strong>{eventTitle(event)}</strong>
+                    <span className={styles.mutedMeta}>{formatDateTime(event.created_at)}</span>
+                  </div>
+                  <div className={styles.inspectionChips}>
+                    <span className={styles.metaStaticChip}>{humanizeToken(event.actor || 'user')}</span>
+                    {event.confidence !== null && event.confidence !== undefined ? (
+                      <span className={styles.metaStaticChip}>{formatConfidence(event.confidence)}</span>
+                    ) : null}
+                  </div>
+                  {eventReason(event) ? <p className={styles.eventReason}>{eventReason(event)}</p> : null}
+                </li>
+              ))}
+            </ul>
           )}
         </section>
       </div>

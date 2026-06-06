@@ -99,6 +99,28 @@
   font-size: var(--text-sm);
 }
 
+.groupMeta,
+.cardMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.metaPill {
+  align-items: center;
+  background: color-mix(in oklch, var(--surface2) 60%, var(--surface));
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-full);
+  color: var(--text-secondary);
+  display: inline-flex;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  min-height: 22px;
+  padding: 2px 8px;
+  text-transform: uppercase;
+}
+
 .sourceSummary {
   color: var(--text);
   font-size: var(--text-sm);

@@ -224,6 +224,112 @@
   width: 100%;
 }
 
+.inspectionPanel {
+  border: 1px solid color-mix(in oklch, var(--accent) 14%, var(--border-faint));
+  border-radius: var(--radius-lg);
+  background:
+    linear-gradient(180deg, color-mix(in oklch, var(--surface2) 35%, var(--surface)), var(--surface));
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-width: 1600px;
+  padding: var(--space-4);
+  width: 100%;
+}
+
+.inspectionHeader {
+  align-items: flex-start;
+  display: flex;
+  gap: var(--space-3);
+  justify-content: space-between;
+}
+
+.inspectionHeader h2 {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.inspectionGrid {
+  align-items: start;
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.inspectionCard {
+  background: color-mix(in oklch, var(--surface) 84%, white 16%);
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: 12px;
+}
+
+.inspectionCard h3 {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.inspectionChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.inspectionBody {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  line-height: 1.55;
+  margin: 0;
+}
+
+.eventList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.eventItem {
+  border-top: 1px solid var(--border-faint);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 10px;
+}
+
+.eventItem:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.eventHeader {
+  align-items: baseline;
+  display: flex;
+  gap: var(--space-2);
+  justify-content: space-between;
+}
+
+.eventHeader strong {
+  color: var(--text);
+  font-size: var(--text-sm);
+}
+
+.eventReason {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  margin: 0;
+}
+
 .workspaceHeader {
   align-items: flex-start;
   display: flex;
@@ -840,6 +946,12 @@
   min-height: 26px;
   padding: 3px 10px;
   white-space: nowrap;
+}
+
+.muted {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  margin: 0;
 }
 
 .readOnlyChip {
