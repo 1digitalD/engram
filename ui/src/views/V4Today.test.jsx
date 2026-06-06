@@ -22,7 +22,10 @@ describe('V4Today', () => {
     v4API.today.mockResolvedValue({
       overdue: [{ id: 'od1', type: 'task', title: 'Overdue task', status: 'open', due_at: '2026-05-25T17:00:00Z' }],
       due_today: [{ id: 'dt1', type: 'task', title: 'Due today task', status: 'open', due_at: '2026-05-27T17:00:00Z' }],
-      overdue_follow_ups: [{ id: 'of1', type: 'task', title: 'Overdue follow-up', status: 'open' }],
+      overdue_follow_ups: [
+        { id: 'od1', type: 'task', title: 'Overdue task', status: 'open', due_at: '2026-05-25T17:00:00Z' },
+        { id: 'of1', type: 'task', title: 'Overdue follow-up', status: 'open' },
+      ],
       follow_ups: [{ id: 't1', type: 'task', title: 'Follow up today task', status: 'open' }],
       upcoming_follow_ups: [{ id: 'uf1', type: 'task', title: 'Upcoming followup', status: 'open' }],
       blocked_tasks: [{ id: 'b1', type: 'task', title: 'Blocked work', status: 'blocked' }],
@@ -38,17 +41,21 @@ describe('V4Today', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText('Overdue task')).toBeInTheDocument();
-    expect(screen.getByText('Due today task')).toBeInTheDocument();
-    expect(screen.getByText('Overdue follow-up')).toBeInTheDocument();
-    expect(screen.getByText('Follow up today task')).toBeInTheDocument();
+    expect((await screen.findAllByText('Overdue task')).length).toBeGreaterThan(0);
+    expect(screen.getByText('6 items need your attention today.')).toBeInTheDocument();
+    expect(screen.getByText('Focus now')).toBeInTheDocument();
+    expect(screen.getAllByText('overdue').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('due today').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Due today task').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Overdue follow-up').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Follow up today task').length).toBeGreaterThan(0);
     expect(screen.getByText('Upcoming followup')).toBeInTheDocument();
     expect(screen.getByText('Blocked work')).toBeInTheDocument();
     expect(screen.getByText('Waiting work')).toBeInTheDocument();
     expect(screen.getByText('Needs next task')).toBeInTheDocument();
     expect(screen.getByText('Recent note')).toBeInTheDocument();
     expect(screen.getByText('Suggested task')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Overdue task/i })).toHaveAttribute('href', '/tasks/od1');
+    expect(screen.getAllByRole('link', { name: /Overdue task/i })[0]).toHaveAttribute('href', '/tasks/od1');
     expect(v4API.today).toHaveBeenCalled();
   });
 });

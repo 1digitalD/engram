@@ -96,6 +96,10 @@ function relationshipPayload(currentId, linkedId, config) {
   return { sourceId: currentId, target_entity_id: linkedId, relationship_type: config.relationship };
 }
 
+function sectionItems(detail, key) {
+  return detail.sections.find((section) => section.key === key)?.items || [];
+}
+
 export default function V4EntityDetail({ type: routeType }) {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -112,13 +116,14 @@ export default function V4EntityDetail({ type: routeType }) {
     priority: '',
   });
   const [error, setError] = useState('');
-  const [editingContent, setEditingContent] = useState(false);
   const [reprocessing, setReprocessing] = useState(false);
   const [reprocessStatus, setReprocessStatus] = useState('');
+  const [saveStatus, setSaveStatus] = useState('');
 
   async function loadDetail() {
     const response = await v4API.entities.detail(id);
     setDetail(response);
+    setError('');
     setDraft({
       title: response.entity.title || '',
       content: response.entity.content || '',
@@ -156,19 +161,10 @@ export default function V4EntityDetail({ type: routeType }) {
     };
   }, [id]);
 
-  async function commitField(partial) {
-    if (!detail) return;
-    try {
-      await v4API.entities.update(id, cleanPayload(partial));
-      await loadDetail();
-    } catch (err) {
-      setError(err.message || 'Failed to save change');
-    }
-  }
-
   async function handleSave(event) {
     event.preventDefault();
     setError('');
+    setSaveStatus('');
     const properties = { ...(detail.entity.properties || {}) };
     if (draft.priority) {
       properties.priority = draft.priority;
@@ -188,6 +184,7 @@ export default function V4EntityDetail({ type: routeType }) {
         tags: Array.isArray(draft.tags) ? draft.tags : [],
       }));
       await loadDetail();
+      setSaveStatus('Saved');
     } catch (err) {
       setError(err.message || 'Failed to save entity');
     }
@@ -327,6 +324,18 @@ export default function V4EntityDetail({ type: routeType }) {
   const configs = actionConfigs[entity.type] || [];
   const usedSectionKeys = new Set(configs.flatMap((config) => config.sectionKeys || []));
   const additionalSections = detail.sections.filter((section) => !usedSectionKeys.has(section.key) && section.items.length > 0);
+  const currentTags = (entity.tags || []).map((tag) => tag.name);
+  const entityPriority = entity.properties?.priority || '';
+  const isDirty = (
+    draft.title !== (entity.title || '')
+    || draft.content !== (entity.content || '')
+    || draft.status !== (entity.status || 'active')
+    || draft.due_at !== toInputDateTime(entity.due_at)
+    || draft.follow_up_at !== toInputDateTime(entity.follow_up_at)
+    || draft.reference_url !== (entity.reference_url || '')
+    || draft.priority !== entityPriority
+    || JSON.stringify(draft.tags) !== JSON.stringify(currentTags)
+  );
 
   return (
     <main className={styles.screen}>
@@ -376,6 +385,7 @@ export default function V4EntityDetail({ type: routeType }) {
                 type="submit"
                 aria-label="Save"
                 title="Save"
+                disabled={!isDirty}
               >
                 <Save size={16} strokeWidth={2} aria-hidden="true" />
               </button>
@@ -389,7 +399,7 @@ export default function V4EntityDetail({ type: routeType }) {
                 onChange={(event) => {
                   const next = event.target.value;
                   setDraft((current) => ({ ...current, status: next }));
-                  commitField({ status: next });
+                  setSaveStatus('');
                 }}
                 aria-label="Status"
               >
@@ -405,10 +415,7 @@ export default function V4EntityDetail({ type: routeType }) {
                 onChange={(event) => {
                   const next = event.target.value;
                   setDraft((current) => ({ ...current, priority: next }));
-                  const properties = { ...(detail.entity.properties || {}) };
-                  if (next) properties.priority = next;
-                  else delete properties.priority;
-                  commitField({ properties });
+                  setSaveStatus('');
                 }}
                 aria-label="Priority"
               >
@@ -422,8 +429,10 @@ export default function V4EntityDetail({ type: routeType }) {
           </div>
           <InlineTextField
             value={draft.title}
-            onChange={(val) => setDraft((current) => ({ ...current, title: val }))}
-            onCommit={(val) => { if (val !== (entity.title || '')) commitField({ title: val }); }}
+            onChange={(val) => {
+              setDraft((current) => ({ ...current, title: val }));
+              setSaveStatus('');
+            }}
             placeholder="Untitled"
             ariaLabel="Title"
             className={styles.detailTitle}
@@ -436,8 +445,10 @@ export default function V4EntityDetail({ type: routeType }) {
           )}
           <InlineMarkdownField
             value={draft.content || ''}
-            onChange={(val) => setDraft((current) => ({ ...current, content: val }))}
-            onCommit={(val) => { if (val !== (entity.content || '')) commitField({ content: val }); }}
+            onChange={(val) => {
+              setDraft((current) => ({ ...current, content: val }));
+              setSaveStatus('');
+            }}
             placeholder="Add a description — supports Markdown"
           />
           <footer className={styles.detailFooter}>
@@ -447,7 +458,7 @@ export default function V4EntityDetail({ type: routeType }) {
                 value={draft.tags}
                 onChange={(val) => {
                   setDraft((current) => ({ ...current, tags: val }));
-                  commitField({ tags: val });
+                  setSaveStatus('');
                 }}
               />
             </div>
@@ -455,8 +466,10 @@ export default function V4EntityDetail({ type: routeType }) {
               <span className={styles.footerLabel}>URL</span>
               <InlineTextField
                 value={draft.reference_url}
-                onChange={(val) => setDraft((current) => ({ ...current, reference_url: val }))}
-                onCommit={(val) => { if (val !== (entity.reference_url || '')) commitField({ reference_url: val }); }}
+                onChange={(val) => {
+                  setDraft((current) => ({ ...current, reference_url: val }));
+                  setSaveStatus('');
+                }}
                 placeholder="https://…"
                 ariaLabel="Reference URL"
                 type="url"
@@ -469,8 +482,10 @@ export default function V4EntityDetail({ type: routeType }) {
                   <span className={styles.footerLabel}>Due</span>
                   <InlineDateField
                     value={draft.due_at}
-                    onChange={(val) => setDraft((current) => ({ ...current, due_at: val }))}
-                    onCommit={(val) => { if (val !== toInputDateTime(entity.due_at)) commitField({ due_at: val || null }); }}
+                    onChange={(val) => {
+                      setDraft((current) => ({ ...current, due_at: val }));
+                      setSaveStatus('');
+                    }}
                     ariaLabel="Due date"
                   />
                 </div>
@@ -479,8 +494,10 @@ export default function V4EntityDetail({ type: routeType }) {
                 <span className={styles.footerLabel}>Follow-up</span>
                 <InlineDateField
                   value={draft.follow_up_at}
-                  onChange={(val) => setDraft((current) => ({ ...current, follow_up_at: val }))}
-                  onCommit={(val) => { if (val !== toInputDateTime(entity.follow_up_at)) commitField({ follow_up_at: val || null }); }}
+                  onChange={(val) => {
+                    setDraft((current) => ({ ...current, follow_up_at: val }));
+                    setSaveStatus('');
+                  }}
                   ariaLabel="Follow-up date"
                 />
               </div>
@@ -495,6 +512,11 @@ export default function V4EntityDetail({ type: routeType }) {
             </div>
           </footer>
         </form>
+        {(isDirty || saveStatus) && (
+          <div className={styles.statusBanner} role="status" aria-live="polite">
+            <span>{isDirty ? 'Unsaved changes' : saveStatus}</span>
+          </div>
+        )}
         {reprocessStatus && (
           <div className={styles.statusBanner} role="status" aria-live="polite">
             {reprocessing && <RefreshCw size={14} strokeWidth={2} className="spin" aria-hidden="true" />}
@@ -503,6 +525,10 @@ export default function V4EntityDetail({ type: routeType }) {
         )}
         {error && <div className={styles.error}>{error}</div>}
       </section>
+
+      {entity.type === 'project' && (
+        <ProjectWorkspacePanel detail={detail} />
+      )}
 
       <section className={styles.segmentsStack} aria-label={`${entityType} relationship segments`}>
         {configs.map((config) => (
@@ -531,6 +557,98 @@ export default function V4EntityDetail({ type: routeType }) {
         )}
       </section>
     </main>
+  );
+}
+
+function ProjectWorkspacePanel({ detail }) {
+  const openTasks = sectionItems(detail, 'open_tasks');
+  const completedTasks = sectionItems(detail, 'completed_tasks');
+  const notes = sectionItems(detail, 'notes');
+  const people = sectionItems(detail, 'people');
+  const resources = sectionItems(detail, 'resources');
+  const areaLinks = sectionItems(detail, 'area');
+  const nextTask = openTasks.find((item) => ['open', 'in_progress'].includes(item.entity.status)) || openTasks[0] || null;
+  const blockedOpenTasks = openTasks.filter((item) => ['blocked', 'waiting'].includes(item.entity.status));
+  const allOpenTasksBlocked = openTasks.length > 0 && blockedOpenTasks.length === openTasks.length;
+
+  const warnings = [];
+  if (openTasks.length === 0) warnings.push('No open tasks');
+  if (allOpenTasksBlocked) warnings.push('All open tasks are blocked or waiting');
+  if (!detail.entity.follow_up_at && !detail.entity.due_at) warnings.push('No review date set');
+  if (notes.length === 0) warnings.push('No project notes linked');
+  if (areaLinks.length === 0) warnings.push('No area linked');
+
+  return (
+    <section className={styles.workspacePanel} aria-label="Project workspace">
+      <header className={styles.workspaceHeader}>
+        <div>
+          <p className={styles.eyebrow}>Project workspace</p>
+          <h2>Momentum at a glance</h2>
+        </div>
+        <div className={styles.workspaceStats}>
+          <div className={styles.workspaceStat}>
+            <strong>{openTasks.length}</strong>
+            <span>open tasks</span>
+          </div>
+          <div className={styles.workspaceStat}>
+            <strong>{completedTasks.length}</strong>
+            <span>completed</span>
+          </div>
+          <div className={styles.workspaceStat}>
+            <strong>{notes.length}</strong>
+            <span>notes</span>
+          </div>
+          <div className={styles.workspaceStat}>
+            <strong>{people.length}</strong>
+            <span>people</span>
+          </div>
+          <div className={styles.workspaceStat}>
+            <strong>{resources.length}</strong>
+            <span>resources</span>
+          </div>
+        </div>
+      </header>
+
+      <div className={styles.workspaceGrid}>
+        <section className={styles.workspaceCard}>
+          <h3>Next step</h3>
+          {nextTask ? (
+            <Link to={pathForEntity(nextTask.entity)} className={styles.workspaceLinkCard}>
+              <strong>{nextTask.entity.title || 'Untitled task'}</strong>
+              <span className={styles.metaRow}>
+                <span className={styles.statusPill}>{nextTask.entity.status}</span>
+                {nextTask.entity.properties?.priority ? <span className={styles.priorityPill}>Priority {nextTask.entity.properties.priority}</span> : null}
+              </span>
+            </Link>
+          ) : (
+            <p className={styles.muted}>Add an open task to make the project actionable.</p>
+          )}
+        </section>
+
+        <section className={styles.workspaceCard}>
+          <h3>Coverage</h3>
+          <div className={styles.workspaceCoverage}>
+            <span className={styles.metaStaticChip}>{areaLinks.length > 0 ? `Area · ${areaLinks[0].entity.title}` : 'No area linked'}</span>
+            <span className={styles.metaStaticChip}>{people.length} people linked</span>
+            <span className={styles.metaStaticChip}>{notes.length} notes linked</span>
+            <span className={styles.metaStaticChip}>{resources.length} resources linked</span>
+          </div>
+        </section>
+
+        <section className={styles.workspaceCard}>
+          <h3>Watchouts</h3>
+          {warnings.length > 0 ? (
+            <ul className={styles.workspaceWarnings}>
+              {warnings.map((warning) => (
+                <li key={warning}>{warning}</li>
+              ))}
+            </ul>
+          ) : (
+            <p className={styles.muted}>No obvious project hygiene gaps right now.</p>
+          )}
+        </section>
+      </div>
+    </section>
   );
 }
 
@@ -748,9 +866,8 @@ function InlineTextField({ value, onChange, onCommit, placeholder, ariaLabel, cl
     }
   }, [editing]);
 
-  function commit(event) {
+  function commit() {
     setEditing(false);
-    if (onCommit) onCommit(event?.target?.value ?? value);
   }
 
   function cancel() {
@@ -772,7 +889,7 @@ function InlineTextField({ value, onChange, onCommit, placeholder, ariaLabel, cl
         onKeyDown={(event) => {
           if (event.key === 'Enter' && type !== 'textarea') {
             event.preventDefault();
-            commit(event);
+            commit();
           } else if (event.key === 'Escape') {
             event.preventDefault();
             cancel();
@@ -796,7 +913,7 @@ function InlineTextField({ value, onChange, onCommit, placeholder, ariaLabel, cl
   );
 }
 
-function InlineDateField({ value, onChange, onCommit, ariaLabel }) {
+function InlineDateField({ value, onChange, ariaLabel }) {
   const [editing, setEditing] = useState(false);
   const inputRef = React.useRef(null);
 
@@ -806,7 +923,6 @@ function InlineDateField({ value, onChange, onCommit, ariaLabel }) {
 
   function commit() {
     setEditing(false);
-    if (onCommit) onCommit(value);
   }
 
   if (editing) {
@@ -837,24 +953,20 @@ function InlineDateField({ value, onChange, onCommit, ariaLabel }) {
   );
 }
 
-function InlineMarkdownField({ value, onChange, onCommit, placeholder }) {
+function InlineMarkdownField({ value, onChange, placeholder }) {
   const [editing, setEditing] = useState(false);
   const containerRef = React.useRef(null);
-  const lastValueRef = React.useRef(value);
-
-  useEffect(() => { lastValueRef.current = value; }, [value]);
 
   useEffect(() => {
     if (!editing) return undefined;
     function onClick(event) {
       if (containerRef.current && !containerRef.current.contains(event.target)) {
         setEditing(false);
-        if (onCommit) onCommit(lastValueRef.current);
       }
     }
     document.addEventListener('mousedown', onClick);
     return () => document.removeEventListener('mousedown', onClick);
-  }, [editing, onCommit]);
+  }, [editing]);
 
   if (editing) {
     return (

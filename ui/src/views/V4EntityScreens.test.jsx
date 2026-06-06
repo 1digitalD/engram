@@ -139,6 +139,7 @@ describe('v4 entity screens', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Due date' }));
     fireEvent.change(screen.getByLabelText('Due date'), { target: { value: '2026-05-21T17:00' } });
     fireEvent.change(screen.getByLabelText('Priority'), { target: { value: 'high' } });
+    expect(v4API.entities.update).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(v4API.entities.update).toHaveBeenCalledWith('t1', {
       title: 'Follow up',
@@ -148,6 +149,7 @@ describe('v4 entity screens', () => {
       properties: { priority: 'high' },
       tags: [],
     }));
+    expect(await screen.findByText('Saved')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
     await waitFor(() => expect(v4API.relationships.delete).toHaveBeenCalledWith('r1'));
@@ -197,6 +199,67 @@ describe('v4 entity screens', () => {
     await waitFor(() => expect(v4API.entities.delete).toHaveBeenCalledWith('n1'));
     expect(await screen.findByText('Notes index')).toBeInTheDocument();
     vi.unstubAllGlobals();
+  });
+
+  it('renders a project workspace overview from existing detail sections', async () => {
+    const detail = {
+      entity: {
+        id: 'p1',
+        type: 'project',
+        title: 'Memory Lookup',
+        content: '',
+        status: 'active',
+        created_at: '2026-05-20T09:00:00+00:00',
+        updated_at: '2026-05-20T10:00:00+00:00',
+        due_at: null,
+        follow_up_at: null,
+        reference_url: null,
+        properties: {},
+        tags: [],
+      },
+      sections: [
+        {
+          key: 'open_tasks',
+          title: 'Open Tasks',
+          items: [{
+            entity: { id: 't1', type: 'task', title: 'Ship rollout memo', status: 'open', properties: { priority: 'high' } },
+            relationship: { id: 'r1', relationship_type: 'parent' },
+          }],
+        },
+        {
+          key: 'completed_tasks',
+          title: 'Completed Tasks',
+          items: [{
+            entity: { id: 't2', type: 'task', title: 'Draft outline', status: 'done' },
+            relationship: { id: 'r2', relationship_type: 'parent' },
+          }],
+        },
+        {
+          key: 'people',
+          title: 'People',
+          items: [{
+            entity: { id: 'person1', type: 'person', title: 'Danish', status: 'active' },
+            relationship: { id: 'r3', relationship_type: 'assigned_to' },
+          }],
+        },
+      ],
+    };
+    v4API.entities.detail.mockResolvedValue(detail);
+
+    render(
+      <MemoryRouter initialEntries={['/projects/p1']}>
+        <Routes>
+          <Route path="/projects/:id" element={<V4EntityDetail type="project" />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Momentum at a glance')).toBeInTheDocument();
+    expect(screen.getByText('open tasks')).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: /Ship rollout memo/i })[0]).toHaveAttribute('href', '/tasks/t1');
+    expect(screen.getByText('No review date set')).toBeInTheDocument();
+    expect(screen.getByText('No project notes linked')).toBeInTheDocument();
+    expect(screen.getAllByText('No area linked').length).toBeGreaterThan(0);
   });
 
   it('creates a new task from a project detail and links it as parent', async () => {

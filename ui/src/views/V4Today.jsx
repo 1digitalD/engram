@@ -5,6 +5,13 @@ import { Link, useLocation } from 'react-router-dom';
 import { v4API } from '../api/v4Client';
 import CardActions from '../components/CardActions';
 import MarkdownContent from '../components/MarkdownContent';
+import {
+  getTodayAttentionCount,
+  getTodayDueNowEntities,
+  getTodayFocusItems,
+  getTodayOverdueEntities,
+  getTodayStuckEntities,
+} from '../utils/today';
 import styles from './V4Today.module.css';
 
 const TASK_STATUSES = ['open', 'in_progress', 'waiting', 'blocked', 'done', 'cancelled'];
@@ -84,7 +91,17 @@ function shortDate(value) {
     : { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-function EntityRow({ entity, onQuickStatus, onUpdateField, onChanged, fromState }) {
+function reasonLabel(reason) {
+  if (reason === 'overdue') return 'overdue';
+  if (reason === 'due_today') return 'due today';
+  if (reason === 'overdue_follow_up') return 'follow-up overdue';
+  if (reason === 'follow_up_today') return 'follow-up today';
+  if (reason === 'blocked') return 'blocked';
+  if (reason === 'waiting') return 'waiting';
+  return reason;
+}
+
+function EntityRow({ entity, onQuickStatus, onUpdateField, onChanged, fromState, reason }) {
   const isTask = entity.type === 'task';
   return (
     <li className={`${styles.row} cardActionsParent`}>
@@ -97,6 +114,7 @@ function EntityRow({ entity, onQuickStatus, onUpdateField, onChanged, fromState 
       </Link>
       <div className={styles.metaRow}>
         <span className={styles.typePill}>{entity.type}</span>
+        {reason ? <span className={styles.reasonPill}>{reasonLabel(reason)}</span> : null}
         {isTask ? (
           <select
             className={styles.statusPillSelect}
@@ -131,7 +149,7 @@ function EntityRow({ entity, onQuickStatus, onUpdateField, onChanged, fromState 
   );
 }
 
-function EntitySection({ title, items, onQuickStatus, onUpdateField, onChanged, fromState, accent }) {
+function EntitySection({ title, items, onQuickStatus, onUpdateField, onChanged, fromState, accent, reason }) {
   if (items.length === 0) return null;
   return (
     <section className={`${styles.panel} ${accent ? styles[`panel_${accent}`] : ''}`}>
@@ -148,6 +166,7 @@ function EntitySection({ title, items, onQuickStatus, onUpdateField, onChanged, 
             onUpdateField={onUpdateField}
             onChanged={onChanged}
             fromState={fromState}
+            reason={reason}
           />
         ))}
       </ul>
@@ -209,7 +228,11 @@ export default function V4Today() {
   const recentNotes = today.recent_notes || [];
   const suggestions = today.pending_suggestions || [];
 
-  const totalActionable = overdue.length + dueToday.length + overdueFollowUps.length + followUps.length + blocked.length + waiting.length;
+  const totalActionable = getTodayAttentionCount(today);
+  const focusNow = getTodayFocusItems(today, 6);
+  const overdueSummaryCount = getTodayOverdueEntities(today).length;
+  const dueNowSummaryCount = getTodayDueNowEntities(today).length;
+  const stuckSummaryCount = getTodayStuckEntities(today).length;
 
   return (
     <main className={styles.today}>
@@ -220,7 +243,34 @@ export default function V4Today() {
             ? 'Nothing urgent. Use this time to plan ahead or capture notes.'
             : `${totalActionable} item${totalActionable === 1 ? '' : 's'} need your attention today.`}
         </p>
+        <div className={styles.summaryStrip}>
+          <span className={styles.summaryPill}>{overdueSummaryCount} overdue</span>
+          <span className={styles.summaryPill}>{dueNowSummaryCount} due or follow-up today</span>
+          <span className={styles.summaryPill}>{stuckSummaryCount} stuck</span>
+        </div>
       </header>
+
+      {focusNow.length > 0 && (
+        <section className={`${styles.panel} ${styles.panel_focus}`}>
+          <header className={styles.panelHeader}>
+            <h2>Focus now</h2>
+            <span className={styles.count}>{focusNow.length}</span>
+          </header>
+          <ul className={styles.list}>
+            {focusNow.map(({ entity, reason }) => (
+              <EntityRow
+                key={`focus-${entity.id}-${reason}`}
+                entity={entity}
+                onQuickStatus={handleQuickStatus}
+                onUpdateField={handleUpdateField}
+                onChanged={load}
+                fromState={fromState}
+                reason={reason}
+              />
+            ))}
+          </ul>
+        </section>
+      )}
 
       <EntitySection
         title="Overdue"
@@ -230,6 +280,7 @@ export default function V4Today() {
         onChanged={load}
         fromState={fromState}
         accent="overdue"
+        reason="overdue"
       />
       <EntitySection
         title="Due today"
@@ -239,6 +290,7 @@ export default function V4Today() {
         onChanged={load}
         fromState={fromState}
         accent="due"
+        reason="due_today"
       />
       <EntitySection
         title="Overdue follow-ups"
@@ -248,6 +300,7 @@ export default function V4Today() {
         onChanged={load}
         fromState={fromState}
         accent="overdue"
+        reason="overdue_follow_up"
       />
       <EntitySection
         title="Follow up today"
@@ -256,6 +309,7 @@ export default function V4Today() {
         onUpdateField={handleUpdateField}
         onChanged={load}
         fromState={fromState}
+        reason="follow_up_today"
       />
       <EntitySection
         title="Upcoming follow-ups (next 7 days)"
@@ -272,6 +326,7 @@ export default function V4Today() {
         onUpdateField={handleUpdateField}
         onChanged={load}
         fromState={fromState}
+        reason="blocked"
       />
       <EntitySection
         title="Waiting"
@@ -280,6 +335,7 @@ export default function V4Today() {
         onUpdateField={handleUpdateField}
         onChanged={load}
         fromState={fromState}
+        reason="waiting"
       />
       <EntitySection
         title="Recent notes"

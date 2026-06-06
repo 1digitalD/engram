@@ -25,6 +25,26 @@
   margin: 4px 0 0;
 }
 
+.summaryStrip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: var(--space-2);
+}
+
+.summaryPill {
+  background: color-mix(in oklch, var(--accent) 8%, var(--surface));
+  border: 1px solid color-mix(in oklch, var(--accent) 20%, var(--border));
+  border-radius: var(--radius-full);
+  color: var(--accent);
+  display: inline-flex;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  text-transform: uppercase;
+}
+
 .panel {
   border: 1px solid var(--border-faint);
   border-radius: var(--radius-lg);
@@ -41,6 +61,11 @@
 .panel_due {
   border-color: color-mix(in oklch, var(--accent) 35%, var(--border-faint));
   background: linear-gradient(180deg, color-mix(in oklch, var(--accent) 4%, var(--surface)), var(--surface));
+}
+
+.panel_focus {
+  border-color: color-mix(in oklch, var(--green) 28%, var(--border-faint));
+  background: linear-gradient(180deg, color-mix(in oklch, var(--green) 4%, var(--surface)), var(--surface));
 }
 
 .panelHeader {
@@ -167,6 +192,19 @@
   background: color-mix(in oklch, var(--yellow) 14%, var(--surface));
   border: 1px solid color-mix(in oklch, var(--yellow) 35%, var(--border));
   color: color-mix(in oklch, var(--yellow) 70%, var(--text));
+}
+
+.reasonPill {
+  background: color-mix(in oklch, var(--green) 10%, var(--surface));
+  border: 1px solid color-mix(in oklch, var(--green) 26%, var(--border));
+  border-radius: var(--radius-full);
+  color: var(--green);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 1px 7px;
+  text-transform: lowercase;
 }
 
 .mutedMeta {

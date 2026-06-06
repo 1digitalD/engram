@@ -209,6 +209,124 @@
   gap: var(--space-3);
 }
 
+.workspacePanel {
+  border: 1px solid color-mix(in oklch, var(--accent) 18%, var(--border-faint));
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(circle at top right, color-mix(in oklch, var(--accent) 10%, transparent), transparent 42%),
+    linear-gradient(180deg, color-mix(in oklch, var(--surface2) 55%, var(--surface)), var(--surface));
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-width: 1600px;
+  padding: var(--space-4);
+  width: 100%;
+}
+
+.workspaceHeader {
+  align-items: flex-start;
+  display: flex;
+  gap: var(--space-3);
+  justify-content: space-between;
+}
+
+.workspaceHeader h2 {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.workspaceStats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}
+
+.workspaceStat {
+  align-items: flex-start;
+  background: color-mix(in oklch, var(--surface) 78%, white 22%);
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 88px;
+  padding: 10px 12px;
+}
+
+.workspaceStat strong {
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  line-height: 1;
+}
+
+.workspaceStat span {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.workspaceGrid {
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.workspaceCard {
+  background: color-mix(in oklch, var(--surface) 82%, white 18%);
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: 12px;
+}
+
+.workspaceCard h3 {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.workspaceLinkCard {
+  background: var(--surface);
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-md);
+  color: inherit;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  text-decoration: none;
+}
+
+.workspaceLinkCard:hover {
+  border-color: var(--border);
+}
+
+.workspaceCoverage {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.workspaceWarnings {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding-left: 18px;
+}
+
 .detailFooter {
   border-top: 1px solid var(--border-faint);
   display: flex;
