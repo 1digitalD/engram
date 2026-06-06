@@ -113,6 +113,29 @@ def test_relationship_delete_writes_event(client, app):
         assert event.old_value["relationship_type"] == "derived_from"
 
 
+def test_relationship_update_writes_update_event(client, app):
+    task = _create_entity(client, "task", "Ask Henry")
+    note = _create_entity(client, "note", "Talked to Henry")
+    created = _create_relationship(client, task["id"], note["id"], "related").get_json()["data"]
+
+    response = client.patch(
+        f"/api/v4/relationships/{created['id']}",
+        json={"relationship_type": "derived_from", "evidence": "explicit follow-up source"},
+    )
+
+    assert response.status_code == 200
+    updated = response.get_json()["data"]
+    assert updated["relationship_type"] == "derived_from"
+    assert updated["evidence"] == "explicit follow-up source"
+
+    with app.app_context():
+        event = EntityEvent.query.filter_by(
+            entity_id=task["id"], event_type="relationship_updated"
+        ).one()
+        assert event.old_value["relationship_type"] == "related"
+        assert event.new_value["relationship_type"] == "derived_from"
+
+
 def test_get_relationships_returns_incoming_and_outgoing(client):
     task = _create_entity(client, "task", "Ask Henry")
     note = _create_entity(client, "note", "Talked to Henry")

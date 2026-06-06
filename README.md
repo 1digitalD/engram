@@ -48,7 +48,7 @@ If the app returns database errors after upgrading to v4, reset the local databa
 
 - Notes remain source artifacts.
 - Supported entity types are `note`, `task`, `project`, `area`, `resource`, and `person`.
-- Relationships are first-class records with types such as `parent`, `related`, `derived_from`, `mentions`, `assigned_to`, `references`, and `blocks`.
+- Relationships are first-class records with types such as `parent`, `related`, `derived_from`, `mentions`, `assigned_to`, `references`, `blocks`, and `activity_update`.
 - AI may safely auto-apply metadata and high-confidence links.
 - Risky changes such as entity creation, status changes, deletion, merge, and relationship deletion must be suggestions for review.
 
@@ -68,7 +68,7 @@ curl http://localhost:5001/api/v4/today
 
 ## MCP
 
-Engram ships with a v4 read-only MCP server at `mcp_server/server.py`.
+Engram ships with a v4 write-enabled MCP server at `mcp_server/server.py`. The MCP is a thin proxy over `/api/v4`; it does not hold separate state or permissions.
 
 ```bash
 cd /path/to/engram
@@ -81,8 +81,22 @@ Available MCP tools:
 - `search_entities`
 - `get_entity`
 - `list_recent`
+- `get_today`
+- `list_suggestions`
+- `capture`
+- `create_entity`
+- `update_entity`
+- `link_entities`
+- `accept_suggestion`
+- `dismiss_suggestion`
+- `submit_candidates`
+- `append_activity_update`
 
-MCP intentionally exposes no capture, create, update, link, merge, or delete tools for v4 launch.
+Use `mcp_server/README_V4.md` as the contract for MCP inputs, outputs, and transport modes.
+
+## Deployment
+
+For local launchd + Tailscale deployment, use `docs/DEPLOY.md`, `scripts/engram-deploy.sh`, and `com.engram.api.plist` together. The deployment path expects the API to bind to `127.0.0.1:5001`.
 
 ## Validation
 
@@ -99,5 +113,8 @@ Schema reset validation is destructive: `flask --app app.py init-db`.
 - `docs/V4_PRINCIPLES.md`
 - `docs/V4_IMPLEMENTATION_PLAN.md`
 - `docs/SCHEMA.sql`
+- `docs/DEPLOY.md`
 - `mcp_server/README_V4.md`
 - `EXECUTION-TRACKER.md`
+
+`prd.json` remains in the repo as archived reference material only and is not an active v4 source of truth.

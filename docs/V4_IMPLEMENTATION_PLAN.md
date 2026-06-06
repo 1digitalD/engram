@@ -216,6 +216,7 @@ status_changed
 archived
 deleted
 relationship_added
+relationship_updated
 relationship_removed
 tag_added
 tag_removed
@@ -419,7 +420,7 @@ Do not implement AI answer mode in v4 launch.
 
 ## MCP
 
-v4 MCP is read-only only.
+v4 MCP is write-enabled and mirrors the active `/api/v4` workflow.
 
 Tools:
 
@@ -427,18 +428,16 @@ Tools:
 search_entities(query, type?, limit?)
 get_entity(entity_id, include_relationships?)
 list_recent(type?, limit?)
-```
-
-Do not expose write tools yet.
-
-Forbidden MCP tools in v4 launch:
-
-```text
-capture
-create_task
-update_entity
-link_entities
-delete_entity
+get_today()
+list_suggestions(status?)
+capture(content, source?)
+create_entity(type, title, content?, tags?, status?, due_at?, follow_up_at?)
+update_entity(entity_id, title?, content?, status?, lifecycle?, due_at?, follow_up_at?, tags?)
+link_entities(source_id, target_id, relationship_type?, evidence?)
+accept_suggestion(suggestion_id)
+dismiss_suggestion(suggestion_id)
+submit_candidates(note_id, summary?, tags?, entities?, links?)
+append_activity_update(entity_id, content)
 ```
 
 ## Execution Process
@@ -563,7 +562,7 @@ Acceptance:
 Codex task:
 
 ```text
-Implement the v4 relationship API. Use EntityLink only. Supported relationship types are parent, related, derived_from, mentions, assigned_to, references, and blocks. Prevent self-links and duplicates. Relationship creation/removal must write EntityEvent entries. Add tests for task-parent-project, project-parent-area, note-mentions-person, task-derived_from-note, duplicate rejection, and relationship deletion.
+Implement the v4 relationship API. Use EntityLink only. Supported relationship types are parent, related, derived_from, mentions, assigned_to, references, blocks, and activity_update. Prevent self-links and duplicates. Relationship creation, update, and removal must write EntityEvent entries. Add tests for task-parent-project, project-parent-area, note-mentions-person, task-derived_from-note, duplicate rejection, relationship update, and relationship deletion.
 ```
 
 ### Cycle 4 - canonical markdown service
@@ -768,22 +767,23 @@ Codex task:
 Implement /api/v4/today and the Today UI. It should show overdue/today follow-ups, open blocked/waiting tasks, projects without open tasks, recent notes, and pending suggestions. Keep it simple and functional. Do not add dashboards or analytics.
 ```
 
-### Cycle 15 - read-only MCP
+### Cycle 15 - MCP contract alignment
 
-Goal: stable read-only agent access.
+Goal: stable MCP access aligned with the active `/api/v4` workflow.
 
 Acceptance:
 
 - MCP search returns v4 search results.
 - MCP get_entity returns canonical entity with relationships.
 - MCP list_recent returns recent active entities.
-- No write tools exposed.
+- MCP write tools are documented and tested against `/api/v4`.
+- MCP includes capture, entity CRUD/update, relationship creation, suggestion actions, candidate ingest, and activity updates.
 - Smoke tested locally.
 
 Codex task:
 
 ```text
-Update the MCP server to use v4 read-only APIs only. Expose search_entities, get_entity, and list_recent. Do not expose capture, create, update, delete, or link tools. Add simple smoke documentation and tests/mocks where practical.
+Keep the MCP server aligned with the active `/api/v4` contract. Expose read tools for retrieval and write tools for capture, updates, links, suggestions, ingest-candidates, and activity updates. Add smoke documentation and tests/mocks where practical.
 ```
 
 ### Cycle 16 - cleanup and deletion

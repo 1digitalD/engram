@@ -34,9 +34,9 @@ Engram v4 should support:
 - AI extraction and reviewable suggestions.
 - Hybrid keyword + semantic search.
 - Canonical markdown generation for every entity.
-- Read-only MCP for search, get entity, and list recent.
+- Write-enabled MCP aligned with `/api/v4` for capture, review, lightweight entity management, and retrieval.
 
-Do not implement decisions, artifacts, graph view, advanced dashboarding, AI answer mode, recurring tasks, calendar integration, or write-enabled MCP in the v4 launch.
+Do not implement decisions, graph view, advanced dashboarding, AI answer mode, recurring tasks, or calendar integration in the v4 baseline.
 
 ## Supported Entity Types
 
@@ -63,6 +63,7 @@ mentions
 assigned_to
 references
 blocks
+activity_update
 ```
 
 Examples:
@@ -75,6 +76,7 @@ task derived_from note
 resource references project
 task assigned_to person
 task blocks task
+note activity_update project
 ```
 
 Do not store relationships as `project_id`, `area_id`, `person_id`, `note_id`, `parent_id`, `source_note_id`, or similar fields inside `properties`. All relationships must use entity links.

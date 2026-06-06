@@ -206,6 +206,7 @@ export default function V4Today() {
   const blocked = today.blocked_tasks || [];
   const waiting = today.waiting_tasks || [];
   const idleProjects = today.projects_without_open_tasks || [];
+  const recentNotes = today.recent_notes || [];
   const suggestions = today.pending_suggestions || [];
 
   const totalActionable = overdue.length + dueToday.length + overdueFollowUps.length + followUps.length + blocked.length + waiting.length;
@@ -275,6 +276,14 @@ export default function V4Today() {
       <EntitySection
         title="Waiting"
         items={waiting}
+        onQuickStatus={handleQuickStatus}
+        onUpdateField={handleUpdateField}
+        onChanged={load}
+        fromState={fromState}
+      />
+      <EntitySection
+        title="Recent notes"
+        items={recentNotes}
         onQuickStatus={handleQuickStatus}
         onUpdateField={handleUpdateField}
         onChanged={load}

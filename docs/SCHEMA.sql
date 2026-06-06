@@ -109,7 +109,7 @@ CREATE TABLE IF NOT EXISTS entity_events (
     entity_id   TEXT NOT NULL REFERENCES entities (id) ON DELETE CASCADE,
     event_type  TEXT NOT NULL CHECK (event_type IN (
                     'created', 'updated', 'status_changed', 'archived', 'deleted',
-                    'relationship_added', 'relationship_removed',
+                    'relationship_added', 'relationship_updated', 'relationship_removed',
                     'tag_added', 'tag_removed', 'ai_processed', 'ai_updated', 'ai_summarized',
                     'suggestion_accepted', 'suggestion_dismissed', 'activity_update_added'
                   )),
@@ -233,4 +233,3 @@ BEGIN
     RESTART IDENTITY CASCADE;
 END;
 $$ LANGUAGE plpgsql;
-

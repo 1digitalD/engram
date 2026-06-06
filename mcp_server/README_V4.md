@@ -1,7 +1,7 @@
 # Engram v4 MCP
 
 The v4 MCP server is a thin REST proxy — it translates MCP tool calls into `/api/v4`
-requests and returns formatted text. It has no separate permissions or state.
+requests and returns formatted text. It is write-enabled and has no separate permissions or state.
 
 ## Exposed tools
 

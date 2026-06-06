@@ -216,6 +216,7 @@ def test_entity_canonical_dto_shape_has_no_legacy_fields():
         "tags": [{"id": tag.id, "name": "memory"}],
         "ai": {"summary": "Short generated summary", "status": "done", "confidence": 0.91, "entity_summary": None, "entity_summarized_at": None},
         "relationship_counts": {"incoming": 2, "outgoing": 5},
+        "task_counts": {"open": 0, "total": 0},
         "created_at": "2026-05-18T12:00:00+00:00",
         "updated_at": "2026-05-18T12:05:00+00:00",
     }
@@ -267,6 +268,16 @@ def test_entity_event_uses_v4_event_names():
     dto = event.to_dict()
     assert dto["event_type"] == "relationship_added"
     assert dto["actor"] == "agent:autolink"
+
+    updated_event = EntityEvent(
+        id=str(uuid.uuid4()),
+        entity_id=str(uuid.uuid4()),
+        event_type="relationship_updated",
+        actor="agent:autolink",
+        new_value={"relationship_type": "derived_from"},
+        created_at=datetime.now(timezone.utc),
+    )
+    assert updated_event.to_dict()["event_type"] == "relationship_updated"
 
 
 def test_ai_suggestion_and_change_batch_serialize():

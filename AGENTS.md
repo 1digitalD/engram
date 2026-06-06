@@ -15,10 +15,11 @@ The active implementation is Engram v4. v4 is a fresh clean cutover.
 | `docs/V4_PRINCIPLES.md` | Non-negotiable v4 product and architecture rules |
 | `docs/V4_IMPLEMENTATION_PLAN.md` | v4 cycle plan and acceptance criteria |
 | `docs/SCHEMA.sql` | Canonical fresh v4 Postgres schema |
-| `mcp_server/README_V4.md` | v4 MCP tools (read + write) |
-| `EXECUTION-TRACKER.md` | Historical and current execution log |
+| `mcp_server/README_V4.md` | v4 MCP contract and tool surface |
+| `docs/DEPLOY.md` | Local launchd + Tailscale deployment workflow |
+| `EXECUTION-TRACKER.md` | Fresh-agent handoff, current repo state, and archived milestones |
 
-Historical plans and PRDs are not active sources of truth for v4 work.
+Historical plans and PRDs are not active sources of truth for v4 work. `prd.json` is archived reference material only.
 
 ## Non-Negotiable v4 Rules
 
@@ -34,6 +35,7 @@ Historical plans and PRDs are not active sources of truth for v4 work.
 - AI can extract from notes, but must not convert notes into other entity types.
 - Safe metadata and high-confidence linking may be auto-applied.
 - Risky creation, status, deletion, merge, and relationship-deletion work must be suggestions.
+- MCP is write-enabled for v4 and must stay aligned with the active `/api/v4` contract.
 - Work proceeds cycle by cycle with validation before moving on.
 
 ## Working Rules

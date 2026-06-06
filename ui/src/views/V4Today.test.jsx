@@ -28,6 +28,7 @@ describe('V4Today', () => {
       blocked_tasks: [{ id: 'b1', type: 'task', title: 'Blocked work', status: 'blocked' }],
       waiting_tasks: [{ id: 'w1', type: 'task', title: 'Waiting work', status: 'waiting' }],
       projects_without_open_tasks: [{ id: 'p1', type: 'project', title: 'Needs next task', status: 'active' }],
+      recent_notes: [{ id: 'n1', type: 'note', title: 'Recent note', status: 'active' }],
       pending_suggestions: [{ id: 's1', suggestion_type: 'create_task', payload: { title: 'Suggested task' } }],
     });
 
@@ -45,6 +46,7 @@ describe('V4Today', () => {
     expect(screen.getByText('Blocked work')).toBeInTheDocument();
     expect(screen.getByText('Waiting work')).toBeInTheDocument();
     expect(screen.getByText('Needs next task')).toBeInTheDocument();
+    expect(screen.getByText('Recent note')).toBeInTheDocument();
     expect(screen.getByText('Suggested task')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Overdue task/i })).toHaveAttribute('href', '/tasks/od1');
     expect(v4API.today).toHaveBeenCalled();

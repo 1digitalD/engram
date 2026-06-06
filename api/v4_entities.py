@@ -144,20 +144,7 @@ def list_entities():
         query = query.filter(Entity.lifecycle != "deleted")
 
     rows = query.order_by(Entity.updated_at.desc(), Entity.created_at.desc()).limit(limit).all()
-    open_statuses = {"open", "in_progress", "waiting", "blocked"}
-    for entity in rows:
-        if entity.type == "project":
-            open_count = 0
-            total_count = 0
-            for link in entity.incoming_links:
-                if link.relationship_type != "parent":
-                    continue
-                task = db.session.get(Entity, link.source_entity_id)
-                if task is not None and task.type == "task" and task.lifecycle == "active":
-                    total_count += 1
-                    if task.status in open_statuses:
-                        open_count += 1
-            entity._task_counts = {"open": open_count, "total": total_count}
+    _attach_project_task_counts(rows)
     return jsonify({"data": [row.to_dict() for row in rows]})
 
 
@@ -321,6 +308,17 @@ def today():
         .limit(25)
         .all()
     )
+    recent_notes = (
+        _entity_query()
+        .filter(
+            Entity.type == "note",
+            Entity.lifecycle == "active",
+            Entity.source != "activity_update",
+        )
+        .order_by(Entity.updated_at.desc(), Entity.created_at.desc())
+        .limit(25)
+        .all()
+    )
 
     return jsonify({
         "overdue": [entity.to_dict() for entity in overdue],
@@ -331,6 +329,7 @@ def today():
         "blocked_tasks": [entity.to_dict() for entity in blocked_tasks],
         "waiting_tasks": [entity.to_dict() for entity in waiting_tasks],
         "projects_without_open_tasks": [entity.to_dict() for entity in projects_without_open_tasks],
+        "recent_notes": [entity.to_dict() for entity in recent_notes],
         "pending_suggestions": [suggestion.to_dict() for suggestion in pending_suggestions],
         # Retained for any external callers; matches the new bucket structure semantically.
         "blocked_or_waiting_tasks": [e.to_dict() for e in (blocked_tasks + waiting_tasks)],
@@ -1108,7 +1107,7 @@ def update_relationship(relationship_id):
     db.session.flush()
     source_entity = db.session.get(Entity, link.source_entity_id)
     if source_entity is not None:
-        _write_event(source_entity, "relationship_added", old_value=old_value, new_value=link.to_dict())
+        _write_event(source_entity, "relationship_updated", old_value=old_value, new_value=link.to_dict())
     db.session.commit()
     return jsonify({"data": link.to_dict()})
 
@@ -1140,20 +1139,6 @@ def _load_entity(entity_id):
     return _entity_query().filter(Entity.id == entity_id).first()
 
 
-    open_statuses = {"open", "in_progress", "waiting", "blocked"}
-    open_count = 0
-    total_count = 0
-    for link in entity.incoming_links:
-        if link.relationship_type != "parent":
-            continue
-        task = db.session.get(Entity, link.source_entity_id)
-        if task is not None and task.type == "task" and task.lifecycle == "active":
-            total_count += 1
-            if task.status in open_statuses:
-                open_count += 1
-    entity._task_counts = {"open": open_count, "total": total_count}
-
-
 def _relationship_detail_sections(entity):
     links = (
         EntityLink.query.filter(
@@ -1162,6 +1147,7 @@ def _relationship_detail_sections(entity):
         .order_by(EntityLink.created_at.asc())
         .all()
     )
+    related_entities = _entity_map_for_links(entity.id, links)
     builders = {
         "task": _task_detail_sections,
         "project": _project_detail_sections,
@@ -1170,83 +1156,83 @@ def _relationship_detail_sections(entity):
         "person": _person_detail_sections,
         "resource": _resource_detail_sections,
     }
-    return builders[entity.type](entity, links)
+    return builders[entity.type](entity, links, related_entities)
 
 
-def _task_detail_sections(entity, links):
+def _task_detail_sections(entity, links, related_entities):
     return [
-        _section("project", "Project", _link_items(entity, links, "outgoing", {"parent"}, {"project"})),
-        _section("area", "Area", _link_items(entity, links, "outgoing", {"parent"}, {"area"})),
-        _section("people", "People", _link_items(entity, links, "outgoing", {"assigned_to"}, {"person"})),
-        _section("people_mentioned", "People Mentioned", _link_items(entity, links, "outgoing", {"mentions"}, {"person"})),
-        _section("source_notes", "Source Notes", _link_items(entity, links, "outgoing", {"derived_from"}, {"note"})),
-        _section("related_notes", "Related Notes", _link_items(entity, links, "both", {"related"}, {"note"})),
-        _section("resources", "Resources", _link_items(entity, links, "outgoing", {"references", "related"}, {"resource"})),
-        _section("blocking", "Blocking / Blocked By", _link_items(entity, links, "both", {"blocks"}, {"task"})),
-        _section("related_tasks", "Related Tasks", _link_items(entity, links, "both", {"related"}, {"task"})),
+        _section("project", "Project", _link_items(entity, links, related_entities, "outgoing", {"parent"}, {"project"})),
+        _section("area", "Area", _link_items(entity, links, related_entities, "outgoing", {"parent"}, {"area"})),
+        _section("people", "People", _link_items(entity, links, related_entities, "outgoing", {"assigned_to"}, {"person"})),
+        _section("people_mentioned", "People Mentioned", _link_items(entity, links, related_entities, "outgoing", {"mentions"}, {"person"})),
+        _section("source_notes", "Source Notes", _link_items(entity, links, related_entities, "outgoing", {"derived_from"}, {"note"})),
+        _section("related_notes", "Related Notes", _link_items(entity, links, related_entities, "both", {"related"}, {"note"})),
+        _section("resources", "Resources", _link_items(entity, links, related_entities, "outgoing", {"references", "related"}, {"resource"})),
+        _section("blocking", "Blocking / Blocked By", _link_items(entity, links, related_entities, "both", {"blocks"}, {"task"})),
+        _section("related_tasks", "Related Tasks", _link_items(entity, links, related_entities, "both", {"related"}, {"task"})),
     ]
 
 
-def _project_detail_sections(entity, links):
+def _project_detail_sections(entity, links, related_entities):
     return [
-        _section("area", "Area", _link_items(entity, links, "outgoing", {"parent"}, {"area"})),
+        _section("area", "Area", _link_items(entity, links, related_entities, "outgoing", {"parent"}, {"area"})),
         _section(
             "open_tasks",
             "Open Tasks",
-            _link_items(entity, links, "incoming", {"parent"}, {"task"}, exclude_statuses={"done", "cancelled"}),
+            _link_items(entity, links, related_entities, "incoming", {"parent"}, {"task"}, exclude_statuses={"done", "cancelled"}),
         ),
         _section(
             "completed_tasks",
             "Completed Tasks",
-            _link_items(entity, links, "incoming", {"parent"}, {"task"}, statuses={"done"}),
+            _link_items(entity, links, related_entities, "incoming", {"parent"}, {"task"}, statuses={"done"}),
         ),
-        _section("notes", "Notes", _link_items(entity, links, "both", {"related", "mentions", "references"}, {"note"})),
-        _section("resources", "Resources", _link_items(entity, links, "both", {"references", "related"}, {"resource"})),
-        _section("people", "People", _link_items(entity, links, "both", {"assigned_to", "mentions", "related"}, {"person"})),
-        _section("related_projects", "Related Projects", _link_items(entity, links, "both", {"related"}, {"project"})),
-        _section("blocked_by_blocks", "Blocked By / Blocks", _link_items(entity, links, "both", {"blocks"}, {"project"})),
+        _section("notes", "Notes", _link_items(entity, links, related_entities, "both", {"related", "mentions", "references"}, {"note"})),
+        _section("resources", "Resources", _link_items(entity, links, related_entities, "both", {"references", "related"}, {"resource"})),
+        _section("people", "People", _link_items(entity, links, related_entities, "both", {"assigned_to", "mentions", "related"}, {"person"})),
+        _section("related_projects", "Related Projects", _link_items(entity, links, related_entities, "both", {"related"}, {"project"})),
+        _section("blocked_by_blocks", "Blocked By / Blocks", _link_items(entity, links, related_entities, "both", {"blocks"}, {"project"})),
     ]
 
 
-def _area_detail_sections(entity, links):
+def _area_detail_sections(entity, links, related_entities):
     return [
-        _section("projects", "Projects", _link_items(entity, links, "incoming", {"parent", "related"}, {"project"})),
-        _section("tasks", "Tasks", _link_items(entity, links, "incoming", {"parent", "related"}, {"task"})),
-        _section("notes", "Notes", _link_items(entity, links, "both", {"related", "mentions"}, {"note"})),
-        _section("resources", "Resources", _link_items(entity, links, "both", {"references", "related"}, {"resource"})),
-        _section("people", "People", _link_items(entity, links, "both", {"mentions", "assigned_to", "related"}, {"person"})),
+        _section("projects", "Projects", _link_items(entity, links, related_entities, "incoming", {"parent", "related"}, {"project"})),
+        _section("tasks", "Tasks", _link_items(entity, links, related_entities, "incoming", {"parent", "related"}, {"task"})),
+        _section("notes", "Notes", _link_items(entity, links, related_entities, "both", {"related", "mentions"}, {"note"})),
+        _section("resources", "Resources", _link_items(entity, links, related_entities, "both", {"references", "related"}, {"resource"})),
+        _section("people", "People", _link_items(entity, links, related_entities, "both", {"mentions", "assigned_to", "related"}, {"person"})),
     ]
 
 
-def _note_detail_sections(entity, links):
+def _note_detail_sections(entity, links, related_entities):
     return [
-        _section("projects", "Projects", _link_items(entity, links, "outgoing", {"related", "mentions"}, {"project"})),
-        _section("areas", "Areas", _link_items(entity, links, "outgoing", {"related", "mentions"}, {"area"})),
-        _section("people_mentioned", "People Mentioned", _link_items(entity, links, "outgoing", {"mentions"}, {"person"})),
-        _section("derived_tasks", "Derived Tasks", _link_items(entity, links, "outgoing", {"derived_from"}, {"task"})),
-        _section("referenced_resources", "Referenced Resources", _link_items(entity, links, "outgoing", {"references"}, {"resource"})),
-        _section("related_notes", "Related Notes", _link_items(entity, links, "both", {"related"}, {"note"})),
+        _section("projects", "Projects", _link_items(entity, links, related_entities, "outgoing", {"related", "mentions"}, {"project"})),
+        _section("areas", "Areas", _link_items(entity, links, related_entities, "outgoing", {"related", "mentions"}, {"area"})),
+        _section("people_mentioned", "People Mentioned", _link_items(entity, links, related_entities, "outgoing", {"mentions"}, {"person"})),
+        _section("derived_tasks", "Derived Tasks", _link_items(entity, links, related_entities, "incoming", {"derived_from"}, {"task"})),
+        _section("referenced_resources", "Referenced Resources", _link_items(entity, links, related_entities, "outgoing", {"references"}, {"resource"})),
+        _section("related_notes", "Related Notes", _link_items(entity, links, related_entities, "both", {"related"}, {"note"})),
     ]
 
 
-def _person_detail_sections(entity, links):
+def _person_detail_sections(entity, links, related_entities):
     return [
-        _section("assigned_tasks", "Assigned Tasks", _link_items(entity, links, "incoming", {"assigned_to"}, {"task"})),
-        _section("mentioned_in_notes", "Mentioned In Notes", _link_items(entity, links, "incoming", {"mentions"}, {"note"})),
-        _section("projects", "Projects", _link_items(entity, links, "both", {"assigned_to", "mentions", "related"}, {"project"})),
-        _section("resources", "Resources", _link_items(entity, links, "both", {"references", "related"}, {"resource"})),
-        _section("related_people", "Related People", _link_items(entity, links, "both", {"related"}, {"person"})),
+        _section("assigned_tasks", "Assigned Tasks", _link_items(entity, links, related_entities, "incoming", {"assigned_to"}, {"task"})),
+        _section("mentioned_in_notes", "Mentioned In Notes", _link_items(entity, links, related_entities, "incoming", {"mentions"}, {"note"})),
+        _section("projects", "Projects", _link_items(entity, links, related_entities, "both", {"assigned_to", "mentions", "related"}, {"project"})),
+        _section("resources", "Resources", _link_items(entity, links, related_entities, "both", {"references", "related"}, {"resource"})),
+        _section("related_people", "Related People", _link_items(entity, links, related_entities, "both", {"related"}, {"person"})),
     ]
 
 
-def _resource_detail_sections(entity, links):
+def _resource_detail_sections(entity, links, related_entities):
     return [
-        _section("referenced_by_notes", "Referenced By Notes", _link_items(entity, links, "incoming", {"references"}, {"note"})),
-        _section("projects", "Projects", _link_items(entity, links, "both", {"references", "related"}, {"project"})),
-        _section("tasks", "Tasks", _link_items(entity, links, "both", {"references", "related"}, {"task"})),
-        _section("areas", "Areas", _link_items(entity, links, "both", {"references", "related"}, {"area"})),
-        _section("people", "People", _link_items(entity, links, "both", {"references", "related"}, {"person"})),
-        _section("related_resources", "Related Resources", _link_items(entity, links, "both", {"related"}, {"resource"})),
+        _section("referenced_by_notes", "Referenced By Notes", _link_items(entity, links, related_entities, "incoming", {"references"}, {"note"})),
+        _section("projects", "Projects", _link_items(entity, links, related_entities, "both", {"references", "related"}, {"project"})),
+        _section("tasks", "Tasks", _link_items(entity, links, related_entities, "both", {"references", "related"}, {"task"})),
+        _section("areas", "Areas", _link_items(entity, links, related_entities, "both", {"references", "related"}, {"area"})),
+        _section("people", "People", _link_items(entity, links, related_entities, "both", {"references", "related"}, {"person"})),
+        _section("related_resources", "Related Resources", _link_items(entity, links, related_entities, "both", {"related"}, {"resource"})),
     ]
 
 
@@ -1254,10 +1240,10 @@ def _section(key, title, items):
     return {"key": key, "title": title, "items": items}
 
 
-def _link_items(entity, links, direction, relationship_types, related_types, statuses=None, exclude_statuses=None):
+def _link_items(entity, links, related_entities, direction, relationship_types, related_types, statuses=None, exclude_statuses=None):
     items = []
     for link in links:
-        related_entity, resolved_direction = _related_entity_for_link(entity, link, direction)
+        related_entity, resolved_direction = _related_entity_for_link(entity, link, related_entities, direction)
         if related_entity is None or related_entity.lifecycle == "deleted":
             continue
         if link.relationship_type not in relationship_types:
@@ -1278,12 +1264,52 @@ def _link_items(entity, links, direction, relationship_types, related_types, sta
     return items
 
 
-def _related_entity_for_link(entity, link, direction):
+def _related_entity_for_link(entity, link, related_entities, direction):
     if direction in {"outgoing", "both"} and link.source_entity_id == entity.id:
-        return db.session.get(Entity, link.target_entity_id), "outgoing"
+        return related_entities.get(link.target_entity_id), "outgoing"
     if direction in {"incoming", "both"} and link.target_entity_id == entity.id:
-        return db.session.get(Entity, link.source_entity_id), "incoming"
+        return related_entities.get(link.source_entity_id), "incoming"
     return None, None
+
+
+def _entity_map_for_links(entity_id, links):
+    related_ids = {
+        link.target_entity_id if link.source_entity_id == entity_id else link.source_entity_id
+        for link in links
+    }
+    if not related_ids:
+        return {}
+    related_entities = _entity_query().filter(Entity.id.in_(related_ids)).all()
+    _attach_project_task_counts(related_entities)
+    return {related.id: related for related in related_entities}
+
+
+def _attach_project_task_counts(entities):
+    project_ids = [entity.id for entity in entities if entity.type == "project"]
+    if not project_ids:
+        return
+
+    counts_by_project = {project_id: {"open": 0, "total": 0} for project_id in project_ids}
+    rows = (
+        db.session.query(EntityLink.target_entity_id, Entity.status)
+        .join(Entity, Entity.id == EntityLink.source_entity_id)
+        .filter(
+            EntityLink.relationship_type == "parent",
+            EntityLink.target_entity_id.in_(project_ids),
+            Entity.type == "task",
+            Entity.lifecycle == "active",
+        )
+        .all()
+    )
+    for project_id, status in rows:
+        counts = counts_by_project[project_id]
+        counts["total"] += 1
+        if status in OPEN_TASK_STATUSES:
+            counts["open"] += 1
+
+    for entity in entities:
+        if entity.type == "project":
+            entity._task_counts = counts_by_project.get(entity.id, {"open": 0, "total": 0})
 
 
 def _replace_tags(entity, tag_names):

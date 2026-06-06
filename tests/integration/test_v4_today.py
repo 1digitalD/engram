@@ -74,7 +74,7 @@ def test_v4_today_returns_execution_sections(client, app):
     assert {item["id"] for item in data["waiting_tasks"]} == {waiting_task["id"]}
     assert {item["id"] for item in data["blocked_or_waiting_tasks"]} == {waiting_task["id"], blocked_task["id"]}
     assert [item["id"] for item in data["projects_without_open_tasks"]] == [project_without_tasks["id"]]
-    assert "recent_notes" not in data
+    assert [item["id"] for item in data["recent_notes"]] == [recent_note["id"], today_followup_note["id"]]
     assert data["pending_suggestions"][0]["payload"]["title"] == "Suggested task"
 
 

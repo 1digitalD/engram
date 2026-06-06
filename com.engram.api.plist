@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.engram.api</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Volumes/lex1t/dev/shared/repos/engram/venv/bin/python</string>
+        <string>-c</string>
+        <string>from app import create_app; app = create_app(); app.run(host='127.0.0.1', port=5001, debug=False, use_reloader=False)</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>/Volumes/lex1t/dev/shared/repos/engram</string>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/tmp/engram-api.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/engram-api.log</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>FLASK_ENV</key>
+        <string>production</string>
+        <key>DATABASE_URL</key>
+        <string>postgresql://engram:engram@localhost:5432/engram</string>
+    </dict>
+</dict>
+</plist>

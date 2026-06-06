@@ -1,372 +1,80 @@
 # Engram — Execution Tracker
 
-This is a historical execution log. The active implementation is Engram v4, a fresh clean cutover with `/api/v4` as the only runtime API.
+This file is the fresh-agent handoff for the current v4 baseline. Use it to reconstruct context quickly without reading stale task logs first.
 
-Last updated: 2026-05-27
+Last updated: 2026-06-05
 Branch: `main`
-Architecture: Fresh Postgres + pgvector v4 schema. No migration or backward compatibility is required.
+Runtime baseline: `/api/v4` only, fresh Postgres + pgvector schema, write-enabled MCP aligned with the active API.
 
-## Operating principles
+## Active Sources Of Truth
 
-- Write tests first. Confirm failure. Implement. Confirm passing. Report.
-- A task is done only when its tests pass and the full suite still passes.
-- Commit logical, reviewable units — one commit per task or meaningful sub-step.
-- Update this file after each completed or blocked task.
-- Do not touch `.venv/` — leave it alone, do not commit it.
-
-## Active docs (read before starting any task)
+Read these before changing code:
 
 | Document | Purpose |
 |---|---|
-| `docs/V4_PRINCIPLES.md` | Non-negotiable v4 product and architecture rules |
-| `docs/V4_IMPLEMENTATION_PLAN.md` | v4 cycle plan and acceptance criteria |
-| `docs/SCHEMA.sql` | Canonical fresh v4 Postgres schema |
-| `mcp_server/README_V4.md` | v4 MCP tools (read + write) |
+| `AGENTS.md` | Repo-wide working rules and active artifact list |
+| `docs/V4_PRINCIPLES.md` | Non-negotiable product and architecture rules |
+| `docs/V4_IMPLEMENTATION_PLAN.md` | Contract, endpoints, and acceptance criteria |
+| `docs/SCHEMA.sql` | Canonical fresh schema |
+| `mcp_server/README_V4.md` | MCP contract and transport |
+| `docs/DEPLOY.md` | launchd + Tailscale deployment workflow |
 
-## Task log
+Non-authoritative historical artifacts:
 
-| Task | Agent | Status | Commit | Tests | Notes |
-|---|---|---|---|---|---|
-| Setup: AGENTS.md, .env.example, requirements.txt | manual | done | 5977f5d | — | v2 pivot commit |
-| C1-INFRA | manual | done | 0d98347 | schema apply + migration smoke | Added isolated test compose, hardened schema apply, fixed immutable generated column, added SQLite→Postgres migration with row-count validation. |
+- `prd.json` is archived reference material only.
+- Older V2/V3 execution history below is for archaeology, not planning.
 
-## Cycle 1 — Foundation
+## Current Baseline
 
-> Sequential: C1-INFRA must complete before the parallel block.
+- The only runtime API is `/api/v4`.
+- MCP is write-enabled and must stay aligned with `/api/v4`.
+- Relationship records use `EntityLink` only; relationship IDs must not appear in `properties`.
+- `activity_update` is an allowed relationship type used for summary-context notes.
+- `/api/v4/today` includes overdue work, follow-ups, blocked/waiting tasks, projects without open tasks, recent notes, and pending suggestions.
+- Meaningful mutations must write `entity_events`.
 
-| Task | Description | Status | Blocked by |
-|---|---|---|---|
-| C1-INFRA | Docker + schema + migration script | done | — |
-| C1-MODELS | SQLAlchemy models rewrite | pending | — |
-| C1-SERVICES-CORE | entity_service + link_service | pending | C1-MODELS |
-| C1-JOBS | Job worker + retry | pending | C1-MODELS |
-| C1-AI-PIPELINE | Unified async AI pipeline | pending | C1-MODELS, C1-JOBS |
-| C1-API | Update all API routes | pending | C1-MODELS, C1-SERVICES-CORE, C1-AI-PIPELINE |
-| C1-SEARCH | Postgres FTS + pgvector search | pending | C1-MODELS |
-| C1-VALIDATE | Full suite + migration validation | done | all C1 parallel tasks |
+## Validation Commands
 
-- **2026-05-11 19:05** C1-VALIDATE → <pending>: Full suite passes — 281 passed, 2 skipped, 0 failures
-
-## Cycle 2 — Relationships + UX
-
-| Task | Description | Status | Blocked by |
-|---|---|---|---|
-| C2-LINKS-API | Universal entity links API | pending | C1-VALIDATE |
-| C2-EDITOR | TipTap note editor | pending | C1-VALIDATE |
-| C2-KANBAN | Task kanban board | pending | C1-VALIDATE |
-| C2-SURFACING | Proactive related entities | pending | C1-VALIDATE |
-| C2-VALIDATE | Full suite + build | pending | all C2 tasks |
-
-## Cycle 3 — AI Reliability
-
-| Task | Description | Status | Blocked by |
-|---|---|---|---|
-| C3-SELECTION | Text selection → AI proposal | pending | C2-VALIDATE |
-| C3-SEARCH-UNIVERSAL | Universal search (all entity types) | pending | C2-VALIDATE |
-| C3-AI-QUALITY | Confidence calibration + correction signals | pending | C2-VALIDATE |
-| C3-VALIDATE | Full suite + coverage gates | pending | all C3 tasks |
-
-## Recovery notes
-
-If the session resets:
-1. Re-read this file, `docs/V4_PRINCIPLES.md`, and `docs/V4_IMPLEMENTATION_PLAN.md`.
-2. Run `git log --oneline -10` to find the latest commit.
-3. Run `git status` to check for uncommitted work.
-4. Resume the first `pending` task in the table above.
-5. Re-run the relevant validation command before continuing.
-
-- **2026-05-11 12:14** C1-MODELS → 1501a0e: C1-MODELS: completed, merged from opencode worktree
-
-- **2026-05-11 14:10** C1-AI-PIPELINE → 723e184: C1-AI-PIPELINE: completed, merged from opencode worktree
-
-- **2026-05-11 14:59** C1-API → bfc09a8: C1-API: completed, merged from opencode worktree
-
-- **2026-05-11 15:24** C1-SEARCH → 4a1714d: C1-SEARCH: completed, merged from opencode worktree
-
-- **2026-05-11 19:10** C1-VALIDATE → <pending>: Full suite passes — 281 passed, 2 skipped, 0 failures. All C1 tasks validated together with no regressions.
-
-- **2026-05-11 15:46** C1-VALIDATE → 9a1b9f6: C1-VALIDATE: completed, merged from opencode worktree
-
-- **2026-05-11 16:16** C2-LINKS-API → e54a779: C2-LINKS-API: completed, merged from opencode worktree
-
-- **2026-05-11 16:40** C2-EDITOR → ce5f5e3: C2-EDITOR: completed, merged from opencode worktree
-
-- **2026-05-11 16:46** C2-KANBAN → 7e8f664: C2-KANBAN: completed, merged from opencode worktree
-
-- **2026-05-11 16:56** C2-SURFACING → 077a885: C2-SURFACING: completed, merged from opencode worktree
-
-- **2026-05-11 23:15** C2-VALIDATE → <pending>: Full suite passes — 301 passed, 2 skipped, 0 failures. Frontend build succeeds. No regressions from Cycle 2 changes.
-
-- **2026-05-11 17:03** C2-VALIDATE → 76582e4: C2-VALIDATE: completed, merged from opencode worktree
-
-- **2026-05-11 18:04** C3-SELECTION → 15d34a7: C3-SELECTION: completed, merged from opencode worktree
-
-- **2026-05-11 18:17** C3-SEARCH-UNIVERSAL → 139f020: C3-SEARCH-UNIVERSAL: completed, merged from opencode worktree
-
-- **2026-05-11 18:24** C3-AI-QUALITY → 2f237b8: C3-AI-QUALITY: completed, merged from opencode worktree
-
-- **2026-05-11 19:09** C3-VALIDATE → febff9e: C3-VALIDATE: completed, merged from opencode worktree
-
-- **2026-05-11 23:57** V2-INFRA-01 → 3b81ea3: V2-INFRA-01: completed, merged from opencode worktree
-
-- **2026-05-12 00:22** V2-INFRA-02 → 44b2ee8: V2-INFRA-02: completed, merged from opencode worktree
-
-- **2026-05-12 00:28** V2-INFRA-03 → c4e6564: V2-INFRA-03: completed, merged from opencode worktree
-
-- **2026-05-12 00:33** V2-INFRA-04 → 15ba92f: V2-INFRA-04: completed, merged from opencode worktree
-
-- **2026-05-12 00:40** V2-INFRA-05 → <pending>: Schema applies cleanly to fresh test DB. All 7 tables present (entities, entity_chunks, entity_events, entity_links, entity_tags, jobs, tags). search_vector generated column verified. HNSW index (entity_chunks_hnsw_idx) confirmed. pgvector <-> operator returns 0 for identical vectors.
-
-- **2026-05-12 00:38** V2-INFRA-05 → 089576a: V2-INFRA-05: completed, merged from opencode worktree
-
-- **2026-05-12 00:50** V2-INFRA-06 → 1b6f350: V2-INFRA-06: completed, merged from opencode worktree
-
-- **2026-05-12 01:00** V2-AUDIT-01 → <pending>: 18 v1 model imports found across 15 files. Inventory matches V2_OVERHAUL_PLAN.md. Acceptance criteria NOT met — cleanup tasks must rewrite these files before V2-CLEANUP-01 can delete old models. Affected: api/batch.py, api/links.py, api/summarize.py, api/review.py, api/daily.py, api/proposals.py, api/summaries.py, services/rollup.py, services/ingestion.py, services/moc.py, services/link_proposer.py, services/links.py, services/extractor.py, services/summarizer.py, services/health_snapshot.py
-
-- **2026-05-12 01:23** V2-AUDIT-01 → ba6c675: V2-AUDIT-01: completed, merged from opencode worktree
-
-- **2026-05-12 07:36** V2-INGEST-01 → 4513c87: V2-INGEST-01: completed, merged from opencode worktree
-
-- **2026-05-12 07:47** V2-INGEST-02 → d713740: V2-INGEST-02: completed, merged from opencode worktree
-
-- **2026-05-12 08:02** V2-SERVICES-01 → 024b220: V2-SERVICES-01: completed, merged from opencode worktree
-
-- **2026-05-12 08:06** V2-SERVICES-02 → 2f88b83: V2-SERVICES-02: completed, merged from opencode worktree
-
-- **2026-05-12 08:09** V2-SERVICES-03 → a801a20: V2-SERVICES-03: completed, merged from opencode worktree
-
-- **2026-05-12 08:19** V2-SERVICES-04 → f109f22: V2-SERVICES-04: completed, merged from opencode worktree
-
-- **2026-05-12 08:34** V2-SERVICES-05 → 4fe9745: V2-SERVICES-05: completed, merged from opencode worktree
-
-- **2026-05-12 08:44** V2-SERVICES-06 → 4069c30: V2-SERVICES-06: completed, merged from opencode worktree
-
-- **2026-05-12 08:54** V2-SERVICES-07 → 323ed17: V2-SERVICES-07: completed, merged from opencode worktree
-
-- **2026-05-12 08:59** V2-SERVICES-08 → bbeac42: V2-SERVICES-08: completed, merged from opencode worktree
-
-- **2026-05-12 10:03** V2-SERVICES-09 → 6066fd4: V2-SERVICES-09: completed, merged from opencode worktree
-
-- **2026-05-12 11:01** V2-SERVICES-10 → 85a7db4: V2-SERVICES-10: completed, merged from opencode worktree
-
-- **2026-05-12 11:25** V2-SERVICES-11 → cde03ec: V2-SERVICES-11: completed, merged from opencode worktree
-
-- **2026-05-12 11:32** V2-API-01 → 8dc3766: V2-API-01: completed, merged from opencode worktree
-
-- **2026-05-12 12:20** V2-API-02 → bb3098a: V2-API-02: completed, merged from opencode worktree
-
-- **2026-05-12 12:32** V2-API-03 → 658f0e4: V2-API-03: completed, merged from opencode worktree
-
-- **2026-05-12 12:40** V2-API-04 → 595aa11: V2-API-04: completed, merged from opencode worktree
-
-- **2026-05-12 12:47** V2-TEST-01 → 79e8e47: V2-TEST-01: completed, merged from opencode worktree
-
-- **2026-05-12 12:55** V2-TEST-02 → fb31cfc: V2-TEST-02: completed, merged from opencode worktree
-
-- **2026-05-12 13:00** V2-TEST-03 → b9632b4: V2-TEST-03: completed, merged from opencode worktree
-
-- **2026-05-12 13:47** V2-TEST-04 → 68df6d60: V2-TEST-04: completed, merged from opencode worktree
-
-- **2026-05-12 13:50** V2-TEST-05 → c2d257cf: V2-TEST-05: completed, merged from opencode worktree
-
-- **2026-05-12 14:05** V2-CLEANUP-01 → e964542d: V2-CLEANUP-01: completed, merged from opencode worktree
-
-- **2026-05-12 14:07** V2-CLEANUP-02 → 33637e64: V2-CLEANUP-02: completed, merged from opencode worktree
-
-- **2026-05-12 14:24** V2-CLEANUP-03 → 47c9ed36: V2-CLEANUP-03: completed, merged from opencode worktree
-
-- **2026-05-12 14:27** V2-CLEANUP-04 → 21abc1ec: V2-CLEANUP-04: completed, merged from opencode worktree
-
-- **2026-05-12 14:35** V2-CLEANUP-05 → 94a93777: V2-CLEANUP-05: completed, merged from opencode worktree
-
-- **2026-05-12 14:40** V2-CLEANUP-06 → 801dcc88: V2-CLEANUP-06: completed, merged from opencode worktree
-
-
----
-## V3 — Build Plan Execution
-> Plan: V3_PLAN.md (Claude Design handoff)
-> Started: 2026-05-12
-> Executor: codex (primary), opencode/claude/cursor (fallback)
-> Source: prd.json (28 tasks, Phase 0-5)
-
-
-- **2026-05-12 18:18** V3-0.1 → 4eceb0a8: V3-0.1: completed, merged from codex worktree
-
-- **2026-05-12 18:31** V3-0.2 → daca5e00: V3-0.2: completed, merged from codex worktree
-
-- **2026-05-12 18:36** V3-0.3 → c9e50e5b: V3-0.3: completed, merged from codex worktree
-
-- **2026-05-12 18:41** V3-0.4 → 2c0a9074: V3-0.4: completed, merged from codex worktree
-
-- **2026-05-12 18:51** V3-0.5 → 75df988b: V3-0.5: completed, merged from codex worktree
-
-- **2026-05-12 18:56** V3-1.1 → e6ed3699: V3-1.1: completed, merged from codex worktree
-
-- **2026-05-12 19:01** V3-1.2 → 0b40ec83: V3-1.2: completed, merged from codex worktree
-
-- **2026-05-12 19:11** V3-1.3 → b314c33f: V3-1.3: completed, merged from codex worktree
-
-- **2026-05-12 19:21** V3-1.4 → 1b990b67: V3-1.4: completed, merged from codex worktree
-
-- **2026-05-12 19:26** V3-2.1 → c969d839: V3-2.1: completed, merged from codex worktree
-
-- **2026-05-12 19:33** V3-2.2 → d3e36d22: V3-2.2: completed, merged from codex worktree
-
-- **2026-05-12 19:44** V3-2.3 → 91d25b0d: V3-2.3: completed, merged from codex worktree
-
-- **2026-05-12 19:49** V3-2.4 → da61a6c6: V3-2.4: completed, merged from codex worktree
-
-- **2026-05-12 20:54** V3-3.1 → 07aea5e6: V3-3.1: completed, merged from opencode worktree
-
-- **2026-05-12 21:04** V3-3.2 → 6fcbe4a3: V3-3.2: completed, merged from opencode worktree
-
-- **2026-05-12 21:06** V3-3.3 → ed450fe7: V3-3.3: completed, merged from opencode worktree
-
-- **2026-05-12 21:14** V3-3.4 → 76b63de6: V3-3.4: completed, merged from opencode worktree
-
-- **2026-05-12 21:24** V3-3.5 → 2e7466ad: V3-3.5: completed, merged from opencode worktree
-
-- **2026-05-12 21:29** V3-3.6 → e9a32ccc: V3-3.6: completed, merged from opencode worktree
-
-- **2026-05-12 21:34** V3-3.7 → e88bfca2: V3-3.7: completed, merged from opencode worktree
-
-- **2026-05-12 21:44** V3-3.8 → fcf13035: V3-3.8: completed, merged from opencode worktree
-
-- **2026-05-12 22:04** V3-4.1 → 6b1d1f40: V3-4.1: completed, merged from opencode worktree
-
-- **2026-05-12 22:19** V3-4.2 → 99f6ce0b: V3-4.2: completed, merged from opencode worktree
-
-- **2026-05-12 22:39** V3-5.1 → f927254d: V3-5.1: completed, merged from opencode worktree
-
-- **2026-05-12 22:54** V3-5.2 → aeff6251: V3-5.2: completed, merged from opencode worktree
-
-- **2026-05-12 23:14** V3-5.3 → 6c21d550: V3-5.3: completed, merged from opencode worktree
-
-- **2026-05-12 23:24** V3-5.4 → c269ecd5: V3-5.4: completed, merged from opencode worktree
-
-- **2026-05-12 23:39** V3-5.5 → 2f1fa8c6: V3-5.5: completed, merged from opencode worktree
-
-
-## V3.5 — Scope Polish + Relationship Management
-
-> V3.5 scope defined in revised V3_PLAN.md (synced from xenodochial-lalande worktree).
-> All original V3 tasks completed. V3.5 adds remaining polish and relationship parity.
-> Automation: coding_loop.py tick --project engram (cron every 20 min).
-
-| Task | Description | Status |
-|---|---|---|
-| V3.5-1 | QuickCapture type picker | pending |
-| V3.5-2 | raw_text → content field cleanup | pending |
-| V3.5-3 | Phase 4 design system (IBM Plex + oklch tokens) | pending |
-| V3.5-4a | ProjectFocus relationship management | pending |
-| V3.5-4b | AreaFocus relationship management | pending |
-| V3.5-4c | PersonFocus relationship management | pending |
-| V3.5-4d | Tasks relationship management | pending |
-| V3.5-5 | Notes view filter fixes + text search | pending |
-
-
-- **2026-05-13 10:59** V3.5-1 → abec0374: V3.5-1: completed, merged from opencode worktree
-
-- **2026-05-13 11:04** V3.5-2 → b195b118: V3.5-2: completed, merged from opencode worktree
-
-- **2026-05-13 11:14** V3.5-3 → 41bba973: V3.5-3: completed, merged from opencode worktree
-
-- **2026-05-13 11:24** V3.5-4a → 809ef72f: V3.5-4a: completed, merged from opencode worktree
-
-- **2026-05-13 11:29** V3.5-4b → 59c917d6: V3.5-4b: completed, merged from opencode worktree
-
-- **2026-05-13 11:37** V3.5-4c → b7db94cc: V3.5-4c: completed, merged from opencode worktree
-
-- **2026-05-13 13:33** V3.5-4d → 0fb16075: V3.5-4d: completed, merged from opencode worktree
-
-- **2026-05-13 14:04** V3.5-5 → 7ab84baf: V3.5-5: completed, merged from opencode worktree
-
-- **2026-05-13 16:07** BUG-1 → f9006b35: BUG-1: completed, merged from opencode worktree
-
-- **2026-05-13 16:12** BUG-2 → 156f853a: BUG-2: completed, merged from opencode worktree
-
-- **2026-05-13 16:17** BUG-3 → 92261377: BUG-3: completed, merged from opencode worktree
-
-- **2026-05-13 18:45** CLEANUP → 64678d72: CLEANUP: completed, merged from opencode worktree. Backend consolidation (utils.py, deduplicate _write_event, remove classifier.py). New views (TaskDetail, Tags, ErrorBoundary, LinkToEntity, search API). Delete all archive migrations, archived tests, skipped v1 tests. Clean up silent exception handlers.
-
-- **2026-05-14 09:34** V3.5-AI-PRODUCTIVITY-OS.P3 → 1006b6b6: Phase 3: AiSuggestion model, SCHEMA.sql table, V2 Suggestions API (list/accept/dismiss/edit), tests. Also fixes Flask endpoint conflict (v2_get_entity_links duplicate on api_v2_bp). 417 passed, 1 skipped.
-
-- **2026-05-14** V3.5-AI-PRODUCTIVITY-OS.Iter1 → 407c802b: Iteration 1: Wired inline_extract → reconcile_all → apply_change_plan in _capture_as_note. Added inline_extract() to extractor.py (sync keyword-based checkbox task extraction with deadline/priority/project hints). Fixed _create_suggestion in ai_operation_applier.py to persist to AiSuggestion table (was returning dict only). All 209 tests pass.
-
-- **2026-05-14** V3.5-AI-PRODUCTIVITY-OS.Iter2 → d046b6ce: Iteration 2: Fixed CaptureModal to call /api/v2/capture with correct `mode` param (was `entity_type`). Wired PostCaptureSummary into capture flow after successful submission. Added handleClose() helper to reset state between captures.
-
-- **2026-05-14** V3.5-AI-PRODUCTIVITY-OS.Iter3 → (wip): Iteration 3: Fixed suggestionsAPI to use /api/v2/suggestions (was pointing to deprecated /proposals). Added AI Suggestions step to Review workflow (stepIndex=1, between Inbox and Projects). Wired accept/dismiss actions that call suggestionsAPI.accept/dismiss and reload. Review button in PostCaptureSummary now navigates to /review. 209 tests pass, frontend builds clean.
-
-## V3.5 AI-PRODUCTIVITY-OS — Entity Reconciliation Phase
-
-> Implementation plan: `docs/PRD_IMPLEMENTATION_PLAN.md`
-> PRD: `docs/PRD_AI_ASSISTED_PRODUCTIVITY_SYSTEM.md`
-> Iterations tracker: `ITERATIONS.md`
-
-**Core gap:** `run_classify` stores extracted people/tasks in `ai_meta` instead of routing through `entity_reconciliation_service`. The infrastructure exists; the wiring is missing.
-
-| Iteration | Description | Status |
-|---|---|---|
-| 1 | Wire extracted people through reconciliation | pending |
-| 2 | Wire extracted tasks through reconciliation | pending |
-| 3 | Fix suggested_project/area to use full reconciliation | pending |
-| 4 | Add missing operations (reopen_task, add_follow_up, change_status) | pending |
-| 5 | PostCaptureSummary shows match context | pending |
-| 6 | ProjectFocus next action + no-next-action warning | pending |
-| 7 | Backend integration tests for entity reconciliation | pending |
-| 8 | End-to-end test for task completion capture | pending |
-| 9 | Task completion interpretation in capture | pending |
-| 10 | Suggestion acceptance wires full change plan | pending |
-
-## Recovery notes
-
-If the session resets:
-1. Re-read `ITERATIONS.md` for current iteration and status
-2. Read `docs/PRD_IMPLEMENTATION_PLAN.md` for the full plan
-3. Read `docs/PRD_AI_ASSISTED_PRODUCTIVITY_SYSTEM.md` for the PRD requirements
-4. Run `git log --oneline -5` to find the latest commit
-5. Run `git status` to check for uncommitted work
-6. Resume the first `pending` iteration in the table above
-7. Run validation commands before continuing
-
-**Validation commands per iteration:**
 ```bash
-PYTHONPATH=. python3 -m pytest tests/unit/test_ai_pipeline.py -q
-PYTHONPATH=. python3 -m pytest tests/integration/test_closed_loops.py -q
-PYTHONPATH=. python3 -m pytest -q --cov=. --cov-report=term-missing 2>&1 | tail -5
+PYTHONPATH=. ./venv/bin/pytest -q
+PYTHONPATH=. ./venv/bin/pytest tests/unit/ -q
+PYTHONPATH=. ./venv/bin/pytest tests/integration/ -q
+cd ui && npm test
 cd ui && npm run build
+plutil -lint com.engram.api.plist
+bash scripts/apply_schema.sh
 ```
 
-Each iteration must pass all validation before committing and moving to the next.
+Test environment note:
 
-## V4 clean cutover
+- Backend tests expect `TEST_DATABASE_URL` to point at the isolated Postgres test instance, typically `postgresql://engram:engram@localhost:5433/engram_test`.
+- If tests fail with connection errors, start the test DB first with `docker compose -f docker-compose.test.yml up -d`.
 
-- **2026-05-18** Cycle 1 → this commit: Implemented fresh v4 schema and model serialization. Replaced v2 relationship columns with `source_entity_id`, `target_entity_id`, and `relationship_type`; removed legacy DTO aliases from canonical entity serialization; added tests proving v4 tables initialize and canonical DTOs omit legacy fields. Validation: `PYTHONPATH=. ./venv/bin/pytest tests/unit/test_models.py -q` passed. Full legacy `PYTHONPATH=. ./venv/bin/pytest -q` was run and failed because existing v1/v2 tests still exercise obsolete routes, DTO aliases, and old `src_id`/`dst_id` link fields; those failures are expected cutover fallout and are not fixed in Cycle 1.
+## Startup And Deployment
 
-- **2026-05-18** Cycle 2 → this commit: Implemented `/api/v4/entities` canonical CRUD plus `/api/v4/health` and `/api/v4/entities/:id/events`. Create/update/archive/delete write `EntityEvent` rows. Entity create/update rejects relationship ID keys inside `properties`; relationships remain outside properties for later `EntityLink` APIs. Validation: `PYTHONPATH=. ./venv/bin/pytest tests/integration/test_v4_entities.py tests/unit/test_models.py -q` passed, `flask --app app.py routes` shows v4 entity routes, and `curl http://127.0.0.1:5001/api/v4/health` returned `{"api":"v4","status":"ok"}`. Full legacy `PYTHONPATH=. ./venv/bin/pytest -q` still fails on obsolete v1/v2 route, DTO alias, and old link-field assumptions; not fixed in Cycle 2.
+Development:
 
-- **2026-05-18** Cycle 3 → this commit: Implemented v4 relationship management using `EntityLink` only. Added `GET/POST /api/v4/entities/:id/relationships` and `PATCH/DELETE /api/v4/relationships/:id`; create rejects self-links, invalid relationship types, and duplicates; create/removal write `relationship_added` and `relationship_removed` events. Validation: `PYTHONPATH=. ./venv/bin/pytest tests/integration/test_v4_relationships.py tests/integration/test_v4_entities.py tests/unit/test_models.py -q` passed and `flask --app app.py routes` shows the v4 relationship routes.
+```bash
+docker compose up -d
+flask --app app.py init-db
+PORT=5001 flask --app app.py run
+cd ui && npm install && npm run dev
+```
 
-- **2026-05-18** Cycle 4 → this commit: Added on-demand canonical markdown generation and `GET /api/v4/entities/:id/canonical`. Canonical output includes entity metadata, content, tags, properties, source/timestamps, and named relationships with related entity titles; no canonical text is cached. Validation: `PYTHONPATH=. ./venv/bin/pytest tests/integration/test_v4_canonical.py tests/integration/test_v4_relationships.py tests/integration/test_v4_entities.py tests/unit/test_models.py -q` passed and `flask --app app.py routes` shows the canonical endpoint.
+Local launchd deployment:
 
-- **2026-05-18** Cycle 5 → this commit: Implemented `/api/v4/search` with keyword, semantic, and hybrid RRF modes. Keyword search uses on-demand canonical markdown, semantic search uses stored `entity_chunks` with mocked embedding generation in tests, and type/status/lifecycle filters are supported. Validation: `PYTHONPATH=. ./venv/bin/pytest tests/integration/test_v4_search.py tests/integration/test_v4_canonical.py tests/integration/test_v4_relationships.py tests/integration/test_v4_entities.py tests/unit/test_models.py -q` passed and `flask --app app.py routes` shows `/api/v4/search`.
+- LaunchAgent: `com.engram.api.plist`
+- Deploy helper: `scripts/engram-deploy.sh`
+- Runbook: `docs/DEPLOY.md`
 
-- **2026-05-18** Cycle 6 → this commit: Implemented basic `/api/v4/capture`. Capture saves the source note first, writes a `created` event, queues an `embed` job, returns the stable `source_note/applied_changes/suggestions/warnings` shape, and does not auto-create tasks/projects/people/areas/resources. Validation: `PYTHONPATH=. ./venv/bin/pytest tests/integration/test_v4_capture.py tests/integration/test_v4_search.py tests/integration/test_v4_canonical.py tests/integration/test_v4_relationships.py tests/integration/test_v4_entities.py tests/unit/test_models.py -q` passed and `flask --app app.py routes` shows `/api/v4/capture`.
+The launchd/Tailscale path expects the API to bind to `127.0.0.1:5001`.
 
-- **2026-05-18** Cycle 7 → this commit: Implemented v4 capture extraction reconciliation. The extractor now returns candidates only; capture auto-applies safe summaries, high-confidence tags, and high-confidence links to existing entities, while task/project/area/resource/person creation and low-confidence links are persisted as `AiSuggestion` rows with source note and evidence. Validation: `PYTHONPATH=. ./venv/bin/pytest tests/integration/test_v4_capture_extraction.py tests/integration/test_v4_capture.py tests/integration/test_v4_search.py tests/integration/test_v4_canonical.py tests/integration/test_v4_relationships.py tests/integration/test_v4_entities.py tests/unit/test_models.py -q` passed and `flask --app app.py routes` shows `/api/v4/capture`.
+## Recent Completed Milestones
 
-- **2026-05-18** Cycle 8 → this commit: Implemented v4 suggestion review endpoints. `/api/v4/suggestions` lists review items, accepting create suggestions creates reviewed entities and source-note relationships (`derived_from` for tasks, `mentions` for people, `references` for resources, `related` for projects/areas), and dismissing suggestions records review without mutating entities. Validation: `PYTHONPATH=. ./venv/bin/pytest tests/integration/test_v4_suggestions.py tests/integration/test_v4_capture_extraction.py tests/integration/test_v4_capture.py tests/integration/test_v4_search.py tests/integration/test_v4_canonical.py tests/integration/test_v4_relationships.py tests/integration/test_v4_entities.py tests/unit/test_models.py -q` passed and `FLASK_ENV=testing ./venv/bin/flask --app app.py routes` shows the v4 suggestions endpoints.
+- v4 API/runtime cutover is in place.
+- Relationship API, Today, Suggestions, Search, Canonical markdown, MCP, and Activity Updates are implemented.
+- Baseline cleanup aligned docs, runtime contracts, MCP scope, Today payload, and deployment artifacts.
 
-- **2026-05-18** Cycle 9 → this commit: Implemented `/api/v4/entities/:id/detail` with relationship-aware type-specific sections for task, project, area, note, person, and resource. Detail payloads return the canonical entity plus named sections such as task Project/Area/People/Source Notes/Resources/Blocking, project Area/Tasks/Notes/Resources/People, and note Projects/Areas/People Mentioned/Derived Tasks/Referenced Resources instead of a generic flat links list. Validation: `PYTHONPATH=. ./venv/bin/pytest tests/integration/test_v4_detail.py tests/integration/test_v4_suggestions.py tests/integration/test_v4_capture_extraction.py tests/integration/test_v4_capture.py tests/integration/test_v4_search.py tests/integration/test_v4_canonical.py tests/integration/test_v4_relationships.py tests/integration/test_v4_entities.py tests/unit/test_models.py -q` passed and `FLASK_ENV=testing ./venv/bin/flask --app app.py routes` shows `/api/v4/entities/<entity_id>/detail`.
+## Archive Summary
 
-- **2026-05-18** Cycle 10 → this commit: Rebuilt the frontend entrypoint around a v4-only route shell and added `ui/src/api/v4Client.js`. The active app routes now cover inbox, today, search, generic entity detail, notes, projects, tasks, areas, people, resources, and suggestions without importing legacy screens; frontend source no longer contains `/api/v1` or `/api/v2` references. Validation: `npm run build` passed from `ui/`, and `rg -n "/api/v1|/api/v2" ui/src` returned no matches.
-
-- **2026-05-18** Cycle 11 → this commit: Implemented the v4 Capture Inbox UI. `/` and `/inbox` now render a capture form that posts to `/api/v4/capture`, displays the saved source note, safe applied changes, review suggestions, AI warnings, and recent notes loaded through the v4 entity API. Validation: `npm test -- --testPathPattern=src/views/V4Inbox.test.jsx` passed, `npm run build` passed from `ui/`, and `rg -n "/api/v1|/api/v2" ui/src` returned no matches.
-
-- **2026-05-18** Cycle 12 → this commit: Implemented v4 entity list and detail screens for notes, tasks, projects, areas, people, and resources. List routes support manual entity creation; detail routes load `/api/v4/entities/:id/detail`, edit title/content/status, archive/delete entities, and add/remove `EntityLink` relationships through type-specific relationship sections. Validation: `npm test -- --testPathPattern=src/views/V4EntityScreens.test.jsx` passed, `npm run build` passed from `ui/`, and `rg -n "/api/v1|/api/v2" ui/src` returned no matches.
-
-- **2026-05-18** Cycle 13 → this commit: Implemented the v4 hybrid search UI at `/search`. The screen calls `GET /api/v4/search` through `v4Client`, supports query, entity type, and mode filters, and links results to the appropriate entity detail routes. Validation: `npm test -- --testPathPattern=src/views/V4Search.test.jsx` passed, `npm run build` passed from `ui/`, and `rg -n "/api/v1|/api/v2" ui/src` returned no matches.
-
-- **2026-05-18** Cycle 14 → this commit: Implemented `/api/v4/today` and the v4 Today UI. The endpoint returns overdue/today follow-ups, blocked/waiting tasks, projects without open tasks, recent notes, and pending suggestions; `/today` renders those sections with links to detail pages. Validation: `PYTHONPATH=. ./venv/bin/pytest tests/integration/test_v4_today.py tests/integration/test_v4_detail.py tests/integration/test_v4_suggestions.py tests/integration/test_v4_capture_extraction.py tests/integration/test_v4_capture.py tests/integration/test_v4_search.py tests/integration/test_v4_canonical.py tests/integration/test_v4_relationships.py tests/integration/test_v4_entities.py tests/unit/test_models.py -q` passed, `npm test -- --testPathPattern=src/views/V4Today.test.jsx` passed, `npm run build` passed from `ui/`, and `FLASK_ENV=testing ./venv/bin/flask --app app.py routes` shows `/api/v4/today`.
-
-- **2026-05-18** Cycle 15 → this commit: Replaced the MCP server with a v4 read-only surface. MCP now exposes only `search_entities`, `get_entity`, and `list_recent` against `/api/v4`, with formatter tests and smoke documentation; write tools such as capture/create/update/link/delete are intentionally absent. Validation: `PYTHONPATH=. ./venv/bin/pytest tests/unit/test_mcp_v4_formatters.py tests/integration/test_v4_today.py tests/integration/test_v4_detail.py tests/integration/test_v4_suggestions.py tests/integration/test_v4_capture_extraction.py tests/integration/test_v4_capture.py tests/integration/test_v4_search.py tests/integration/test_v4_canonical.py tests/integration/test_v4_relationships.py tests/integration/test_v4_entities.py tests/unit/test_models.py -q` passed, `./venv/bin/python -m py_compile mcp_server/server.py mcp_server/v4_formatters.py` passed, and `rg -n "/api/v1|/api/v2|def capture|def create_entity|def update_entity|def link|def delete|@mcp.tool" mcp_server/server.py mcp_server/v4_formatters.py mcp_server/README_V4.md` shows only the three read-only tool decorators.
+The repo previously tracked fine-grained V2/V3/V3.5 execution logs in this file. Those logs were useful during active migration work but are now demoted because they contain stale pending-task guidance that can mislead fresh agents. Recover detailed history with `git log --oneline --decorate -- EXECUTION-TRACKER.md` if needed.

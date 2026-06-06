@@ -25,6 +25,10 @@ vi.mock('../api/v4Client', () => ({
       create: vi.fn(),
       delete: vi.fn(),
     },
+    activityUpdates: {
+      list: vi.fn(),
+      create: vi.fn(),
+    },
   },
 }));
 
@@ -32,6 +36,7 @@ describe('v4 entity screens', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     v4API.entities.list.mockResolvedValue({ data: [] });
+    v4API.activityUpdates.list.mockResolvedValue({ data: [] });
   });
 
   it('creates a task manually from the task list', async () => {
