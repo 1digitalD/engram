@@ -290,10 +290,8 @@ export default function V4Suggestions() {
     try {
       for (const suggestion of groupSuggestions) {
         if (action === 'accept') {
-          // eslint-disable-next-line no-await-in-loop
           await v4API.suggestions.accept(suggestion.id);
         } else {
-          // eslint-disable-next-line no-await-in-loop
           await v4API.suggestions.dismiss(suggestion.id);
         }
       }

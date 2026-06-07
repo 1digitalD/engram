@@ -1,7 +1,7 @@
 /* eslint-disable no-unused-vars */
 import React from 'react';
 import { useEffect, useState } from 'react';
-import { Archive, Plus, RefreshCw, Save, Trash2, X } from 'lucide-react';
+import { Archive, ChevronDown, ChevronRight, Plus, RefreshCw, Save, Trash2, X } from 'lucide-react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { v4API } from '../api/v4Client';
 import MarkdownContent from '../components/MarkdownContent';
@@ -217,6 +217,56 @@ function backLabel(from, entityType) {
   if (target.startsWith('/people')) return 'Back to People';
   if (target.startsWith('/resources')) return 'Back to Resources';
   return 'Back';
+}
+
+function CollapsibleSection({
+  ariaLabel,
+  className,
+  headerClassName,
+  title,
+  eyebrow,
+  meta,
+  actions,
+  defaultExpanded = true,
+  canCollapse = true,
+  children,
+}) {
+  const [expanded, setExpanded] = useState(defaultExpanded);
+
+  return (
+    <section
+      className={[
+        className,
+        !expanded ? styles.collapsibleSectionCollapsed : '',
+      ].filter(Boolean).join(' ')}
+      aria-label={ariaLabel}
+    >
+      <header className={headerClassName}>
+        <div>
+          {eyebrow ? <p className={styles.eyebrow}>{eyebrow}</p> : null}
+          <h2>{title}</h2>
+        </div>
+        <div className={styles.segmentHeaderRight}>
+          {meta || null}
+          {actions || null}
+          {canCollapse ? (
+            <button
+              type="button"
+              className={styles.collapseButton}
+              onClick={() => setExpanded((value) => !value)}
+              aria-expanded={expanded}
+              aria-label={`${expanded ? 'Collapse' : 'Expand'} ${title}`}
+              title={expanded ? 'Collapse section' : 'Expand section'}
+            >
+              {expanded ? <ChevronDown size={14} strokeWidth={2.4} aria-hidden="true" /> : <ChevronRight size={14} strokeWidth={2.4} aria-hidden="true" />}
+              <span>{expanded ? 'Collapse' : 'Expand'}</span>
+            </button>
+          ) : null}
+        </div>
+      </header>
+      {expanded ? children : null}
+    </section>
+  );
 }
 
 export default function V4EntityDetail({ type: routeType }) {
@@ -760,12 +810,14 @@ function ProjectWorkspacePanel({ detail }) {
   if (areaLinks.length === 0) warnings.push('No area linked');
 
   return (
-    <section className={styles.workspacePanel} aria-label="Project workspace">
-      <header className={styles.workspaceHeader}>
-        <div>
-          <p className={styles.eyebrow}>Project workspace</p>
-          <h2>Momentum at a glance</h2>
-        </div>
+    <CollapsibleSection
+      ariaLabel="Project workspace"
+      className={`${styles.workspacePanel} ${styles.workspacePanelWarm}`}
+      headerClassName={styles.workspaceHeader}
+      eyebrow="Project workspace"
+      title="Momentum at a glance"
+      canCollapse={false}
+      meta={(
         <div className={styles.workspaceStats}>
           <div className={styles.workspaceStat}>
             <strong>{openTasks.length}</strong>
@@ -788,8 +840,8 @@ function ProjectWorkspacePanel({ detail }) {
             <span>resources</span>
           </div>
         </div>
-      </header>
-
+      )}
+    >
       <div className={styles.workspaceGrid}>
         <section className={styles.workspaceCard}>
           <h3>Next step</h3>
@@ -829,7 +881,7 @@ function ProjectWorkspacePanel({ detail }) {
           )}
         </section>
       </div>
-    </section>
+    </CollapsibleSection>
   );
 }
 
@@ -857,12 +909,14 @@ function TaskWorkspacePanel({ entity, detail }) {
   if (sourceNotes.length === 0) warnings.push('No source note linked');
 
   return (
-    <section className={styles.workspacePanel} aria-label="Task workspace">
-      <header className={styles.workspaceHeader}>
-        <div>
-          <p className={styles.eyebrow}>Task workspace</p>
-          <h2>Execution context</h2>
-        </div>
+    <CollapsibleSection
+      ariaLabel="Task workspace"
+      className={`${styles.workspacePanel} ${styles.workspacePanelWarm}`}
+      headerClassName={styles.workspaceHeader}
+      eyebrow="Task workspace"
+      title="Execution context"
+      canCollapse={false}
+      meta={(
         <div className={styles.workspaceStats}>
           <div className={styles.workspaceStat}>
             <strong>{blockedBy.length}</strong>
@@ -881,8 +935,8 @@ function TaskWorkspacePanel({ entity, detail }) {
             <span>task links</span>
           </div>
         </div>
-      </header>
-
+      )}
+    >
       <div className={styles.workspaceGrid}>
         <section className={styles.workspaceCard}>
           <h3>Ownership and scope</h3>
@@ -945,7 +999,7 @@ function TaskWorkspacePanel({ entity, detail }) {
           )}
         </section>
       </div>
-    </section>
+    </CollapsibleSection>
   );
 }
 
@@ -977,12 +1031,14 @@ function AreaWorkspacePanel({ entity, detail }) {
   if (people.length === 0) warnings.push('No people linked');
 
   return (
-    <section className={styles.workspacePanel} aria-label="Area workspace">
-      <header className={styles.workspaceHeader}>
-        <div>
-          <p className={styles.eyebrow}>Area workspace</p>
-          <h2>Portfolio snapshot</h2>
-        </div>
+    <CollapsibleSection
+      ariaLabel="Area workspace"
+      className={`${styles.workspacePanel} ${styles.workspacePanelWarm}`}
+      headerClassName={styles.workspaceHeader}
+      eyebrow="Area workspace"
+      title="Portfolio snapshot"
+      canCollapse={false}
+      meta={(
         <div className={styles.workspaceStats}>
           <div className={styles.workspaceStat}>
             <strong>{activeProjects.length}</strong>
@@ -1005,8 +1061,8 @@ function AreaWorkspacePanel({ entity, detail }) {
             <span>resources</span>
           </div>
         </div>
-      </header>
-
+      )}
+    >
       <div className={styles.workspaceGrid}>
         <section className={styles.workspaceCard}>
           <h3>Lead project</h3>
@@ -1050,7 +1106,7 @@ function AreaWorkspacePanel({ entity, detail }) {
           )}
         </section>
       </div>
-    </section>
+    </CollapsibleSection>
   );
 }
 
@@ -1073,12 +1129,14 @@ function PersonWorkspacePanel({ entity, detail }) {
   if (notes.length === 0) warnings.push('No notes linked');
 
   return (
-    <section className={styles.workspacePanel} aria-label="Person workspace">
-      <header className={styles.workspaceHeader}>
-        <div>
-          <p className={styles.eyebrow}>Person workspace</p>
-          <h2>Relationship snapshot</h2>
-        </div>
+    <CollapsibleSection
+      ariaLabel="Person workspace"
+      className={`${styles.workspacePanel} ${styles.workspacePanelWarm}`}
+      headerClassName={styles.workspaceHeader}
+      eyebrow="Person workspace"
+      title="Relationship snapshot"
+      canCollapse={false}
+      meta={(
         <div className={styles.workspaceStats}>
           <div className={styles.workspaceStat}>
             <strong>{openAssignedTasks.length}</strong>
@@ -1097,8 +1155,8 @@ function PersonWorkspacePanel({ entity, detail }) {
             <span>resources</span>
           </div>
         </div>
-      </header>
-
+      )}
+    >
       <div className={styles.workspaceGrid}>
         <section className={styles.workspaceCard}>
           <h3>Current load</h3>
@@ -1139,7 +1197,7 @@ function PersonWorkspacePanel({ entity, detail }) {
           )}
         </section>
       </div>
-    </section>
+    </CollapsibleSection>
   );
 }
 
@@ -1162,12 +1220,14 @@ function ResourceWorkspacePanel({ entity, detail }) {
   if (people.length === 0 && projects.length === 0 && tasks.length === 0 && areas.length === 0) warnings.push('No clear workspace anchor linked');
 
   return (
-    <section className={styles.workspacePanel} aria-label="Resource workspace">
-      <header className={styles.workspaceHeader}>
-        <div>
-          <p className={styles.eyebrow}>Resource workspace</p>
-          <h2>Adoption snapshot</h2>
-        </div>
+    <CollapsibleSection
+      ariaLabel="Resource workspace"
+      className={`${styles.workspacePanel} ${styles.workspacePanelWarm}`}
+      headerClassName={styles.workspaceHeader}
+      eyebrow="Resource workspace"
+      title="Adoption snapshot"
+      canCollapse={false}
+      meta={(
         <div className={styles.workspaceStats}>
           <div className={styles.workspaceStat}>
             <strong>{activeProjects.length}</strong>
@@ -1186,8 +1246,8 @@ function ResourceWorkspacePanel({ entity, detail }) {
             <span>people</span>
           </div>
         </div>
-      </header>
-
+      )}
+    >
       <div className={styles.workspaceGrid}>
         <section className={styles.workspaceCard}>
           <h3>Primary anchor</h3>
@@ -1226,7 +1286,7 @@ function ResourceWorkspacePanel({ entity, detail }) {
           )}
         </section>
       </div>
-    </section>
+    </CollapsibleSection>
   );
 }
 
@@ -1262,12 +1322,14 @@ function NoteWorkspacePanel({ entity, detail }) {
   }, [entity.id]);
 
   return (
-    <section className={styles.workspacePanel} aria-label="Note workspace">
-      <header className={styles.workspaceHeader}>
-        <div>
-          <p className={styles.eyebrow}>Note workspace</p>
-          <h2>Source note outcomes</h2>
-        </div>
+    <CollapsibleSection
+      ariaLabel="Note workspace"
+      className={`${styles.workspacePanel} ${styles.workspacePanelWarm}`}
+      headerClassName={styles.workspaceHeader}
+      eyebrow="Note workspace"
+      title="Source note outcomes"
+      canCollapse={false}
+      meta={(
         <div className={styles.workspaceStats}>
           <div className={styles.workspaceStat}>
             <strong>{extractionCount}</strong>
@@ -1278,8 +1340,8 @@ function NoteWorkspacePanel({ entity, detail }) {
             <span>pending review</span>
           </div>
         </div>
-      </header>
-
+      )}
+    >
       <div className={styles.workspaceGrid}>
         <section className={styles.workspaceCard}>
           <h3>Extraction outcomes</h3>
@@ -1316,7 +1378,7 @@ function NoteWorkspacePanel({ entity, detail }) {
           )}
         </section>
       </div>
-    </section>
+    </CollapsibleSection>
   );
 }
 
@@ -1327,19 +1389,21 @@ function EntityInspectionPanel({ entity, events, loading, error }) {
   const recentEvents = events.filter(shouldShowEvent).slice(0, 6);
 
   return (
-    <section className={styles.inspectionPanel} aria-label="Inspection and trust">
-      <header className={styles.inspectionHeader}>
-        <div>
-          <p className={styles.eyebrow}>Inspection</p>
-          <h2>Trust and recent changes</h2>
-        </div>
+    <CollapsibleSection
+      ariaLabel="Inspection and trust"
+      className={`${styles.inspectionPanel} ${styles.inspectionPanelCool}`}
+      headerClassName={styles.inspectionHeader}
+      eyebrow="Inspection"
+      title="Trust and recent changes"
+      canCollapse={false}
+      meta={(
         <div className={styles.metaStrip}>
           <span className={styles.metaStaticChip}>Source · {humanizeToken(entity.source || 'manual')}</span>
           <span className={styles.metaStaticChip}>AI · {aiStatus || 'pending'}</span>
           {confidence ? <span className={styles.metaStaticChip}>{confidence}</span> : null}
         </div>
-      </header>
-
+      )}
+    >
       <div className={styles.inspectionGrid}>
         <section className={styles.inspectionCard}>
           <h3>Signals</h3>
@@ -1384,7 +1448,7 @@ function EntityInspectionPanel({ entity, events, loading, error }) {
           )}
         </section>
       </div>
-    </section>
+    </CollapsibleSection>
   );
 }
 
@@ -1422,13 +1486,14 @@ function ActivityUpdatesSection({ entityId, className = '' }) {
   }
 
   return (
-    <section className={[styles.segmentPanel, className].filter(Boolean).join(' ')} aria-label="Activity Updates">
-      <header className={styles.segmentHeader}>
-        <h2>Activity Updates</h2>
-        <div className={styles.segmentHeaderRight}>
-          <span className={styles.countPill}>{updates.length}</span>
-        </div>
-      </header>
+    <CollapsibleSection
+      ariaLabel="Activity Updates"
+      className={[styles.segmentPanel, styles.segmentPanelWarm, className].filter(Boolean).join(' ')}
+      headerClassName={styles.segmentHeader}
+      title="Activity Updates"
+      canCollapse={false}
+      meta={<span className={styles.countPill}>{updates.length}</span>}
+    >
       <form onSubmit={handleSubmit} className={styles.activityUpdateForm}>
         <textarea
           value={draft}
@@ -1463,7 +1528,7 @@ function ActivityUpdatesSection({ entityId, className = '' }) {
           ))}
         </ul>
       )}
-    </section>
+    </CollapsibleSection>
   );
 }
 
@@ -1478,11 +1543,14 @@ function RelationshipSegment({
 }) {
   const items = sections.flatMap((section) => section.items);
   const [actionOpen, setActionOpen] = useState(false);
-  const isCollapsed = items.length === 0 && !actionOpen;
+  const canCollapse = items.length > 0;
+  const [expanded, setExpanded] = useState(items.length > 0);
+  const isCollapsed = canCollapse && !expanded;
 
   return (
     <article className={[
       styles.segmentPanel,
+      styles.segmentPanelWarm,
       isCollapsed ? styles.segmentPanelCollapsed : '',
       config.size === 'narrow' ? styles.segmentPanelNarrow : styles.segmentPanelWide,
     ].filter(Boolean).join(' ')}>
@@ -1490,11 +1558,27 @@ function RelationshipSegment({
         <h2>{config.title}</h2>
         <div className={styles.segmentHeaderRight}>
           <span className={styles.countPill}>{items.length}</span>
+          {canCollapse ? (
+            <button
+              type="button"
+              className={styles.collapseButton}
+              onClick={() => setExpanded((value) => !value)}
+              aria-expanded={expanded}
+              aria-label={`${expanded ? 'Collapse' : 'Expand'} ${config.title}`}
+              title={expanded ? 'Collapse section' : 'Expand section'}
+            >
+              {expanded ? <ChevronDown size={14} strokeWidth={2.4} aria-hidden="true" /> : <ChevronRight size={14} strokeWidth={2.4} aria-hidden="true" />}
+              <span>{expanded ? 'Collapse' : 'Expand'}</span>
+            </button>
+          ) : null}
           {config.type && (
             <button
               type="button"
               className={`${styles.addButton} ${styles.addButtonIcon}`}
-              onClick={() => setActionOpen((v) => !v)}
+              onClick={() => {
+                setExpanded(true);
+                setActionOpen((v) => !v);
+              }}
               aria-expanded={actionOpen}
               aria-label={actionOpen ? `Close add ${config.type}` : `Add ${config.type}`}
               title={actionOpen ? 'Close' : `Add ${config.type}`}
@@ -1521,30 +1605,30 @@ function RelationshipSegment({
         </ActionModal>
       )}
 
-      <div className={styles.linkedArea}>
-        {sections.length === 0 || items.length === 0 ? (
-          actionOpen ? null : null
-        ) : (
-          sections.map((section) => (
-            section.items.length > 0 && (
-              <div key={section.key} className={styles.linkedGroup}>
-                {sections.length > 1 && <h3>{section.title}</h3>}
-                <ul className={styles.cards}>
-                  {section.items.map((item) => (
-                    <LinkedEntityRow
-                      key={item.relationship.id}
-                      item={item}
-                      onRemove={onRemove}
-                      onQuickStatus={onQuickStatus}
-                      showType={!config.type}
-                    />
-                  ))}
-                </ul>
-              </div>
-            )
-          ))
-        )}
-      </div>
+      {expanded ? (
+        <div className={styles.linkedArea}>
+          {sections.length === 0 || items.length === 0 ? null : (
+            sections.map((section) => (
+              section.items.length > 0 && (
+                <div key={section.key} className={styles.linkedGroup}>
+                  {sections.length > 1 && <h3>{section.title}</h3>}
+                  <ul className={styles.cards}>
+                    {section.items.map((item) => (
+                      <LinkedEntityRow
+                        key={item.relationship.id}
+                        item={item}
+                        onRemove={onRemove}
+                        onQuickStatus={onQuickStatus}
+                        showType={!config.type}
+                      />
+                    ))}
+                  </ul>
+                </div>
+              )
+            ))
+          )}
+        </div>
+      ) : null}
     </article>
   );
 }
@@ -1600,7 +1684,7 @@ function InlineTextField({ value, onChange, onCommit, placeholder, ariaLabel, cl
       inputRef.current.focus();
       inputRef.current.select?.();
     }
-  }, [editing]);
+  }, [editing, value]);
 
   function commit() {
     setEditing(false);

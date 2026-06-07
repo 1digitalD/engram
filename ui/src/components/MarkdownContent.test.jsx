@@ -1,6 +1,4 @@
 import { describe, it, expect, vi } from 'vitest';
-import React from 'react';
-import { render } from '@testing-library/react';
 
 vi.mock('./MarkdownContent', () => ({
   default: ({ content }) => content || null,

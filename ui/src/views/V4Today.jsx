@@ -209,7 +209,7 @@ export default function V4Today() {
     }
   }
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, []);
+  useEffect(() => { load(); }, []);
 
   async function handleQuickStatus(entityId, status) {
     try {

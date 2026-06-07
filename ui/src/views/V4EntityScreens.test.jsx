@@ -388,6 +388,56 @@ describe('v4 entity screens', () => {
     expect(await screen.findByText('Today view')).toBeInTheDocument();
   });
 
+  it('allows detail sections to collapse and expand', async () => {
+    const detail = {
+      entity: {
+        id: 't-collapse',
+        type: 'task',
+        title: 'Follow up',
+        content: 'Body',
+        status: 'open',
+        created_at: '2026-05-20T09:00:00+00:00',
+        updated_at: '2026-05-20T10:00:00+00:00',
+        due_at: null,
+        follow_up_at: null,
+        reference_url: null,
+        properties: {},
+        tags: [],
+      },
+      sections: [
+        {
+          key: 'project',
+          title: 'Project',
+          items: [{
+            entity: { id: 'p-collapse', type: 'project', title: 'Memory Lookup', status: 'active' },
+            relationship: { id: 'r-collapse', relationship_type: 'parent' },
+          }],
+        },
+      ],
+    };
+    v4API.entities.detail.mockResolvedValue(detail);
+    v4API.entities.events.mockResolvedValue({ data: [] });
+
+    render(
+      <MemoryRouter initialEntries={['/tasks/t-collapse']}>
+        <Routes>
+          <Route path="/tasks/:id" element={<V4EntityDetail type="task" />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Execution context')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Remove' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Collapse Execution context' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse Project' }));
+    expect(screen.queryByRole('button', { name: 'Remove' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Expand Project' })).toHaveAttribute('aria-expanded', 'false');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Expand Project' }));
+    expect(await screen.findByRole('button', { name: 'Remove' })).toBeInTheDocument();
+  });
+
   it('archives separately from delete and hides note due date metadata', async () => {
     const detail = {
       entity: {

@@ -112,7 +112,7 @@ export default function V4Inbox() {
     }
   }
 
-  useEffect(() => { loadInbox(); /* eslint-disable-next-line */ }, []);
+  useEffect(() => { loadInbox(); }, []);
 
   async function handleSubmit(event) {
     event.preventDefault();

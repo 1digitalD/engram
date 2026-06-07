@@ -1,4 +1,3 @@
-import React from 'react';
 import { Archive, Trash2 } from 'lucide-react';
 import { v4API } from '../api/v4Client';
 import styles from './CardActions.module.css';
@@ -15,7 +14,7 @@ export default function CardActions({ entity, onChanged }) {
     try {
       await v4API.entities.update(entity.id, { lifecycle: 'archived' });
       onChanged?.({ kind: 'archived', id: entity.id });
-    } catch (err) {
+    } catch {
       // Best-effort — surfacing errors here is too noisy on a quick action.
       // The detail page error banner is the right place for retries.
     }
@@ -27,7 +26,7 @@ export default function CardActions({ entity, onChanged }) {
     try {
       await v4API.entities.delete(entity.id);
       onChanged?.({ kind: 'deleted', id: entity.id });
-    } catch (err) {
+    } catch {
       // ditto
     }
   }

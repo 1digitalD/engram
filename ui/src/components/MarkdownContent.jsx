@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import styles from './MarkdownContent.module.css';
@@ -46,11 +46,5 @@ export default function MarkdownContent({ content, className, compact = false })
   }
 
   if (!html) return null;
-  return (
-    // eslint-disable-next-line react/no-danger
-    <div
-      className={`${styles.md} ${className || ''}`}
-      dangerouslySetInnerHTML={{ __html: html }}
-    />
-  );
+  return <div className={`${styles.md} ${className || ''}`} dangerouslySetInnerHTML={{ __html: html }} />;
 }
