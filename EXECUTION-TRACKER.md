@@ -58,7 +58,8 @@ Non-authoritative historical artifacts:
   11. Resource Workspace
   12. Today Review Navigation
   13. Detail Return Navigation
-- Active iteration contract: `docs/iterations/ITERATION_13_DETAIL_RETURN_NAV.md`
+  14. List Loading State
+- Active iteration contract: `docs/iterations/ITERATION_14_LIST_LOADING_STATE.md`
 - Iteration 0 implementation status:
   - entity detail save semantics were changed to an explicit-save model
   - sidebar `Today` count now uses the same actionable buckets as the `Today` screen
@@ -157,7 +158,13 @@ Non-authoritative historical artifacts:
   - focused frontend tests passed
   - full frontend tests passed
   - frontend build passed
-- Immediate next step: continue navigation/review polish or return to the unresolved `/areas` runtime inconsistency.
+- Iteration 14 implementation status:
+  - entity list screens now show an explicit loading state instead of rendering false empty-state copy during the initial fetch
+  - create loading and list-fetch loading are now tracked separately so create flows remain unaffected
+  - focused frontend tests passed
+  - full frontend tests passed
+  - frontend build passed
+- Immediate next step: re-check whether the `/areas` runtime inconsistency is now adequately explained and resolved, then choose the next navigation/review polish slice from live QA rather than from missing structure.
 
 ## Validation Commands
 

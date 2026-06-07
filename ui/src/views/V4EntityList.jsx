@@ -119,7 +119,8 @@ export default function V4EntityList({ type }) {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [listLoading, setListLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
   const [open, setOpen] = useState(false);
   const _init = loadListState(type);
   const [sortField, setSortField] = useState(_init?.sortField ?? 'updated');
@@ -132,12 +133,19 @@ export default function V4EntityList({ type }) {
     let active = true;
     const params = { type, limit: 100 };
     if (lifecycleFilter && lifecycleFilter !== 'all') params.lifecycle = lifecycleFilter;
+    setListLoading(true);
     v4API.entities.list(params)
       .then((response) => {
-        if (active) setEntities(response.data || []);
+        if (active) {
+          setEntities(response.data || []);
+          setListLoading(false);
+        }
       })
       .catch((err) => {
-        if (active) setError(err.message);
+        if (active) {
+          setError(err.message);
+          setListLoading(false);
+        }
       });
     return () => {
       active = false;
@@ -180,7 +188,7 @@ export default function V4EntityList({ type }) {
     const trimmedTitle = title.trim();
     const trimmedContent = content.trim();
     if (type === 'note' ? !trimmedTitle && !trimmedContent : !trimmedTitle) return;
-    setLoading(true);
+    setCreating(true);
     setError('');
     try {
       if (type === 'note') {
@@ -205,7 +213,7 @@ export default function V4EntityList({ type }) {
     } catch (err) {
       setError(err.message || `Failed to create ${type}`);
     } finally {
-      setLoading(false);
+      setCreating(false);
     }
   }
 
@@ -312,8 +320,8 @@ export default function V4EntityList({ type }) {
               aria-label="Content"
               rows={type === 'note' ? 2 : 1}
             />
-            <button className={styles.primaryButton} type="submit" disabled={loading || (type === 'note' ? !title.trim() && !content.trim() : !title.trim())}>
-              {loading ? 'Creating...' : `Create ${type}`}
+            <button className={styles.primaryButton} type="submit" disabled={creating || (type === 'note' ? !title.trim() && !content.trim() : !title.trim())}>
+              {creating ? 'Creating...' : `Create ${type}`}
             </button>
           </form>
         )}
@@ -321,7 +329,9 @@ export default function V4EntityList({ type }) {
       </section>
 
       <section className={styles.listPanel}>
-        {visibleEntities.length === 0 ? (
+        {listLoading ? (
+          <p className={styles.emptyText}>Loading {pluralTitle[type].toLowerCase()}...</p>
+        ) : visibleEntities.length === 0 ? (
           <p className={styles.emptyText}>
             {entities.length === 0
               ? `No ${pluralTitle[type].toLowerCase()} yet.`

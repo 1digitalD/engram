@@ -102,7 +102,20 @@ describe('v4 entity screens', () => {
   });
 
   it('renders area entities on the area list', async () => {
-    v4API.entities.list.mockResolvedValue({
+    let resolveList;
+    v4API.entities.list.mockReturnValue(new Promise((resolve) => {
+      resolveList = resolve;
+    }));
+
+    render(
+      <MemoryRouter>
+        <V4EntityList type="area" />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('Loading areas...')).toBeInTheDocument();
+
+    resolveList({
       data: [
         {
           id: 'a1',
@@ -116,12 +129,6 @@ describe('v4 entity screens', () => {
         },
       ],
     });
-
-    render(
-      <MemoryRouter>
-        <V4EntityList type="area" />
-      </MemoryRouter>,
-    );
 
     expect(await screen.findByRole('link', { name: /Agent Memory/i })).toHaveAttribute('href', '/areas/a1');
     expect(v4API.entities.list).toHaveBeenCalledWith({ type: 'area', limit: 100, lifecycle: 'active' });
