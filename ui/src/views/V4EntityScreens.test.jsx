@@ -233,6 +233,51 @@ describe('v4 entity screens', () => {
     expect(screen.getByRole('button', { name: 'open' })).toHaveAttribute('aria-pressed', 'false');
   });
 
+  it('hides lifecycle control for simple archive types and still allows archived filtering', async () => {
+    v4API.entities.list.mockResolvedValue({
+      data: [
+        {
+          id: 'n-active',
+          type: 'note',
+          title: 'Active note',
+          status: 'active',
+          created_at: '2026-05-20T09:00:00+00:00',
+          updated_at: '2026-05-20T10:00:00+00:00',
+          properties: {},
+          tags: [],
+        },
+        {
+          id: 'n-archived',
+          type: 'note',
+          title: 'Archived note',
+          status: 'archived',
+          created_at: '2026-05-19T09:00:00+00:00',
+          updated_at: '2026-05-19T10:00:00+00:00',
+          properties: {},
+          tags: [],
+        },
+      ],
+    });
+
+    render(
+      <MemoryRouter>
+        <V4EntityList type="note" />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('link', { name: /Active note/i })).toBeInTheDocument();
+    expect(screen.queryByText('Lifecycle')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'archived' }));
+
+    expect(screen.getByRole('button', { name: 'archived' })).toHaveAttribute('aria-pressed', 'true');
+    await waitFor(() => {
+      expect(v4API.entities.list).toHaveBeenLastCalledWith({ type: 'note', limit: 100, lifecycle: 'archived' });
+    });
+    expect(screen.queryByRole('link', { name: /Active note/i })).not.toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: /Archived note/i })).toBeInTheDocument();
+  });
+
   it('updates metadata and manages linked section actions from detail sections', async () => {
     const detail = {
       entity: {

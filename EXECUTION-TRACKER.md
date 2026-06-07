@@ -171,6 +171,7 @@ Non-authoritative historical artifacts:
   - entity list state now resets correctly when switching types through sidebar navigation on the shared mounted list view
   - inbox cards were simplified to avoid nested-link and segment-overlap issues
   - entity detail scroll was restored by making the route viewport a flex column and the shared entity screen a real flex child scroll container
+  - simple archive-driven entity types now hide the redundant lifecycle control and promote archived filtering automatically through the status rail
   - focused frontend tests passed
   - full frontend tests passed
   - frontend build passed

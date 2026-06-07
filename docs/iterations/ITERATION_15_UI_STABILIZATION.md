@@ -33,6 +33,7 @@ These are not new product surfaces. They are stabilization work needed to make t
 - Entity lists reload persisted state per entity type when the same mounted component is reused across sidebar navigation.
 - Inbox note cards no longer nest tag links inside the primary card link.
 - The shared list header now uses explicit status chips and a denser control layout.
+- Simple archive-driven entity types (`note`, `area`, `person`, `resource`) no longer show a redundant lifecycle control; archived filtering now promotes itself automatically through the status rail.
 
 ## Validation
 
@@ -46,6 +47,7 @@ cd ui && npm run build
 
 - duplicate shell-level controls no longer compete with list and inbox headers
 - entity type switches through the sidebar no longer leak stale filters
+- simple entity lists use a leaner, less redundant filter model
 - inbox cards render and navigate more safely
 - entity detail pages regain scrolling inside the app shell
 - the UI is in a better state for backend/agentic work to become the next primary focus

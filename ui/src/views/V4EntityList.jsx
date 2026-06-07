@@ -27,6 +27,7 @@ const STATUS_BY_TYPE = {
 };
 
 const PRIORITY_OPTIONS = ['urgent', 'high', 'medium', 'low'];
+const SIMPLE_ARCHIVE_TYPES = new Set(['note', 'area', 'person', 'resource']);
 
 const SORT_FIELDS = [
   { value: 'updated', label: 'Updated', getter: (e) => e.updated_at, type: 'date', defaultDir: 'desc' },
@@ -174,6 +175,7 @@ export default function V4EntityList({ type }) {
   }, [type, loadedStateType, sortField, sortDir, statusFilter, priorityFilter, lifecycleFilter]);
 
   const statusOptions = STATUS_BY_TYPE[type] || [];
+  const showsLifecycleControl = !SIMPLE_ARCHIVE_TYPES.has(type);
 
   const visibleEntities = useMemo(() => {
     let list = entities;
@@ -203,6 +205,31 @@ export default function V4EntityList({ type }) {
         ? current.filter((item) => item !== value)
         : [...current, value]
     ));
+  }
+
+  function handleStatusToggle(value) {
+    if (SIMPLE_ARCHIVE_TYPES.has(type) && value === 'archived') {
+      setLifecycleFilter((current) => (current === 'archived' ? 'active' : 'archived'));
+      setStatusFilter((current) => (
+        current.includes(value)
+          ? current.filter((item) => item !== value)
+          : [value]
+      ));
+      return;
+    }
+
+    if (SIMPLE_ARCHIVE_TYPES.has(type) && lifecycleFilter === 'archived') {
+      setLifecycleFilter('active');
+      setStatusFilter((current) => {
+        const next = current.includes(value)
+          ? current.filter((item) => item !== value)
+          : [...current.filter((item) => item !== 'archived'), value];
+        return next;
+      });
+      return;
+    }
+
+    toggleStatusFilter(value);
   }
 
   function clearFilters() {
@@ -288,7 +315,7 @@ export default function V4EntityList({ type }) {
                 type="button"
                 className={`${styles.filterChip} ${statusFilter.length === 0 ? styles.filterChipActive : ''}`}
                 aria-pressed={statusFilter.length === 0}
-                onClick={() => setStatusFilter([])}
+                onClick={clearFilters}
               >
                 All statuses
               </button>
@@ -298,7 +325,7 @@ export default function V4EntityList({ type }) {
                   type="button"
                   className={`${styles.filterChip} ${statusFilter.includes(status) ? styles.filterChipActive : ''}`}
                   aria-pressed={statusFilter.includes(status)}
-                  onClick={() => toggleStatusFilter(status)}
+                  onClick={() => handleStatusToggle(status)}
                 >
                   {formatFilterLabel(status)}
                 </button>
@@ -335,18 +362,20 @@ export default function V4EntityList({ type }) {
                   </select>
                 </label>
               )}
-              <label className={styles.filterControl}>
-                <span className={styles.controlLabel}>Lifecycle</span>
-                <select
-                  value={lifecycleFilter}
-                  onChange={(event) => setLifecycleFilter(event.target.value)}
-                  aria-label={`Lifecycle filter for ${pluralTitle[type].toLowerCase()}`}
-                >
-                  <option value="active">active</option>
-                  <option value="archived">archived</option>
-                  <option value="all">all</option>
-                </select>
-              </label>
+              {showsLifecycleControl && (
+                <label className={styles.filterControl}>
+                  <span className={styles.controlLabel}>Lifecycle</span>
+                  <select
+                    value={lifecycleFilter}
+                    onChange={(event) => setLifecycleFilter(event.target.value)}
+                    aria-label={`Lifecycle filter for ${pluralTitle[type].toLowerCase()}`}
+                  >
+                    <option value="active">active</option>
+                    <option value="archived">archived</option>
+                    <option value="all">all</option>
+                  </select>
+                </label>
+              )}
               <label className={`${styles.filterControl} ${styles.sortFieldControl}`}>
                 <span className={styles.controlLabel}>Sort</span>
                 <span className={styles.sortControl}>
@@ -402,7 +431,7 @@ export default function V4EntityList({ type }) {
                   <X size={12} strokeWidth={2.2} aria-hidden="true" />
                 </button>
               )}
-              {lifecycleFilter !== 'active' && (
+              {showsLifecycleControl && lifecycleFilter !== 'active' && (
                 <button
                   type="button"
                   className={styles.activeFilterPill}
