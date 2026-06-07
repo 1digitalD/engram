@@ -60,7 +60,8 @@ Non-authoritative historical artifacts:
   13. Detail Return Navigation
   14. List Loading State
   15. UI Stabilization
-- Active iteration contract: `docs/iterations/ITERATION_15_UI_STABILIZATION.md`
+  16. Final UI Refinement
+- Active iteration contract: `docs/iterations/ITERATION_16_FINAL_UI_REFINEMENT.md`
 - Iteration 0 implementation status:
   - entity detail save semantics were changed to an explicit-save model
   - sidebar `Today` count now uses the same actionable buckets as the `Today` screen
@@ -175,7 +176,15 @@ Non-authoritative historical artifacts:
   - focused frontend tests passed
   - full frontend tests passed
   - frontend build passed
-- Immediate next step: shift primary delivery focus from frontend structure to agentic/backend improvements, with only targeted UI follow-ups as bugs or validation findings demand.
+- Iteration 16 implementation status:
+  - entity detail now uses a constrained reading/edit column inside the main detail panel so dense editing surfaces read more cleanly
+  - mobile shell navigation now uses grouped horizontal rails instead of wrapped sidebar links
+  - shared entity/detail surfaces now compress more deliberately under mobile breakpoints
+  - Home now acts more clearly as the control plane, while Inbox is framed as the capture/review lane
+  - Home no longer duplicates recent note browsing with another note list and instead routes users into Inbox, Suggestions, and Notes intentionally
+  - focused frontend tests passed
+  - full frontend tests and frontend build are the final validation step for this slice
+- Immediate next step: if validation passes, shift primary delivery focus from frontend structure to agentic/backend improvements, with only targeted UI follow-ups as bugs or validation findings demand.
 
 ## Validation Commands
 

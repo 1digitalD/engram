@@ -78,6 +78,8 @@ describe('V4Inbox', () => {
   it('lists recent notes from the v4 inbox API', async () => {
     renderInbox();
     expect(await screen.findByText('Older note')).toBeInTheDocument();
+    expect(screen.getByText('Capture first, then review or file the note.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Review suggestions/i })).toHaveAttribute('href', '/suggestions');
     expect(screen.queryByText('Already captured')).not.toBeInTheDocument();
     expect(v4API.inbox).toHaveBeenCalledWith({ limit: 30 });
   });

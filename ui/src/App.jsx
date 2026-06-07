@@ -236,32 +236,40 @@ export default function App() {
           <strong>v4</strong>
         </div>
         <nav className={styles.nav}>
-          <p className={styles.navSection}>Views</p>
-          {viewItems.map(([to, label, Icon, countKey]) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={to === '/'}
-              className={({ isActive }) => `${styles.navLink} ${isActive ? styles.active : ''}`}
-            >
-              <Icon size={16} strokeWidth={2} aria-hidden="true" />
-              <span className={styles.navLabel}>{label}</span>
-              {countKey && counts[countKey] ? (
-                <span className={styles.navCount}>{counts[countKey]}</span>
-              ) : null}
-            </NavLink>
-          ))}
-          <p className={styles.navSection}>Library</p>
-          {libraryItems.map(([to, label, Icon]) => (
-            <NavLink
-              key={to}
-              to={to}
-              className={({ isActive }) => `${styles.navLink} ${isActive ? styles.active : ''}`}
-            >
-              <Icon size={16} strokeWidth={2} aria-hidden="true" />
-              <span className={styles.navLabel}>{label}</span>
-            </NavLink>
-          ))}
+          <div className={styles.navGroup}>
+            <p className={styles.navSection}>Views</p>
+            <div className={styles.navGroupLinks}>
+              {viewItems.map(([to, label, Icon, countKey]) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  end={to === '/'}
+                  className={({ isActive }) => `${styles.navLink} ${isActive ? styles.active : ''}`}
+                >
+                  <Icon size={16} strokeWidth={2} aria-hidden="true" />
+                  <span className={styles.navLabel}>{label}</span>
+                  {countKey && counts[countKey] ? (
+                    <span className={styles.navCount}>{counts[countKey]}</span>
+                  ) : null}
+                </NavLink>
+              ))}
+            </div>
+          </div>
+          <div className={styles.navGroup}>
+            <p className={styles.navSection}>Library</p>
+            <div className={styles.navGroupLinks}>
+              {libraryItems.map(([to, label, Icon]) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  className={({ isActive }) => `${styles.navLink} ${isActive ? styles.active : ''}`}
+                >
+                  <Icon size={16} strokeWidth={2} aria-hidden="true" />
+                  <span className={styles.navLabel}>{label}</span>
+                </NavLink>
+              ))}
+            </div>
+          </div>
         </nav>
       </aside>
       <div className={styles.mainColumn}>

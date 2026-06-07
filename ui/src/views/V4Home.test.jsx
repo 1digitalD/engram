@@ -69,13 +69,14 @@ describe('V4Home', () => {
     expect(screen.getByText('Today')).toBeInTheDocument();
     expect(screen.getByText('Stuck')).toBeInTheDocument();
     expect(screen.getByText('Active projects')).toBeInTheDocument();
-    expect(screen.getByText('Recent captures')).toBeInTheDocument();
+    expect(screen.getByText('Inbox flow')).toBeInTheDocument();
     expect(screen.getByText('Needs review note')).toBeInTheDocument();
     expect(screen.getByText('Overdue task')).toBeInTheDocument();
     expect(screen.getByText('Blocked task')).toBeInTheDocument();
     expect(screen.getByText('Needs next task')).toBeInTheDocument();
     expect(screen.getByText('Memory Lookup')).toBeInTheDocument();
-    expect(screen.getByText('Recent note')).toBeInTheDocument();
+    expect(screen.getByText(/1 need review · 1 captured recently/i)).toBeInTheDocument();
+    expect(screen.getByText(/Latest · Recent note/i)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /need attention/i })).toHaveTextContent('4');
   });
 });

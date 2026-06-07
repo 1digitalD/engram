@@ -252,6 +252,14 @@
   gap: var(--space-3);
 }
 
+.detailEditorColumn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-width: 860px;
+  width: 100%;
+}
+
 .workspacePanel {
   border: 1px solid color-mix(in oklch, var(--accent) 18%, var(--border-faint));
   border-radius: var(--radius-lg);
@@ -388,10 +396,11 @@
 }
 
 .workspaceStats {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
   gap: var(--space-2);
-  justify-content: flex-end;
+  grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
+  max-width: 620px;
+  width: 100%;
 }
 
 .workspaceStat {
@@ -917,6 +926,61 @@
   min-height: 26px;
   padding: 3px 10px;
   max-width: 180px;
+}
+
+@media (max-width: 900px) {
+  .screen {
+    padding: var(--space-3);
+  }
+
+  .headerPanel,
+  .segmentPanel,
+  .fullWidthPanel,
+  .listHeaderPanel,
+  .listPanel,
+  .workspacePanel,
+  .inspectionPanel {
+    padding: var(--space-3);
+  }
+
+  .headerTop,
+  .workspaceHeader,
+  .inspectionHeader,
+  .listHeaderTop,
+  .segmentHeader {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .headerActions,
+  .segmentHeaderRight {
+    flex-wrap: wrap;
+  }
+
+  .segmentsStack {
+    flex-direction: column;
+  }
+
+  .segmentPanel,
+  .segmentPanelWide,
+  .segmentPanelNarrow,
+  .inspectionPanel {
+    max-width: none;
+    width: 100%;
+  }
+
+  .footerDateGrid {
+    gap: var(--space-2);
+    grid-template-columns: 1fr;
+  }
+
+  .workspaceStats {
+    max-width: none;
+  }
+
+  .detailTitle {
+    font-size: var(--text-base);
+  }
 }
 
 .metaChip:focus {

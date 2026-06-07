@@ -11,6 +11,10 @@ function entityPath(entity) {
   return `/${base}/${entity.id}`;
 }
 
+function entityTitle(entity) {
+  return entity?.title || entity?.content?.slice(0, 80) || 'Untitled note';
+}
+
 function HomeSection({ title, hint, count, action, children }) {
   return (
     <section className={styles.panel}>
@@ -26,6 +30,15 @@ function HomeSection({ title, hint, count, action, children }) {
       </header>
       {children}
     </section>
+  );
+}
+
+function WorkflowLink({ to, label, detail }) {
+  return (
+    <Link to={to} className={styles.workflowLink}>
+      <strong>{label}</strong>
+      <span>{detail}</span>
+    </Link>
   );
 }
 
@@ -202,12 +215,28 @@ export default function V4Home() {
         </HomeSection>
 
         <HomeSection
-          title="Recent captures"
-          hint="Latest source notes saved into the system."
-          count={recent.length}
-          action={<Link to="/inbox" className={styles.inlineLink}>Capture more</Link>}
+          title="Inbox flow"
+          hint="Capture into Inbox, then review or file the note from there."
+          count={summary.review + recent.length}
+          action={<Link to="/inbox" className={styles.inlineLink}>Open inbox</Link>}
         >
-          <EntityList items={recent.slice(0, 6)} fromState={fromState} />
+          <div className={styles.workflowGrid}>
+            <WorkflowLink
+              to="/inbox"
+              label="Capture or review"
+              detail={`${summary.review} need review · ${recent.length} captured recently`}
+            />
+            <WorkflowLink
+              to="/suggestions"
+              label="Finish suggestions"
+              detail={`${summary.suggestions} pending suggestion${summary.suggestions === 1 ? '' : 's'}`}
+            />
+            <WorkflowLink
+              to="/notes"
+              label="Browse all notes"
+              detail={recent[0] ? `Latest · ${entityTitle(recent[0])}` : 'Open the full notes library'}
+            />
+          </div>
         </HomeSection>
       </div>
     </main>

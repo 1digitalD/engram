@@ -238,9 +238,69 @@
   text-transform: uppercase;
 }
 
+.workflowGrid {
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.workflowLink {
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-md);
+  background: color-mix(in oklch, var(--surface2) 60%, var(--surface));
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px 12px;
+  text-decoration: none;
+}
+
+.workflowLink:hover {
+  border-color: var(--border);
+  background: color-mix(in oklch, var(--accent) 5%, var(--surface));
+}
+
+.workflowLink strong {
+  font-size: var(--text-sm);
+  font-weight: 650;
+}
+
+.workflowLink span {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  line-height: 1.45;
+}
+
 @media (max-width: 1000px) {
   .hero,
   .grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  .home {
+    padding: var(--space-3);
+  }
+
+  .hero,
+  .panel {
+    padding: var(--space-3);
+  }
+
+  .heroStats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .panelHeader {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .panelHeaderRight {
+    width: 100%;
+    justify-content: space-between;
   }
 }

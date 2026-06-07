@@ -543,126 +543,128 @@ export default function V4EntityDetail({ type: routeType }) {
               </button>
             </div>
           </div>
-          <div className={styles.statusPriorityRow}>
-            <div className={`${styles.pillSelect} ${styles[`statusDot_${draft.status}`] || ''}`}>
-              <span className={styles.statusDot} aria-hidden="true" />
-              <select
-                value={draft.status}
-                onChange={(event) => {
-                  const next = event.target.value;
-                  setDraft((current) => ({ ...current, status: next }));
-                  setSaveStatus('');
-                }}
-                aria-label="Status"
-              >
-                {(statusOptions[entity.type] || ['active']).map((status) => (
-                  <option key={status} value={status}>{status}</option>
-                ))}
-              </select>
-            </div>
-            <div className={`${styles.pillSelect} ${styles[`priorityDot_${draft.priority || 'none'}`] || ''}`}>
-              <span className={styles.statusDot} aria-hidden="true" />
-              <select
-                value={draft.priority}
-                onChange={(event) => {
-                  const next = event.target.value;
-                  setDraft((current) => ({ ...current, priority: next }));
-                  setSaveStatus('');
-                }}
-                aria-label="Priority"
-              >
-                {priorityOptions.map((priority) => (
-                  <option key={priority || 'none'} value={priority}>
-                    {priority || 'no priority'}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-          <InlineTextField
-            value={draft.title}
-            onChange={(val) => {
-              setDraft((current) => ({ ...current, title: val }));
-              setSaveStatus('');
-            }}
-            placeholder="Untitled"
-            ariaLabel="Title"
-            className={styles.detailTitle}
-          />
-          {(entity.ai?.summary || entity.ai?.entity_summary) && (
-            <aside className={styles.aiSummary} aria-label="AI summary">
-              <span className={styles.aiSummaryLabel}>AI summary</span>
-              <p>{entity.ai?.entity_summary || entity.ai?.summary}</p>
-            </aside>
-          )}
-          <InlineMarkdownField
-            value={draft.content || ''}
-            onChange={(val) => {
-              setDraft((current) => ({ ...current, content: val }));
-              setSaveStatus('');
-            }}
-            placeholder="Add a description — supports Markdown"
-          />
-          <footer className={styles.detailFooter}>
-            <div className={styles.footerSection}>
-              <span className={styles.footerLabel}>Tags</span>
-              <TagsField
-                value={draft.tags}
-                onChange={(val) => {
-                  setDraft((current) => ({ ...current, tags: val }));
-                  setSaveStatus('');
-                }}
-              />
-            </div>
-            <div className={styles.footerSection}>
-              <span className={styles.footerLabel}>URL</span>
-              <InlineTextField
-                value={draft.reference_url}
-                onChange={(val) => {
-                  setDraft((current) => ({ ...current, reference_url: val }));
-                  setSaveStatus('');
-                }}
-                placeholder="https://…"
-                ariaLabel="Reference URL"
-                type="url"
-                renderEmpty="Add URL"
-              />
-            </div>
-            <div className={styles.footerDateGrid}>
-              {showDueDate && (
-                <div className={styles.footerDate}>
-                  <span className={styles.footerLabel}>Due</span>
-                  <InlineDateField
-                    value={draft.due_at}
-                    onChange={(val) => {
-                      setDraft((current) => ({ ...current, due_at: val }));
-                      setSaveStatus('');
-                    }}
-                    ariaLabel="Due date"
-                  />
-                </div>
-              )}
-              <div className={styles.footerDate}>
-                <span className={styles.footerLabel}>Follow-up</span>
-                <InlineDateField
-                  value={draft.follow_up_at}
-                  onChange={(val) => {
-                    setDraft((current) => ({ ...current, follow_up_at: val }));
+          <div className={styles.detailEditorColumn}>
+            <div className={styles.statusPriorityRow}>
+              <div className={`${styles.pillSelect} ${styles[`statusDot_${draft.status}`] || ''}`}>
+                <span className={styles.statusDot} aria-hidden="true" />
+                <select
+                  value={draft.status}
+                  onChange={(event) => {
+                    const next = event.target.value;
+                    setDraft((current) => ({ ...current, status: next }));
                     setSaveStatus('');
                   }}
-                  ariaLabel="Follow-up date"
-                />
+                  aria-label="Status"
+                >
+                  {(statusOptions[entity.type] || ['active']).map((status) => (
+                    <option key={status} value={status}>{status}</option>
+                  ))}
+                </select>
               </div>
-              <div className={styles.footerDate}>
-                <span className={styles.footerLabel}>Created</span>
-                <span className={`${styles.metaStaticChip} ${styles.readOnlyChip}`} title="Not editable">{formatDateTime(entity.created_at)}</span>
-              </div>
-              <div className={styles.footerDate}>
-                <span className={styles.footerLabel}>Updated</span>
-                <span className={`${styles.metaStaticChip} ${styles.readOnlyChip}`} title="Not editable">{formatDateTime(entity.updated_at)}</span>
+              <div className={`${styles.pillSelect} ${styles[`priorityDot_${draft.priority || 'none'}`] || ''}`}>
+                <span className={styles.statusDot} aria-hidden="true" />
+                <select
+                  value={draft.priority}
+                  onChange={(event) => {
+                    const next = event.target.value;
+                    setDraft((current) => ({ ...current, priority: next }));
+                    setSaveStatus('');
+                  }}
+                  aria-label="Priority"
+                >
+                  {priorityOptions.map((priority) => (
+                    <option key={priority || 'none'} value={priority}>
+                      {priority || 'no priority'}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
-          </footer>
+            <InlineTextField
+              value={draft.title}
+              onChange={(val) => {
+                setDraft((current) => ({ ...current, title: val }));
+                setSaveStatus('');
+              }}
+              placeholder="Untitled"
+              ariaLabel="Title"
+              className={styles.detailTitle}
+            />
+            {(entity.ai?.summary || entity.ai?.entity_summary) && (
+              <aside className={styles.aiSummary} aria-label="AI summary">
+                <span className={styles.aiSummaryLabel}>AI summary</span>
+                <p>{entity.ai?.entity_summary || entity.ai?.summary}</p>
+              </aside>
+            )}
+            <InlineMarkdownField
+              value={draft.content || ''}
+              onChange={(val) => {
+                setDraft((current) => ({ ...current, content: val }));
+                setSaveStatus('');
+              }}
+              placeholder="Add a description — supports Markdown"
+            />
+            <footer className={styles.detailFooter}>
+              <div className={styles.footerSection}>
+                <span className={styles.footerLabel}>Tags</span>
+                <TagsField
+                  value={draft.tags}
+                  onChange={(val) => {
+                    setDraft((current) => ({ ...current, tags: val }));
+                    setSaveStatus('');
+                  }}
+                />
+              </div>
+              <div className={styles.footerSection}>
+                <span className={styles.footerLabel}>URL</span>
+                <InlineTextField
+                  value={draft.reference_url}
+                  onChange={(val) => {
+                    setDraft((current) => ({ ...current, reference_url: val }));
+                    setSaveStatus('');
+                  }}
+                  placeholder="https://…"
+                  ariaLabel="Reference URL"
+                  type="url"
+                  renderEmpty="Add URL"
+                />
+              </div>
+              <div className={styles.footerDateGrid}>
+                {showDueDate && (
+                  <div className={styles.footerDate}>
+                    <span className={styles.footerLabel}>Due</span>
+                    <InlineDateField
+                      value={draft.due_at}
+                      onChange={(val) => {
+                        setDraft((current) => ({ ...current, due_at: val }));
+                        setSaveStatus('');
+                      }}
+                      ariaLabel="Due date"
+                    />
+                  </div>
+                )}
+                <div className={styles.footerDate}>
+                  <span className={styles.footerLabel}>Follow-up</span>
+                  <InlineDateField
+                    value={draft.follow_up_at}
+                    onChange={(val) => {
+                      setDraft((current) => ({ ...current, follow_up_at: val }));
+                      setSaveStatus('');
+                    }}
+                    ariaLabel="Follow-up date"
+                  />
+                </div>
+                <div className={styles.footerDate}>
+                  <span className={styles.footerLabel}>Created</span>
+                  <span className={`${styles.metaStaticChip} ${styles.readOnlyChip}`} title="Not editable">{formatDateTime(entity.created_at)}</span>
+                </div>
+                <div className={styles.footerDate}>
+                  <span className={styles.footerLabel}>Updated</span>
+                  <span className={`${styles.metaStaticChip} ${styles.readOnlyChip}`} title="Not editable">{formatDateTime(entity.updated_at)}</span>
+                </div>
+              </div>
+            </footer>
+          </div>
         </form>
         {(isDirty || saveStatus) && (
           <div className={styles.statusBanner} role="status" aria-live="polite">

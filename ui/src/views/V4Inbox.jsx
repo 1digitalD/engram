@@ -143,6 +143,19 @@ export default function V4Inbox() {
   return (
     <main className={styles.inbox}>
       <section className={styles.capturePanel}>
+        <header className={styles.captureHeader}>
+          <div className={styles.captureHeaderCopy}>
+            <p className={styles.eyebrow}>Capture inbox</p>
+            <h1>Capture first, then review or file the note.</h1>
+            <p>
+              Raw notes land here. Review extraction outcomes below or move into the full notes library when you just need retrieval.
+            </p>
+          </div>
+          <div className={styles.captureHeaderActions}>
+            <Link to="/suggestions" className={styles.captureHeaderLink}>Review suggestions</Link>
+            <Link to="/notes" className={styles.captureHeaderLink}>All notes</Link>
+          </div>
+        </header>
         <form onSubmit={handleSubmit} className={styles.form}>
           <MarkdownEditor
             value={content}
@@ -198,6 +211,7 @@ export default function V4Inbox() {
             <h2>Needs review</h2>
             <span className={styles.sectionHint}>Pending suggestions or AI errors</span>
             <span className={styles.countPill}>{needsReview.length}</span>
+            <Link to="/suggestions" className={styles.sectionLink}>Open review queue</Link>
           </header>
           <ul className={styles.noteList}>
             {needsReview.map((n) => (
@@ -210,7 +224,9 @@ export default function V4Inbox() {
       <section className={styles.recentPanel}>
         <header className={styles.sectionHeader}>
           <h2>Captured recently</h2>
+          <span className={styles.sectionHint}>Recent source notes, without the review queue mixed in.</span>
           <span className={styles.countPill}>{recent.length}</span>
+          <Link to="/notes" className={styles.sectionLink}>Open notes</Link>
         </header>
         {recent.length === 0 ? (
           <p className={styles.empty}>No notes yet.</p>
