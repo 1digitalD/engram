@@ -2,7 +2,7 @@
 
 This file is the fresh-agent handoff for the current v4 baseline. Use it to reconstruct context quickly without reading stale task logs first.
 
-Last updated: 2026-06-06
+Last updated: 2026-06-07
 Branch: `main`
 Runtime baseline: `/api/v4` only, fresh Postgres + pgvector schema, write-enabled MCP aligned with the active API.
 
@@ -59,7 +59,8 @@ Non-authoritative historical artifacts:
   12. Today Review Navigation
   13. Detail Return Navigation
   14. List Loading State
-- Active iteration contract: `docs/iterations/ITERATION_14_LIST_LOADING_STATE.md`
+  15. UI Stabilization
+- Active iteration contract: `docs/iterations/ITERATION_15_UI_STABILIZATION.md`
 - Iteration 0 implementation status:
   - entity detail save semantics were changed to an explicit-save model
   - sidebar `Today` count now uses the same actionable buckets as the `Today` screen
@@ -164,7 +165,16 @@ Non-authoritative historical artifacts:
   - focused frontend tests passed
   - full frontend tests passed
   - frontend build passed
-- Immediate next step: re-check whether the `/areas` runtime inconsistency is now adequately explained and resolved, then choose the next navigation/review polish slice from live QA rather than from missing structure.
+- Iteration 15 implementation status:
+  - route-level screens now size against the shell viewport instead of assuming full-window height
+  - the shell quick-action bar is now home-only, removing duplicate top-bar controls from inbox and entity routes
+  - entity list state now resets correctly when switching types through sidebar navigation on the shared mounted list view
+  - inbox cards were simplified to avoid nested-link and segment-overlap issues
+  - entity detail scroll was restored by making the route viewport a flex column and the shared entity screen a real flex child scroll container
+  - focused frontend tests passed
+  - full frontend tests passed
+  - frontend build passed
+- Immediate next step: shift primary delivery focus from frontend structure to agentic/backend improvements, with only targeted UI follow-ups as bugs or validation findings demand.
 
 ## Validation Commands
 

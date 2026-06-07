@@ -73,6 +73,10 @@ function parseStatusFilter(value) {
   return [value];
 }
 
+function formatFilterLabel(value) {
+  if (!value) return '';
+  return value.replaceAll('_', ' ');
+}
 
 function detailPath(entity) {
   const base = entity.type === 'person' ? 'people' : `${entity.type}s`;
@@ -128,6 +132,17 @@ export default function V4EntityList({ type }) {
   const [statusFilter, setStatusFilter] = useState(_init?.statusFilter ?? []);
   const [priorityFilter, setPriorityFilter] = useState(_init?.priorityFilter ?? '');
   const [lifecycleFilter, setLifecycleFilter] = useState(parseLifetime(_init?.lifecycleFilter));
+  const [loadedStateType, setLoadedStateType] = useState(type);
+
+  useEffect(() => {
+    const next = loadListState(type);
+    setSortField(next?.sortField ?? 'updated');
+    setSortDir(next?.sortDir ?? 'desc');
+    setStatusFilter(next?.statusFilter ?? []);
+    setPriorityFilter(next?.priorityFilter ?? '');
+    setLifecycleFilter(parseLifetime(next?.lifecycleFilter));
+    setLoadedStateType(type);
+  }, [type]);
 
   useEffect(() => {
     let active = true;
@@ -154,8 +169,9 @@ export default function V4EntityList({ type }) {
 
   // Persist sort/filter state on every change.
   useEffect(() => {
+    if (loadedStateType !== type) return;
     persistListState(type, { sortField, sortDir, statusFilter, priorityFilter, lifecycleFilter });
-  }, [type, sortField, sortDir, statusFilter, priorityFilter, lifecycleFilter]);
+  }, [type, loadedStateType, sortField, sortDir, statusFilter, priorityFilter, lifecycleFilter]);
 
   const statusOptions = STATUS_BY_TYPE[type] || [];
 
@@ -181,7 +197,22 @@ export default function V4EntityList({ type }) {
     if (next) setSortDir(next.defaultDir);
   }
 
+  function toggleStatusFilter(value) {
+    setStatusFilter((current) => (
+      current.includes(value)
+        ? current.filter((item) => item !== value)
+        : [...current, value]
+    ));
+  }
+
+  function clearFilters() {
+    setStatusFilter([]);
+    setPriorityFilter('');
+    setLifecycleFilter('active');
+  }
+
   const activeFilterCount = [statusFilter.length > 0, priorityFilter, lifecycleFilter !== 'active'].filter(Boolean).length;
+  const primaryActionLabel = open ? `Close new ${type}` : `New ${type}`;
 
   async function handleCreate(event) {
     event.preventDefault();
@@ -220,90 +251,171 @@ export default function V4EntityList({ type }) {
   return (
     <main className={styles.screen}>
       <section className={styles.listHeaderPanel}>
-        <div className={styles.listHeading}>
-          <h1>{pluralTitle[type]}</h1>
-          <span className={styles.countPill}>{visibleEntities.length}{activeFilterCount > 0 && entities.length !== visibleEntities.length ? ` / ${entities.length}` : ''}</span>
-          <div className={styles.listHeadingSpacer} />
-          <div className={styles.listToolbar}>
-            <label className={styles.filterControlMulti}>
-              <span className={styles.sortLabel}>Status{statusFilter.length > 0 && <span className={styles.filterBadge}>{statusFilter.length}</span>}</span>
-              <select
-                multiple
-                value={statusFilter}
-                onChange={(event) => setStatusFilter(Array.from(event.target.selectedOptions).map(o => o.value))}
-                aria-label={`Filter ${pluralTitle[type].toLowerCase()} by status`}
-                title="Hold Cmd/Ctrl to select multiple"
-              >
-                {statusOptions.map((s) => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
-            </label>
-            {type === 'task' && (
-              <label className={styles.filterControl}>
-                <span className={styles.sortLabel}>Priority</span>
-                <select
-                  value={priorityFilter}
-                  onChange={(event) => setPriorityFilter(event.target.value)}
-                  aria-label="Filter tasks by priority"
-                >
-                  <option value="">all</option>
-                  {PRIORITY_OPTIONS.map((p) => (
-                    <option key={p} value={p}>{p}</option>
-                  ))}
-                  <option value="__none__">no priority</option>
-                </select>
-              </label>
-            )}
-            <label className={styles.filterControl}>
-              <span className={styles.sortLabel}>Lifecycle</span>
-              <select
-                value={lifecycleFilter}
-                onChange={(event) => setLifecycleFilter(event.target.value)}
-                aria-label={`Lifecycle filter for ${pluralTitle[type].toLowerCase()}`}
-              >
-                <option value="active">active</option>
-                <option value="archived">archived</option>
-                <option value="all">all</option>
-              </select>
-            </label>
-            <label className={styles.sortControl}>
-              <span className={styles.sortLabel}>Sort</span>
-              <select
-                value={sortField}
-                onChange={(event) => onSortFieldChange(event.target.value)}
-                aria-label={`Sort ${pluralTitle[type].toLowerCase()}`}
-              >
-                {SORT_FIELDS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </select>
-              <button
-                type="button"
-                className={styles.sortDirButton}
-                onClick={toggleSortDir}
-                aria-label={`Sort direction: ${sortDir === 'asc' ? 'ascending' : 'descending'} (click to flip)`}
-                title={sortDir === 'asc' ? 'Ascending — click to descend' : 'Descending — click to ascend'}
-              >
-                {sortDir === 'asc'
-                  ? <ArrowUp size={13} strokeWidth={2.4} aria-hidden="true" />
-                  : <ArrowDown size={13} strokeWidth={2.4} aria-hidden="true" />}
-              </button>
-            </label>
+        <div className={styles.listHeaderTop}>
+          <div className={styles.listTitleBlock}>
+            <div className={styles.listTitleRow}>
+              <h1>{pluralTitle[type]}</h1>
+              <span className={styles.countPill}>{visibleEntities.length}{activeFilterCount > 0 && entities.length !== visibleEntities.length ? ` / ${entities.length}` : ''}</span>
+              {activeFilterCount > 0 ? (
+                <span className={styles.listFilterSummary}>
+                  {activeFilterCount} active filter{activeFilterCount === 1 ? '' : 's'}
+                </span>
+              ) : null}
+            </div>
           </div>
           <button
             type="button"
-            className={`${styles.addButton} ${styles.addButtonIcon}`}
+            className={`${styles.addButton} ${open ? styles.addButtonActive : ''}`}
             onClick={() => setOpen((v) => !v)}
             aria-expanded={open}
-            aria-label={open ? `Close new ${type}` : `New ${type}`}
-            title={open ? 'Close' : `New ${type}`}
+            aria-label={primaryActionLabel}
+            title={primaryActionLabel}
           >
             {open
               ? <X size={14} strokeWidth={2.2} aria-hidden="true" />
               : <Plus size={14} strokeWidth={2.2} aria-hidden="true" />}
+            <span>{open ? 'Close' : `New ${type}`}</span>
           </button>
         </div>
+        <div className={styles.listToolbar}>
+          <div className={styles.toolbarGroup}>
+            <span className={styles.sortLabel}>
+              Status
+              {statusFilter.length > 0 && <span className={styles.filterBadge}>{statusFilter.length}</span>}
+            </span>
+            <div className={styles.statusChipRow} aria-label={`Filter ${pluralTitle[type].toLowerCase()} by status`}>
+              <button
+                type="button"
+                className={`${styles.filterChip} ${statusFilter.length === 0 ? styles.filterChipActive : ''}`}
+                aria-pressed={statusFilter.length === 0}
+                onClick={() => setStatusFilter([])}
+              >
+                All statuses
+              </button>
+              {statusOptions.map((status) => (
+                <button
+                  key={status}
+                  type="button"
+                  className={`${styles.filterChip} ${statusFilter.includes(status) ? styles.filterChipActive : ''}`}
+                  aria-pressed={statusFilter.includes(status)}
+                  onClick={() => toggleStatusFilter(status)}
+                >
+                  {formatFilterLabel(status)}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className={styles.toolbarGroup}>
+            <div className={styles.toolbarGroupHeader}>
+              <span className={styles.sortLabel}>Refine</span>
+              {activeFilterCount > 0 && (
+                <button
+                  type="button"
+                  className={styles.clearFiltersButton}
+                  onClick={clearFilters}
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+            <div className={styles.toolbarControlRow}>
+              {type === 'task' && (
+                <label className={styles.filterControl}>
+                  <span className={styles.controlLabel}>Priority</span>
+                  <select
+                    value={priorityFilter}
+                    onChange={(event) => setPriorityFilter(event.target.value)}
+                    aria-label="Filter tasks by priority"
+                  >
+                    <option value="">all</option>
+                    {PRIORITY_OPTIONS.map((p) => (
+                      <option key={p} value={p}>{p}</option>
+                    ))}
+                    <option value="__none__">no priority</option>
+                  </select>
+                </label>
+              )}
+              <label className={styles.filterControl}>
+                <span className={styles.controlLabel}>Lifecycle</span>
+                <select
+                  value={lifecycleFilter}
+                  onChange={(event) => setLifecycleFilter(event.target.value)}
+                  aria-label={`Lifecycle filter for ${pluralTitle[type].toLowerCase()}`}
+                >
+                  <option value="active">active</option>
+                  <option value="archived">archived</option>
+                  <option value="all">all</option>
+                </select>
+              </label>
+              <label className={`${styles.filterControl} ${styles.sortFieldControl}`}>
+                <span className={styles.controlLabel}>Sort</span>
+                <span className={styles.sortControl}>
+                  <select
+                    value={sortField}
+                    onChange={(event) => onSortFieldChange(event.target.value)}
+                    aria-label={`Sort ${pluralTitle[type].toLowerCase()}`}
+                  >
+                    {SORT_FIELDS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    className={styles.sortDirButton}
+                    onClick={toggleSortDir}
+                    aria-label={`Sort direction: ${sortDir === 'asc' ? 'ascending' : 'descending'} (click to flip)`}
+                    title={sortDir === 'asc' ? 'Ascending — click to descend' : 'Descending — click to ascend'}
+                  >
+                    {sortDir === 'asc'
+                      ? <ArrowUp size={13} strokeWidth={2.4} aria-hidden="true" />
+                      : <ArrowDown size={13} strokeWidth={2.4} aria-hidden="true" />}
+                  </button>
+                </span>
+              </label>
+            </div>
+          </div>
+        </div>
+        {activeFilterCount > 0 && (
+          <div className={styles.listFilterRail}>
+            <span className={styles.listFilterRailLabel}>Active</span>
+            <div className={styles.activeFiltersRow} aria-label="Active filters">
+              {statusFilter.map((status) => (
+                <button
+                  key={status}
+                  type="button"
+                  className={styles.activeFilterPill}
+                  onClick={() => toggleStatusFilter(status)}
+                  title={`Remove ${formatFilterLabel(status)} filter`}
+                >
+                  Status: {formatFilterLabel(status)}
+                  <X size={12} strokeWidth={2.2} aria-hidden="true" />
+                </button>
+              ))}
+              {priorityFilter && (
+                <button
+                  type="button"
+                  className={styles.activeFilterPill}
+                  onClick={() => setPriorityFilter('')}
+                  title="Remove priority filter"
+                >
+                  Priority: {priorityFilter === '__none__' ? 'none' : priorityFilter}
+                  <X size={12} strokeWidth={2.2} aria-hidden="true" />
+                </button>
+              )}
+              {lifecycleFilter !== 'active' && (
+                <button
+                  type="button"
+                  className={styles.activeFilterPill}
+                  onClick={() => setLifecycleFilter('active')}
+                  title="Reset lifecycle filter"
+                >
+                  Lifecycle: {lifecycleFilter}
+                  <X size={12} strokeWidth={2.2} aria-hidden="true" />
+                </button>
+              )}
+            </div>
+          </div>
+        )}
         {open && (
           <form onSubmit={handleCreate} className={styles.quickCreateForm} aria-label={`Create ${type}`}>
             <input

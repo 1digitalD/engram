@@ -39,6 +39,7 @@ vi.mock('../api/v4Client', () => ({
 describe('v4 entity screens', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    sessionStorage.clear();
     v4API.entities.list.mockResolvedValue({ data: [] });
     v4API.entities.events.mockResolvedValue({ data: [] });
     v4API.activityUpdates.list.mockResolvedValue({ data: [] });
@@ -132,6 +133,104 @@ describe('v4 entity screens', () => {
 
     expect(await screen.findByRole('link', { name: /Agent Memory/i })).toHaveAttribute('href', '/areas/a1');
     expect(v4API.entities.list).toHaveBeenCalledWith({ type: 'area', limit: 100, lifecycle: 'active' });
+  });
+
+  it('filters entity lists through status chips', async () => {
+    v4API.entities.list.mockResolvedValue({
+      data: [
+        {
+          id: 't-open',
+          type: 'task',
+          title: 'Open item',
+          status: 'open',
+          created_at: '2026-05-20T09:00:00+00:00',
+          updated_at: '2026-05-20T10:00:00+00:00',
+          properties: {},
+          tags: [],
+        },
+        {
+          id: 't-done',
+          type: 'task',
+          title: 'Done item',
+          status: 'done',
+          created_at: '2026-05-20T09:00:00+00:00',
+          updated_at: '2026-05-20T10:00:00+00:00',
+          properties: {},
+          tags: [],
+        },
+      ],
+    });
+
+    render(
+      <MemoryRouter>
+        <V4EntityList type="task" />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('link', { name: /Open item/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Done item/i })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'done' }));
+
+    expect(screen.getByRole('button', { name: 'done' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.queryByRole('link', { name: /Open item/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Done item/i })).toBeInTheDocument();
+  });
+
+  it('resets to the next entity type state when the shared list view changes type', async () => {
+    v4API.entities.list.mockImplementation(({ type }) => {
+      if (type === 'project') {
+        return Promise.resolve({
+          data: [
+            {
+              id: 'p-active',
+              type: 'project',
+              title: 'Active project',
+              status: 'active',
+              created_at: '2026-05-20T09:00:00+00:00',
+              updated_at: '2026-05-20T10:00:00+00:00',
+              properties: {},
+              tags: [],
+            },
+          ],
+        });
+      }
+
+      return Promise.resolve({
+        data: [
+          {
+            id: 't-open',
+            type: 'task',
+            title: 'Open task',
+            status: 'open',
+            created_at: '2026-05-20T09:00:00+00:00',
+            updated_at: '2026-05-20T10:00:00+00:00',
+            properties: {},
+            tags: [],
+          },
+        ],
+      });
+    });
+
+    function Wrapper({ type }) {
+      return (
+        <MemoryRouter>
+          <V4EntityList type={type} />
+        </MemoryRouter>
+      );
+    }
+
+    const { rerender } = render(<Wrapper type="project" />);
+
+    expect(await screen.findByRole('link', { name: /Active project/i })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'completed' }));
+    expect(screen.getByText(/No projects match the current filters/i)).toBeInTheDocument();
+
+    rerender(<Wrapper type="task" />);
+
+    expect(await screen.findByRole('link', { name: /Open task/i })).toBeInTheDocument();
+    expect(screen.queryByText(/No tasks match the current filters/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'open' })).toHaveAttribute('aria-pressed', 'false');
   });
 
   it('updates metadata and manages linked section actions from detail sections', async () => {

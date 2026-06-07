@@ -38,7 +38,7 @@ function formatTimestamp(value) {
   });
 }
 
-function NoteCard({ note, onChanged, fromState }) {
+function NoteCard({ note, onChanged, fromState, showPreview = true }) {
   const ts = note.created_at || note.updated_at;
   const pending = note.pending_suggestion_count || 0;
   const aiPending = note.ai?.status === 'pending';
@@ -47,40 +47,47 @@ function NoteCard({ note, onChanged, fromState }) {
   return (
     <li className={`${styles.noteCard} cardActionsParent`}>
       <CardActions entity={note} onChanged={onChanged} />
-      <Link to={notePath(note)} state={fromState} className={styles.noteLink}>
-        <div className={styles.noteHeader}>
-          <strong>{entityTitle(note)}</strong>
-          {ts && (
-            <time
-              className={styles.noteTimestamp}
-              dateTime={ts}
-              title={new Date(ts).toLocaleString()}
-            >
-              {formatTimestamp(ts)}
-            </time>
+      <div className={styles.noteSurface}>
+        <Link to={notePath(note)} state={fromState} className={styles.noteLink}>
+          <div className={styles.noteHeader}>
+            <strong>{entityTitle(note)}</strong>
+            {ts && (
+              <time
+                className={styles.noteTimestamp}
+                dateTime={ts}
+                title={new Date(ts).toLocaleString()}
+              >
+                {formatTimestamp(ts)}
+              </time>
+            )}
+          </div>
+          {showPreview && note.content && (
+            <MarkdownContent content={note.content} compact />
+          )}
+        </Link>
+        <div className={styles.noteMetaRow}>
+          <div className={styles.noteBadges}>
+            {aiPending && <span className={`${styles.badge} ${styles.badge_warn}`}>AI pending</span>}
+            {aiError && <span className={`${styles.badge} ${styles.badge_error}`}>AI error</span>}
+            {pending > 0 && (
+              <span className={`${styles.badge} ${styles.badge_accent}`}>{pending} suggestion{pending === 1 ? '' : 's'}</span>
+            )}
+          </div>
+          {tagList.length > 0 && (
+            <div className={styles.noteTags} aria-label="Note tags">
+              {tagList.slice(0, 4).map((tag) => (
+                <Link
+                  key={tag.id || tag.name}
+                  to={`/search?tag=${encodeURIComponent(tag.name)}`}
+                  className={styles.tagChip}
+                >
+                  #{tag.name}
+                </Link>
+              ))}
+            </div>
           )}
         </div>
-        {note.content && (
-          <MarkdownContent content={note.content} compact />
-        )}
-        <div className={styles.noteBadges}>
-          {aiPending && <span className={`${styles.badge} ${styles.badge_warn}`}>AI pending</span>}
-          {aiError && <span className={`${styles.badge} ${styles.badge_error}`}>AI error</span>}
-          {pending > 0 && (
-            <span className={`${styles.badge} ${styles.badge_accent}`}>{pending} suggestion{pending === 1 ? '' : 's'}</span>
-          )}
-          {tagList.slice(0, 4).map((tag) => (
-            <Link
-              key={tag.id || tag.name}
-              to={`/search?tag=${encodeURIComponent(tag.name)}`}
-              className={styles.tagChip}
-              onClick={(e) => e.stopPropagation()}
-            >
-              #{tag.name}
-            </Link>
-          ))}
-        </div>
-      </Link>
+      </div>
     </li>
   );
 }
@@ -211,7 +218,7 @@ export default function V4Inbox() {
           <>
             <ul className={styles.noteList}>
               {recent.slice(0, 10).map((n) => (
-                <NoteCard key={n.id} note={n} fromState={fromState} onChanged={loadInbox} />
+                <NoteCard key={n.id} note={n} fromState={fromState} onChanged={loadInbox} showPreview={false} />
               ))}
             </ul>
             {recent.length > 10 && (

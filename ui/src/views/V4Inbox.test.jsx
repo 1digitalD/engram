@@ -78,6 +78,7 @@ describe('V4Inbox', () => {
   it('lists recent notes from the v4 inbox API', async () => {
     renderInbox();
     expect(await screen.findByText('Older note')).toBeInTheDocument();
+    expect(screen.queryByText('Already captured')).not.toBeInTheDocument();
     expect(v4API.inbox).toHaveBeenCalledWith({ limit: 30 });
   });
 
@@ -95,5 +96,26 @@ describe('V4Inbox', () => {
     expect(screen.getByText('Has pending suggestion')).toBeInTheDocument();
     expect(screen.getByText(/2 suggestions/)).toBeInTheDocument();
     expect(screen.getByText('Already processed')).toBeInTheDocument();
+    expect(screen.getByText('body')).toBeInTheDocument();
+  });
+
+  it('keeps tag navigation separate from the main note link', async () => {
+    v4API.inbox.mockResolvedValue({
+      needs_review: [],
+      recent: [
+        {
+          id: 'n-tagged',
+          title: 'Tagged note',
+          content: 'body',
+          tags: [{ id: 't1', name: 'ops' }],
+          pending_suggestion_count: 0,
+        },
+      ],
+    });
+
+    renderInbox();
+
+    expect(await screen.findByRole('link', { name: /Tagged note/ })).toHaveAttribute('href', '/notes/n-tagged');
+    expect(screen.getByRole('link', { name: '#ops' })).toHaveAttribute('href', '/search?tag=ops');
   });
 });

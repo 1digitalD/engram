@@ -1,8 +1,10 @@
 .screen {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   gap: var(--space-2);
-  height: 100vh;
+  height: 100%;
+  min-height: 0;
   overflow: auto;
   padding: var(--space-3) var(--space-4);
 }
@@ -49,21 +51,32 @@
 .listHeaderPanel {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: 10px;
+  padding: 12px 14px;
 }
 
-.listHeading {
-  display: flex;
+.listHeaderTop {
   align-items: center;
+  display: flex;
   gap: var(--space-2);
-  justify-content: flex-start;
+  justify-content: space-between;
 }
 
-.listHeading .addButton {
-  margin-left: auto;
+.listTitleBlock {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
 }
 
-.listHeading h1 {
+.listTitleRow {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.listTitleRow h1 {
   font-size: var(--text-lg);
   font-weight: 700;
   letter-spacing: -0.02em;
@@ -159,9 +172,10 @@
   color: var(--text);
 }
 
-.addButtonIcon {
-  min-width: 26px;
-  padding: 4px;
+.addButtonActive {
+  background: color-mix(in oklch, var(--accent) 9%, var(--surface));
+  border-color: color-mix(in oklch, var(--accent) 26%, var(--border));
+  color: var(--accent);
 }
 
 .segmentHeader h2 {
@@ -1423,15 +1437,12 @@
   font-weight: 600;
 }
 
-.listHeadingSpacer {
-  flex: 1 1 auto;
-}
-
 .sortControl {
   align-items: center;
   display: inline-flex;
-  font-size: var(--text-xs);
   gap: 6px;
+  min-width: 0;
+  width: 100%;
 }
 
 .sortLabel {
@@ -1442,15 +1453,25 @@
   text-transform: uppercase;
 }
 
+.controlLabel {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .sortControl select {
   background: var(--surface);
-  border: 1px solid var(--border-faint);
+  border: 1px solid var(--border);
   border-radius: var(--radius-full);
   color: var(--text);
   cursor: pointer;
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   font-weight: 500;
-  padding: 4px 10px;
+  min-height: 30px;
+  padding: 5px 12px;
 }
 
 .sortControl select:hover {
@@ -1459,55 +1480,143 @@
 
 .listToolbar {
   align-items: center;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, auto);
+  gap: 10px;
+}
+
+.toolbarGroup {
+  align-items: center;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+  min-width: 0;
+  padding: 0;
+}
+
+.toolbarGroupHeader {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.toolbarControlRow {
+  align-items: center;
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2);
+  gap: 10px;
 }
 
 .filterControl {
-  align-items: center;
+  align-items: flex-start;
   display: inline-flex;
-  font-size: var(--text-xs);
-  gap: 6px;
+  flex-direction: column;
+  gap: 4px;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.sortFieldControl {
+  flex: 0 1 auto;
 }
 
 .filterControl select {
   background: var(--surface);
-  border: 1px solid var(--border-faint);
+  border: 1px solid var(--border);
   border-radius: var(--radius-full);
   color: var(--text);
   cursor: pointer;
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   font-weight: 500;
-  padding: 4px 10px;
+  min-height: 30px;
+  padding: 5px 12px;
 }
 
 .filterControl select:hover {
   border-color: var(--border);
 }
 
-.filterControlMulti {
-  align-items: center;
-  display: inline-flex;
-  flex-direction: column;
-  font-size: var(--text-xs);
-  gap: 4px;
+.statusChipRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
 }
 
-.filterControlMulti select {
+.filterChip {
+  align-items: center;
   background: var(--surface);
-  border: 1px solid var(--border-faint);
-  border-radius: var(--radius-md);
-  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  color: var(--text-secondary);
   cursor: pointer;
   font-size: var(--text-xs);
-  font-weight: 500;
-  min-width: 120px;
-  padding: 4px 8px;
+  font-weight: 600;
+  min-height: 28px;
+  padding: 4px 10px;
+  transition: background-color var(--duration-fast) var(--ease-out),
+              border-color var(--duration-fast) var(--ease-out),
+              color var(--duration-fast) var(--ease-out);
 }
 
-.filterControlMulti select:hover {
-  border-color: var(--border);
+.filterChip:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.filterChipActive {
+  background: color-mix(in oklch, var(--accent) 10%, var(--surface));
+  border-color: color-mix(in oklch, var(--accent) 28%, var(--border));
+  color: var(--accent);
+}
+
+.activeFiltersRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.listFilterRail {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.listFilterRailLabel,
+.listFilterSummary {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.activeFilterPill {
+  align-items: center;
+  background: color-mix(in oklch, var(--accent) 7%, var(--surface));
+  border: 1px solid color-mix(in oklch, var(--accent) 18%, var(--border-faint));
+  border-radius: var(--radius-full);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  gap: 6px;
+  letter-spacing: 0.02em;
+  min-height: 24px;
+  padding: 3px 8px;
+}
+
+.activeFilterPill:hover {
+  border-color: color-mix(in oklch, var(--accent) 24%, var(--border));
+  color: var(--accent);
 }
 
 .filterBadge {
@@ -1518,6 +1627,26 @@
   font-weight: 600;
   line-height: 1;
   padding: 2px 6px;
+}
+
+.clearFiltersButton {
+  background: color-mix(in oklch, var(--accent) 7%, var(--surface));
+  border: 1px solid color-mix(in oklch, var(--accent) 18%, var(--border-faint));
+  border-radius: var(--radius-full);
+  color: var(--accent);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  min-height: 24px;
+  padding: 3px 8px;
+  text-transform: uppercase;
+}
+
+.clearFiltersButton:hover {
+  border-color: color-mix(in oklch, var(--accent) 26%, var(--border));
+  background: color-mix(in oklch, var(--accent) 11%, var(--surface));
 }
 
 .taskCountBadge {
@@ -1535,18 +1664,18 @@
 .sortDirButton {
   align-items: center;
   background: var(--surface);
-  border: 1px solid var(--border-faint);
+  border: 1px solid var(--border);
   border-radius: 50%;
   color: var(--text-secondary);
   cursor: pointer;
   display: inline-flex;
-  height: 24px;
+  height: 30px;
   justify-content: center;
   padding: 0;
   transition: background-color var(--duration-fast) var(--ease-out),
               border-color var(--duration-fast) var(--ease-out),
               color var(--duration-fast) var(--ease-out);
-  width: 24px;
+  width: 30px;
 }
 
 .sortDirButton:hover {
@@ -1720,6 +1849,33 @@
   .screen {
     height: auto;
     padding: var(--space-3);
+  }
+
+  .listHeaderTop,
+  .toolbarControlRow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .listToolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .toolbarGroup,
+  .sortControl,
+  .filterControl {
+    width: 100%;
+  }
+
+  .toolbarGroupHeader {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .toolbarGroup {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 8px;
   }
 
   .inlineForm,

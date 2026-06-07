@@ -227,6 +227,7 @@ function QuickActionBar() {
 export default function App() {
   const location = useLocation();
   const counts = useSidebarCounts(location.pathname + location.search);
+  const showQuickActions = location.pathname === '/';
   return (
     <div className={styles.shell}>
       <aside className={styles.sidebar}>
@@ -264,28 +265,30 @@ export default function App() {
         </nav>
       </aside>
       <div className={styles.mainColumn}>
-        <QuickActionBar />
-        <Routes>
-          <Route path="/" element={<V4Home />} />
-          <Route path="/inbox" element={<V4Inbox />} />
-          <Route path="/today" element={<V4Today />} />
-          <Route path="/search" element={<V4Search />} />
-          <Route path="/entities/:id" element={<V4EntityDetail />} />
-          <Route path="/notes" element={<V4EntityList type="note" />} />
-          <Route path="/notes/:id" element={<V4EntityDetail type="note" />} />
-          <Route path="/projects" element={<V4EntityList type="project" />} />
-          <Route path="/projects/:id" element={<V4EntityDetail type="project" />} />
-          <Route path="/tasks" element={<V4EntityList type="task" />} />
-          <Route path="/tasks/:id" element={<V4EntityDetail type="task" />} />
-          <Route path="/areas" element={<V4EntityList type="area" />} />
-          <Route path="/areas/:id" element={<V4EntityDetail type="area" />} />
-          <Route path="/people" element={<V4EntityList type="person" />} />
-          <Route path="/people/:id" element={<V4EntityDetail type="person" />} />
-          <Route path="/resources" element={<V4EntityList type="resource" />} />
-          <Route path="/resources/:id" element={<V4EntityDetail type="resource" />} />
-          <Route path="/suggestions" element={<V4Suggestions />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+        {showQuickActions ? <QuickActionBar /> : null}
+        <div className={styles.routeViewport}>
+          <Routes>
+            <Route path="/" element={<V4Home />} />
+            <Route path="/inbox" element={<V4Inbox />} />
+            <Route path="/today" element={<V4Today />} />
+            <Route path="/search" element={<V4Search />} />
+            <Route path="/entities/:id" element={<V4EntityDetail />} />
+            <Route path="/notes" element={<V4EntityList type="note" />} />
+            <Route path="/notes/:id" element={<V4EntityDetail type="note" />} />
+            <Route path="/projects" element={<V4EntityList type="project" />} />
+            <Route path="/projects/:id" element={<V4EntityDetail type="project" />} />
+            <Route path="/tasks" element={<V4EntityList type="task" />} />
+            <Route path="/tasks/:id" element={<V4EntityDetail type="task" />} />
+            <Route path="/areas" element={<V4EntityList type="area" />} />
+            <Route path="/areas/:id" element={<V4EntityDetail type="area" />} />
+            <Route path="/people" element={<V4EntityList type="person" />} />
+            <Route path="/people/:id" element={<V4EntityDetail type="person" />} />
+            <Route path="/resources" element={<V4EntityList type="resource" />} />
+            <Route path="/resources/:id" element={<V4EntityDetail type="resource" />} />
+            <Route path="/suggestions" element={<V4Suggestions />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </div>
       </div>
     </div>
   );

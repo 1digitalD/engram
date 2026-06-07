@@ -94,7 +94,7 @@ describe('App shell', () => {
     v4API.capture.mockResolvedValue({ source_note: { id: 'n1' } });
 
     render(
-      <MemoryRouter initialEntries={['/today']}>
+      <MemoryRouter initialEntries={['/']}>
         <App />
       </MemoryRouter>,
     );
@@ -113,12 +113,11 @@ describe('App shell', () => {
     expect(await screen.findByText('Saved note')).toBeInTheDocument();
   });
 
-  it('supports quick task creation from the shell', async () => {
+  it('does not render the shell quick-action bar on entity list routes', async () => {
     v4API.inbox.mockResolvedValue({ needs_review: [] });
     v4API.entities.list.mockResolvedValue({ meta: { total: 0 }, data: [] });
     v4API.today.mockResolvedValue({});
     v4API.suggestions.list.mockResolvedValue({ meta: { total: 0 }, data: [] });
-    v4API.entities.create.mockResolvedValue({ data: { id: 't1' } });
 
     render(
       <MemoryRouter initialEntries={['/projects']}>
@@ -126,17 +125,8 @@ describe('App shell', () => {
       </MemoryRouter>,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /task/i }));
-    fireEvent.change(screen.getByLabelText('Quick task title'), {
-      target: { value: 'Global task' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: /create task/i }));
-
-    await waitFor(() => expect(v4API.entities.create).toHaveBeenCalledWith({
-      type: 'task',
-      title: 'Global task',
-      content: null,
-    }));
-    expect(await screen.findByText('Created task')).toBeInTheDocument();
+    expect(await screen.findByText('project list')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Save note/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /New task/i })).not.toBeInTheDocument();
   });
 });

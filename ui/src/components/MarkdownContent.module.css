@@ -135,12 +135,12 @@
 /* Compact variant for list previews — plain text, 2-line clamp. */
 .mdCompact {
   color: var(--text-secondary);
-  display: -webkit-box;
+  display: block;
   font-weight: 400;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
+  line-height: 1.45;
+  max-height: calc(1.45em * 2);
   overflow: hidden;
   white-space: normal;
+  overflow-wrap: anywhere;
   word-break: break-word;
 }
