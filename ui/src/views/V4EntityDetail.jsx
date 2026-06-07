@@ -202,6 +202,23 @@ function sectionItems(detail, key) {
   return detail.sections.find((section) => section.key === key)?.items || [];
 }
 
+function backLabel(from, entityType) {
+  const fallback = collectionPathForType(entityType);
+  const target = from || fallback;
+  if (target === '/') return 'Back to Home';
+  if (target.startsWith('/today')) return 'Back to Today';
+  if (target.startsWith('/inbox')) return 'Back to Inbox';
+  if (target.startsWith('/suggestions')) return 'Back to Suggestions';
+  if (target.startsWith('/search')) return 'Back to Search';
+  if (target.startsWith('/notes')) return 'Back to Notes';
+  if (target.startsWith('/projects')) return 'Back to Projects';
+  if (target.startsWith('/tasks')) return 'Back to Tasks';
+  if (target.startsWith('/areas')) return 'Back to Areas';
+  if (target.startsWith('/people')) return 'Back to People';
+  if (target.startsWith('/resources')) return 'Back to Resources';
+  return 'Back';
+}
+
 export default function V4EntityDetail({ type: routeType }) {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -445,6 +462,7 @@ export default function V4EntityDetail({ type: routeType }) {
 
   const entity = detail.entity;
   const entityType = routeType || entity.type;
+  const backTarget = location.state?.from || collectionPathForType(entity.type);
   const showDueDate = entity.type !== 'note';
   const configs = actionConfigs[entity.type] || [];
   const usedSectionKeys = new Set(configs.flatMap((config) => config.sectionKeys || []));
@@ -467,7 +485,16 @@ export default function V4EntityDetail({ type: routeType }) {
       <section className={styles.headerPanel}>
         <form onSubmit={handleSave} className={styles.detailForm} aria-label="Edit entity">
           <div className={styles.headerTop}>
-            <p className={styles.eyebrow}>Engram v4 {entityType}</p>
+            <div className={styles.headerContext}>
+              <button
+                type="button"
+                className={styles.backLink}
+                onClick={() => navigateBack(collectionPathForType(entity.type))}
+              >
+                {backLabel(backTarget, entity.type)}
+              </button>
+              <p className={styles.eyebrow}>Engram v4 {entityType}</p>
+            </div>
             <div className={styles.headerActions}>
               {entity.type === 'note' && (
                 <button

@@ -56,7 +56,9 @@ Non-authoritative historical artifacts:
   9. Area Workspace
   10. Person Workspace
   11. Resource Workspace
-- Active iteration contract: `docs/iterations/ITERATION_11_RESOURCE_WORKSPACE.md`
+  12. Today Review Navigation
+  13. Detail Return Navigation
+- Active iteration contract: `docs/iterations/ITERATION_13_DETAIL_RETURN_NAV.md`
 - Iteration 0 implementation status:
   - entity detail save semantics were changed to an explicit-save model
   - sidebar `Today` count now uses the same actionable buckets as the `Today` screen
@@ -143,7 +145,19 @@ Non-authoritative historical artifacts:
   - focused frontend tests passed
   - full frontend tests passed
   - frontend build passed
-- Immediate next step: shift to navigation/review polish and the unresolved `/areas` runtime inconsistency, because every entity detail type now has a dedicated top summary.
+- Iteration 12 implementation status:
+  - Today now groups pending suggestions around source notes where possible instead of rendering flat generic review rows
+  - Today provides direct paths to open the source note and to continue in the Suggestions review queue
+  - focused frontend tests passed
+  - full frontend tests passed
+  - frontend build passed
+- Iteration 13 implementation status:
+  - entity detail now surfaces a contextual back action that prefers the originating route when present
+  - the action falls back to the entity collection route when no source route is available
+  - focused frontend tests passed
+  - full frontend tests passed
+  - frontend build passed
+- Immediate next step: continue navigation/review polish or return to the unresolved `/areas` runtime inconsistency.
 
 ## Validation Commands
 

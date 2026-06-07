@@ -9,7 +9,7 @@ import V4Today from './V4Today';
 vi.mock('../api/v4Client', () => ({
   v4API: {
     today: vi.fn(),
-    entities: { update: vi.fn() },
+    entities: { update: vi.fn(), get: vi.fn() },
   },
 }));
 
@@ -32,7 +32,19 @@ describe('V4Today', () => {
       waiting_tasks: [{ id: 'w1', type: 'task', title: 'Waiting work', status: 'waiting' }],
       projects_without_open_tasks: [{ id: 'p1', type: 'project', title: 'Needs next task', status: 'active' }],
       recent_notes: [{ id: 'n1', type: 'note', title: 'Recent note', status: 'active' }],
-      pending_suggestions: [{ id: 's1', suggestion_type: 'create_task', payload: { title: 'Suggested task' } }],
+      pending_suggestions: [
+        { id: 's1', source_entity_id: 'n2', suggestion_type: 'create_task', payload: { title: 'Suggested task' } },
+        { id: 's2', source_entity_id: 'n2', suggestion_type: 'link_existing', payload: { title: 'Suggested project' } },
+      ],
+    });
+    v4API.entities.get.mockResolvedValue({
+      data: {
+        id: 'n2',
+        type: 'note',
+        title: 'Source note',
+        content: 'Note body',
+        ai: { status: 'done' },
+      },
     });
 
     render(
@@ -54,8 +66,13 @@ describe('V4Today', () => {
     expect(screen.getByText('Waiting work')).toBeInTheDocument();
     expect(screen.getByText('Needs next task')).toBeInTheDocument();
     expect(screen.getByText('Recent note')).toBeInTheDocument();
-    expect(screen.getByText('Suggested task')).toBeInTheDocument();
+    expect(screen.getByText('Source note')).toBeInTheDocument();
+    expect(screen.getByText('2 suggestions')).toBeInTheDocument();
+    expect(screen.getByText('Note body')).toBeInTheDocument();
+    expect(screen.getByText('Review in Suggestions')).toBeInTheDocument();
+    expect(screen.getByText('Open source note')).toBeInTheDocument();
     expect(screen.getAllByRole('link', { name: /Overdue task/i })[0]).toHaveAttribute('href', '/tasks/od1');
+    expect(v4API.entities.get).toHaveBeenCalledWith('n2');
     expect(v4API.today).toHaveBeenCalled();
   });
 });

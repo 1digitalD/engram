@@ -213,6 +213,18 @@
   font-size: var(--text-xs);
 }
 
+.inlineActionLink {
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-decoration: none;
+}
+
+.inlineActionLink:hover,
+.inlineActionLink:focus-visible {
+  text-decoration: underline;
+}
+
 .inlineDateChip {
   align-items: center;
   background: transparent;

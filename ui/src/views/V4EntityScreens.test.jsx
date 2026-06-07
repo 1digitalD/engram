@@ -202,6 +202,41 @@ describe('v4 entity screens', () => {
     await waitFor(() => expect(v4API.relationships.delete).toHaveBeenCalledWith('r1'));
   });
 
+  it('shows a contextual back action on detail pages', async () => {
+    const detail = {
+      entity: {
+        id: 't-back',
+        type: 'task',
+        title: 'Follow up',
+        content: 'Body',
+        status: 'open',
+        created_at: '2026-05-20T09:00:00+00:00',
+        updated_at: '2026-05-20T10:00:00+00:00',
+        due_at: null,
+        follow_up_at: null,
+        reference_url: null,
+        properties: {},
+        tags: [],
+      },
+      sections: [],
+    };
+    v4API.entities.detail.mockResolvedValue(detail);
+    v4API.entities.events.mockResolvedValue({ data: [] });
+
+    render(
+      <MemoryRouter initialEntries={[{ pathname: '/tasks/t-back', state: { from: '/today' } }]}>
+        <Routes>
+          <Route path="/today" element={<div>Today view</div>} />
+          <Route path="/tasks/:id" element={<V4EntityDetail type="task" />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('button', { name: 'Back to Today' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Back to Today' }));
+    expect(await screen.findByText('Today view')).toBeInTheDocument();
+  });
+
   it('archives separately from delete and hides note due date metadata', async () => {
     const detail = {
       entity: {
