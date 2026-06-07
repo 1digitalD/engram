@@ -18,7 +18,7 @@ function formatDateTime(value) {
 }
 
 function formatConfidence(value) {
-  if (typeof value !== 'number' || Number.isNaN(value)) return '';
+  if (typeof value !== 'number' || Number.isNaN(value) || value <= 0) return '';
   return `${Math.round(value * 100)}% confidence`;
 }
 

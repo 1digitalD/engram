@@ -52,7 +52,11 @@ Non-authoritative historical artifacts:
   5. Planner Upgrade
   6. Project Workspace
   7. Inspection + Trust
-- Active iteration contract: `docs/iterations/ITERATION_6_INSPECTION_TRUST.md`
+  8. Task Workspace
+  9. Area Workspace
+  10. Person Workspace
+  11. Resource Workspace
+- Active iteration contract: `docs/iterations/ITERATION_11_RESOURCE_WORKSPACE.md`
 - Iteration 0 implementation status:
   - entity detail save semantics were changed to an explicit-save model
   - sidebar `Today` count now uses the same actionable buckets as the `Today` screen
@@ -101,10 +105,45 @@ Non-authoritative historical artifacts:
   - the panel surfaces AI status/confidence, source, timestamps, and recent entity events without leaving the page
   - suggestion review now shows explicit confidence and note-level provenance context before risky accept/dismiss actions
   - live QA tightened the inspection panel by filtering low-signal duplicate history rows and reducing dead space in the trust surface
+  - zero-confidence provenance is now hidden so trust cues only show meaningful scores
   - focused and full frontend tests passed
   - frontend build passed
-  - live QA was run on task detail and Suggestions; note and project detail are still worth a quick visual pass on populated data
-- Immediate next step: do a final populated note/project visual pass if desired, then decide whether to keep refining trust/provenance presentation or start the next major UI direction beyond the current recommendation stack.
+  - live QA was run on task detail, note detail, and Suggestions; project detail is still worth a quick visual pass on populated data
+- Iteration 7 implementation status:
+  - note detail now includes a note-only workspace overview built from existing detail sections plus the pending suggestions list
+  - the workspace surfaces linked extraction outcomes and whether review is still pending for the source note
+  - notes with pending suggestions now provide a direct path back to the Suggestions review flow
+  - focused and full frontend tests passed
+  - frontend build passed
+  - live QA for the new note workspace is still recommended on populated notes with and without pending suggestions
+- Iteration 8 implementation status:
+  - task detail now includes a task-only workspace overview built from existing task detail sections
+  - the workspace surfaces ownership, scope, supporting context, and execution watchouts without new backend shape
+  - activity updates remain directly below the main detail panel, with task workspace context beneath them
+  - focused frontend tests passed
+  - full frontend tests passed
+  - frontend build passed
+- Iteration 9 implementation status:
+  - area detail now includes an area-only workspace overview built from existing detail sections
+  - the workspace surfaces active projects, rolled-up open work, coverage, and stewardship watchouts without new backend shape
+  - activity updates remain directly below the main detail panel, with area workspace context beneath them
+  - focused frontend tests passed
+  - full frontend tests passed
+  - frontend build passed
+  - live QA suggests a follow-up check is still needed on `/areas`, where the in-app browser list view did not match the API payload on the same host
+- Iteration 10 implementation status:
+  - person detail now includes a person-only workspace overview built from existing detail sections
+  - the workspace surfaces current load, linked context, and coordination watchouts without new backend shape
+  - focused frontend tests passed
+  - full frontend tests passed
+  - frontend build passed
+- Iteration 11 implementation status:
+  - resource detail now includes a resource-only workspace overview built from existing detail sections
+  - the workspace surfaces primary anchor context, coverage, and adoption watchouts without new backend shape
+  - focused frontend tests passed
+  - full frontend tests passed
+  - frontend build passed
+- Immediate next step: shift to navigation/review polish and the unresolved `/areas` runtime inconsistency, because every entity detail type now has a dedicated top summary.
 
 ## Validation Commands
 

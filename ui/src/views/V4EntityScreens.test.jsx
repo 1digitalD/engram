@@ -30,6 +30,9 @@ vi.mock('../api/v4Client', () => ({
       list: vi.fn(),
       create: vi.fn(),
     },
+    suggestions: {
+      list: vi.fn(),
+    },
   },
 }));
 
@@ -39,6 +42,7 @@ describe('v4 entity screens', () => {
     v4API.entities.list.mockResolvedValue({ data: [] });
     v4API.entities.events.mockResolvedValue({ data: [] });
     v4API.activityUpdates.list.mockResolvedValue({ data: [] });
+    v4API.suggestions.list.mockResolvedValue({ data: [] });
   });
 
   it('creates a task manually from the task list', async () => {
@@ -97,6 +101,32 @@ describe('v4 entity screens', () => {
     expect(await screen.findByRole('link', { name: /Captured note/i })).toHaveAttribute('href', '/notes/n1');
   });
 
+  it('renders area entities on the area list', async () => {
+    v4API.entities.list.mockResolvedValue({
+      data: [
+        {
+          id: 'a1',
+          type: 'area',
+          title: 'Agent Memory',
+          status: 'active',
+          created_at: '2026-05-20T09:00:00+00:00',
+          updated_at: '2026-05-20T10:00:00+00:00',
+          properties: {},
+          tags: [],
+        },
+      ],
+    });
+
+    render(
+      <MemoryRouter>
+        <V4EntityList type="area" />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('link', { name: /Agent Memory/i })).toHaveAttribute('href', '/areas/a1');
+    expect(v4API.entities.list).toHaveBeenCalledWith({ type: 'area', limit: 100, lifecycle: 'active' });
+  });
+
   it('updates metadata and manages linked section actions from detail sections', async () => {
     const detail = {
       entity: {
@@ -147,7 +177,7 @@ describe('v4 entity screens', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText('Memory Lookup')).toBeInTheDocument();
+    expect((await screen.findAllByText('Memory Lookup')).length).toBeGreaterThan(0);
     expect(screen.getByText('Trust and recent changes')).toBeInTheDocument();
     expect(screen.getByText('91% confidence')).toBeInTheDocument();
     expect(screen.getByText('Detected a follow-up action')).toBeInTheDocument();
@@ -180,6 +210,7 @@ describe('v4 entity screens', () => {
         title: 'Captured note',
         content: 'Body',
         status: 'active',
+        ai: { status: 'done', confidence: 0, summary: 'Summary text' },
         created_at: '2026-05-20T09:00:00+00:00',
         updated_at: '2026-05-20T10:00:00+00:00',
         due_at: null,
@@ -191,7 +222,17 @@ describe('v4 entity screens', () => {
       sections: [],
     };
     v4API.entities.detail.mockResolvedValue(detail);
-    v4API.entities.events.mockResolvedValue({ data: [] });
+    v4API.entities.events.mockResolvedValue({
+      data: [
+        {
+          id: 'e0',
+          event_type: 'ai_processed',
+          actor: 'agent:v4-capture',
+          confidence: 0,
+          created_at: '2026-05-20T10:00:00+00:00',
+        },
+      ],
+    });
     v4API.entities.update.mockResolvedValue({ data: { ...detail.entity, lifecycle: 'archived' } });
     v4API.entities.delete.mockResolvedValue({ data: { ...detail.entity, lifecycle: 'deleted' } });
 
@@ -207,6 +248,7 @@ describe('v4 entity screens', () => {
     expect(await screen.findByRole('button', { name: 'Title' })).toHaveTextContent('Captured note');
     expect(screen.queryByLabelText('Due date')).not.toBeInTheDocument();
     expect(screen.getByLabelText('Follow-up date')).toBeInTheDocument();
+    expect(screen.queryByText('0% confidence')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Archive' }));
     await waitFor(() => expect(v4API.entities.update).toHaveBeenCalledWith('n1', { lifecycle: 'archived' }));
@@ -217,6 +259,345 @@ describe('v4 entity screens', () => {
     await waitFor(() => expect(v4API.entities.delete).toHaveBeenCalledWith('n1'));
     expect(await screen.findByText('Notes index')).toBeInTheDocument();
     vi.unstubAllGlobals();
+  });
+
+  it('renders a note workspace overview with pending review context', async () => {
+    const detail = {
+      entity: {
+        id: 'n2',
+        type: 'note',
+        title: 'Source note',
+        content: 'Body',
+        status: 'active',
+        created_at: '2026-05-20T09:00:00+00:00',
+        updated_at: '2026-05-20T10:00:00+00:00',
+        follow_up_at: null,
+        reference_url: null,
+        properties: {},
+        tags: [],
+      },
+      sections: [
+        {
+          key: 'derived_tasks',
+          title: 'Derived Tasks',
+          items: [{
+            entity: { id: 't3', type: 'task', title: 'Follow up', status: 'open' },
+            relationship: { id: 'r3', relationship_type: 'derived_from' },
+          }],
+        },
+        {
+          key: 'projects',
+          title: 'Projects',
+          items: [{
+            entity: { id: 'p3', type: 'project', title: 'Memory Lookup', status: 'active' },
+            relationship: { id: 'r4', relationship_type: 'related' },
+          }],
+        },
+      ],
+    };
+    v4API.entities.detail.mockResolvedValue(detail);
+    v4API.entities.events.mockResolvedValue({ data: [] });
+    v4API.suggestions.list.mockResolvedValue({
+      data: [
+        { id: 's1', source_entity_id: 'n2', suggestion_type: 'create_task' },
+        { id: 's2', source_entity_id: 'other', suggestion_type: 'create_project' },
+      ],
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/notes/n2']}>
+        <Routes>
+          <Route path="/notes/:id" element={<V4EntityDetail type="note" />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Source note outcomes')).toBeInTheDocument();
+    expect(screen.getByText('linked outcomes')).toBeInTheDocument();
+    expect(screen.getByText('pending review')).toBeInTheDocument();
+    expect(await screen.findByText(/1 suggestion from this note still needs review/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Open Suggestions/i })).toHaveAttribute('href', '/suggestions');
+  });
+
+  it('renders a task workspace overview from existing detail sections', async () => {
+    const detail = {
+      entity: {
+        id: 't7',
+        type: 'task',
+        title: 'Follow up with vendor',
+        content: '',
+        status: 'waiting',
+        created_at: '2026-05-20T09:00:00+00:00',
+        updated_at: '2026-05-20T10:00:00+00:00',
+        due_at: null,
+        follow_up_at: null,
+        reference_url: null,
+        properties: {},
+        tags: [],
+      },
+      sections: [
+        {
+          key: 'project',
+          title: 'Project',
+          items: [{
+            entity: { id: 'p7', type: 'project', title: 'Vendor rollout', status: 'active' },
+            relationship: { id: 'r70', relationship_type: 'parent' },
+          }],
+        },
+        {
+          key: 'source_notes',
+          title: 'Source Notes',
+          items: [{
+            entity: { id: 'n7', type: 'note', title: 'Call notes', status: 'active' },
+            relationship: { id: 'r71', relationship_type: 'derived_from' },
+          }],
+        },
+        {
+          key: 'resources',
+          title: 'Resources',
+          items: [{
+            entity: { id: 'res7', type: 'resource', title: 'Vendor contract', status: 'active' },
+            relationship: { id: 'r72', relationship_type: 'references' },
+          }],
+        },
+        {
+          key: 'blocking',
+          title: 'Blocking / Blocked By',
+          items: [{
+            entity: { id: 't8', type: 'task', title: 'Await signed quote', status: 'blocked' },
+            relationship: { id: 'r73', relationship_type: 'blocks' },
+            direction: 'incoming',
+          }],
+        },
+      ],
+    };
+    v4API.entities.detail.mockResolvedValue(detail);
+    v4API.entities.events.mockResolvedValue({ data: [] });
+    v4API.activityUpdates.list.mockResolvedValue({ data: [] });
+
+    render(
+      <MemoryRouter initialEntries={['/tasks/t7']}>
+        <Routes>
+          <Route path="/tasks/:id" element={<V4EntityDetail type="task" />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Execution context')).toBeInTheDocument();
+    expect(screen.getByText('blocking now')).toBeInTheDocument();
+    expect(screen.getByText('notes linked')).toBeInTheDocument();
+    expect(screen.getByText('Blocked by 1 task')).toBeInTheDocument();
+    expect(screen.getByText('Waiting task has no owner linked')).toBeInTheDocument();
+    expect(screen.getByText('No follow-up or due date set')).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: /Vendor rollout/i })[0]).toHaveAttribute('href', '/projects/p7');
+    expect(screen.getAllByRole('link', { name: /Call notes/i })[0]).toHaveAttribute('href', '/notes/n7');
+  });
+
+  it('renders an area workspace overview from existing detail sections', async () => {
+    const detail = {
+      entity: {
+        id: 'a9',
+        type: 'area',
+        title: 'Agent Platform',
+        content: '',
+        status: 'active',
+        created_at: '2026-05-20T09:00:00+00:00',
+        updated_at: '2026-05-20T10:00:00+00:00',
+        due_at: null,
+        follow_up_at: null,
+        reference_url: null,
+        properties: {},
+        tags: [],
+      },
+      sections: [
+        {
+          key: 'projects',
+          title: 'Projects',
+          items: [
+            {
+              entity: {
+                id: 'p9',
+                type: 'project',
+                title: 'Identity cleanup',
+                status: 'active',
+                task_counts: { open: 3, total: 5 },
+              },
+              relationship: { id: 'r90', relationship_type: 'parent' },
+            },
+            {
+              entity: {
+                id: 'p10',
+                type: 'project',
+                title: 'Legacy deprecation',
+                status: 'completed',
+                task_counts: { open: 0, total: 4 },
+              },
+              relationship: { id: 'r91', relationship_type: 'parent' },
+            },
+          ],
+        },
+        {
+          key: 'tasks',
+          title: 'Tasks',
+          items: [{
+            entity: { id: 't9', type: 'task', title: 'Document risks', status: 'open' },
+            relationship: { id: 'r92', relationship_type: 'related' },
+          }],
+        },
+      ],
+    };
+    v4API.entities.detail.mockResolvedValue(detail);
+    v4API.entities.events.mockResolvedValue({ data: [] });
+    v4API.activityUpdates.list.mockResolvedValue({ data: [] });
+
+    render(
+      <MemoryRouter initialEntries={['/areas/a9']}>
+        <Routes>
+          <Route path="/areas/:id" element={<V4EntityDetail type="area" />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Portfolio snapshot')).toBeInTheDocument();
+    expect(screen.getByText('active projects')).toBeInTheDocument();
+    expect(screen.getByText('open work')).toBeInTheDocument();
+    expect(screen.getAllByText('Identity cleanup').length).toBeGreaterThan(0);
+    expect(screen.getByText('3 open / 5 total tasks')).toBeInTheDocument();
+    expect(screen.getByText('No review date set')).toBeInTheDocument();
+    expect(screen.getByText('No area notes linked')).toBeInTheDocument();
+    expect(screen.getByText('No people linked')).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: /Identity cleanup/i })[0]).toHaveAttribute('href', '/projects/p9');
+  });
+
+  it('renders a person workspace overview from existing detail sections', async () => {
+    const detail = {
+      entity: {
+        id: 'person9',
+        type: 'person',
+        title: 'Gonick',
+        content: '',
+        status: 'active',
+        created_at: '2026-05-20T09:00:00+00:00',
+        updated_at: '2026-05-20T10:00:00+00:00',
+        due_at: null,
+        follow_up_at: null,
+        reference_url: null,
+        properties: {},
+        tags: [],
+      },
+      sections: [
+        {
+          key: 'assigned_tasks',
+          title: 'Assigned Tasks',
+          items: [
+            {
+              entity: { id: 't90', type: 'task', title: 'Prep review', status: 'in_progress', properties: { priority: 'high' } },
+              relationship: { id: 'r900', relationship_type: 'assigned_to' },
+            },
+            {
+              entity: { id: 't91', type: 'task', title: 'Wait on feedback', status: 'waiting' },
+              relationship: { id: 'r901', relationship_type: 'assigned_to' },
+            },
+          ],
+        },
+        {
+          key: 'mentioned_in_notes',
+          title: 'Mentioned In Notes',
+          items: [{
+            entity: { id: 'n90', type: 'note', title: '1:1 notes', status: 'active' },
+            relationship: { id: 'r902', relationship_type: 'mentions' },
+          }],
+        },
+        {
+          key: 'projects',
+          title: 'Projects',
+          items: [{
+            entity: { id: 'p90', type: 'project', title: 'Coordination stream', status: 'active' },
+            relationship: { id: 'r903', relationship_type: 'assigned_to' },
+          }],
+        },
+      ],
+    };
+    v4API.entities.detail.mockResolvedValue(detail);
+    v4API.entities.events.mockResolvedValue({ data: [] });
+
+    render(
+      <MemoryRouter initialEntries={['/people/person9']}>
+        <Routes>
+          <Route path="/people/:id" element={<V4EntityDetail type="person" />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Relationship snapshot')).toBeInTheDocument();
+    expect(screen.getByText('open tasks')).toBeInTheDocument();
+    expect(screen.getByText('active projects')).toBeInTheDocument();
+    expect(screen.getAllByText('Prep review').length).toBeGreaterThan(0);
+    expect(screen.getByText('No follow-up date set')).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: /Prep review/i })[0]).toHaveAttribute('href', '/tasks/t90');
+  });
+
+  it('renders a resource workspace overview from existing detail sections', async () => {
+    const detail = {
+      entity: {
+        id: 'resource9',
+        type: 'resource',
+        title: 'Admin HITL spec',
+        content: '',
+        status: 'active',
+        created_at: '2026-05-20T09:00:00+00:00',
+        updated_at: '2026-05-20T10:00:00+00:00',
+        due_at: null,
+        follow_up_at: null,
+        reference_url: null,
+        properties: {},
+        tags: [],
+      },
+      sections: [
+        {
+          key: 'projects',
+          title: 'Projects',
+          items: [{
+            entity: { id: 'p100', type: 'project', title: 'HITL State Management', status: 'active' },
+            relationship: { id: 'r1000', relationship_type: 'references' },
+          }],
+        },
+        {
+          key: 'tasks',
+          title: 'Tasks',
+          items: [{
+            entity: { id: 't100', type: 'task', title: 'Review rollout', status: 'open' },
+            relationship: { id: 'r1001', relationship_type: 'references' },
+          }],
+        },
+        {
+          key: 'related_resources',
+          title: 'Related Resources',
+          items: [{
+            entity: { id: 'resource10', type: 'resource', title: 'Approval examples', status: 'active' },
+            relationship: { id: 'r1002', relationship_type: 'related' },
+          }],
+        },
+      ],
+    };
+    v4API.entities.detail.mockResolvedValue(detail);
+    v4API.entities.events.mockResolvedValue({ data: [] });
+
+    render(
+      <MemoryRouter initialEntries={['/resources/resource9']}>
+        <Routes>
+          <Route path="/resources/:id" element={<V4EntityDetail type="resource" />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Adoption snapshot')).toBeInTheDocument();
+    expect(screen.getByText('active projects')).toBeInTheDocument();
+    expect(screen.getByText('open tasks')).toBeInTheDocument();
+    expect(screen.getAllByText('HITL State Management').length).toBeGreaterThan(0);
+    expect(screen.getByText('No reference notes linked')).toBeInTheDocument();
+    expect(screen.getByText('No follow-up date set')).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: /HITL State Management/i })[0]).toHaveAttribute('href', '/projects/p100');
   });
 
   it('renders a project workspace overview from existing detail sections', async () => {

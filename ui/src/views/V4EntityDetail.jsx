@@ -91,7 +91,7 @@ function humanizeToken(value) {
 }
 
 function formatConfidence(value) {
-  if (typeof value !== 'number' || Number.isNaN(value)) return '';
+  if (typeof value !== 'number' || Number.isNaN(value) || value <= 0) return '';
   return `${Math.round(value * 100)}% confidence`;
 }
 
@@ -651,16 +651,33 @@ export default function V4EntityDetail({ type: routeType }) {
         {error && <div className={styles.error}>{error}</div>}
       </section>
 
+      {['project', 'task', 'area'].includes(entity.type) && (
+        <ActivityUpdatesSection entityId={entity.id} className={styles.fullWidthPanel} />
+      )}
+
       {entity.type === 'project' && (
         <ProjectWorkspacePanel detail={detail} />
       )}
 
-      <EntityInspectionPanel
-        entity={entity}
-        events={events}
-        loading={eventsLoading}
-        error={eventsError}
-      />
+      {entity.type === 'task' && (
+        <TaskWorkspacePanel entity={entity} detail={detail} />
+      )}
+
+      {entity.type === 'area' && (
+        <AreaWorkspacePanel entity={entity} detail={detail} />
+      )}
+
+      {entity.type === 'person' && (
+        <PersonWorkspacePanel entity={entity} detail={detail} />
+      )}
+
+      {entity.type === 'resource' && (
+        <ResourceWorkspacePanel entity={entity} detail={detail} />
+      )}
+
+      {entity.type === 'note' && (
+        <NoteWorkspacePanel entity={entity} detail={detail} />
+      )}
 
       <section className={styles.segmentsStack} aria-label={`${entityType} relationship segments`}>
         {configs.map((config) => (
@@ -684,9 +701,12 @@ export default function V4EntityDetail({ type: routeType }) {
             onQuickStatus={handleQuickStatus}
           />
         )}
-        {['project', 'task', 'area'].includes(entity.type) && (
-          <ActivityUpdatesSection entityId={entity.id} />
-        )}
+        <EntityInspectionPanel
+          entity={entity}
+          events={events}
+          loading={eventsLoading}
+          error={eventsError}
+        />
       </section>
     </main>
   );
@@ -784,6 +804,493 @@ function ProjectWorkspacePanel({ detail }) {
   );
 }
 
+function TaskWorkspacePanel({ entity, detail }) {
+  const projectLinks = sectionItems(detail, 'project');
+  const areaLinks = sectionItems(detail, 'area');
+  const people = sectionItems(detail, 'people');
+  const sourceNotes = sectionItems(detail, 'source_notes');
+  const relatedNotes = sectionItems(detail, 'related_notes');
+  const resources = sectionItems(detail, 'resources');
+  const blocking = sectionItems(detail, 'blocking');
+  const relatedTasks = sectionItems(detail, 'related_tasks');
+
+  const blockedBy = blocking.filter((item) => item.direction === 'incoming');
+  const blocks = blocking.filter((item) => item.direction === 'outgoing');
+  const currentOwner = people[0]?.entity || null;
+  const currentProject = projectLinks[0]?.entity || null;
+  const currentArea = areaLinks[0]?.entity || null;
+
+  const warnings = [];
+  if (!currentProject && !currentArea) warnings.push('No project or area linked');
+  if (!currentOwner && entity.status === 'waiting') warnings.push('Waiting task has no owner linked');
+  if (blockedBy.length > 0) warnings.push(`Blocked by ${blockedBy.length} task${blockedBy.length === 1 ? '' : 's'}`);
+  if (!entity.follow_up_at && !entity.due_at && ['open', 'in_progress', 'waiting', 'blocked'].includes(entity.status)) warnings.push('No follow-up or due date set');
+  if (sourceNotes.length === 0) warnings.push('No source note linked');
+
+  return (
+    <section className={styles.workspacePanel} aria-label="Task workspace">
+      <header className={styles.workspaceHeader}>
+        <div>
+          <p className={styles.eyebrow}>Task workspace</p>
+          <h2>Execution context</h2>
+        </div>
+        <div className={styles.workspaceStats}>
+          <div className={styles.workspaceStat}>
+            <strong>{blockedBy.length}</strong>
+            <span>blocking now</span>
+          </div>
+          <div className={styles.workspaceStat}>
+            <strong>{sourceNotes.length + relatedNotes.length}</strong>
+            <span>notes linked</span>
+          </div>
+          <div className={styles.workspaceStat}>
+            <strong>{resources.length}</strong>
+            <span>resources</span>
+          </div>
+          <div className={styles.workspaceStat}>
+            <strong>{relatedTasks.length + blocks.length}</strong>
+            <span>task links</span>
+          </div>
+        </div>
+      </header>
+
+      <div className={styles.workspaceGrid}>
+        <section className={styles.workspaceCard}>
+          <h3>Ownership and scope</h3>
+          <div className={styles.workspaceCoverage}>
+            <span className={styles.metaStaticChip}>{currentProject ? `Project · ${currentProject.title}` : 'No project linked'}</span>
+            <span className={styles.metaStaticChip}>{currentArea ? `Area · ${currentArea.title}` : 'No area linked'}</span>
+            <span className={styles.metaStaticChip}>{currentOwner ? `Owner · ${currentOwner.title}` : 'No owner linked'}</span>
+          </div>
+          {currentProject ? (
+            <Link to={pathForEntity(currentProject)} className={styles.workspaceLinkCard}>
+              <strong>{currentProject.title || 'Untitled project'}</strong>
+              <span className={styles.mutedMeta}>Open parent project</span>
+            </Link>
+          ) : (
+            <p className={styles.muted}>Link this task into a project or area so it stays anchored in the workspace.</p>
+          )}
+        </section>
+
+        <section className={styles.workspaceCard}>
+          <h3>Supporting context</h3>
+          <div className={styles.workspaceCoverage}>
+            <span className={styles.metaStaticChip}>{sourceNotes.length} source notes</span>
+            <span className={styles.metaStaticChip}>{relatedNotes.length} related notes</span>
+            <span className={styles.metaStaticChip}>{resources.length} resources</span>
+            <span className={styles.metaStaticChip}>{relatedTasks.length} related tasks</span>
+          </div>
+          {sourceNotes[0] ? (
+            <Link to={pathForEntity(sourceNotes[0].entity)} className={styles.workspaceLinkCard}>
+              <strong>{sourceNotes[0].entity.title || 'Untitled note'}</strong>
+              <span className={styles.mutedMeta}>Open the source note behind this task</span>
+            </Link>
+          ) : (
+            <p className={styles.muted}>Add the source note or supporting references if this task needs more context later.</p>
+          )}
+        </section>
+
+        <section className={styles.workspaceCard}>
+          <h3>Watchouts</h3>
+          {warnings.length > 0 ? (
+            <ul className={styles.workspaceWarnings}>
+              {warnings.map((warning) => (
+                <li key={warning}>{warning}</li>
+              ))}
+            </ul>
+          ) : blockedBy.length === 0 && blocks.length === 0 ? (
+            <p className={styles.muted}>No obvious execution risks right now.</p>
+          ) : (
+            <div className={styles.workspaceCoverage}>
+              {blockedBy.map((item) => (
+                <span key={item.relationship.id} className={styles.metaStaticChip}>
+                  Blocked by · {item.entity.title}
+                </span>
+              ))}
+              {blocks.map((item) => (
+                <span key={item.relationship.id} className={styles.metaStaticChip}>
+                  Blocking · {item.entity.title}
+                </span>
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
+    </section>
+  );
+}
+
+function AreaWorkspacePanel({ entity, detail }) {
+  const projects = sectionItems(detail, 'projects');
+  const tasks = sectionItems(detail, 'tasks');
+  const notes = sectionItems(detail, 'notes');
+  const resources = sectionItems(detail, 'resources');
+  const people = sectionItems(detail, 'people');
+
+  const activeProjects = projects.filter((item) => item.entity.status === 'active');
+  const openProjectTasks = projects.reduce((sum, item) => sum + (item.entity.task_counts?.open || 0), 0);
+  const totalProjectTasks = projects.reduce((sum, item) => sum + (item.entity.task_counts?.total || 0), 0);
+  const directOpenTasks = tasks.filter((item) => ['open', 'in_progress', 'waiting', 'blocked'].includes(item.entity.status));
+  const leadProject = [...projects].sort((left, right) => {
+    const leftOpen = left.entity.task_counts?.open || 0;
+    const rightOpen = right.entity.task_counts?.open || 0;
+    if (rightOpen !== leftOpen) return rightOpen - leftOpen;
+    const leftTotal = left.entity.task_counts?.total || 0;
+    const rightTotal = right.entity.task_counts?.total || 0;
+    return rightTotal - leftTotal;
+  })[0] || null;
+
+  const warnings = [];
+  if (projects.length === 0) warnings.push('No projects linked');
+  if (activeProjects.length === 0 && projects.length > 0) warnings.push('No active projects');
+  if (!entity.follow_up_at && !entity.due_at) warnings.push('No review date set');
+  if (notes.length === 0) warnings.push('No area notes linked');
+  if (people.length === 0) warnings.push('No people linked');
+
+  return (
+    <section className={styles.workspacePanel} aria-label="Area workspace">
+      <header className={styles.workspaceHeader}>
+        <div>
+          <p className={styles.eyebrow}>Area workspace</p>
+          <h2>Portfolio snapshot</h2>
+        </div>
+        <div className={styles.workspaceStats}>
+          <div className={styles.workspaceStat}>
+            <strong>{activeProjects.length}</strong>
+            <span>active projects</span>
+          </div>
+          <div className={styles.workspaceStat}>
+            <strong>{openProjectTasks + directOpenTasks.length}</strong>
+            <span>open work</span>
+          </div>
+          <div className={styles.workspaceStat}>
+            <strong>{notes.length}</strong>
+            <span>notes</span>
+          </div>
+          <div className={styles.workspaceStat}>
+            <strong>{people.length}</strong>
+            <span>people</span>
+          </div>
+          <div className={styles.workspaceStat}>
+            <strong>{resources.length}</strong>
+            <span>resources</span>
+          </div>
+        </div>
+      </header>
+
+      <div className={styles.workspaceGrid}>
+        <section className={styles.workspaceCard}>
+          <h3>Lead project</h3>
+          {leadProject ? (
+            <Link to={pathForEntity(leadProject.entity)} className={styles.workspaceLinkCard}>
+              <strong>{leadProject.entity.title || 'Untitled project'}</strong>
+              <span className={styles.metaRow}>
+                <span className={styles.statusPill}>{leadProject.entity.status}</span>
+                <span className={styles.metaStaticChip}>
+                  {leadProject.entity.task_counts?.open || 0} open / {leadProject.entity.task_counts?.total || 0} total tasks
+                </span>
+              </span>
+            </Link>
+          ) : (
+            <p className={styles.muted}>Link a project into this area to give the portfolio a clear center of gravity.</p>
+          )}
+        </section>
+
+        <section className={styles.workspaceCard}>
+          <h3>Coverage</h3>
+          <div className={styles.workspaceCoverage}>
+            <span className={styles.metaStaticChip}>{projects.length} projects linked</span>
+            <span className={styles.metaStaticChip}>{totalProjectTasks} project tasks tracked</span>
+            <span className={styles.metaStaticChip}>{directOpenTasks.length} direct open tasks</span>
+            <span className={styles.metaStaticChip}>{notes.length} notes linked</span>
+            <span className={styles.metaStaticChip}>{people.length} people linked</span>
+            <span className={styles.metaStaticChip}>{resources.length} resources linked</span>
+          </div>
+        </section>
+
+        <section className={styles.workspaceCard}>
+          <h3>Watchouts</h3>
+          {warnings.length > 0 ? (
+            <ul className={styles.workspaceWarnings}>
+              {warnings.map((warning) => (
+                <li key={warning}>{warning}</li>
+              ))}
+            </ul>
+          ) : (
+            <p className={styles.muted}>No obvious stewardship gaps right now.</p>
+          )}
+        </section>
+      </div>
+    </section>
+  );
+}
+
+function PersonWorkspacePanel({ entity, detail }) {
+  const assignedTasks = sectionItems(detail, 'assigned_tasks');
+  const notes = sectionItems(detail, 'mentioned_in_notes');
+  const projects = sectionItems(detail, 'projects');
+  const resources = sectionItems(detail, 'resources');
+  const relatedPeople = sectionItems(detail, 'related_people');
+
+  const openAssignedTasks = assignedTasks.filter((item) => ['open', 'in_progress', 'waiting', 'blocked'].includes(item.entity.status));
+  const blockedAssignedTasks = openAssignedTasks.filter((item) => ['waiting', 'blocked'].includes(item.entity.status));
+  const activeProjects = projects.filter((item) => item.entity.status === 'active');
+  const primaryTask = openAssignedTasks.find((item) => ['in_progress', 'open'].includes(item.entity.status)) || openAssignedTasks[0] || null;
+
+  const warnings = [];
+  if (openAssignedTasks.length === 0) warnings.push('No open assigned tasks');
+  if (blockedAssignedTasks.length === openAssignedTasks.length && openAssignedTasks.length > 0) warnings.push('All open assigned tasks are blocked or waiting');
+  if (!entity.follow_up_at) warnings.push('No follow-up date set');
+  if (notes.length === 0) warnings.push('No notes linked');
+
+  return (
+    <section className={styles.workspacePanel} aria-label="Person workspace">
+      <header className={styles.workspaceHeader}>
+        <div>
+          <p className={styles.eyebrow}>Person workspace</p>
+          <h2>Relationship snapshot</h2>
+        </div>
+        <div className={styles.workspaceStats}>
+          <div className={styles.workspaceStat}>
+            <strong>{openAssignedTasks.length}</strong>
+            <span>open tasks</span>
+          </div>
+          <div className={styles.workspaceStat}>
+            <strong>{activeProjects.length}</strong>
+            <span>active projects</span>
+          </div>
+          <div className={styles.workspaceStat}>
+            <strong>{notes.length}</strong>
+            <span>notes</span>
+          </div>
+          <div className={styles.workspaceStat}>
+            <strong>{resources.length}</strong>
+            <span>resources</span>
+          </div>
+        </div>
+      </header>
+
+      <div className={styles.workspaceGrid}>
+        <section className={styles.workspaceCard}>
+          <h3>Current load</h3>
+          {primaryTask ? (
+            <Link to={pathForEntity(primaryTask.entity)} className={styles.workspaceLinkCard}>
+              <strong>{primaryTask.entity.title || 'Untitled task'}</strong>
+              <span className={styles.metaRow}>
+                <span className={styles.statusPill}>{primaryTask.entity.status}</span>
+                {primaryTask.entity.properties?.priority ? <span className={styles.priorityPill}>Priority {primaryTask.entity.properties.priority}</span> : null}
+              </span>
+            </Link>
+          ) : (
+            <p className={styles.muted}>No open assigned task is linked right now.</p>
+          )}
+        </section>
+
+        <section className={styles.workspaceCard}>
+          <h3>Coverage</h3>
+          <div className={styles.workspaceCoverage}>
+            <span className={styles.metaStaticChip}>{assignedTasks.length} assigned tasks</span>
+            <span className={styles.metaStaticChip}>{projects.length} projects linked</span>
+            <span className={styles.metaStaticChip}>{notes.length} notes linked</span>
+            <span className={styles.metaStaticChip}>{resources.length} resources linked</span>
+            <span className={styles.metaStaticChip}>{relatedPeople.length} related people</span>
+          </div>
+        </section>
+
+        <section className={styles.workspaceCard}>
+          <h3>Watchouts</h3>
+          {warnings.length > 0 ? (
+            <ul className={styles.workspaceWarnings}>
+              {warnings.map((warning) => (
+                <li key={warning}>{warning}</li>
+              ))}
+            </ul>
+          ) : (
+            <p className={styles.muted}>No obvious coordination gaps right now.</p>
+          )}
+        </section>
+      </div>
+    </section>
+  );
+}
+
+function ResourceWorkspacePanel({ entity, detail }) {
+  const notes = sectionItems(detail, 'referenced_by_notes');
+  const projects = sectionItems(detail, 'projects');
+  const tasks = sectionItems(detail, 'tasks');
+  const areas = sectionItems(detail, 'areas');
+  const people = sectionItems(detail, 'people');
+  const relatedResources = sectionItems(detail, 'related_resources');
+
+  const activeProjects = projects.filter((item) => item.entity.status === 'active');
+  const openTasks = tasks.filter((item) => ['open', 'in_progress', 'waiting', 'blocked'].includes(item.entity.status));
+  const primaryAnchor = activeProjects[0]?.entity || openTasks[0]?.entity || areas[0]?.entity || people[0]?.entity || null;
+
+  const warnings = [];
+  if (activeProjects.length === 0 && openTasks.length === 0) warnings.push('Not linked to active project or open task');
+  if (notes.length === 0) warnings.push('No reference notes linked');
+  if (!entity.follow_up_at) warnings.push('No follow-up date set');
+  if (people.length === 0 && projects.length === 0 && tasks.length === 0 && areas.length === 0) warnings.push('No clear workspace anchor linked');
+
+  return (
+    <section className={styles.workspacePanel} aria-label="Resource workspace">
+      <header className={styles.workspaceHeader}>
+        <div>
+          <p className={styles.eyebrow}>Resource workspace</p>
+          <h2>Adoption snapshot</h2>
+        </div>
+        <div className={styles.workspaceStats}>
+          <div className={styles.workspaceStat}>
+            <strong>{activeProjects.length}</strong>
+            <span>active projects</span>
+          </div>
+          <div className={styles.workspaceStat}>
+            <strong>{openTasks.length}</strong>
+            <span>open tasks</span>
+          </div>
+          <div className={styles.workspaceStat}>
+            <strong>{notes.length}</strong>
+            <span>notes</span>
+          </div>
+          <div className={styles.workspaceStat}>
+            <strong>{people.length}</strong>
+            <span>people</span>
+          </div>
+        </div>
+      </header>
+
+      <div className={styles.workspaceGrid}>
+        <section className={styles.workspaceCard}>
+          <h3>Primary anchor</h3>
+          {primaryAnchor ? (
+            <Link to={pathForEntity(primaryAnchor)} className={styles.workspaceLinkCard}>
+              <strong>{primaryAnchor.title || 'Untitled'}</strong>
+              <span className={styles.mutedMeta}>Open the main linked context for this resource</span>
+            </Link>
+          ) : (
+            <p className={styles.muted}>Link this resource to a project, task, area, or person so it has a clear place in the workspace.</p>
+          )}
+        </section>
+
+        <section className={styles.workspaceCard}>
+          <h3>Coverage</h3>
+          <div className={styles.workspaceCoverage}>
+            <span className={styles.metaStaticChip}>{projects.length} projects linked</span>
+            <span className={styles.metaStaticChip}>{tasks.length} tasks linked</span>
+            <span className={styles.metaStaticChip}>{areas.length} areas linked</span>
+            <span className={styles.metaStaticChip}>{people.length} people linked</span>
+            <span className={styles.metaStaticChip}>{notes.length} notes linked</span>
+            <span className={styles.metaStaticChip}>{relatedResources.length} related resources</span>
+          </div>
+        </section>
+
+        <section className={styles.workspaceCard}>
+          <h3>Watchouts</h3>
+          {warnings.length > 0 ? (
+            <ul className={styles.workspaceWarnings}>
+              {warnings.map((warning) => (
+                <li key={warning}>{warning}</li>
+              ))}
+            </ul>
+          ) : (
+            <p className={styles.muted}>No obvious adoption gaps right now.</p>
+          )}
+        </section>
+      </div>
+    </section>
+  );
+}
+
+function NoteWorkspacePanel({ entity, detail }) {
+  const [pendingSuggestions, setPendingSuggestions] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const derivedTasks = sectionItems(detail, 'derived_tasks');
+  const projects = sectionItems(detail, 'projects');
+  const people = sectionItems(detail, 'people_mentioned');
+  const resources = sectionItems(detail, 'referenced_resources');
+  const relatedNotes = sectionItems(detail, 'related_notes');
+  const extractionCount = derivedTasks.length + projects.length + people.length + resources.length;
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    v4API.suggestions.list({ status: 'pending' })
+      .then((response) => {
+        if (!active) return;
+        const relevant = (response.data || []).filter((suggestion) => suggestion.source_entity_id === entity.id);
+        setPendingSuggestions(relevant);
+        setLoading(false);
+      })
+      .catch(() => {
+        if (!active) return;
+        setPendingSuggestions([]);
+        setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [entity.id]);
+
+  return (
+    <section className={styles.workspacePanel} aria-label="Note workspace">
+      <header className={styles.workspaceHeader}>
+        <div>
+          <p className={styles.eyebrow}>Note workspace</p>
+          <h2>Source note outcomes</h2>
+        </div>
+        <div className={styles.workspaceStats}>
+          <div className={styles.workspaceStat}>
+            <strong>{extractionCount}</strong>
+            <span>linked outcomes</span>
+          </div>
+          <div className={styles.workspaceStat}>
+            <strong>{pendingSuggestions.length}</strong>
+            <span>pending review</span>
+          </div>
+        </div>
+      </header>
+
+      <div className={styles.workspaceGrid}>
+        <section className={styles.workspaceCard}>
+          <h3>Extraction outcomes</h3>
+          <div className={styles.workspaceCoverage}>
+            <span className={styles.metaStaticChip}>{derivedTasks.length} tasks</span>
+            <span className={styles.metaStaticChip}>{projects.length} projects</span>
+            <span className={styles.metaStaticChip}>{people.length} people</span>
+            <span className={styles.metaStaticChip}>{resources.length} resources</span>
+            {relatedNotes.length > 0 ? <span className={styles.metaStaticChip}>{relatedNotes.length} related notes</span> : null}
+          </div>
+          {extractionCount > 0 ? (
+            <p className={styles.inspectionBody}>This note is already connected into the workspace. Use the segments below to inspect or extend the linked entities.</p>
+          ) : (
+            <p className={styles.muted}>No linked entities yet. Re-run extraction or link entities manually if this note should drive follow-up work.</p>
+          )}
+        </section>
+
+        <section className={styles.workspaceCard}>
+          <h3>Review state</h3>
+          {loading ? (
+            <p className={styles.muted}>Loading review state…</p>
+          ) : pendingSuggestions.length > 0 ? (
+            <>
+              <p className={styles.inspectionBody}>
+                {pendingSuggestions.length} suggestion{pendingSuggestions.length === 1 ? '' : 's'} from this note still {pendingSuggestions.length === 1 ? 'needs' : 'need'} review.
+              </p>
+              <Link to="/suggestions" className={styles.workspaceLinkCard}>
+                <strong>Open Suggestions</strong>
+                <span className={styles.mutedMeta}>Review pending AI suggestions for this source note.</span>
+              </Link>
+            </>
+          ) : (
+            <p className={styles.muted}>No pending suggestions from this note right now.</p>
+          )}
+        </section>
+      </div>
+    </section>
+  );
+}
+
 function EntityInspectionPanel({ entity, events, loading, error }) {
   const aiSummary = entity.ai?.entity_summary || entity.ai?.summary;
   const aiStatus = humanizeToken(entity.ai?.status || 'pending');
@@ -852,7 +1359,7 @@ function EntityInspectionPanel({ entity, events, loading, error }) {
   );
 }
 
-function ActivityUpdatesSection({ entityId }) {
+function ActivityUpdatesSection({ entityId, className = '' }) {
   const [updates, setUpdates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -886,7 +1393,7 @@ function ActivityUpdatesSection({ entityId }) {
   }
 
   return (
-    <section className={styles.segmentPanel} aria-label="Activity Updates">
+    <section className={[styles.segmentPanel, className].filter(Boolean).join(' ')} aria-label="Activity Updates">
       <header className={styles.segmentHeader}>
         <h2>Activity Updates</h2>
         <div className={styles.segmentHeaderRight}>

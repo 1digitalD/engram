@@ -10,6 +10,7 @@
 .panel,
 .headerPanel,
 .segmentPanel,
+.fullWidthPanel,
 .listHeaderPanel,
 .listPanel {
   border: 1px solid var(--border-faint);
@@ -83,6 +84,11 @@
   flex: 1 1 380px;
   gap: var(--space-2);
   min-width: 0;
+}
+
+.fullWidthPanel {
+  max-width: 1600px;
+  width: 100%;
 }
 
 .segmentPanelNarrow {
@@ -232,10 +238,10 @@
   box-shadow: var(--shadow-sm);
   display: flex;
   flex-direction: column;
+  flex: 2 1 380px;
   gap: var(--space-3);
-  max-width: 1600px;
+  min-width: 0;
   padding: var(--space-4);
-  width: 100%;
 }
 
 .inspectionHeader {

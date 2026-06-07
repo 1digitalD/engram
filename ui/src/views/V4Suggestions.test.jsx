@@ -146,4 +146,33 @@ describe('V4Suggestions', () => {
     expect(screen.queryByText('Task one')).not.toBeInTheDocument();
     expect(screen.queryByText('Task two')).not.toBeInTheDocument();
   });
+
+  it('hides zero-confidence provenance pills', async () => {
+    v4API.suggestions.list.mockResolvedValue({
+      data: [
+        {
+          id: 's20',
+          suggestion_type: 'create_task',
+          operation_type: 'create_entity',
+          source_entity_id: 'n20',
+          payload: { type: 'task', title: 'Task zero' },
+          confidence: 0,
+        },
+      ],
+    });
+    v4API.entities.get.mockResolvedValue({
+      data: {
+        id: 'n20',
+        type: 'note',
+        title: 'Zero note',
+        content: 'body',
+        ai: { status: 'done', confidence: 0 },
+      },
+    });
+
+    render(<MemoryRouter><V4Suggestions /></MemoryRouter>);
+
+    expect(await screen.findByText('Zero note')).toBeInTheDocument();
+    expect(screen.queryByText('0% confidence')).not.toBeInTheDocument();
+  });
 });
