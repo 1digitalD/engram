@@ -159,7 +159,7 @@ export default function V4Inbox() {
             </p>
           </div>
           <div className={styles.captureHeaderActions}>
-            <Link to="/suggestions" className={styles.captureHeaderLink}>Review suggestions</Link>
+            <Link to="/suggestions" className={styles.captureHeaderLink}>Open review queue</Link>
             <Link to="/notes" className={styles.captureHeaderLink}>All notes</Link>
           </div>
         </header>
@@ -216,7 +216,7 @@ export default function V4Inbox() {
         <section className={`${styles.recentPanel} ${styles.recentPanel_review}`}>
           <header className={styles.sectionHeader}>
             <h2>Needs review</h2>
-            <span className={styles.sectionHint}>Pending suggestions or AI errors</span>
+            <span className={styles.sectionHint}>Notes routed to Review because AI is pending, failed, or awaiting a decision.</span>
             <span className={styles.countPill}>{needsReview.length}</span>
             <Link to="/suggestions" className={styles.sectionLink}>Open review queue</Link>
           </header>

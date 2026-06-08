@@ -21,6 +21,13 @@
   font-size: var(--text-md);
   font-weight: 700;
   letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.panelIntro {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  margin: 4px 0 0;
 }
 
 .panelHeader {
@@ -29,6 +36,14 @@
   gap: var(--space-3);
   justify-content: space-between;
   margin-bottom: var(--space-2);
+}
+
+.panelActions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
 }
 
 .refreshButton {
@@ -61,11 +76,115 @@
   opacity: 0.45;
 }
 
+.secondaryButton {
+  align-items: center;
+  background: color-mix(in oklch, var(--surface2) 68%, var(--surface));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  gap: 6px;
+  letter-spacing: 0.02em;
+  min-height: 26px;
+  padding: 4px 10px;
+  text-transform: uppercase;
+  transition: background-color var(--duration-fast) var(--ease-out),
+              color var(--duration-fast) var(--ease-out);
+}
+
+.secondaryButton:hover:not(:disabled) {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.secondaryButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
 .list {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
   list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.reviewStack {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.subpanel {
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-lg);
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+}
+
+.subpanelHeader {
+  align-items: center;
+  display: flex;
+  gap: var(--space-2);
+  justify-content: space-between;
+}
+
+.subpanelHeader h3 {
+  color: var(--text);
+  font-size: var(--text-sm);
+  margin: 0;
+}
+
+.countPill {
+  align-items: center;
+  background: color-mix(in oklch, var(--surface2) 68%, var(--surface));
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-full);
+  color: var(--text-secondary);
+  display: inline-flex;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  min-height: 22px;
+  padding: 2px 8px;
+}
+
+.summaryGrid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  margin-bottom: var(--space-3);
+}
+
+.summaryCard {
+  align-content: start;
+  background: color-mix(in oklch, var(--surface2) 55%, var(--surface));
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-md);
+  display: grid;
+  gap: 4px;
+  min-height: 78px;
+  padding: 10px 12px;
+}
+
+.summaryCard strong {
+  color: var(--text);
+  font-size: var(--text-xl);
+}
+
+.summaryCard span {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.emptyState {
+  color: var(--text-muted);
+  margin: 0;
 }
 
 .groupStack {
@@ -174,6 +293,16 @@
   padding: var(--space-2) var(--space-3);
 }
 
+.reviewCard {
+  align-items: flex-start;
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-md);
+  display: flex;
+  gap: var(--space-3);
+  justify-content: space-between;
+  padding: var(--space-3);
+}
+
 .cardEditing {
   align-items: stretch;
   flex-direction: column;
@@ -211,6 +340,12 @@
 
 .card p {
   color: var(--text-secondary);
+  margin-top: var(--space-2);
+}
+
+.reviewHint {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
   margin-top: var(--space-2);
 }
 
@@ -285,6 +420,26 @@
 .editActions {
   display: flex;
   gap: var(--space-2);
+}
+
+.resolveButton {
+  background: color-mix(in oklch, var(--green) 12%, var(--surface));
+  border: 1px solid color-mix(in oklch, var(--green) 28%, var(--border));
+  border-radius: var(--radius-full);
+  color: var(--green);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  min-height: 30px;
+  padding: 0 10px;
+  text-transform: uppercase;
+}
+
+.resolveButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 .saveButton {
@@ -402,13 +557,23 @@
   color: var(--red);
 }
 
+.notice,
 .error {
   border-radius: var(--radius-md);
-  background: color-mix(in oklch, var(--red) 12%, var(--surface));
-  color: var(--red);
   margin-bottom: var(--space-3);
   padding: var(--space-2) var(--space-3);
   font-size: var(--text-sm);
+}
+
+.notice {
+  background: color-mix(in oklch, var(--green) 10%, var(--surface));
+  border: 1px solid color-mix(in oklch, var(--green) 22%, var(--border));
+  color: var(--green);
+}
+
+.error {
+  background: color-mix(in oklch, var(--red) 12%, var(--surface));
+  color: var(--red);
 }
 
 @media (max-width: 900px) {
@@ -416,7 +581,18 @@
     padding: var(--space-3);
   }
 
-  .card {
+  .panelHeader {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .panelActions {
+    justify-content: flex-start;
+    width: 100%;
+  }
+
+  .card,
+  .reviewCard {
     align-items: stretch;
     flex-direction: column;
   }

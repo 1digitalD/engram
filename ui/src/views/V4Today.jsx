@@ -104,11 +104,6 @@ function reasonLabel(reason) {
   return reason;
 }
 
-function formatAiStatus(value) {
-  if (!value) return '';
-  return String(value).replace(/_/g, ' ');
-}
-
 function formatAttention(entity) {
   const attention = entity?.attention;
   if (!attention?.score) return '';
@@ -197,27 +192,12 @@ export default function V4Today() {
   const location = useLocation();
   const fromState = { from: location.pathname + location.search };
   const [today, setToday] = useState(null);
-  const [sourceNotes, setSourceNotes] = useState({});
   const [error, setError] = useState('');
 
   async function load() {
     try {
       const data = await v4API.today();
       setToday(data);
-      const sourceIds = [...new Set((data.pending_suggestions || []).map((s) => s.source_entity_id).filter(Boolean))];
-      if (sourceIds.length === 0) {
-        setSourceNotes({});
-      } else {
-        const noteResults = await Promise.allSettled(sourceIds.map((sourceId) => v4API.entities.get(sourceId)));
-        const nextNotes = {};
-        sourceIds.forEach((sourceId, index) => {
-          const result = noteResults[index];
-          if (result.status === 'fulfilled' && result.value?.data) {
-            nextNotes[sourceId] = result.value.data;
-          }
-        });
-        setSourceNotes(nextNotes);
-      }
     } catch (err) {
       setError(err.message || 'Failed to load today');
     }
@@ -260,23 +240,6 @@ export default function V4Today() {
   const waiting = today.waiting_tasks || [];
   const idleProjects = today.projects_without_open_tasks || [];
   const recentNotes = today.recent_notes || [];
-  const suggestions = today.pending_suggestions || [];
-  const suggestionGroups = (() => {
-    const grouped = new Map();
-    suggestions.forEach((suggestion) => {
-      const key = suggestion.source_entity_id || `ungrouped-${suggestion.id}`;
-      const existing = grouped.get(key) || {
-        key,
-        sourceEntityId: suggestion.source_entity_id || null,
-        sourceNote: suggestion.source_entity_id ? sourceNotes[suggestion.source_entity_id] : null,
-        suggestions: [],
-      };
-      existing.sourceNote = existing.sourceEntityId ? (sourceNotes[existing.sourceEntityId] || existing.sourceNote) : null;
-      existing.suggestions.push(suggestion);
-      grouped.set(key, existing);
-    });
-    return [...grouped.values()];
-  })();
 
   const totalActionable = getTodayAttentionCount(today);
   const focusNow = getTodayFocusItems(today, 6);
@@ -395,47 +358,6 @@ export default function V4Today() {
         onChanged={load}
         fromState={fromState}
       />
-
-      {suggestions.length > 0 && (
-        <section className={styles.panel}>
-          <header className={styles.panelHeader}>
-            <h2>AI suggestions to review</h2>
-            <span className={styles.count}>{suggestions.length}</span>
-          </header>
-          <ul className={styles.list}>
-            {suggestionGroups.map((group) => (
-              <li key={group.key} className={styles.row}>
-                <Link
-                  to={group.sourceEntityId ? entityPath({ id: group.sourceEntityId, type: 'note' }) : '/suggestions'}
-                  state={fromState}
-                  className={styles.rowLink}
-                >
-                  <strong>{group.sourceNote?.title || group.suggestions[0]?.payload?.title || 'Review suggestions'}</strong>
-                  {group.sourceNote?.content ? (
-                    <MarkdownContent content={group.sourceNote.content} compact />
-                  ) : null}
-                  <span className={styles.metaRow}>
-                    <span className={styles.typePill}>{group.suggestions.length} suggestion{group.suggestions.length === 1 ? '' : 's'}</span>
-                    {group.sourceNote?.ai?.status ? (
-                      <span className={styles.statusPill}>AI {formatAiStatus(group.sourceNote.ai.status)}</span>
-                    ) : null}
-                  </span>
-                </Link>
-                <div className={styles.metaRow}>
-                  {group.sourceEntityId ? (
-                    <Link to={entityPath({ id: group.sourceEntityId, type: 'note' })} state={fromState} className={styles.inlineActionLink}>
-                      Open source note
-                    </Link>
-                  ) : null}
-                  <Link to="/suggestions" className={styles.inlineActionLink}>
-                    Review in Suggestions
-                  </Link>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
 
       {idleProjects.length > 0 && (
         <details className={styles.collapsible}>

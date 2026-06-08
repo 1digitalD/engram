@@ -46,15 +46,6 @@ describe('V4Today', () => {
         { id: 's2', source_entity_id: 'n2', suggestion_type: 'link_existing', payload: { title: 'Suggested project' } },
       ],
     });
-    v4API.entities.get.mockResolvedValue({
-      data: {
-        id: 'n2',
-        type: 'note',
-        title: 'Source note',
-        content: 'Note body',
-        ai: { status: 'done' },
-      },
-    });
 
     render(
       <MemoryRouter>
@@ -78,13 +69,7 @@ describe('V4Today', () => {
     expect(screen.getByText('Waiting work')).toBeInTheDocument();
     expect(screen.getByText('Needs next task')).toBeInTheDocument();
     expect(screen.getByText('Recent note')).toBeInTheDocument();
-    expect(screen.getByText('Source note')).toBeInTheDocument();
-    expect(screen.getByText('2 suggestions')).toBeInTheDocument();
-    expect(screen.getByText('Note body')).toBeInTheDocument();
-    expect(screen.getByText('Review in Suggestions')).toBeInTheDocument();
-    expect(screen.getByText('Open source note')).toBeInTheDocument();
     expect(screen.getAllByRole('link', { name: /Overdue task/i })[0]).toHaveAttribute('href', '/tasks/od1');
-    expect(v4API.entities.get).toHaveBeenCalledWith('n2');
     expect(v4API.today).toHaveBeenCalled();
   });
 });

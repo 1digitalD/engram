@@ -64,7 +64,7 @@ describe('V4Home', () => {
       limit: 8,
     });
 
-    expect(screen.getByText('Needs review')).toBeInTheDocument();
+    expect(screen.getByText('Review queue')).toBeInTheDocument();
     expect(screen.getByText('Today')).toBeInTheDocument();
     expect(screen.getByText('Stuck')).toBeInTheDocument();
     expect(screen.getByText('Active projects')).toBeInTheDocument();
@@ -74,10 +74,10 @@ describe('V4Home', () => {
     expect(screen.getByText('Blocked task')).toBeInTheDocument();
     expect(screen.getByText('Needs next task')).toBeInTheDocument();
     expect(screen.getByText('Memory Lookup')).toBeInTheDocument();
-    expect(screen.getByText(/1 need review · 1 captured recently/i)).toBeInTheDocument();
-    expect(screen.getByText(/Latest · Recent note/i)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /need attention/i })).toHaveTextContent('4');
-    const heroStats = screen.getByText('need review').closest('div');
-    expect(within(heroStats).getByRole('link', { name: /^1 need review$/i })).toHaveAttribute('href', '/inbox');
+    expect(screen.getByText(/1 note in review/i)).toBeInTheDocument();
+    expect(screen.getByText(/4 items need attention/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /^4 need attention$/i })).toHaveTextContent('4');
+    const heroStats = screen.getByText('in review').closest('div');
+    expect(within(heroStats).getByRole('link', { name: /^1 in review$/i })).toHaveAttribute('href', '/suggestions');
   });
 });

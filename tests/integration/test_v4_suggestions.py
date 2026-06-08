@@ -68,6 +68,82 @@ def test_list_v4_suggestions_returns_pending_items(client, app):
     assert payload["meta"]["total"] == 1
 
 
+def test_resolve_review_marks_note_resolved_and_clears_it_from_inbox(client, app):
+    note_id = _create_note(app)
+    suggestion_id = _create_suggestion(
+        app,
+        note_id,
+        "create_task",
+        {
+            "type": "task",
+            "title": "Optional follow up",
+            "content": "No action needed",
+            "source_entity_id": note_id,
+            "evidence": "optional",
+        },
+    )
+
+    with app.app_context():
+        note = db.session.get(Entity, note_id)
+        note.ai_status = "failed"
+        db.session.commit()
+
+    response = client.post(f"/api/v4/entities/{note_id}/review/resolve")
+
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["meta"]["dismissed_suggestions"] == 1
+    assert payload["data"]["ai"]["review_state"] == "resolved"
+    assert payload["data"]["ai"]["review_resolution"] == "no_change_needed"
+
+    inbox = client.get("/api/v4/inbox").get_json()
+    assert note_id not in {item["id"] for item in inbox["needs_review"]}
+
+    with app.app_context():
+        assert db.session.get(AiSuggestion, suggestion_id).status == "dismissed"
+        events = EntityEvent.query.filter_by(entity_id=note_id).all()
+        assert any(event.event_type == "review_marked_resolved" for event in events)
+
+
+def test_resolved_review_note_reenters_inbox_when_new_suggestion_is_created(client, app):
+    note_id = _create_note(app)
+
+    resolve_response = client.post(f"/api/v4/entities/{note_id}/review/resolve")
+    assert resolve_response.status_code == 200
+
+    ingest = client.post(
+        f"/api/v4/entities/{note_id}/ingest_candidates",
+        json={
+            "title": "Follow-up note",
+            "summary": "Needs a task suggestion",
+            "intent": "task_signal",
+            "intent_confidence": 0.95,
+            "confidence": 0.95,
+            "tags": [],
+            "links": [],
+            "entities": [{
+                "type": "task",
+                "title": "Follow up later",
+                "content": "Keep an eye on this",
+                "due_at": None,
+                "follow_up_at": None,
+                "assigned_to": None,
+                "confidence": 0.61,
+                "evidence": "follow up later",
+            }],
+        },
+    )
+    assert ingest.status_code == 200
+
+    inbox = client.get("/api/v4/inbox").get_json()
+    assert note_id in {item["id"] for item in inbox["needs_review"]}
+
+    with app.app_context():
+        note = db.session.get(Entity, note_id)
+        assert (note.ai_meta or {}).get("review_state") != "resolved"
+        assert AiSuggestion.query.filter_by(source_entity_id=note_id, status="pending").count() == 1
+
+
 def test_accept_create_task_suggestion_creates_task_and_derived_from_link(client, app):
     note_id = _create_note(app)
     suggestion_id = _create_suggestion(

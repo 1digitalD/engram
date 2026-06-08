@@ -133,7 +133,6 @@ export default function V4Home() {
   const summary = {
     review: needsReview.length,
     today: getTodayAttentionCount(today),
-    suggestions: (today.pending_suggestions || []).length,
     stalledProjects: stalledProjects.length,
   };
 
@@ -148,9 +147,9 @@ export default function V4Home() {
           </p>
         </div>
         <div className={styles.heroStats}>
-          <Link to="/inbox" className={styles.statCard}>
+          <Link to="/suggestions" className={styles.statCard}>
             <strong>{summary.review}</strong>
-            <span>need review</span>
+            <span>in review</span>
           </Link>
           <Link to="/today" className={styles.statCard}>
             <strong>{summary.today}</strong>
@@ -169,10 +168,10 @@ export default function V4Home() {
 
       <div className={styles.grid}>
         <HomeSection
-          title="Needs review"
-          hint="Notes with pending suggestions or incomplete AI processing."
+          title="Review queue"
+          hint="Notes waiting on AI or user review."
           count={needsReview.length}
-          action={<Link to="/inbox" className={styles.inlineLink}>Open inbox</Link>}
+          action={<Link to="/suggestions" className={styles.inlineLink}>Open review</Link>}
         >
           <EntityList items={needsReview.slice(0, 5)} fromState={fromState} />
         </HomeSection>
@@ -216,25 +215,25 @@ export default function V4Home() {
 
         <HomeSection
           title="Inbox flow"
-          hint="Capture into Inbox, then review or file the note from there."
+          hint="Capture in Inbox, clear Review, then move into execution."
           count={summary.review + recent.length}
           action={<Link to="/inbox" className={styles.inlineLink}>Open inbox</Link>}
         >
           <div className={styles.workflowGrid}>
             <WorkflowLink
               to="/inbox"
-              label="Capture or review"
-              detail={`${summary.review} need review · ${recent.length} captured recently`}
+              label="Capture"
+              detail={`${recent.length} captured recently`}
             />
             <WorkflowLink
               to="/suggestions"
-              label="Finish suggestions"
-              detail={`${summary.suggestions} pending suggestion${summary.suggestions === 1 ? '' : 's'}`}
+              label="Clear review"
+              detail={`${summary.review} note${summary.review === 1 ? '' : 's'} in review`}
             />
             <WorkflowLink
-              to="/notes"
-              label="Browse all notes"
-              detail={recent[0] ? `Latest · ${entityTitle(recent[0])}` : 'Open the full notes library'}
+              to="/today"
+              label="Run today"
+              detail={`${summary.today} item${summary.today === 1 ? '' : 's'} need attention`}
             />
           </div>
         </HomeSection>

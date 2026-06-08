@@ -34,7 +34,7 @@ vi.mock('./views/V4Home', () => ({ default: () => <main>Home view</main> }));
 vi.mock('./views/V4Inbox', () => ({ default: () => <main>Inbox view</main> }));
 vi.mock('./views/V4Today', () => ({ default: () => <main>Today view</main> }));
 vi.mock('./views/V4Search', () => ({ default: () => <main>Search view</main> }));
-vi.mock('./views/V4Suggestions', () => ({ default: () => <main>Suggestions view</main> }));
+vi.mock('./views/V4Suggestions', () => ({ default: () => <main>Review view</main> }));
 vi.mock('./views/V4AgentActivity', () => ({ default: () => <main>Agent log view</main> }));
 vi.mock('./views/V4EntityList', () => ({ default: ({ type }) => <main>{type} list</main> }));
 vi.mock('./views/V4EntityDetail', () => ({ default: () => <main>Detail view</main> }));
@@ -85,7 +85,7 @@ describe('App shell', () => {
     await waitFor(() => expect(v4API.today).toHaveBeenCalled());
     expect(screen.getByRole('link', { name: /Today/i })).toHaveTextContent('7');
     expect(screen.getByRole('link', { name: /Inbox/i })).toHaveTextContent('2');
-    expect(screen.getByRole('link', { name: /Suggestions/i })).toHaveTextContent('2');
+    expect(screen.getByRole('link', { name: /Review/i })).toHaveTextContent('2');
   });
 
   it('supports quick note capture from the shell', async () => {

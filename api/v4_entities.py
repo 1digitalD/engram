@@ -123,6 +123,7 @@ def capture():
     )
     db.session.add(note)
     db.session.flush()
+    _clear_review_resolution(note)
     _write_event(note, "created", new_value=note.to_dict())
     db.session.add(Job(job_type="embed", entity_id=note.id, payload={"entity_id": note.id, "reason": "capture"}))
 
@@ -371,6 +372,10 @@ def today():
 @api_v4_bp.route("/inbox", methods=["GET"])
 def inbox():
     limit = max(1, min(request.args.get("limit", 30, type=int), 200))
+    unresolved_review = or_(
+        Entity.ai_meta["review_state"].as_string().is_(None),
+        Entity.ai_meta["review_state"].as_string() != "resolved",
+    )
 
     # Notes with pending AI suggestions linked to them.
     notes_with_suggestions = {
@@ -384,6 +389,7 @@ def inbox():
         .filter(
             Entity.type == "note",
             Entity.lifecycle == "active",
+            unresolved_review,
             or_(
                 Entity.ai_status == "pending",
                 Entity.ai_status == "failed",
@@ -534,6 +540,27 @@ def _audit_entity(entity):
     if entity is None:
         return None
     return {"id": entity.id, "type": entity.type, "title": entity.title}
+
+
+def _clear_review_resolution(entity):
+    ai_meta = dict(entity.ai_meta or {})
+    changed = False
+    for key in ("review_state", "reviewed_at", "review_resolution"):
+        if key in ai_meta:
+            ai_meta.pop(key, None)
+            changed = True
+    if changed:
+        entity.ai_meta = ai_meta
+        flag_modified(entity, "ai_meta")
+
+
+def _mark_review_resolved(entity):
+    ai_meta = dict(entity.ai_meta or {})
+    ai_meta["review_state"] = "resolved"
+    ai_meta["reviewed_at"] = datetime.now(timezone.utc).isoformat()
+    ai_meta["review_resolution"] = "no_change_needed"
+    entity.ai_meta = ai_meta
+    flag_modified(entity, "ai_meta")
 
 
 @api_v4_bp.route("/recent", methods=["GET"])
@@ -1262,6 +1289,41 @@ def dismiss_suggestion(suggestion_id):
     return jsonify({"data": suggestion.to_dict()})
 
 
+@api_v4_bp.route("/entities/<entity_id>/review/resolve", methods=["POST"])
+def resolve_entity_review(entity_id):
+    entity = _load_entity(entity_id)
+    if entity is None:
+        return _error("entity not found", 404)
+    if entity.type != "note":
+        return _error("review resolve is only supported for notes")
+
+    pending = AiSuggestion.query.filter_by(source_entity_id=entity_id, status="pending").all()
+    dismissed = 0
+    for suggestion in pending:
+        suggestion.status = "dismissed"
+        suggestion.resolved_at = datetime.utcnow()
+        dismissed += 1
+        _write_event(
+            entity,
+            "suggestion_dismissed",
+            new_value={"suggestion_id": suggestion.id},
+            actor="agent:v4-review",
+            confidence=suggestion.confidence,
+            reason="review resolved without changes",
+        )
+
+    _mark_review_resolved(entity)
+    _write_event(
+        entity,
+        "review_marked_resolved",
+        new_value={"resolution": "no_change_needed", "dismissed_suggestions": dismissed},
+        actor="agent:v4-review",
+        reason="reviewed and kept as-is",
+    )
+    db.session.commit()
+    return jsonify({"data": _load_entity(entity.id).to_dict(), "meta": {"dismissed_suggestions": dismissed}})
+
+
 @api_v4_bp.route("/entities/<entity_id>/ingest_candidates", methods=["POST"])
 def ingest_candidates(entity_id):
     """Accept pre-extracted candidates from a calling agent, bypassing LLM extraction."""
@@ -1273,6 +1335,7 @@ def ingest_candidates(entity_id):
 
     from services.v4_extraction import normalize_candidates
     extraction = normalize_candidates(request.get_json(silent=True) or {})
+    _clear_review_resolution(entity)
 
     try:
         applied_changes, suggestions = _reconcile_capture_candidates(entity, extraction)
@@ -1310,6 +1373,7 @@ def reprocess_entity(entity_id):
     # reprocess pass set no summary, which would still be fine, but resetting
     # makes the lifecycle explicit.)
     entity.ai_status = "pending"
+    _clear_review_resolution(entity)
 
     applied_changes = []
     suggestions = []
@@ -2133,6 +2197,7 @@ def _create_suggestion(note, suggestion_type, operation_type, payload, confidenc
     if _recently_resolved_duplicate(fingerprint, confidence):
         return None
 
+    _clear_review_resolution(note)
     suggestion = AiSuggestion(
         source_entity_id=note.id,
         suggestion_type=suggestion_type,

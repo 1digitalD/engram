@@ -36,7 +36,7 @@ const viewItems = [
   ['/inbox', 'Inbox', Inbox, 'inbox'],
   ['/today', 'Today', Sun, 'today'],
   ['/search', 'Search', Search, null],
-  ['/suggestions', 'Suggestions', Sparkles, 'suggestions'],
+  ['/suggestions', 'Review', Sparkles, 'suggestions'],
   ['/agent-activity', 'Agent log', Activity, null],
 ];
 
@@ -66,8 +66,8 @@ function useSidebarCounts(refreshKey) {
       const todayCount = todayRes.status === 'fulfilled'
         ? getTodayAttentionCount(todayRes.value)
         : null;
-      const sugCount = sugRes.status === 'fulfilled'
-        ? (sugRes.value.meta?.total ?? sugRes.value.data?.length ?? null)
+      const sugCount = inboxRes.status === 'fulfilled'
+        ? (inboxRes.value.needs_review?.length ?? null)
         : null;
       setCounts({ inbox: inboxCount, today: todayCount, suggestions: sugCount });
     });

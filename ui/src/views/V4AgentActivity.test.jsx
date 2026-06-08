@@ -50,11 +50,14 @@ describe('V4AgentActivity', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText('Recent automation')).toBeInTheDocument();
+    expect(await screen.findByText('Agent log')).toBeInTheDocument();
+    expect(screen.getByText(/What this log is showing/i)).toBeInTheDocument();
     expect(screen.getAllByText('auto applied').length).toBeGreaterThan(0);
-    expect(screen.getByText('create task')).toBeInTheDocument();
+    expect(screen.getAllByText('pending suggestion').length).toBeGreaterThan(0);
+    expect(screen.getByText('task suggestion created')).toBeInTheDocument();
     expect(screen.getAllByText(/Source note/).length).toBeGreaterThan(0);
     expect(screen.getByText('91%')).toBeInTheDocument();
+    expect(screen.getByText(/Pending risky change awaiting review./i)).toBeInTheDocument();
     expect(v4API.agentActivity).toHaveBeenCalledWith({ limit: 80 });
   });
 });
