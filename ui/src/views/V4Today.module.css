@@ -169,7 +169,8 @@
 
 .typePill,
 .statusPill,
-.priorityPill {
+.priorityPill,
+.attentionPill {
   border-radius: var(--radius-full);
   font-family: var(--font-mono);
   font-size: 10px;
@@ -195,6 +196,12 @@
   background: color-mix(in oklch, var(--yellow) 14%, var(--surface));
   border: 1px solid color-mix(in oklch, var(--yellow) 35%, var(--border));
   color: color-mix(in oklch, var(--yellow) 70%, var(--text));
+}
+
+.attentionPill {
+  background: color-mix(in oklch, var(--red) 8%, var(--surface));
+  border: 1px solid color-mix(in oklch, var(--red) 24%, var(--border));
+  color: color-mix(in oklch, var(--red) 70%, var(--text));
 }
 
 .reasonPill {

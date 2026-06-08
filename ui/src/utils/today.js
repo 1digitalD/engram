@@ -64,6 +64,7 @@ export function getTodayAttentionCount(today) {
 export function getTodayFocusItems(today, limit = 6) {
   const seen = new Set();
   const result = [];
+  let order = 0;
   const buckets = [
     ['overdue', today?.overdue || []],
     ['due_today', today?.due_today || []],
@@ -79,10 +80,17 @@ export function getTodayFocusItems(today, limit = 6) {
       const key = entityKey(entity);
       if (!key || seen.has(key)) continue;
       seen.add(key);
-      result.push({ entity, reason });
-      if (result.length >= limit) return result;
+      result.push({ entity, reason, order });
+      order += 1;
     }
   }
 
-  return result;
+  return result
+    .sort((a, b) => {
+      const scoreDelta = (b.entity?.attention?.score || 0) - (a.entity?.attention?.score || 0);
+      if (scoreDelta !== 0) return scoreDelta;
+      return a.order - b.order;
+    })
+    .slice(0, limit)
+    .map(({ entity, reason }) => ({ entity, reason }));
 }

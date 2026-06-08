@@ -72,8 +72,12 @@ def test_v4_today_returns_execution_sections(client, app):
     assert {item["id"] for item in data["due_today"]} == {due_today_task["id"]}
     assert {item["id"] for item in data["blocked_tasks"]} == {blocked_task["id"]}
     assert {item["id"] for item in data["waiting_tasks"]} == {waiting_task["id"]}
+    blocked_attention = data["blocked_tasks"][0]["attention"]
+    assert blocked_attention["level"] in {"medium", "high", "urgent"}
+    assert any(reason["key"] == "status:blocked" for reason in blocked_attention["reasons"])
     assert {item["id"] for item in data["blocked_or_waiting_tasks"]} == {waiting_task["id"], blocked_task["id"]}
     assert [item["id"] for item in data["projects_without_open_tasks"]] == [project_without_tasks["id"]]
+    assert data["projects_without_open_tasks"][0]["attention"]["reasons"][0]["key"] == "context:project_without_open_tasks"
     assert [item["id"] for item in data["recent_notes"]] == [recent_note["id"], today_followup_note["id"]]
     assert data["pending_suggestions"][0]["payload"]["title"] == "Suggested task"
 
@@ -110,6 +114,11 @@ def test_v4_inbox_separates_needs_review_from_recent(client, app):
     # pending_suggestion_count annotation
     by_id = {n["id"]: n for n in data["needs_review"] + data["recent"]}
     assert by_id[with_suggestion["id"]]["pending_suggestion_count"] == 1
+    assert by_id[with_suggestion["id"]]["attention"]["score"] > 0
+    assert any(
+        reason["key"] == "pending_suggestions"
+        for reason in by_id[with_suggestion["id"]]["attention"]["reasons"]
+    )
     assert by_id[processed["id"]]["pending_suggestion_count"] == 0
     assert "intent" in by_id[processed["id"]]["ai"]
 

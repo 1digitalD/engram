@@ -10,6 +10,7 @@ from sqlalchemy.orm import selectinload
 from api import api_v4_bp
 from extensions import db
 from models import AiSuggestion, Entity, EntityEvent, EntityLink, EntityTag, Job, Tag
+from services.v4_attention import attention_for_entity
 
 STATUS_BY_TYPE = {
     "note": ["active", "processed", "archived"],
@@ -346,18 +347,21 @@ def today():
     )
 
     return jsonify({
-        "overdue": [entity.to_dict() for entity in overdue],
-        "due_today": [entity.to_dict() for entity in due_today],
-        "overdue_follow_ups": [entity.to_dict() for entity in overdue_follow_ups],
-        "follow_ups": [entity.to_dict() for entity in follow_ups],
-        "upcoming_follow_ups": [entity.to_dict() for entity in upcoming_follow_ups],
-        "blocked_tasks": [entity.to_dict() for entity in blocked_tasks],
-        "waiting_tasks": [entity.to_dict() for entity in waiting_tasks],
-        "projects_without_open_tasks": [entity.to_dict() for entity in projects_without_open_tasks],
-        "recent_notes": [entity.to_dict() for entity in recent_notes],
+        "overdue": [_entity_with_attention(entity) for entity in overdue],
+        "due_today": [_entity_with_attention(entity) for entity in due_today],
+        "overdue_follow_ups": [_entity_with_attention(entity) for entity in overdue_follow_ups],
+        "follow_ups": [_entity_with_attention(entity) for entity in follow_ups],
+        "upcoming_follow_ups": [_entity_with_attention(entity) for entity in upcoming_follow_ups],
+        "blocked_tasks": [_entity_with_attention(entity) for entity in blocked_tasks],
+        "waiting_tasks": [_entity_with_attention(entity) for entity in waiting_tasks],
+        "projects_without_open_tasks": [
+            _entity_with_attention(entity, context=["project_without_open_tasks"])
+            for entity in projects_without_open_tasks
+        ],
+        "recent_notes": [_entity_with_attention(entity) for entity in recent_notes],
         "pending_suggestions": [suggestion.to_dict() for suggestion in pending_suggestions],
         # Retained for any external callers; matches the new bucket structure semantically.
-        "blocked_or_waiting_tasks": [e.to_dict() for e in (blocked_tasks + waiting_tasks)],
+        "blocked_or_waiting_tasks": [_entity_with_attention(e) for e in (blocked_tasks + waiting_tasks)],
     })
 
 
@@ -417,12 +421,27 @@ def inbox():
     def annotate(note):
         d = note.to_dict()
         d["pending_suggestion_count"] = pending_counts.get(note.id, 0)
+        d["attention"] = attention_for_entity(
+            note,
+            pending_suggestion_count=d["pending_suggestion_count"],
+            context=["needs_review"] if note.id in needs_review_ids else None,
+        )
         return d
 
     return jsonify({
         "needs_review": [annotate(n) for n in needs_review],
         "recent": [annotate(n) for n in recent],
     })
+
+
+def _entity_with_attention(entity, *, pending_suggestion_count=0, context=None):
+    data = entity.to_dict()
+    data["attention"] = attention_for_entity(
+        entity,
+        pending_suggestion_count=pending_suggestion_count,
+        context=context,
+    )
+    return data
 
 
 @api_v4_bp.route("/recent", methods=["GET"])

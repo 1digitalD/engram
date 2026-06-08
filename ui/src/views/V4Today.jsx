@@ -109,8 +109,16 @@ function formatAiStatus(value) {
   return String(value).replace(/_/g, ' ');
 }
 
+function formatAttention(entity) {
+  const attention = entity?.attention;
+  if (!attention?.score) return '';
+  const topReason = attention.reasons?.[0]?.label;
+  return topReason ? `${attention.level} · ${topReason}` : attention.level;
+}
+
 function EntityRow({ entity, onQuickStatus, onUpdateField, onChanged, fromState, reason }) {
   const isTask = entity.type === 'task';
+  const attentionLabel = formatAttention(entity);
   return (
     <li className={`${styles.row} cardActionsParent`}>
       <CardActions entity={entity} onChanged={onChanged} />
@@ -139,6 +147,9 @@ function EntityRow({ entity, onQuickStatus, onUpdateField, onChanged, fromState,
         )}
         {entity.properties?.priority && (
           <span className={styles.priorityPill}>!{entity.properties.priority}</span>
+        )}
+        {attentionLabel && (
+          <span className={styles.attentionPill}>{attentionLabel}</span>
         )}
         <InlineDateChip
           value={entity.due_at}

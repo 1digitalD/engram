@@ -93,7 +93,17 @@ def test_get_today_returns_formatted_snapshot(monkeypatch):
     def fake_api(method, path, **kwargs):
         calls.append((method, path))
         return {
-            "follow_ups": [{"id": "t1", "type": "task", "title": "Call dentist", "follow_up_at": "2025-06-01"}],
+            "follow_ups": [{
+                "id": "t1",
+                "type": "task",
+                "title": "Call dentist",
+                "follow_up_at": "2025-06-01",
+                "attention": {
+                    "score": 52,
+                    "level": "high",
+                    "reasons": [{"key": "follow_up:today", "label": "follow-up today"}],
+                },
+            }],
             "blocked_or_waiting_tasks": [],
             "projects_without_open_tasks": [{"id": "p1", "type": "project", "title": "Website"}],
             "recent_notes": [],
@@ -105,6 +115,7 @@ def test_get_today_returns_formatted_snapshot(monkeypatch):
 
     assert calls == [("GET", "/today")]
     assert "Call dentist" in text
+    assert "attention=high:52, follow-up today" in text
     assert "Website" in text
     assert "make slides" in text
 

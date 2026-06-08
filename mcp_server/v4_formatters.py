@@ -69,6 +69,16 @@ def format_recent(payload, entity_type=None):
     return "\n".join(lines)
 
 
+def _attention_text(entity):
+    attention = entity.get("attention") or {}
+    score = attention.get("score")
+    if not isinstance(score, (int, float)) or score <= 0:
+        return ""
+    reason = (attention.get("reasons") or [{}])[0].get("label")
+    detail = f", {reason}" if reason else ""
+    return f" attention={attention.get('level')}:{score}{detail}"
+
+
 def format_today(payload):
     lines = []
 
@@ -78,26 +88,26 @@ def format_today(payload):
         for e in follow_ups:
             lines.append(
                 f"  - `{e.get('id')}` [{e.get('type')}] {e.get('title') or 'Untitled'}"
-                f" (follow-up: {e.get('follow_up_at', '')})"
+                f" (follow-up: {e.get('follow_up_at', '')}){_attention_text(e)}"
             )
 
     blocked = payload.get("blocked_or_waiting_tasks") or []
     if blocked:
         lines.append(f"\nBlocked/waiting tasks ({len(blocked)}):")
         for e in blocked:
-            lines.append(f"  - `{e.get('id')}` {e.get('title') or 'Untitled'} [{e.get('status')}]")
+            lines.append(f"  - `{e.get('id')}` {e.get('title') or 'Untitled'} [{e.get('status')}]{_attention_text(e)}")
 
     stalled = payload.get("projects_without_open_tasks") or []
     if stalled:
         lines.append(f"\nProjects without open tasks ({len(stalled)}):")
         for e in stalled:
-            lines.append(f"  - `{e.get('id')}` {e.get('title') or 'Untitled'}")
+            lines.append(f"  - `{e.get('id')}` {e.get('title') or 'Untitled'}{_attention_text(e)}")
 
     recent_notes = payload.get("recent_notes") or []
     if recent_notes:
         lines.append(f"\nRecent notes ({len(recent_notes)}):")
         for e in recent_notes:
-            lines.append(f"  - `{e.get('id')}` {e.get('title') or 'Untitled'}")
+            lines.append(f"  - `{e.get('id')}` {e.get('title') or 'Untitled'}{_attention_text(e)}")
 
     suggestions = payload.get("pending_suggestions") or []
     if suggestions:

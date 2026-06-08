@@ -28,7 +28,13 @@ describe('V4Today', () => {
       ],
       follow_ups: [{ id: 't1', type: 'task', title: 'Follow up today task', status: 'open' }],
       upcoming_follow_ups: [{ id: 'uf1', type: 'task', title: 'Upcoming followup', status: 'open' }],
-      blocked_tasks: [{ id: 'b1', type: 'task', title: 'Blocked work', status: 'blocked' }],
+      blocked_tasks: [{
+        id: 'b1',
+        type: 'task',
+        title: 'Blocked work',
+        status: 'blocked',
+        attention: { score: 56, level: 'high', reasons: [{ key: 'status:blocked', label: 'blocked' }] },
+      }],
       waiting_tasks: [{ id: 'w1', type: 'task', title: 'Waiting work', status: 'waiting' }],
       projects_without_open_tasks: [{ id: 'p1', type: 'project', title: 'Needs next task', status: 'active' }],
       recent_notes: [
@@ -68,6 +74,7 @@ describe('V4Today', () => {
     expect(screen.getAllByText('captured blocker').length).toBeGreaterThan(0);
     expect(screen.getByText('Upcoming followup')).toBeInTheDocument();
     expect(screen.getByText('Blocked work')).toBeInTheDocument();
+    expect(screen.getByText('high · blocked')).toBeInTheDocument();
     expect(screen.getByText('Waiting work')).toBeInTheDocument();
     expect(screen.getByText('Needs next task')).toBeInTheDocument();
     expect(screen.getByText('Recent note')).toBeInTheDocument();
