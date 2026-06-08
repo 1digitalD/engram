@@ -40,6 +40,7 @@ PATCH  /api/v4/relationships/:id
 DELETE /api/v4/relationships/:id
 
 GET    /api/v4/suggestions
+POST   /api/v4/suggestions/reconcile
 POST   /api/v4/suggestions/:id/accept
 POST   /api/v4/suggestions/:id/dismiss
 
@@ -433,6 +434,7 @@ list_recent(type?, limit?)
 get_today()
 get_agent_activity(limit?)
 list_suggestions(status?)
+reconcile_suggestions(limit?)
 capture(content, source?)
 create_entity(type, title, content?, tags?, status?, due_at?, follow_up_at?)
 update_entity(entity_id, title?, content?, status?, lifecycle?, due_at?, follow_up_at?, tags?)

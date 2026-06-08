@@ -1,6 +1,8 @@
 """Engram v4 canonical entity API."""
 
 from datetime import datetime, time, timezone, timedelta
+import hashlib
+import json
 
 from flask import jsonify, request
 from sqlalchemy import func, or_
@@ -80,6 +82,7 @@ INBOX_INTENT_PRIORITY = {
     "junk": 7,
 }
 INTENT_SUGGESTION_CONFIDENCE_FLOOR = 0.9
+SUGGESTION_DUPLICATE_MEMORY_DAYS = 14
 
 
 @api_v4_bp.route("/health", methods=["GET"])
@@ -858,6 +861,27 @@ def list_suggestions():
         return d
 
     return jsonify({"data": [_serialize(row) for row in rows], "meta": {"total": total, "limit": limit}})
+
+
+@api_v4_bp.route("/suggestions/reconcile", methods=["POST"])
+def reconcile_suggestions():
+    limit = max(1, min(request.args.get("limit", 200, type=int), 500))
+    rows = (
+        AiSuggestion.query.options(selectinload(AiSuggestion.source_entity))
+        .filter(AiSuggestion.status == "pending")
+        .order_by(AiSuggestion.created_at.asc())
+        .limit(limit)
+        .all()
+    )
+
+    expired = []
+    for suggestion in rows:
+        outcome = _expire_stale_suggestion_if_needed(suggestion)
+        if outcome is not None:
+            expired.append(outcome)
+
+    db.session.commit()
+    return jsonify({"data": expired, "meta": {"scanned": len(rows), "expired": len(expired), "limit": limit}})
 
 
 @api_v4_bp.route("/suggestions/<suggestion_id>", methods=["PATCH"])
@@ -2095,11 +2119,25 @@ def _auto_create_entity(entity_type, title, content=None, properties=None, due_a
 
 
 def _create_suggestion(note, suggestion_type, operation_type, payload, confidence=None, reason=None):
+    fingerprint = _suggestion_fingerprint(suggestion_type, operation_type, payload)
+    existing_pending = _existing_pending_suggestion(fingerprint)
+    if existing_pending is not None:
+        if existing_pending.source_entity_id == note.id:
+            if confidence is not None and (existing_pending.confidence is None or confidence > existing_pending.confidence):
+                existing_pending.confidence = confidence
+            if reason:
+                existing_pending.reason = reason
+            return existing_pending
+        return None
+
+    if _recently_resolved_duplicate(fingerprint, confidence):
+        return None
+
     suggestion = AiSuggestion(
         source_entity_id=note.id,
         suggestion_type=suggestion_type,
         operation_type=operation_type,
-        payload=payload,
+        payload={**(payload or {}), "_fingerprint": fingerprint},
         confidence=confidence,
         reason=reason,
         status="pending",
@@ -2266,14 +2304,16 @@ def _inbox_sort_key(note, pending_suggestion_count, mode):
 def _append_capture_suggestion(note, candidate, action, entity_type, relationship_type, confidence, evidence, suggestions, suggestion_type, operation_type, payload, reason):
     if not _should_emit_capture_suggestion(note, candidate, action, entity_type, relationship_type, confidence):
         return
-    suggestions.append(_create_suggestion(
+    suggestion = _create_suggestion(
         note,
         suggestion_type=suggestion_type,
         operation_type=operation_type,
         payload=payload,
         confidence=confidence,
         reason=reason,
-    ).to_dict())
+    )
+    if suggestion is not None:
+        suggestions.append(suggestion.to_dict())
 
 
 def _should_emit_capture_suggestion(note, candidate, action, entity_type, relationship_type, confidence):
@@ -2288,6 +2328,150 @@ def _should_emit_capture_suggestion(note, candidate, action, entity_type, relati
     ):
         return False
     return True
+
+
+def _expire_stale_suggestion_if_needed(suggestion):
+    source_note = db.session.get(Entity, suggestion.source_entity_id)
+    payload = suggestion.payload or {}
+    relationship_type = payload.get("relationship_type")
+
+    if source_note is None or source_note.lifecycle != "active":
+        return _expire_suggestion(suggestion, None, "source note is no longer active")
+
+    if suggestion.operation_type == "link_existing":
+        target = db.session.get(Entity, payload.get("target_entity_id"))
+        if target is None or target.lifecycle == "deleted":
+            return _expire_suggestion(suggestion, source_note, "target entity no longer exists")
+        if _relationship_exists_between(source_note, target, relationship_type or _default_relationship_type(target.type)):
+            return _expire_suggestion(suggestion, source_note, "relationship already exists")
+        return None
+
+    if suggestion.operation_type == "update_entity":
+        target = db.session.get(Entity, payload.get("target_entity_id"))
+        if target is None or target.lifecycle == "deleted":
+            return _expire_suggestion(suggestion, source_note, "target entity no longer exists")
+        fields = payload.get("fields") or {}
+        link_exists = _relationship_exists_between(
+            source_note,
+            target,
+            relationship_type or _default_relationship_type(target.type),
+        )
+        if not _suggested_fields_would_change(target, fields) and link_exists:
+            return _expire_suggestion(suggestion, source_note, "suggestion no longer changes the target")
+        return None
+
+    if suggestion.operation_type == "create_entity":
+        entity_type = payload.get("type")
+        title = _clean_text(payload.get("title"))
+        if not entity_type or not title:
+            return _expire_suggestion(suggestion, source_note, "suggestion payload is incomplete")
+        existing = _find_existing_entity(entity_type, title)
+        if existing is None or existing.lifecycle == "deleted":
+            return None
+        rel_type = relationship_type or _default_relationship_type(entity_type)
+        if _relationship_exists_between(source_note, existing, rel_type):
+            return _expire_suggestion(suggestion, source_note, "matching entity and relationship already exist")
+    return None
+
+
+def _expire_suggestion(suggestion, source_note, reason):
+    suggestion.status = "expired"
+    suggestion.resolved_at = datetime.utcnow()
+    if source_note is not None:
+        _write_event(
+            source_note,
+            "suggestion_expired",
+            new_value={"suggestion_id": suggestion.id},
+            actor="agent:v4-reconcile",
+            confidence=suggestion.confidence,
+            reason=reason,
+        )
+    return suggestion.to_dict()
+
+
+def _suggested_fields_would_change(target_entity, fields):
+    if not isinstance(fields, dict):
+        return False
+    if "status" in fields and fields["status"] != target_entity.status:
+        return True
+    if "due_at" in fields:
+        due_at, _ = _parse_datetime_or_error(fields["due_at"])
+        if due_at != target_entity.due_at:
+            return True
+    if "follow_up_at" in fields:
+        follow_up_at, _ = _parse_datetime_or_error(fields["follow_up_at"])
+        if follow_up_at != target_entity.follow_up_at:
+            return True
+    return False
+
+
+def _relationship_exists_between(source_note, entity, relationship_type):
+    link_source, link_target = _candidate_link_endpoints(source_note, entity, relationship_type)
+    return EntityLink.query.filter_by(
+        source_entity_id=link_source.id,
+        target_entity_id=link_target.id,
+        relationship_type=relationship_type,
+    ).first() is not None
+
+
+def _suggestion_fingerprint(suggestion_type, operation_type, payload):
+    normalized = {
+        "suggestion_type": suggestion_type,
+        "operation_type": operation_type,
+        "payload": _normalized_suggestion_payload(operation_type, payload or {}),
+    }
+    raw = json.dumps(normalized, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha1(raw.encode("utf-8")).hexdigest()
+
+
+def _normalized_suggestion_payload(operation_type, payload):
+    if operation_type == "create_entity":
+        return {
+            "type": _clean_text(payload.get("type")),
+            "title": _clean_text(payload.get("title")),
+            "content": _clean_text(payload.get("content")),
+            "due_at": _clean_text(payload.get("due_at")),
+            "follow_up_at": _clean_text(payload.get("follow_up_at")),
+            "assigned_to": _clean_text(payload.get("assigned_to")),
+            "relationship_type": _clean_text(payload.get("relationship_type")),
+        }
+    if operation_type == "update_entity":
+        fields = payload.get("fields") or {}
+        return {
+            "target_entity_id": _clean_text(payload.get("target_entity_id")),
+            "relationship_type": _clean_text(payload.get("relationship_type")),
+            "assigned_to": _clean_text(payload.get("assigned_to")),
+            "fields": {
+                "status": _clean_text(fields.get("status")),
+                "due_at": _clean_text(fields.get("due_at")),
+                "follow_up_at": _clean_text(fields.get("follow_up_at")),
+            },
+        }
+    return {
+        "target_entity_id": _clean_text(payload.get("target_entity_id")),
+        "relationship_type": _clean_text(payload.get("relationship_type")),
+    }
+
+
+def _existing_pending_suggestion(fingerprint):
+    return AiSuggestion.query.filter(
+        AiSuggestion.status == "pending",
+        AiSuggestion.payload["_fingerprint"].as_string() == fingerprint,
+    ).first()
+
+
+def _recently_resolved_duplicate(fingerprint, confidence):
+    cutoff = datetime.now(timezone.utc) - timedelta(days=SUGGESTION_DUPLICATE_MEMORY_DAYS)
+    existing = AiSuggestion.query.filter(
+        AiSuggestion.status.in_(("dismissed", "expired")),
+        AiSuggestion.updated_at >= cutoff,
+        AiSuggestion.payload["_fingerprint"].as_string() == fingerprint,
+    ).order_by(AiSuggestion.updated_at.desc()).first()
+    if existing is None:
+        return False
+    previous_confidence = existing.confidence or 0.0
+    next_confidence = confidence or 0.0
+    return next_confidence <= previous_confidence + 0.05
 
 
 def _can_auto_create_entity(entity_type, confidence):

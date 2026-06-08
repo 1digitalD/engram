@@ -333,6 +333,109 @@ def test_dismiss_suggestion_does_not_mutate_entities(client, app):
         assert EntityEvent.query.filter_by(entity_id=note_id, event_type="suggestion_dismissed").count() == 1
 
 
+def test_reconcile_suggestions_expires_stale_link_existing_suggestion(client, app):
+    note_id = _create_note(app)
+    with app.app_context():
+        project = Entity(
+            type="project",
+            title="Memory Lookup",
+            content="Project context",
+            status="active",
+            lifecycle="active",
+            source="test",
+            properties={},
+            ai_meta={},
+            ai_status="pending",
+        )
+        db.session.add(project)
+        db.session.flush()
+        project_id = project.id
+        db.session.add(EntityLink(
+            source_entity_id=note_id,
+            target_entity_id=project_id,
+            relationship_type="related",
+            source="test",
+        ))
+        db.session.commit()
+
+    suggestion_id = _create_suggestion(
+        app,
+        note_id,
+        "link_existing",
+        {
+            "source_entity_id": note_id,
+            "target_entity_id": project_id,
+            "target_type": "project",
+            "title": "Memory Lookup",
+            "relationship_type": "related",
+            "evidence": "mentions Memory Lookup",
+        },
+        operation_type="link_existing",
+    )
+
+    response = client.post("/api/v4/suggestions/reconcile")
+
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["meta"]["expired"] == 1
+    assert payload["data"][0]["id"] == suggestion_id
+    assert payload["data"][0]["status"] == "expired"
+
+    with app.app_context():
+        assert db.session.get(AiSuggestion, suggestion_id).status == "expired"
+        assert EntityEvent.query.filter_by(entity_id=note_id, event_type="suggestion_expired").count() == 1
+
+
+def test_reconcile_suggestions_expires_stale_create_entity_suggestion(client, app):
+    note_id = _create_note(app)
+    with app.app_context():
+        task = Entity(
+            type="task",
+            title="Follow up with Henry",
+            content="Existing task",
+            status="open",
+            lifecycle="active",
+            source="test",
+            properties={},
+            ai_meta={},
+            ai_status="pending",
+        )
+        db.session.add(task)
+        db.session.flush()
+        task_id = task.id
+        db.session.add(EntityLink(
+            source_entity_id=task_id,
+            target_entity_id=note_id,
+            relationship_type="derived_from",
+            source="test",
+        ))
+        db.session.commit()
+
+    suggestion_id = _create_suggestion(
+        app,
+        note_id,
+        "create_task",
+        {
+            "type": "task",
+            "title": "Follow up with Henry",
+            "content": "Ask Henry about rollout",
+            "source_entity_id": note_id,
+            "relationship_type": "derived_from",
+            "evidence": "Ask Henry",
+        },
+    )
+
+    response = client.post("/api/v4/suggestions/reconcile")
+
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["meta"]["expired"] == 1
+    assert payload["data"][0]["id"] == suggestion_id
+
+    with app.app_context():
+        assert db.session.get(AiSuggestion, suggestion_id).status == "expired"
+
+
 def test_accept_rejects_relationship_ids_inside_suggestion_properties(client, app):
     note_id = _create_note(app)
     suggestion_id = _create_suggestion(

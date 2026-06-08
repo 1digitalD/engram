@@ -297,6 +297,25 @@ def test_dismiss_suggestion_calls_correct_endpoint(monkeypatch):
     assert "dismissed" in text
 
 
+def test_reconcile_suggestions_calls_correct_endpoint(monkeypatch):
+    calls = []
+
+    def fake_api(method, path, **kwargs):
+        calls.append((method, path, kwargs))
+        return {
+            "data": [{"id": "s9", "suggestion_type": "create_task", "reason": "relationship already exists"}],
+            "meta": {"scanned": 4, "expired": 1},
+        }
+
+    monkeypatch.setattr(server, "_api", fake_api)
+    text = server.reconcile_suggestions(limit=25)
+
+    assert calls == [("POST", "/suggestions/reconcile", {"params": {"limit": 25}})]
+    assert "scanned=4" in text
+    assert "expired=1" in text
+    assert "s9" in text
+
+
 def test_submit_candidates_posts_to_ingest_endpoint(monkeypatch):
     calls = []
 

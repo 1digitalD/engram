@@ -699,3 +699,57 @@ def test_reference_intent_suppresses_low_confidence_task_suggestions(client, app
     with app.app_context():
         assert Entity.query.filter_by(type="task").count() == 0
         assert AiSuggestion.query.count() == 0
+
+
+def test_capture_reuses_existing_pending_suggestion_instead_of_creating_duplicate(client, app):
+    extraction = {
+        "entities": [
+            {
+                "type": "task",
+                "title": "Follow up with Henry",
+                "confidence": 0.55,
+                "evidence": "follow up with Henry",
+            }
+        ]
+    }
+
+    with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction):
+        first = client.post("/api/v4/capture", json={"content": "Follow up with Henry"})
+        second = client.post("/api/v4/capture", json={"content": "Follow up with Henry again tomorrow"})
+
+    assert first.status_code == 201
+    assert second.status_code == 201
+    assert len(first.get_json()["suggestions"]) == 1
+    assert second.get_json()["suggestions"] == []
+
+    with app.app_context():
+        assert AiSuggestion.query.filter_by(suggestion_type="create_task", status="pending").count() == 1
+
+
+def test_capture_suppresses_recently_dismissed_duplicate_suggestion(client, app):
+    extraction = {
+        "entities": [
+            {
+                "type": "task",
+                "title": "Follow up with Henry",
+                "confidence": 0.55,
+                "evidence": "follow up with Henry",
+            }
+        ]
+    }
+
+    with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction):
+        first = client.post("/api/v4/capture", json={"content": "Follow up with Henry"})
+    suggestion_id = first.get_json()["suggestions"][0]["id"]
+
+    dismiss = client.post(f"/api/v4/suggestions/{suggestion_id}/dismiss")
+    assert dismiss.status_code == 200
+
+    with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction):
+        second = client.post("/api/v4/capture", json={"content": "Follow up with Henry again"})
+
+    assert second.status_code == 201
+    assert second.get_json()["suggestions"] == []
+
+    with app.app_context():
+        assert AiSuggestion.query.filter_by(suggestion_type="create_task").count() == 1

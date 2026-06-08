@@ -7,7 +7,7 @@ proxy that translates MCP tool calls into API calls.
 
 Read tools:  search_entities, get_entity, list_recent, get_today, list_suggestions, get_agent_activity
 Write tools: capture, create_entity, update_entity, link_entities,
-             accept_suggestion, dismiss_suggestion, submit_candidates
+             accept_suggestion, dismiss_suggestion, reconcile_suggestions, submit_candidates
 
 All tools use the same API base (ENGRAM_API_BASE). The MCP server itself
 holds no separate state or permissions.
@@ -36,6 +36,7 @@ from mcp_server.v4_formatters import (
     format_link,
     format_recent,
     format_search_results,
+    format_suggestion_reconcile,
     format_suggestion_action,
     format_suggestions,
     format_today,
@@ -52,7 +53,7 @@ mcp = FastMCP(
         "Engram v4 MCP — thin proxy for the /api/v4 REST API. "
         "Read tools: search_entities, get_entity, list_recent, get_today, list_suggestions, get_agent_activity. "
         "Write tools: capture, create_entity, update_entity, link_entities, "
-        "accept_suggestion, dismiss_suggestion, submit_candidates, append_activity_update. "
+        "accept_suggestion, dismiss_suggestion, reconcile_suggestions, submit_candidates, append_activity_update. "
         "All tools are routed directly to /api/v4 endpoints."
     ),
 )
@@ -243,6 +244,13 @@ def accept_suggestion(suggestion_id: str) -> str:
 def dismiss_suggestion(suggestion_id: str) -> str:
     payload = _api("POST", f"/suggestions/{suggestion_id}/dismiss")
     return format_suggestion_action(payload, "dismissed")
+
+
+@mcp.tool(description="Reconcile pending suggestions and expire ones that no longer apply.")
+def reconcile_suggestions(limit: int = 100) -> str:
+    limit = max(1, min(limit, 500))
+    payload = _api("POST", "/suggestions/reconcile", params={"limit": limit})
+    return format_suggestion_reconcile(payload)
 
 
 @mcp.tool(description=(

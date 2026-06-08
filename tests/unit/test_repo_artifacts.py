@@ -29,6 +29,7 @@ def test_mcp_server_exposes_expected_write_tools():
     assert callable(server.link_entities)
     assert callable(server.accept_suggestion)
     assert callable(server.dismiss_suggestion)
+    assert callable(server.reconcile_suggestions)
     assert callable(server.submit_candidates)
     assert callable(server.append_activity_update)
 

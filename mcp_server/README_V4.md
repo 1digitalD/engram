@@ -20,6 +20,7 @@ requests and returns formatted text. It is write-enabled and has no separate per
 - `link_entities(source_id, target_id, relationship_type?, evidence?)` — create EntityLink
 - `accept_suggestion(suggestion_id)` — accept AI suggestion, creating the suggested entity
 - `dismiss_suggestion(suggestion_id)` — dismiss AI suggestion without acting
+- `reconcile_suggestions(limit?)` — expire pending suggestions that no longer apply
 - `submit_candidates(note_id, summary?, tags?, entities?, links?)` — submit pre-extracted candidates, bypassing LLM extraction
 - `append_activity_update(entity_id, content)` — append an activity update note to a project, task, or area (summary context only; duplicates within 24h skipped; max 30 per entity)
 

@@ -426,12 +426,14 @@ class AiSuggestion(BaseModel):
     source_entity = relationship("Entity", foreign_keys=[source_entity_id])
 
     def to_dict(self):
+        payload = dict(self.payload or {})
+        payload.pop("_fingerprint", None)
         return {
             "id": self.id,
             "source_entity_id": self.source_entity_id,
             "suggestion_type": self.suggestion_type,
             "operation_type": self.operation_type,
-            "payload": self.payload or {},
+            "payload": payload,
             "confidence": self.confidence,
             "reason": self.reason,
             "status": self.status,

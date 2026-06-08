@@ -147,6 +147,17 @@ def format_agent_activity(payload):
     return "\n".join(lines)
 
 
+def format_suggestion_reconcile(payload):
+    meta = payload.get("meta") or {}
+    items = payload.get("data") or []
+    if not items:
+        return f"Suggestion reconcile complete: scanned={meta.get('scanned', 0)}, expired=0."
+    lines = [f"Suggestion reconcile complete: scanned={meta.get('scanned', 0)}, expired={meta.get('expired', len(items))}."]
+    for item in items:
+        lines.append(f"- `{item.get('id')}` expired [{item.get('suggestion_type')}] reason={item.get('reason') or ''}")
+    return "\n".join(lines)
+
+
 def format_suggestions(payload):
     suggestions = payload.get("data") or []
     if not suggestions:
