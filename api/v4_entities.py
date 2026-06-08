@@ -65,6 +65,7 @@ RELATIONSHIP_TYPES = {
     "activity_update",
 }
 AUTO_APPLY_CONFIDENCE = 0.8
+AUTO_CREATE_ENTITY_CONFIDENCE = 0.9
 RISKY_ENTITY_CREATION_TYPES = {"task", "project", "area", "resource", "person"}
 CAPTURE_INTENTS = {"update", "task_signal", "follow_up", "blocker", "delegation", "reference", "junk", "note"}
 INBOX_INTENT_PRIORITY = {
@@ -1833,7 +1834,7 @@ def _apply_reconciliation_decision(note, candidate, decision, applied_changes, s
     if not title or not entity_type:
         return
     content = _candidate_value(candidate, "content")
-    if confidence >= AUTO_APPLY_CONFIDENCE:
+    if _can_auto_create_entity(entity_type, confidence):
         entity = _auto_create_entity(
             entity_type=entity_type,
             title=title,
@@ -2179,6 +2180,10 @@ def _should_emit_capture_suggestion(note, candidate, action, entity_type, relati
     ):
         return False
     return True
+
+
+def _can_auto_create_entity(entity_type, confidence):
+    return entity_type in RISKY_ENTITY_CREATION_TYPES and confidence >= AUTO_CREATE_ENTITY_CONFIDENCE
 
 
 def _reconciliation_confidence(candidate, decision):

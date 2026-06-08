@@ -167,7 +167,7 @@ def test_capture_auto_creates_high_confidence_person(client, app):
             {
                 "type": "person",
                 "title": "Henry",
-                "confidence": 0.89,
+                "confidence": 0.91,
                 "evidence": "Henry owns the rollout",
             }
         ]
@@ -187,6 +187,32 @@ def test_capture_auto_creates_high_confidence_person(client, app):
     with app.app_context():
         assert Entity.query.filter_by(type="person").count() == 1
         assert AiSuggestion.query.filter_by(suggestion_type="create_person").count() == 0
+
+
+def test_capture_suggests_entity_below_auto_create_threshold(client, app):
+    extraction = {
+        "entities": [
+            {
+                "type": "person",
+                "title": "Henry",
+                "confidence": 0.89,
+                "evidence": "Henry owns the rollout",
+            }
+        ]
+    }
+
+    with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction):
+        response = client.post("/api/v4/capture", json={"content": "Henry owns the rollout"})
+
+    assert response.status_code == 201
+    data = response.get_json()
+    assert data["applied_changes"] == []
+    assert len(data["suggestions"]) == 1
+    assert data["suggestions"][0]["suggestion_type"] == "create_person"
+
+    with app.app_context():
+        assert Entity.query.filter_by(type="person").count() == 0
+        assert AiSuggestion.query.filter_by(suggestion_type="create_person").count() == 1
 
 
 def test_capture_suggests_low_confidence_entity(client, app):

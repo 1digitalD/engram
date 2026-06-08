@@ -16,7 +16,7 @@ The only target runtime API for v4 is `/api/v4`. Existing `/api/v1` and `/api/v2
 4. Do not store relationship IDs inside `properties`.
 5. All relationships must use `EntityLink` / relationship records.
 6. Notes must remain source artifacts. AI can extract from notes, but must not convert notes into other entity types.
-7. AI must use balanced automation: safe metadata/linking can be auto-applied; risky creation/status/deletion/merge operations must be suggestions.
+7. AI must use balanced automation: source notes are always preserved, safe metadata/linking can be auto-applied, and high-confidence entity creation may be auto-applied only with explicit guardrails and audit events.
 8. Each cycle must be implemented, tested, verified, committed, and merged before starting the next cycle.
 9. Do not improvise outside the current cycle acceptance criteria.
 10. Keep the implementation simple, functional, explicit, and testable.
@@ -85,25 +85,24 @@ Do not store relationships as `project_id`, `area_id`, `person_id`, `note_id`, `
 
 Notes remain source artifacts. Capture must save the original source note first. AI may extract candidate entities, links, tags, summaries, or suggestions from notes, but must not convert notes into other entity types.
 
-Auto-apply only:
+Auto-apply:
 
 - High-confidence tags.
 - High-confidence links to existing entities.
 - Source note summaries.
+- High-confidence new entities only when reconciliation confidence is at or above the auto-create threshold and the action is recorded with an `agent:*` actor.
 
 Create suggestions for:
 
-- New task.
-- New project.
-- New area.
-- New person.
-- New resource.
-- Status change.
+- New task/project/area/person/resource candidates below the auto-create threshold.
+- Lower-confidence status or date changes.
 - Relationship deletion.
 - Entity deletion.
 - Merge/dedupe.
 
-For v4 launch, do not auto-create tasks. Suggest them first.
+Never auto-apply destructive or irreversible work. Deletion, relationship deletion, merge/dedupe, and stale cleanup decisions must remain reviewable suggestions or explicit manual actions.
+
+The current launch threshold for auto-created entities is `0.9`. This is intentionally stricter than the general safe metadata/linking threshold so ordinary extraction confidence does not silently create work.
 
 ## API and Runtime Boundary
 

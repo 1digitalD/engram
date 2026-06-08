@@ -615,7 +615,7 @@ Acceptance:
 Codex task:
 
 ```text
-Implement /api/v4/capture. It must always save the raw content as a note first. It should return a CaptureResult with source_note, applied_changes, suggestions, and warnings. If AI/extraction fails, the note must still be saved and a warning returned. Queue embedding generation. Do not auto-create tasks, projects, people, areas, or resources in this cycle.
+Implement /api/v4/capture. It must always save the raw content as a note first. It should return a CaptureResult with source_note, applied_changes, suggestions, and warnings. If AI/extraction fails, the note must still be saved and a warning returned. Queue embedding generation. Initial capture should preserve the source note and avoid risky mutation until extraction/reconciliation guardrails are in place.
 ```
 
 ### Cycle 7 - extraction and suggestions
@@ -634,7 +634,7 @@ Acceptance:
 Codex task:
 
 ```text
-Extend /api/v4/capture with AI extraction and reconciliation. The extractor should produce candidates only. Reconciliation must check existing entities before suggestions are created. Auto-apply only high-confidence tags and links to existing entities. New task/project/area/person/resource creation must be stored as AiSuggestion, not auto-created. Add tests using mocked extraction output.
+Extend /api/v4/capture with AI extraction and reconciliation. The extractor should produce candidates only. Reconciliation must check existing entities before suggestions are created. Auto-apply high-confidence tags, summaries, links, and new entities only when confidence meets the stricter auto-create threshold and the mutation is recorded with an `agent:*` actor. Lower-confidence new task/project/area/person/resource candidates must be stored as AiSuggestion. Add tests using mocked extraction output.
 ```
 
 ### Cycle 8 - suggestion accept/dismiss
