@@ -3,7 +3,7 @@
 from datetime import datetime, timezone
 
 from extensions import db
-from models import Entity, EntityEvent, Tag
+from models import Entity, EntityEvent, Job, Tag
 
 
 FORBIDDEN_DTO_FIELDS = {
@@ -85,6 +85,8 @@ def test_create_entity_with_tags_and_event(client, app):
         event = EntityEvent.query.filter_by(entity_id=entity["id"], event_type="created").one()
         assert event.actor == "user"
         assert event.new_value["type"] == "task"
+        job = Job.query.filter_by(entity_id=entity["id"], job_type="embed").one()
+        assert job.payload["reason"] == "entity_create"
 
 
 def test_get_and_list_entities(client):
@@ -132,6 +134,11 @@ def test_update_entity_fields_tags_and_event(client):
 
     events = client.get(f"/api/v4/entities/{created['id']}/events").get_json()["data"]
     assert {"status_changed", "updated"}.issubset({event["event_type"] for event in events})
+
+    with client.application.app_context():
+        jobs = Job.query.filter_by(entity_id=created["id"], job_type="embed").all()
+        assert len(jobs) == 2
+        assert jobs[-1].payload["reason"] == "entity_update"
 
 
 def test_reject_invalid_follow_up_at_on_create_without_mutation(client, app):

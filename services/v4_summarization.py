@@ -137,11 +137,15 @@ def handle_summarize_job(payload):
 # ── Internal helpers ──────────────────────────────────────────────────────────
 
 def _linked_notes(entity_id: str) -> list[dict]:
-    """Return all active notes linked to this entity, oldest first."""
+    """Return all active notes linked to this entity, oldest first.
+
+    Notes may point to an entity (for example activity updates) or an entity may
+    point to a note (for example task derived_from note).
+    """
     from extensions import db
     from models import Entity, EntityLink
 
-    rows = (
+    incoming_rows = (
         db.session.query(Entity, EntityLink)
         .join(EntityLink, EntityLink.source_entity_id == Entity.id)
         .filter(
@@ -152,6 +156,28 @@ def _linked_notes(entity_id: str) -> list[dict]:
         .order_by(Entity.created_at.asc())
         .all()
     )
+    outgoing_rows = (
+        db.session.query(Entity, EntityLink)
+        .join(EntityLink, EntityLink.target_entity_id == Entity.id)
+        .filter(
+            EntityLink.source_entity_id == entity_id,
+            Entity.type == "note",
+            Entity.lifecycle == "active",
+        )
+        .order_by(Entity.created_at.asc())
+        .all()
+    )
+
+    combined = []
+    seen = set()
+    for e, link in incoming_rows + outgoing_rows:
+        key = (e.id, link.id)
+        if key in seen:
+            continue
+        seen.add(key)
+        combined.append((e, link))
+
+    combined.sort(key=lambda row: row[0].created_at or datetime.min.replace(tzinfo=timezone.utc))
     return [
         {
             "title": e.title,
@@ -159,7 +185,7 @@ def _linked_notes(entity_id: str) -> list[dict]:
             "created_at": e.created_at.isoformat() if e.created_at else None,
             "relationship_type": link.relationship_type,
         }
-        for e, link in rows
+        for e, link in combined
     ]
 
 
@@ -196,5 +222,4 @@ def _call_model(entity, notes: list[dict]) -> str | None:
     except Exception as e:
         logger.error("summarization model call failed for entity %s: %s", entity.id, e)
         return None
-
 

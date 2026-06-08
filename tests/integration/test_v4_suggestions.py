@@ -1,7 +1,7 @@
 """Cycle 8 tests for v4 suggestion review."""
 
 from extensions import db
-from models import AiSuggestion, Entity, EntityEvent, EntityLink
+from models import AiSuggestion, Entity, EntityEvent, EntityLink, Job
 
 
 def _create_note(app, title="Source note"):
@@ -106,6 +106,44 @@ def test_accept_create_task_suggestion_creates_task_and_derived_from_link(client
         assert EntityEvent.query.filter_by(entity_id=note_id, event_type="suggestion_accepted").count() == 1
 
 
+def test_accept_create_task_suggestion_applies_assigned_to_person_link(client, app):
+    note_id = _create_note(app)
+    suggestion_id = _create_suggestion(
+        app,
+        note_id,
+        "create_task",
+        {
+            "type": "task",
+            "title": "Follow up with Henry",
+            "content": "Ask Henry about rollout",
+            "assigned_to": "Henry",
+            "source_entity_id": note_id,
+            "evidence": "Henry owns this follow-up",
+        },
+    )
+
+    response = client.post(f"/api/v4/suggestions/{suggestion_id}/accept")
+
+    assert response.status_code == 200
+    data = response.get_json()
+    created = data["created_entity"]
+    assert created["type"] == "task"
+    assert created["title"] == "Follow up with Henry"
+
+    with app.app_context():
+        task = Entity.query.filter_by(type="task", title="Follow up with Henry").one()
+        person = Entity.query.filter_by(type="person", title="Henry").one()
+        EntityLink.query.filter_by(
+            source_entity_id=task.id,
+            target_entity_id=person.id,
+            relationship_type="assigned_to",
+        ).one()
+        assert EntityEvent.query.filter_by(entity_id=person.id, event_type="created").count() == 1
+        assert EntityEvent.query.filter_by(entity_id=task.id, event_type="relationship_added").count() >= 1
+        reasons = [job.payload["reason"] for job in Job.query.filter_by(entity_id=task.id, job_type="embed").all()]
+        assert "suggestion_accept_create" in reasons
+
+
 def test_accept_link_existing_suggestion_creates_entity_link(client, app):
     note_id = _create_note(app)
     with app.app_context():
@@ -160,6 +198,70 @@ def test_accept_link_existing_suggestion_creates_entity_link(client, app):
         assert db.session.get(AiSuggestion, suggestion_id).status == "accepted"
         assert Entity.query.filter_by(type="project", title="Memory Lookup").count() == 1
         assert EntityEvent.query.filter_by(entity_id=note_id, event_type="relationship_added").count() == 1
+        assert EntityEvent.query.filter_by(entity_id=note_id, event_type="suggestion_accepted").count() == 1
+
+
+def test_accept_update_entity_suggestion_updates_task_and_links_source_note(client, app):
+    note_id = _create_note(app)
+    with app.app_context():
+        task = Entity(
+            type="task",
+            title="Follow up with Henry",
+            content="Initial task",
+            status="open",
+            lifecycle="active",
+            source="test",
+            properties={},
+            ai_meta={},
+            ai_status="pending",
+        )
+        db.session.add(task)
+        db.session.flush()
+        task_id = task.id
+        db.session.commit()
+
+    suggestion_id = _create_suggestion(
+        app,
+        note_id,
+        "update_task",
+        {
+            "target_entity_id": task_id,
+            "target_type": "task",
+            "title": "Follow up with Henry",
+            "fields": {
+                "status": "blocked",
+                "follow_up_at": "2026-06-10T09:00:00Z",
+            },
+            "relationship_type": "derived_from",
+            "evidence": "blocked pending Henry response",
+        },
+        operation_type="update_entity",
+    )
+
+    response = client.post(f"/api/v4/suggestions/{suggestion_id}/accept")
+
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["suggestion"]["status"] == "accepted"
+    assert data["created_entity"]["id"] == task_id
+    assert data["created_entity"]["status"] == "blocked"
+    assert data["relationship"]["source_entity_id"] == task_id
+    assert data["relationship"]["target_entity_id"] == note_id
+    assert data["relationship"]["relationship_type"] == "derived_from"
+
+    with app.app_context():
+        updated_task = db.session.get(Entity, task_id)
+        assert updated_task.status == "blocked"
+        assert updated_task.follow_up_at is not None
+        EntityLink.query.filter_by(
+            source_entity_id=task_id,
+            target_entity_id=note_id,
+            relationship_type="derived_from",
+        ).one()
+        assert db.session.get(AiSuggestion, suggestion_id).status == "accepted"
+        assert EntityEvent.query.filter_by(entity_id=task_id, event_type="updated").count() == 1
+        assert EntityEvent.query.filter_by(entity_id=task_id, event_type="status_changed").count() == 1
+        assert EntityEvent.query.filter_by(entity_id=task_id, event_type="relationship_added").count() == 1
         assert EntityEvent.query.filter_by(entity_id=note_id, event_type="suggestion_accepted").count() == 1
 
 
@@ -272,4 +374,49 @@ def test_accept_rejects_invalid_follow_up_at_without_mutation(client, app):
     assert "invalid datetime" in response.get_json()["error"]
     with app.app_context():
         assert Entity.query.filter_by(type="task", title="Bad date task").count() == 0
+        assert db.session.get(AiSuggestion, suggestion_id).status == "pending"
+
+
+def test_accept_update_entity_rejects_invalid_datetime_without_mutation(client, app):
+    note_id = _create_note(app)
+    with app.app_context():
+        task = Entity(
+            type="task",
+            title="Check rollout",
+            content="Initial task",
+            status="open",
+            lifecycle="active",
+            source="test",
+            properties={},
+            ai_meta={},
+            ai_status="pending",
+        )
+        db.session.add(task)
+        db.session.flush()
+        task_id = task.id
+        db.session.commit()
+
+    suggestion_id = _create_suggestion(
+        app,
+        note_id,
+        "update_task",
+        {
+            "target_entity_id": task_id,
+            "target_type": "task",
+            "title": "Check rollout",
+            "fields": {"follow_up_at": "not-a-date"},
+            "relationship_type": "derived_from",
+        },
+        operation_type="update_entity",
+    )
+
+    response = client.post(f"/api/v4/suggestions/{suggestion_id}/accept")
+
+    assert response.status_code == 400
+    assert "invalid datetime" in response.get_json()["error"]
+    with app.app_context():
+        task = db.session.get(Entity, task_id)
+        assert task.status == "open"
+        assert task.follow_up_at is None
+        assert EntityLink.query.count() == 0
         assert db.session.get(AiSuggestion, suggestion_id).status == "pending"

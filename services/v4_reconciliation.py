@@ -182,7 +182,7 @@ def _exact_match(title, entity_type):
 
 def _call_model(enriched):
     if not os.getenv("OPENAI_API_KEY"):
-        return []
+        return _heuristic_decisions(enriched)
 
     today = date.today().isoformat()
     user_payload = [

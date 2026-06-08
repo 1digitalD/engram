@@ -136,6 +136,13 @@ def format_capture_result(payload):
     applied = payload.get("applied_changes") or []
     suggestions = payload.get("suggestions") or []
     warnings = payload.get("warnings") or []
+    skipped = payload.get("skipped")
+
+    if skipped:
+        return (
+            f"Capture skipped: {payload.get('reason', 'duplicate')} "
+            f"(existing note `{note.get('id')}`: {note.get('title') or 'Untitled'})"
+        )
 
     lines = [f"Captured note `{note.get('id')}`: {note.get('title') or 'Untitled'}"]
     if applied:
