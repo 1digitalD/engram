@@ -111,3 +111,56 @@ def test_v4_inbox_separates_needs_review_from_recent(client, app):
     by_id = {n["id"]: n for n in data["needs_review"] + data["recent"]}
     assert by_id[with_suggestion["id"]]["pending_suggestion_count"] == 1
     assert by_id[processed["id"]]["pending_suggestion_count"] == 0
+    assert "intent" in by_id[processed["id"]]["ai"]
+
+
+def test_v4_inbox_prioritizes_review_and_recent_notes_by_intent(client, app):
+    blocker = _create_entity(client, "note", "Blocked note")
+    junk = _create_entity(client, "note", "Junk note")
+    with_suggestion = _create_entity(client, "note", "Suggested note")
+    reference = _create_entity(client, "note", "Reference note")
+    generic = _create_entity(client, "note", "Generic note")
+
+    with app.app_context():
+        blocker_note = db.session.get(Entity, blocker["id"])
+        blocker_note.ai_status = "pending"
+        blocker_note.ai_meta = {"intent": "blocker", "intent_confidence": 0.8}
+
+        junk_note = db.session.get(Entity, junk["id"])
+        junk_note.ai_status = "pending"
+        junk_note.ai_meta = {"intent": "junk", "intent_confidence": 0.7}
+
+        suggested_note = db.session.get(Entity, with_suggestion["id"])
+        suggested_note.ai_status = "done"
+        suggested_note.ai_meta = {"intent": "delegation", "intent_confidence": 0.82}
+
+        reference_note = db.session.get(Entity, reference["id"])
+        reference_note.ai_status = "done"
+        reference_note.ai_meta = {"intent": "reference", "intent_confidence": 0.75}
+
+        generic_note = db.session.get(Entity, generic["id"])
+        generic_note.ai_status = "done"
+        generic_note.ai_meta = {"intent": "note", "intent_confidence": 0.6}
+
+        db.session.add(AiSuggestion(
+            source_entity_id=with_suggestion["id"],
+            suggestion_type="create_task",
+            operation_type="create_entity",
+            payload={"title": "Delegated task"},
+            status="pending",
+        ))
+        db.session.commit()
+
+    response = client.get("/api/v4/inbox")
+
+    assert response.status_code == 200
+    data = response.get_json()
+    assert [item["id"] for item in data["needs_review"]] == [
+        with_suggestion["id"],
+        blocker["id"],
+        junk["id"],
+    ]
+    assert [item["id"] for item in data["recent"]] == [
+        reference["id"],
+        generic["id"],
+    ]

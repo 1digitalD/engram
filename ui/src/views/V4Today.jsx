@@ -98,6 +98,9 @@ function reasonLabel(reason) {
   if (reason === 'follow_up_today') return 'follow-up today';
   if (reason === 'blocked') return 'blocked';
   if (reason === 'waiting') return 'waiting';
+  if (reason === 'captured_blocker') return 'captured blocker';
+  if (reason === 'captured_follow_up') return 'captured follow-up';
+  if (reason === 'captured_delegation') return 'captured delegation';
   return reason;
 }
 

@@ -31,7 +31,10 @@ describe('V4Today', () => {
       blocked_tasks: [{ id: 'b1', type: 'task', title: 'Blocked work', status: 'blocked' }],
       waiting_tasks: [{ id: 'w1', type: 'task', title: 'Waiting work', status: 'waiting' }],
       projects_without_open_tasks: [{ id: 'p1', type: 'project', title: 'Needs next task', status: 'active' }],
-      recent_notes: [{ id: 'n1', type: 'note', title: 'Recent note', status: 'active' }],
+      recent_notes: [
+        { id: 'n1', type: 'note', title: 'Recent note', status: 'active' },
+        { id: 'n2', type: 'note', title: 'Captured blocker note', status: 'active', ai: { intent: 'blocker' } },
+      ],
       pending_suggestions: [
         { id: 's1', source_entity_id: 'n2', suggestion_type: 'create_task', payload: { title: 'Suggested task' } },
         { id: 's2', source_entity_id: 'n2', suggestion_type: 'link_existing', payload: { title: 'Suggested project' } },
@@ -54,13 +57,15 @@ describe('V4Today', () => {
     );
 
     expect((await screen.findAllByText('Overdue task')).length).toBeGreaterThan(0);
-    expect(screen.getByText('6 items need your attention today.')).toBeInTheDocument();
+    expect(screen.getByText('7 items need your attention today.')).toBeInTheDocument();
     expect(screen.getByText('Focus now')).toBeInTheDocument();
     expect(screen.getAllByText('overdue').length).toBeGreaterThan(0);
     expect(screen.getAllByText('due today').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Due today task').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Overdue follow-up').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Follow up today task').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Captured blocker note').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('captured blocker').length).toBeGreaterThan(0);
     expect(screen.getByText('Upcoming followup')).toBeInTheDocument();
     expect(screen.getByText('Blocked work')).toBeInTheDocument();
     expect(screen.getByText('Waiting work')).toBeInTheDocument();

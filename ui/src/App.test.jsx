@@ -70,6 +70,7 @@ describe('App shell', () => {
       follow_ups: [{ id: '4' }],
       blocked_tasks: [{ id: '5' }],
       waiting_tasks: [{ id: '5' }, { id: '6' }],
+      recent_notes: [{ id: 'n3', ai: { intent: 'blocker' } }],
     });
     v4API.suggestions.list.mockResolvedValue({ meta: { total: 2 }, data: [] });
 
@@ -80,7 +81,7 @@ describe('App shell', () => {
     );
 
     await waitFor(() => expect(v4API.today).toHaveBeenCalled());
-    expect(screen.getByRole('link', { name: /Today/i })).toHaveTextContent('6');
+    expect(screen.getByRole('link', { name: /Today/i })).toHaveTextContent('7');
     expect(screen.getByRole('link', { name: /Inbox/i })).toHaveTextContent('2');
     expect(screen.getByRole('link', { name: /Suggestions/i })).toHaveTextContent('2');
   });

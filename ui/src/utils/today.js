@@ -3,6 +3,8 @@ function entityKey(entity) {
   return entity.id || `${entity.type || 'entity'}:${entity.title || ''}`;
 }
 
+const HIGH_SIGNAL_NOTE_INTENTS = ['blocker', 'follow_up', 'delegation'];
+
 function dedupeEntities(items) {
   const seen = new Set();
   const result = [];
@@ -45,10 +47,17 @@ export function getTodayStuckEntities(today) {
   ]);
 }
 
+export function getTodayAttentionNotes(today) {
+  return dedupeEntities(
+    (today?.recent_notes || []).filter((entity) => HIGH_SIGNAL_NOTE_INTENTS.includes(entity?.ai?.intent)),
+  );
+}
+
 export function getTodayAttentionCount(today) {
   return dedupeEntities([
     ...getTodayActionableEntities(today),
     ...getTodayStuckEntities(today),
+    ...getTodayAttentionNotes(today),
   ]).length;
 }
 
@@ -60,6 +69,9 @@ export function getTodayFocusItems(today, limit = 6) {
     ['due_today', today?.due_today || []],
     ['overdue_follow_up', today?.overdue_follow_ups || []],
     ['follow_up_today', today?.follow_ups || []],
+    ['captured_blocker', getTodayAttentionNotes(today).filter((entity) => entity?.ai?.intent === 'blocker')],
+    ['captured_follow_up', getTodayAttentionNotes(today).filter((entity) => entity?.ai?.intent === 'follow_up')],
+    ['captured_delegation', getTodayAttentionNotes(today).filter((entity) => entity?.ai?.intent === 'delegation')],
   ];
 
   for (const [reason, items] of buckets) {

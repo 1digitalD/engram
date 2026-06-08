@@ -38,11 +38,17 @@ function formatTimestamp(value) {
   });
 }
 
+function formatIntent(intent) {
+  if (!intent) return '';
+  return String(intent).replace(/_/g, ' ');
+}
+
 function NoteCard({ note, onChanged, fromState, showPreview = true }) {
   const ts = note.created_at || note.updated_at;
   const pending = note.pending_suggestion_count || 0;
   const aiPending = note.ai?.status === 'pending';
   const aiError = note.ai?.status === 'failed';
+  const intent = formatIntent(note.ai?.intent);
   const tagList = note.tags || [];
   return (
     <li className={`${styles.noteCard} cardActionsParent`}>
@@ -69,6 +75,7 @@ function NoteCard({ note, onChanged, fromState, showPreview = true }) {
           <div className={styles.noteBadges}>
             {aiPending && <span className={`${styles.badge} ${styles.badge_warn}`}>AI pending</span>}
             {aiError && <span className={`${styles.badge} ${styles.badge_error}`}>AI error</span>}
+            {intent && <span className={styles.badge}>Intent · {intent}</span>}
             {pending > 0 && (
               <span className={`${styles.badge} ${styles.badge_accent}`}>{pending} suggestion{pending === 1 ? '' : 's'}</span>
             )}

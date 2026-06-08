@@ -1,6 +1,6 @@
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import V4Home from './V4Home';
 import { v4API } from '../api/v4Client';
 
@@ -77,5 +77,7 @@ describe('V4Home', () => {
     expect(screen.getByText(/1 need review · 1 captured recently/i)).toBeInTheDocument();
     expect(screen.getByText(/Latest · Recent note/i)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /need attention/i })).toHaveTextContent('4');
+    const heroStats = screen.getByText('need review').closest('div');
+    expect(within(heroStats).getByRole('link', { name: /^1 need review$/i })).toHaveAttribute('href', '/inbox');
   });
 });

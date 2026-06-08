@@ -60,10 +60,12 @@ def test_list_v4_suggestions_returns_pending_items(client, app):
     response = client.get("/api/v4/suggestions")
 
     assert response.status_code == 200
-    data = response.get_json()["data"]
+    payload = response.get_json()
+    data = payload["data"]
     assert [row["id"] for row in data] == [suggestion_id]
     assert data[0]["status"] == "pending"
     assert data[0]["payload"]["source_entity_id"] == note_id
+    assert payload["meta"]["total"] == 1
 
 
 def test_accept_create_task_suggestion_creates_task_and_derived_from_link(client, app):

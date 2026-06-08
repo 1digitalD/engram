@@ -91,6 +91,8 @@ Return this exact schema (all fields required, use empty arrays not null):
   "title": "5–8 word headline-style title capturing what the note is about. \
 No trailing punctuation. Sentence case. Concrete and specific (avoid 'Note about X').",
   "summary": "1–2 sentence summary of what this note is about",
+  "intent": "update|task_signal|follow_up|blocker|delegation|reference|junk|note",
+  "intent_confidence": 0.0,
   "confidence": 0.0,
   "tags": [{"name": "tag", "confidence": 0.0}],
   "links": [{
@@ -251,6 +253,8 @@ def _normalize_payload(payload):
     return {
         "title": _text(payload.get("title")),
         "summary": _text(payload.get("summary")),
+        "intent": _intent(payload.get("intent")),
+        "intent_confidence": _confidence(payload.get("intent_confidence")),
         "confidence": _confidence(payload.get("confidence")),
         "tags": _normalize_items(payload.get("tags"), _normalize_tag),
         "links": _normalize_items(payload.get("links"), _normalize_link),
@@ -351,3 +355,13 @@ def _confidence(value):
     except (TypeError, ValueError):
         return 0.0
     return max(0.0, min(confidence, 1.0))
+
+
+def _intent(value):
+    normalized = _text(value)
+    if not normalized:
+        return None
+    normalized = normalized.lower().replace("-", "_").replace(" ", "_")
+    if normalized in {"update", "task_signal", "follow_up", "blocker", "delegation", "reference", "junk", "note"}:
+        return normalized
+    return None

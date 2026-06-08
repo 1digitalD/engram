@@ -66,6 +66,18 @@ RELATIONSHIP_TYPES = {
 }
 AUTO_APPLY_CONFIDENCE = 0.8
 RISKY_ENTITY_CREATION_TYPES = {"task", "project", "area", "resource", "person"}
+CAPTURE_INTENTS = {"update", "task_signal", "follow_up", "blocker", "delegation", "reference", "junk", "note"}
+INBOX_INTENT_PRIORITY = {
+    "blocker": 0,
+    "follow_up": 1,
+    "delegation": 2,
+    "task_signal": 3,
+    "update": 4,
+    "reference": 5,
+    "note": 6,
+    "junk": 7,
+}
+INTENT_SUGGESTION_CONFIDENCE_FLOOR = 0.9
 
 
 @api_v4_bp.route("/health", methods=["GET"])
@@ -120,6 +132,7 @@ def capture():
     except Exception as exc:
         warnings.append(str(exc))
         note.ai_status = "failed"
+        _apply_capture_intent(note, {})
 
     db.session.commit()
     return jsonify({
@@ -370,7 +383,6 @@ def inbox():
             ),
         )
         .order_by(Entity.updated_at.desc(), Entity.created_at.desc())
-        .limit(limit)
         .all()
     )
     needs_review_ids = {n.id for n in needs_review}
@@ -383,7 +395,6 @@ def inbox():
             ~Entity.id.in_(needs_review_ids) if needs_review_ids else Entity.id.is_not(None),
         )
         .order_by(Entity.created_at.desc())
-        .limit(limit)
         .all()
     )
 
@@ -398,6 +409,9 @@ def inbox():
             .all()
         )
         pending_counts = {sid: cnt for sid, cnt in rows}
+
+    needs_review = _sort_inbox_notes(needs_review, pending_counts, mode="needs_review")[:limit]
+    recent = _sort_inbox_notes(recent, pending_counts, mode="recent")[:limit]
 
     def annotate(note):
         d = note.to_dict()
@@ -722,17 +736,19 @@ def create_activity_update(entity_id):
 @api_v4_bp.route("/suggestions", methods=["GET"])
 def list_suggestions():
     status = request.args.get("status", "pending")
+    limit = max(1, min(request.args.get("limit", 200, type=int), 200))
     query = AiSuggestion.query.options(selectinload(AiSuggestion.source_entity))
     if status != "all":
         query = query.filter(AiSuggestion.status == status)
-    rows = query.order_by(AiSuggestion.created_at.desc()).limit(200).all()
+    total = query.count()
+    rows = query.order_by(AiSuggestion.created_at.desc()).limit(limit).all()
 
     def _serialize(s):
         d = s.to_dict()
         d["source_note_title"] = s.source_entity.title if s.source_entity else None
         return d
 
-    return jsonify({"data": [_serialize(row) for row in rows]})
+    return jsonify({"data": [_serialize(row) for row in rows], "meta": {"total": total, "limit": limit}})
 
 
 @api_v4_bp.route("/suggestions/<suggestion_id>", methods=["PATCH"])
@@ -1649,6 +1665,8 @@ def _reconcile_capture_candidates(note, extraction):
         note.ai_meta = ai_meta
         flag_modified(note, "ai_meta")
 
+    _apply_capture_intent(note, extraction)
+
     for tag_candidate in extraction.get("tags") or []:
         name = _candidate_value(tag_candidate, "name")
         confidence = _candidate_confidence(tag_candidate)
@@ -1751,8 +1769,15 @@ def _apply_reconciliation_decision(note, candidate, decision, applied_changes, s
         if confidence >= AUTO_APPLY_CONFIDENCE:
             _apply_entity_update(note, target, candidate, decision, relationship_type, confidence, evidence, applied_changes)
         else:
-            suggestions.append(_create_suggestion(
+            _append_capture_suggestion(
                 note,
+                candidate,
+                action="update",
+                entity_type=entity_type,
+                relationship_type=relationship_type,
+                confidence=confidence,
+                evidence=evidence,
+                suggestions=suggestions,
                 suggestion_type=f"update_{entity_type}",
                 operation_type="update_entity",
                 payload={
@@ -1764,9 +1789,8 @@ def _apply_reconciliation_decision(note, candidate, decision, applied_changes, s
                     "assigned_to": _candidate_value(candidate, "assigned_to"),
                     "evidence": evidence,
                 },
-                confidence=confidence,
                 reason=decision.get("reason"),
-            ).to_dict())
+            )
         return
 
     if action == "link":
@@ -1782,8 +1806,15 @@ def _apply_reconciliation_decision(note, candidate, decision, applied_changes, s
                 })
                 _write_event(note, "relationship_added", new_value=link.to_dict(), actor="agent:v4-capture", confidence=confidence, reason=evidence)
         else:
-            suggestions.append(_create_suggestion(
+            _append_capture_suggestion(
                 note,
+                candidate,
+                action="link",
+                entity_type=target.type,
+                relationship_type=relationship_type,
+                confidence=confidence,
+                evidence=evidence,
+                suggestions=suggestions,
                 suggestion_type="link_existing",
                 operation_type="link_existing",
                 payload={
@@ -1794,9 +1825,8 @@ def _apply_reconciliation_decision(note, candidate, decision, applied_changes, s
                     "relationship_type": relationship_type,
                     "evidence": evidence,
                 },
-                confidence=confidence,
                 reason=decision.get("reason"),
-            ).to_dict())
+            )
         return
 
     # action == "new"
@@ -1840,8 +1870,15 @@ def _apply_reconciliation_decision(note, candidate, decision, applied_changes, s
             actor="agent:v4-capture",
         )
     else:
-        suggestions.append(_create_suggestion(
+        _append_capture_suggestion(
             note,
+            candidate,
+            action="new",
+            entity_type=entity_type,
+            relationship_type=relationship_type,
+            confidence=confidence,
+            evidence=evidence,
+            suggestions=suggestions,
             suggestion_type=f"create_{entity_type}",
             operation_type="create_entity",
             payload={
@@ -1854,9 +1891,8 @@ def _apply_reconciliation_decision(note, candidate, decision, applied_changes, s
                 "evidence": evidence,
                 "relationship_type": relationship_type,
             },
-            confidence=confidence,
             reason=decision.get("reason"),
-        ).to_dict())
+        )
 
 
 def _apply_entity_update(note, entity, candidate, decision, relationship_type, confidence, evidence, applied_changes):
@@ -2042,6 +2078,107 @@ def _candidate_confidence(candidate):
         return float(value) if value is not None else 0.0
     except (TypeError, ValueError):
         return 0.0
+
+
+def _apply_capture_intent(note, extraction):
+    ai_meta = dict(note.ai_meta or {})
+    intent, confidence = _capture_intent(note.content or "", extraction or {})
+    ai_meta["intent"] = intent
+    ai_meta["intent_confidence"] = confidence
+    note.ai_meta = ai_meta
+    flag_modified(note, "ai_meta")
+
+
+def _capture_intent(content, extraction):
+    explicit_intent = extraction.get("intent")
+    explicit_confidence = _candidate_confidence({"confidence": extraction.get("intent_confidence")})
+    if explicit_intent in CAPTURE_INTENTS:
+        return explicit_intent, explicit_confidence or _candidate_confidence(extraction)
+
+    lowered = (content or "").strip().casefold()
+    entities = extraction.get("entities") or []
+    links = extraction.get("links") or []
+    entity_types = {item.get("type") for item in entities}
+    has_tasks = "task" in entity_types
+    has_resources = "resource" in entity_types or any(link.get("relationship_type") == "references" for link in links)
+    has_follow_up = any(item.get("follow_up_at") for item in entities)
+    has_assignee = any(item.get("assigned_to") for item in entities)
+    has_blocker = any(link.get("relationship_type") == "blocks" for link in links)
+
+    if lowered in {"test", "testing", "asdf", "n/a", "na"}:
+        return "junk", 0.78
+    if has_blocker or any(phrase in lowered for phrase in ("blocked by", "blocked on", "waiting on", "stuck on", "dependency")):
+        return "blocker", 0.82
+    if has_assignee or (has_tasks and any(phrase in lowered for phrase in ("owner:", "assigned to", "delegate to", "have ", "ask "))):
+        return "delegation", 0.8
+    if has_follow_up or any(phrase in lowered for phrase in ("follow up", "follow-up", "circle back", "remind me", "check back")):
+        return "follow_up", 0.8
+    if has_resources or any(phrase in lowered for phrase in ("http://", "https://", "doc:", "see also", "reference", "read this", "link:")):
+        return "reference", 0.76
+    if has_tasks or any(phrase in lowered for phrase in ("todo", "to do", "next steps", "action items", "we should", "need to", "please", "ship ", "draft ", "review ", "send ", "schedule ")):
+        return "task_signal", 0.74
+    if any(phrase in lowered for phrase in ("update:", "fyi", "for visibility", "progress", "shipped", "completed", "done with", "status update")):
+        return "update", 0.72
+    if len(lowered) < 12 and not entities and not links:
+        return "junk", 0.55
+    return "note", 0.6
+
+
+def _sort_inbox_notes(notes, pending_counts, mode):
+    return sorted(
+        notes,
+        key=lambda note: _inbox_sort_key(note, pending_counts.get(note.id, 0), mode),
+    )
+
+
+def _inbox_sort_key(note, pending_suggestion_count, mode):
+    ai_meta = note.ai_meta or {}
+    intent = ai_meta.get("intent") if ai_meta.get("intent") in CAPTURE_INTENTS else "note"
+    intent_rank = INBOX_INTENT_PRIORITY.get(intent, INBOX_INTENT_PRIORITY["note"])
+    updated_at = note.updated_at or note.created_at or datetime.min.replace(tzinfo=timezone.utc)
+    created_at = note.created_at or updated_at
+    timestamp_rank = -updated_at.timestamp()
+    created_rank = -created_at.timestamp()
+
+    if mode == "needs_review":
+        if note.ai_status == "failed":
+            review_rank = 0
+        elif pending_suggestion_count > 0:
+            review_rank = 1
+        elif note.ai_status == "pending":
+            review_rank = 2
+        else:
+            review_rank = 3
+        return (review_rank, intent_rank, -pending_suggestion_count, timestamp_rank, created_rank)
+
+    return (intent_rank, created_rank, timestamp_rank)
+
+
+def _append_capture_suggestion(note, candidate, action, entity_type, relationship_type, confidence, evidence, suggestions, suggestion_type, operation_type, payload, reason):
+    if not _should_emit_capture_suggestion(note, candidate, action, entity_type, relationship_type, confidence):
+        return
+    suggestions.append(_create_suggestion(
+        note,
+        suggestion_type=suggestion_type,
+        operation_type=operation_type,
+        payload=payload,
+        confidence=confidence,
+        reason=reason,
+    ).to_dict())
+
+
+def _should_emit_capture_suggestion(note, candidate, action, entity_type, relationship_type, confidence):
+    intent = ((note.ai_meta or {}).get("intent") or "note")
+    if intent == "junk" and confidence < INTENT_SUGGESTION_CONFIDENCE_FLOOR:
+        return False
+    if (
+        intent == "reference"
+        and entity_type == "task"
+        and action in {"new", "update"}
+        and confidence < INTENT_SUGGESTION_CONFIDENCE_FLOOR
+    ):
+        return False
+    return True
 
 
 def _reconciliation_confidence(candidate, decision):

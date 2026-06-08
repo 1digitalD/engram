@@ -332,6 +332,8 @@ class Entity(BaseModel):
             "tags": tags,
             "ai": {
                 "summary": ai_meta.get("summary"),
+                "intent": ai_meta.get("intent"),
+                "intent_confidence": ai_meta.get("intent_confidence"),
                 "status": self.ai_status,
                 "confidence": ai_meta.get("confidence"),
                 "entity_summary": self.ai_summary,

@@ -148,7 +148,7 @@ export default function V4Home() {
           </p>
         </div>
         <div className={styles.heroStats}>
-          <Link to="/suggestions" className={styles.statCard}>
+          <Link to="/inbox" className={styles.statCard}>
             <strong>{summary.review}</strong>
             <span>need review</span>
           </Link>

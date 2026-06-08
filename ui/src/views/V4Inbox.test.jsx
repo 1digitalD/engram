@@ -87,7 +87,7 @@ describe('V4Inbox', () => {
   it('surfaces notes that need review separately from recent', async () => {
     v4API.inbox.mockResolvedValue({
       needs_review: [
-        { id: 'n-review', title: 'Has pending suggestion', content: 'body', tags: [], pending_suggestion_count: 2, ai: { status: 'done' } },
+        { id: 'n-review', title: 'Has pending suggestion', content: 'body', tags: [], pending_suggestion_count: 2, ai: { status: 'done', intent: 'task_signal' } },
       ],
       recent: [
         { id: 'n-recent', title: 'Already processed', content: 'body', tags: [], pending_suggestion_count: 0 },
@@ -96,6 +96,7 @@ describe('V4Inbox', () => {
     renderInbox();
     expect(await screen.findByText('Needs review')).toBeInTheDocument();
     expect(screen.getByText('Has pending suggestion')).toBeInTheDocument();
+    expect(screen.getByText('Intent · task signal')).toBeInTheDocument();
     expect(screen.getByText(/2 suggestions/)).toBeInTheDocument();
     expect(screen.getByText('Already processed')).toBeInTheDocument();
     expect(screen.getByText('body')).toBeInTheDocument();

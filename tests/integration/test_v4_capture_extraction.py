@@ -311,6 +311,8 @@ def test_capture_suggests_low_confidence_missing_link(client, app):
 def test_capture_auto_applies_summary_and_high_confidence_tags(client, app):
     extraction = {
         "summary": "Rollout follow-up with Henry.",
+        "intent": "follow_up",
+        "intent_confidence": 0.94,
         "confidence": 0.93,
         "tags": [
             {"name": "rollout", "confidence": 0.96},
@@ -324,6 +326,8 @@ def test_capture_auto_applies_summary_and_high_confidence_tags(client, app):
     assert response.status_code == 201
     data = response.get_json()
     assert data["source_note"]["ai"]["summary"] == "Rollout follow-up with Henry."
+    assert data["source_note"]["ai"]["intent"] == "follow_up"
+    assert data["source_note"]["ai"]["intent_confidence"] == 0.94
     assert data["source_note"]["ai"]["status"] == "done"
     assert [tag["name"] for tag in data["source_note"]["tags"]] == ["rollout"]
     assert {"type": "summary_updated", "summary": "Rollout follow-up with Henry."} in data["applied_changes"]
@@ -606,3 +610,66 @@ def test_capture_without_openai_key_reuses_exact_existing_entity_instead_of_crea
             target_entity_id=project_id,
             relationship_type="related",
         ).one()
+
+
+def test_capture_without_ai_extracts_heuristic_follow_up_intent(client):
+    response = client.post("/api/v4/capture", json={"content": "Follow up with Henry next week about rollout"})
+
+    assert response.status_code == 201
+    data = response.get_json()
+    assert data["source_note"]["ai"]["intent"] == "follow_up"
+    assert data["source_note"]["ai"]["intent_confidence"] > 0
+
+
+def test_junk_intent_suppresses_low_value_suggestions(client, app):
+    extraction = {
+        "intent": "junk",
+        "intent_confidence": 0.92,
+        "entities": [
+            {
+                "type": "task",
+                "title": "Maybe follow up",
+                "confidence": 0.55,
+                "evidence": "possibly",
+            }
+        ],
+    }
+
+    with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction):
+        response = client.post("/api/v4/capture", json={"content": "asdf"})
+
+    assert response.status_code == 201
+    data = response.get_json()
+    assert data["source_note"]["ai"]["intent"] == "junk"
+    assert data["suggestions"] == []
+
+    with app.app_context():
+        assert Entity.query.filter_by(type="task").count() == 0
+        assert AiSuggestion.query.count() == 0
+
+
+def test_reference_intent_suppresses_low_confidence_task_suggestions(client, app):
+    extraction = {
+        "intent": "reference",
+        "intent_confidence": 0.9,
+        "entities": [
+            {
+                "type": "task",
+                "title": "Review rollout doc",
+                "confidence": 0.58,
+                "evidence": "doc mentions review",
+            }
+        ],
+    }
+
+    with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction):
+        response = client.post("/api/v4/capture", json={"content": "Reference doc for rollout"})
+
+    assert response.status_code == 201
+    data = response.get_json()
+    assert data["source_note"]["ai"]["intent"] == "reference"
+    assert data["suggestions"] == []
+
+    with app.app_context():
+        assert Entity.query.filter_by(type="task").count() == 0
+        assert AiSuggestion.query.count() == 0
