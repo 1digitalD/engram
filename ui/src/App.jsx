@@ -16,6 +16,7 @@ import {
   Layers,
   Users,
   Link2,
+  Activity,
 } from 'lucide-react';
 import styles from './App.module.css';
 import { v4API } from './api/v4Client';
@@ -28,6 +29,7 @@ import V4Home from './views/V4Home';
 import V4Search from './views/V4Search';
 import V4Today from './views/V4Today';
 import V4Suggestions from './views/V4Suggestions';
+import V4AgentActivity from './views/V4AgentActivity';
 
 const viewItems = [
   ['/', 'Home', House, null],
@@ -35,6 +37,7 @@ const viewItems = [
   ['/today', 'Today', Sun, 'today'],
   ['/search', 'Search', Search, null],
   ['/suggestions', 'Suggestions', Sparkles, 'suggestions'],
+  ['/agent-activity', 'Agent log', Activity, null],
 ];
 
 const libraryItems = [
@@ -280,6 +283,7 @@ export default function App() {
             <Route path="/inbox" element={<V4Inbox />} />
             <Route path="/today" element={<V4Today />} />
             <Route path="/search" element={<V4Search />} />
+            <Route path="/agent-activity" element={<V4AgentActivity />} />
             <Route path="/entities/:id" element={<V4EntityDetail />} />
             <Route path="/notes" element={<V4EntityList type="note" />} />
             <Route path="/notes/:id" element={<V4EntityDetail type="note" />} />

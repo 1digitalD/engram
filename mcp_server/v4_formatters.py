@@ -122,6 +122,31 @@ def format_today(payload):
     return "\n".join(lines)
 
 
+def format_agent_activity(payload):
+    items = payload.get("data") or []
+    if not items:
+        return "No agent activity found."
+    lines = [f"Agent activity ({len(items)}):"]
+    for item in items:
+        entity = item.get("entity") or {}
+        confidence = item.get("confidence")
+        try:
+            conf_text = f" confidence={float(confidence):.2f}" if confidence is not None else ""
+        except (TypeError, ValueError):
+            conf_text = ""
+        entity_text = (
+            f"`{entity.get('id')}` [{entity.get('type')}] {entity.get('title') or 'Untitled'}"
+            if entity else "no source entity"
+        )
+        lines.append(
+            f"- [{item.get('category')}] {item.get('event_type')} {entity_text}"
+            f"{conf_text} actor={item.get('actor')}"
+        )
+        if item.get("reason"):
+            lines.append(f"  reason: {item['reason']}")
+    return "\n".join(lines)
+
+
 def format_suggestions(payload):
     suggestions = payload.get("data") or []
     if not suggestions:

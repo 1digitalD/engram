@@ -35,6 +35,7 @@ vi.mock('./views/V4Inbox', () => ({ default: () => <main>Inbox view</main> }));
 vi.mock('./views/V4Today', () => ({ default: () => <main>Today view</main> }));
 vi.mock('./views/V4Search', () => ({ default: () => <main>Search view</main> }));
 vi.mock('./views/V4Suggestions', () => ({ default: () => <main>Suggestions view</main> }));
+vi.mock('./views/V4AgentActivity', () => ({ default: () => <main>Agent log view</main> }));
 vi.mock('./views/V4EntityList', () => ({ default: ({ type }) => <main>{type} list</main> }));
 vi.mock('./views/V4EntityDetail', () => ({ default: () => <main>Detail view</main> }));
 
@@ -58,6 +59,7 @@ describe('App shell', () => {
     expect(await screen.findByText('Home view')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Home/i })).toHaveAttribute('href', '/');
     expect(screen.getByRole('link', { name: /Inbox/i })).toHaveAttribute('href', '/inbox');
+    expect(screen.getByRole('link', { name: /Agent log/i })).toHaveAttribute('href', '/agent-activity');
   });
 
   it('uses the same actionable today buckets as the Today screen', async () => {

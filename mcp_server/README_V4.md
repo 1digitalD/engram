@@ -11,6 +11,7 @@ requests and returns formatted text. It is write-enabled and has no separate per
 - `list_recent(entity_type?, limit?)` — recently updated active entities
 - `get_today()` — follow-ups, blocked/waiting tasks, active projects, recent notes, pending suggestions
 - `list_suggestions(status?)` — AI suggestions awaiting review (default: pending)
+- `get_agent_activity(limit?)` — recent agent automation actions, suggestions, and failures
 
 **Write:**
 - `capture(content, source?)` — save raw text as a note, triggers server-side extraction

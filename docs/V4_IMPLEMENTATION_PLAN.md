@@ -46,6 +46,7 @@ POST   /api/v4/suggestions/:id/dismiss
 GET    /api/v4/search
 GET    /api/v4/today
 GET    /api/v4/recent
+GET    /api/v4/agent-activity
 ```
 
 Do not expose `/api/v1` or `/api/v2` at runtime after v4 cutover.
@@ -385,6 +386,7 @@ Initial routes:
 /resources
 /resources/:id
 /suggestions
+/agent-activity
 ```
 
 Defer/delete for v4 launch:
@@ -429,6 +431,7 @@ search_entities(query, type?, limit?)
 get_entity(entity_id, include_relationships?)
 list_recent(type?, limit?)
 get_today()
+get_agent_activity(limit?)
 list_suggestions(status?)
 capture(content, source?)
 create_entity(type, title, content?, tags?, status?, due_at?, follow_up_at?)

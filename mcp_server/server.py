@@ -5,7 +5,7 @@ V4 MCP exposes both read and write tools. All write tools call through to the
 Engram /api/v4 REST API. The MCP is not a separate authority — it is a thin
 proxy that translates MCP tool calls into API calls.
 
-Read tools:  search_entities, get_entity, list_recent, get_today, list_suggestions
+Read tools:  search_entities, get_entity, list_recent, get_today, list_suggestions, get_agent_activity
 Write tools: capture, create_entity, update_entity, link_entities,
              accept_suggestion, dismiss_suggestion, submit_candidates
 
@@ -28,6 +28,7 @@ except ImportError:
     sys.exit(1)
 
 from mcp_server.v4_formatters import (
+    format_agent_activity,
     format_activity_update,
     format_capture_result,
     format_entity,
@@ -49,7 +50,7 @@ mcp = FastMCP(
     version="4.0.0",
     instructions=(
         "Engram v4 MCP — thin proxy for the /api/v4 REST API. "
-        "Read tools: search_entities, get_entity, list_recent, get_today, list_suggestions. "
+        "Read tools: search_entities, get_entity, list_recent, get_today, list_suggestions, get_agent_activity. "
         "Write tools: capture, create_entity, update_entity, link_entities, "
         "accept_suggestion, dismiss_suggestion, submit_candidates, append_activity_update. "
         "All tools are routed directly to /api/v4 endpoints."
@@ -125,6 +126,13 @@ def get_today() -> str:
 def list_suggestions(status: str = "pending") -> str:
     payload = _api("GET", "/suggestions", params={"status": status})
     return format_suggestions(payload)
+
+
+@mcp.tool(description="List recent agent automation actions, suggestions, and failures. Read-only.")
+def get_agent_activity(limit: int = 20) -> str:
+    limit = max(1, min(limit, 100))
+    payload = _api("GET", "/agent-activity", params={"limit": limit})
+    return format_agent_activity(payload)
 
 
 # ---------------------------------------------------------------------------

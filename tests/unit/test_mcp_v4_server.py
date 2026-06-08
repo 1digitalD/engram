@@ -149,6 +149,32 @@ def test_list_suggestions_calls_api_with_status(monkeypatch):
     assert "Meeting notes" in text
 
 
+def test_get_agent_activity_returns_formatted_audit_log(monkeypatch):
+    calls = []
+
+    def fake_api(method, path, **kwargs):
+        calls.append((method, path, kwargs))
+        return {
+            "data": [{
+                "id": "e1",
+                "category": "auto_applied",
+                "event_type": "ai_updated",
+                "actor": "agent:v4-capture",
+                "confidence": 0.91,
+                "reason": "summary updated",
+                "entity": {"id": "n1", "type": "note", "title": "Source note"},
+            }]
+        }
+
+    monkeypatch.setattr(server, "_api", fake_api)
+    text = server.get_agent_activity(limit=5)
+
+    assert calls == [("GET", "/agent-activity", {"params": {"limit": 5}})]
+    assert "auto_applied" in text
+    assert "Source note" in text
+    assert "confidence=0.91" in text
+
+
 # ---------------------------------------------------------------------------
 # Write tools
 # ---------------------------------------------------------------------------

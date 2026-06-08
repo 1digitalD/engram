@@ -444,6 +444,95 @@ def _entity_with_attention(entity, *, pending_suggestion_count=0, context=None):
     return data
 
 
+@api_v4_bp.route("/agent-activity", methods=["GET"])
+def agent_activity():
+    limit = max(1, min(request.args.get("limit", 50, type=int), 200))
+    events = (
+        EntityEvent.query.options(selectinload(EntityEvent.entity))
+        .filter(EntityEvent.actor.like("agent:%"))
+        .order_by(EntityEvent.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+    suggestions = (
+        AiSuggestion.query.options(selectinload(AiSuggestion.source_entity))
+        .filter(AiSuggestion.status == "pending")
+        .order_by(AiSuggestion.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+    failed_notes = (
+        Entity.query.filter(Entity.type == "note", Entity.lifecycle == "active", Entity.ai_status == "failed")
+        .order_by(Entity.updated_at.desc(), Entity.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+
+    items = (
+        [_agent_event_item(event) for event in events]
+        + [_agent_suggestion_item(suggestion) for suggestion in suggestions]
+        + [_agent_failed_note_item(note) for note in failed_notes]
+    )
+    items.sort(key=lambda item: item.get("created_at") or "", reverse=True)
+    items = items[:limit]
+
+    counts = {}
+    for item in items:
+        counts[item["category"]] = counts.get(item["category"], 0) + 1
+
+    return jsonify({"data": items, "meta": {"total": len(items), "limit": limit, "counts": counts}})
+
+
+def _agent_event_item(event):
+    entity = event.entity
+    category = "review_action" if event.event_type in {"suggestion_accepted", "suggestion_dismissed"} else "auto_applied"
+    return {
+        "id": event.id,
+        "kind": "event",
+        "category": category,
+        "event_type": event.event_type,
+        "actor": event.actor,
+        "entity": _audit_entity(entity),
+        "confidence": event.confidence,
+        "reason": event.reason,
+        "created_at": event.created_at.isoformat() if event.created_at else None,
+    }
+
+
+def _agent_suggestion_item(suggestion):
+    return {
+        "id": suggestion.id,
+        "kind": "suggestion",
+        "category": "suggested",
+        "event_type": suggestion.suggestion_type,
+        "actor": "agent:v4-capture",
+        "entity": _audit_entity(suggestion.source_entity),
+        "confidence": suggestion.confidence,
+        "reason": suggestion.reason,
+        "created_at": suggestion.created_at.isoformat() if suggestion.created_at else None,
+    }
+
+
+def _agent_failed_note_item(note):
+    return {
+        "id": f"failed:{note.id}",
+        "kind": "failed_note",
+        "category": "failed",
+        "event_type": "ai_failed",
+        "actor": "agent:v4-capture",
+        "entity": _audit_entity(note),
+        "confidence": None,
+        "reason": "capture extraction failed",
+        "created_at": note.updated_at.isoformat() if note.updated_at else None,
+    }
+
+
+def _audit_entity(entity):
+    if entity is None:
+        return None
+    return {"id": entity.id, "type": entity.type, "title": entity.title}
+
+
 @api_v4_bp.route("/recent", methods=["GET"])
 def recent():
     query = _entity_query().filter(Entity.lifecycle == "active")
