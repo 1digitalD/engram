@@ -390,8 +390,28 @@ def test_capture_auto_links_existing_project_and_person(client, app):
             },
         ]
     }
+    decisions = [
+        {
+            "action": "link",
+            "target_id": project_id,
+            "fields": {},
+            "relationship_type": "related",
+            "confidence": 0.95,
+            "reason": "existing project, medium confidence",
+        },
+        {
+            "action": "link",
+            "target_id": person_id,
+            "fields": {},
+            "relationship_type": "mentions",
+            "confidence": 0.92,
+            "reason": "existing person",
+        },
+    ]
 
-    with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction):
+    with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction), patch(
+        "services.v4_reconciliation.reconcile_candidates", return_value=decisions
+    ):
         response = client.post("/api/v4/capture", json={"content": "Ask Henry about Memory Lookup"})
 
     assert response.status_code == 201

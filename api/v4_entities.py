@@ -1342,7 +1342,7 @@ def resolve_note(entity_id):
     entity.ai_status = "done"
     _write_event(
         entity,
-        "note_resolved",
+        "updated",
         old_value={"ai_status": old_status},
         new_value={"ai_status": "done"},
         actor="mcp:resolve_note",
