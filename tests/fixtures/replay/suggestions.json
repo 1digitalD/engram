@@ -1,0 +1,705 @@
+[
+  {
+    "id": "f2532710-f75d-4559-9ea6-d7b16666dd9e",
+    "suggestion_type": "create_task",
+    "status": "dismissed",
+    "payload": {
+      "type": "task",
+      "title": "Update team after more time",
+      "due_at": null,
+      "content": "Follow up after spending more time with Rohit Behbav and others.",
+      "evidence": "\u201cWill update team after more time with Rohit Behbav and others\u201d",
+      "assigned_to": "Himmat",
+      "_fingerprint": "b05337ee9313de199c9796f87e5f26257b59679e",
+      "source_entity_id": "33768363-b8ea-4880-94f9-e5dbb2ffd010",
+      "relationship_type": "derived_from"
+    },
+    "created_at": "2026-06-08 17:27:51.338706+00",
+    "source_note_id": "33768363-b8ea-4880-94f9-e5dbb2ffd010",
+    "source_note_content": "Himmat standup updates (2026-06-08):\n- Doing more on admin agent side (no PM currently, quality concerns)\n- Will update team after more time with Rohit Behbav and others\n- Working through enhanced roadmap for next 2-3 releases (walked stakeholders through last week)\n- Will present roadmap to team this week\n- Sprint planning: Thursday\n- All hands in Vancouver: today\n- Context: renewed focus on AI/agents and pace, Plan B in play (merger uncertain), leadership scrutinizing pace and quality\n- Praised GTM crew collaboration quality\n- Praised Sushmidha taking over GTM design",
+    "source_note_title": "Standup updates on roadmap and team",
+    "ai_meta": {
+      "intent": "update",
+      "summary": "Himmat shared standup updates about admin agent work, roadmap planning for the next few releases, and upcoming team presentations and sprint planning. The note also captures context about leadership scrutiny, merger uncertainty, and praise for collaboration and design ownership.",
+      "confidence": 0.93,
+      "title_auto": true,
+      "intent_confidence": 0.98
+    }
+  },
+  {
+    "id": "acbcb037-c5ac-4be4-aee2-672cc11c5668",
+    "suggestion_type": "create_area",
+    "status": "dismissed",
+    "payload": {
+      "type": "area",
+      "title": "Agent Platform",
+      "due_at": null,
+      "content": "Context includes renewed focus on AI/agents, pace, and leadership scrutiny.",
+      "evidence": "\u201crenewed focus on AI/agents and pace\u201d",
+      "assigned_to": null,
+      "_fingerprint": "072485cf6e9dcbf52d520ab10989d4fb0408dd97",
+      "source_entity_id": "33768363-b8ea-4880-94f9-e5dbb2ffd010",
+      "relationship_type": "related"
+    },
+    "created_at": "2026-06-08 17:27:51.338706+00",
+    "source_note_id": "33768363-b8ea-4880-94f9-e5dbb2ffd010",
+    "source_note_content": "Himmat standup updates (2026-06-08):\n- Doing more on admin agent side (no PM currently, quality concerns)\n- Will update team after more time with Rohit Behbav and others\n- Working through enhanced roadmap for next 2-3 releases (walked stakeholders through last week)\n- Will present roadmap to team this week\n- Sprint planning: Thursday\n- All hands in Vancouver: today\n- Context: renewed focus on AI/agents and pace, Plan B in play (merger uncertain), leadership scrutinizing pace and quality\n- Praised GTM crew collaboration quality\n- Praised Sushmidha taking over GTM design",
+    "source_note_title": "Standup updates on roadmap and team",
+    "ai_meta": {
+      "intent": "update",
+      "summary": "Himmat shared standup updates about admin agent work, roadmap planning for the next few releases, and upcoming team presentations and sprint planning. The note also captures context about leadership scrutiny, merger uncertainty, and praise for collaboration and design ownership.",
+      "confidence": 0.93,
+      "title_auto": true,
+      "intent_confidence": 0.98
+    }
+  },
+  {
+    "id": "4b800312-0574-4a26-aa46-2e85321ca5ca",
+    "suggestion_type": "link_existing",
+    "status": "accepted",
+    "payload": {
+      "title": "Agent Platform",
+      "evidence": "Author/speaker of the standup updates",
+      "target_type": "area",
+      "_fingerprint": "eb35844638da745cdb7edadb5762cdce84c59375",
+      "source_entity_id": "33768363-b8ea-4880-94f9-e5dbb2ffd010",
+      "target_entity_id": "9449186a-f5d9-4638-9c9b-8086259fdf88",
+      "relationship_type": "mentions"
+    },
+    "created_at": "2026-06-08 17:27:51.338706+00",
+    "source_note_id": "33768363-b8ea-4880-94f9-e5dbb2ffd010",
+    "source_note_content": "Himmat standup updates (2026-06-08):\n- Doing more on admin agent side (no PM currently, quality concerns)\n- Will update team after more time with Rohit Behbav and others\n- Working through enhanced roadmap for next 2-3 releases (walked stakeholders through last week)\n- Will present roadmap to team this week\n- Sprint planning: Thursday\n- All hands in Vancouver: today\n- Context: renewed focus on AI/agents and pace, Plan B in play (merger uncertain), leadership scrutinizing pace and quality\n- Praised GTM crew collaboration quality\n- Praised Sushmidha taking over GTM design",
+    "source_note_title": "Standup updates on roadmap and team",
+    "ai_meta": {
+      "intent": "update",
+      "summary": "Himmat shared standup updates about admin agent work, roadmap planning for the next few releases, and upcoming team presentations and sprint planning. The note also captures context about leadership scrutiny, merger uncertainty, and praise for collaboration and design ownership.",
+      "confidence": 0.93,
+      "title_auto": true,
+      "intent_confidence": 0.98
+    }
+  },
+  {
+    "id": "20f4d063-830b-4510-a86e-a13ba21ba7dd",
+    "suggestion_type": "create_task",
+    "status": "dismissed",
+    "payload": {
+      "type": "task",
+      "title": "Resolve issue",
+      "due_at": null,
+      "content": "Reached out to resolve an issue and set up a meeting.",
+      "evidence": "Reached out to resolve an issue and set up a meeting",
+      "assigned_to": null,
+      "_fingerprint": "7d4b6b48626ff579471fe2be5b2f42df7cfc8194",
+      "source_entity_id": "f1f8efe4-9bca-4947-a426-7f91ceeb5816",
+      "relationship_type": "derived_from"
+    },
+    "created_at": "2026-06-08 17:27:37.360759+00",
+    "source_note_id": "f1f8efe4-9bca-4947-a426-7f91ceeb5816",
+    "source_note_content": "Sanket Prabhu standup updates (2026-06-08):\n- Reached out to resolve an issue and set up a meeting\n- Working on creating dashboards based on existing spans\n- Will continue working on that",
+    "source_note_title": "Standup updates on dashboards and issue resolution",
+    "ai_meta": {
+      "intent": "update",
+      "summary": "Sanket Prabhu shared standup updates about resolving an issue, setting up a meeting, and creating dashboards from existing spans. He plans to continue the dashboard work.",
+      "confidence": 0.93,
+      "title_auto": true,
+      "intent_confidence": 0.98
+    }
+  },
+  {
+    "id": "df9e40ff-411a-4806-8200-9183c641add2",
+    "suggestion_type": "link_existing",
+    "status": "accepted",
+    "payload": {
+      "title": "Agent Platform",
+      "evidence": "\"tool spec design in Agent Toolkit\" suggests agent platform/tooling work",
+      "target_type": "area",
+      "_fingerprint": "86fc4d7c04e4fd2bcc70dfae8cb2f178868222bf",
+      "source_entity_id": "9d2f26a1-295d-4f81-8722-17779238c151",
+      "target_entity_id": "9449186a-f5d9-4638-9c9b-8086259fdf88",
+      "relationship_type": "related"
+    },
+    "created_at": "2026-06-08 17:27:23.929829+00",
+    "source_note_id": "9d2f26a1-295d-4f81-8722-17779238c151",
+    "source_note_content": "Gonick Nalwa standup updates (2026-06-08):\n- Working on HITL integration end-to-end\n- Current piece: aligning HITL registry on backend with tool spec design in Agent Toolkit\n- Should have working piece by end of day today\n- Will schedule call with relevant folks to discuss approach and next steps (by EOD today)",
+    "source_note_title": "HITL integration standup updates",
+    "ai_meta": {
+      "intent": "task_signal",
+      "summary": "Standup update on end-to-end HITL integration work. The note mentions backend registry alignment with Agent Toolkit tool spec design, an end-of-day working piece target, and scheduling a call to discuss approach and next steps.",
+      "confidence": 0.95,
+      "title_auto": true,
+      "intent_confidence": 0.98
+    }
+  },
+  {
+    "id": "ab2ad33d-20cf-4c42-84ff-f624433760dc",
+    "suggestion_type": "link_existing",
+    "status": "accepted",
+    "payload": {
+      "title": "HITL CS2 Onboarding Demo",
+      "evidence": "HITL integration work appears related to HITL onboarding/demo efforts",
+      "target_type": "project",
+      "_fingerprint": "7735597ef1dbdb3f8b3d541d7068aa155467455d",
+      "source_entity_id": "9d2f26a1-295d-4f81-8722-17779238c151",
+      "target_entity_id": "d3f5bc56-e36a-4a41-8f42-c4d44cb0bff8",
+      "relationship_type": "related"
+    },
+    "created_at": "2026-06-08 17:27:23.929829+00",
+    "source_note_id": "9d2f26a1-295d-4f81-8722-17779238c151",
+    "source_note_content": "Gonick Nalwa standup updates (2026-06-08):\n- Working on HITL integration end-to-end\n- Current piece: aligning HITL registry on backend with tool spec design in Agent Toolkit\n- Should have working piece by end of day today\n- Will schedule call with relevant folks to discuss approach and next steps (by EOD today)",
+    "source_note_title": "HITL integration standup updates",
+    "ai_meta": {
+      "intent": "task_signal",
+      "summary": "Standup update on end-to-end HITL integration work. The note mentions backend registry alignment with Agent Toolkit tool spec design, an end-of-day working piece target, and scheduling a call to discuss approach and next steps.",
+      "confidence": 0.95,
+      "title_auto": true,
+      "intent_confidence": 0.98
+    }
+  },
+  {
+    "id": "38b4a6cb-f8bf-49ef-810e-41a8a275c6a7",
+    "suggestion_type": "create_task",
+    "status": "dismissed",
+    "payload": {
+      "type": "task",
+      "title": "Decide next focus",
+      "due_at": null,
+      "content": "Decide what to focus on after fixing the agent center ticket.",
+      "evidence": "\u201cWill decide what to focus on after fixing that ticket\u201d",
+      "assigned_to": null,
+      "_fingerprint": "d2ff4ace9e2c662300638416cafecfab24501596",
+      "source_entity_id": "63b6ad42-45c4-4dae-8f0f-48eebcb40d49",
+      "relationship_type": "derived_from"
+    },
+    "created_at": "2026-06-08 17:27:03.766213+00",
+    "source_note_id": "63b6ad42-45c4-4dae-8f0f-48eebcb40d49",
+    "source_note_content": "Ola standup updates (2026-06-08):\n- Reviewing PRs and design from Akash (GTM agent)\n- Working on ticket about \"start new conversation when user lands on agent center\" (David comment)\n  - PR out, reviewed, Utsava had follow-up comment\n - Should have updated PR out today\n  - Use case was covered in initial PR, will test again to double check\n- On-call tickets worked on\n- Will decide what to focus on after fixing that ticket",
+    "source_note_title": "Standup updates on PRs and on-call",
+    "ai_meta": {
+      "intent": "update",
+      "summary": "Daily standup notes covering PR review work, a ticket about starting a new conversation when a user lands on agent center, and on-call ticket handling. The note also indicates a follow-up PR update and a decision on next focus after the ticket is fixed.",
+      "confidence": 0.93,
+      "title_auto": true,
+      "intent_confidence": 0.98
+    }
+  },
+  {
+    "id": "ff8588db-4ca3-4cae-9725-571b7155b70a",
+    "suggestion_type": "link_existing",
+    "status": "accepted",
+    "payload": {
+      "title": "GTM agent family support",
+      "evidence": "\u201cGTM agent\u201d",
+      "target_type": "project",
+      "_fingerprint": "ca67dc36078ff223d59ebc4049f09496e4ae95ae",
+      "source_entity_id": "63b6ad42-45c4-4dae-8f0f-48eebcb40d49",
+      "target_entity_id": "a6ff4cd3-f37b-4cc7-bad2-db0553f658d8",
+      "relationship_type": "mentions"
+    },
+    "created_at": "2026-06-08 17:27:03.766213+00",
+    "source_note_id": "63b6ad42-45c4-4dae-8f0f-48eebcb40d49",
+    "source_note_content": "Ola standup updates (2026-06-08):\n- Reviewing PRs and design from Akash (GTM agent)\n- Working on ticket about \"start new conversation when user lands on agent center\" (David comment)\n  - PR out, reviewed, Utsava had follow-up comment\n - Should have updated PR out today\n  - Use case was covered in initial PR, will test again to double check\n- On-call tickets worked on\n- Will decide what to focus on after fixing that ticket",
+    "source_note_title": "Standup updates on PRs and on-call",
+    "ai_meta": {
+      "intent": "update",
+      "summary": "Daily standup notes covering PR review work, a ticket about starting a new conversation when a user lands on agent center, and on-call ticket handling. The note also indicates a follow-up PR update and a decision on next focus after the ticket is fixed.",
+      "confidence": 0.93,
+      "title_auto": true,
+      "intent_confidence": 0.98
+    }
+  },
+  {
+    "id": "53085f18-c7e6-4201-9a83-03a28a685a3e",
+    "suggestion_type": "create_resource",
+    "status": "dismissed",
+    "payload": {
+      "type": "resource",
+      "title": "reasoning UI",
+      "due_at": null,
+      "content": null,
+      "evidence": "Wants to preview Priya's reasoning UI (video or call)",
+      "assigned_to": null,
+      "_fingerprint": "76e840feff35a6b4af0a6bbe5706b89572ad958f",
+      "source_entity_id": "140a3569-ec8c-4875-95e4-3a67e27a173b",
+      "relationship_type": "related"
+    },
+    "created_at": "2026-06-08 17:26:44.447045+00",
+    "source_note_id": "140a3569-ec8c-4875-95e4-3a67e27a173b",
+    "source_note_content": "Sushmidha Jawahar standup updates (2026-06-08):\n- Taking over GTM agent design from Aditi (bandwidth + collaboration with Chloe)\n- Collaborating with both teams on GTM agent\n- Updated table enhancement doc with truncation rules from Lexi collaboration:\n  - 80 character limit for truncation/wrapping\n  - 80 pixels minimum column width\n  - Max 2 lines only (prevents table height doubling)\n  - Tooltip on hover always shows full text\n  - UXP working on variable table height (hug content)\n- Wants to preview Priya's reasoning UI (video or call)",
+    "source_note_title": "GTM agent design and table enhancements",
+    "ai_meta": {
+      "intent": "update",
+      "summary": "Standup updates cover ownership changes for GTM agent design, collaboration across teams, and a documentation update for table truncation rules. It also includes a request to preview Priya's reasoning UI.",
+      "confidence": 0.95,
+      "title_auto": true,
+      "intent_confidence": 0.98
+    }
+  },
+  {
+    "id": "d87fe898-971a-438d-9f70-053ca138a142",
+    "suggestion_type": "link_existing",
+    "status": "dismissed",
+    "payload": {
+      "title": "Toolkit robustness and flexibility",
+      "evidence": "Toolkit agent reasoning ... reasoning helpers in toolkit",
+      "target_type": "project",
+      "_fingerprint": "4e2f6660b0aedaa35b5cba94db9a4b5e126d4f85",
+      "source_entity_id": "5401ff17-7c13-4aac-8b62-024377fc2682",
+      "target_entity_id": "c7a97d17-486a-4f88-be01-0ef5df72d210",
+      "relationship_type": "related"
+    },
+    "created_at": "2026-06-08 17:25:59.760525+00",
+    "source_note_id": "5401ff17-7c13-4aac-8b62-024377fc2682",
+    "source_note_content": "Priya Luthra standup updates (2026-06-08):\n- Finished front end part of reasoning ticket - 1 ticket left for code review, ping Sanket and Akash for review\n- Toolkit agent reasoning: working end-to-end on local with mocked data, PR out, need to resolve cursor board comments, then need backend help for reasoning helpers in toolkit\n- On-call: synced with Ola, adding a ticket to current sprint\n- Automation passing rate: 100%\n- Action: share reasoning UI video with Sushmidha",
+    "source_note_title": "Priya Luthra standup updates",
+    "ai_meta": {
+      "intent": "update",
+      "summary": "Standup update covering progress on the reasoning ticket, toolkit agent reasoning, on-call coordination, and automation status. Includes follow-up actions to get code review, resolve PR comments, add a sprint ticket, and share a reasoning UI video.",
+      "confidence": 0.95,
+      "title_auto": true,
+      "intent_confidence": 0.99
+    }
+  },
+  {
+    "id": "3a39c25a-84d2-494f-98c0-8504661ec4d2",
+    "suggestion_type": "create_task",
+    "status": "dismissed",
+    "payload": {
+      "type": "task",
+      "title": "Attend all hands in Vancouver",
+      "due_at": "2026-06-08",
+      "content": "All hands is today, 2026-06-08, with focus on renewed AI/agents and pace.",
+      "evidence": "All hands in Vancouver: today (2026-06-08) - focus on renewed AI/agents and pace",
+      "assigned_to": null,
+      "_fingerprint": "46015ef106dffb6ad521a2aab184e66c7325b6cb",
+      "source_entity_id": "f6d6f9d0-97c9-40e9-a85b-27c28e170c05",
+      "relationship_type": "derived_from"
+    },
+    "created_at": "2026-06-08 17:25:46.004362+00",
+    "source_note_id": "f6d6f9d0-97c9-40e9-a85b-27c28e170c05",
+    "source_note_content": "Key events and deadlines from standup:\n- Sprint planning: Thursday (2026-06-11)\n- All hands in Vancouver: today (2026-06-08) - focus on renewed AI/agents and pace\n- GTM agent design review meeting: potentially rescheduled, no parking lot items needed",
+    "source_note_title": "Standup events and GTM review timing",
+    "ai_meta": {
+      "intent": "update",
+      "summary": "This note captures key standup events and deadlines, including sprint planning, an all-hands in Vancouver, and a potentially rescheduled GTM agent design review. It also notes that no parking lot items are needed for the review.",
+      "confidence": 0.95,
+      "title_auto": true,
+      "intent_confidence": 0.98
+    }
+  },
+  {
+    "id": "966160db-2e45-4044-b1ea-2dbcb748d6e9",
+    "suggestion_type": "create_task",
+    "status": "dismissed",
+    "payload": {
+      "type": "task",
+      "title": "Attend sprint planning",
+      "due_at": "2026-06-11",
+      "content": "Sprint planning is scheduled for Thursday, 2026-06-11.",
+      "evidence": "Sprint planning: Thursday (2026-06-11)",
+      "assigned_to": null,
+      "_fingerprint": "0592a0d04fc665cb28cb3bd8a1ecd06dff3fc91c",
+      "source_entity_id": "f6d6f9d0-97c9-40e9-a85b-27c28e170c05",
+      "relationship_type": "derived_from"
+    },
+    "created_at": "2026-06-08 17:25:46.004362+00",
+    "source_note_id": "f6d6f9d0-97c9-40e9-a85b-27c28e170c05",
+    "source_note_content": "Key events and deadlines from standup:\n- Sprint planning: Thursday (2026-06-11)\n- All hands in Vancouver: today (2026-06-08) - focus on renewed AI/agents and pace\n- GTM agent design review meeting: potentially rescheduled, no parking lot items needed",
+    "source_note_title": "Standup events and GTM review timing",
+    "ai_meta": {
+      "intent": "update",
+      "summary": "This note captures key standup events and deadlines, including sprint planning, an all-hands in Vancouver, and a potentially rescheduled GTM agent design review. It also notes that no parking lot items are needed for the review.",
+      "confidence": 0.95,
+      "title_auto": true,
+      "intent_confidence": 0.98
+    }
+  },
+  {
+    "id": "34fda214-05e0-4991-abff-866492fcdcba",
+    "suggestion_type": "create_task",
+    "status": "dismissed",
+    "payload": {
+      "type": "task",
+      "title": "Reschedule GTM agent design review",
+      "due_at": null,
+      "content": "The GTM agent design review meeting is potentially being rescheduled; no parking lot items are needed.",
+      "evidence": "GTM agent design review meeting: potentially rescheduled, no parking lot items needed",
+      "assigned_to": null,
+      "_fingerprint": "a85b5320a46c1ee96113e0d09be470b06c229a20",
+      "source_entity_id": "f6d6f9d0-97c9-40e9-a85b-27c28e170c05",
+      "relationship_type": "derived_from"
+    },
+    "created_at": "2026-06-08 17:25:46.004362+00",
+    "source_note_id": "f6d6f9d0-97c9-40e9-a85b-27c28e170c05",
+    "source_note_content": "Key events and deadlines from standup:\n- Sprint planning: Thursday (2026-06-11)\n- All hands in Vancouver: today (2026-06-08) - focus on renewed AI/agents and pace\n- GTM agent design review meeting: potentially rescheduled, no parking lot items needed",
+    "source_note_title": "Standup events and GTM review timing",
+    "ai_meta": {
+      "intent": "update",
+      "summary": "This note captures key standup events and deadlines, including sprint planning, an all-hands in Vancouver, and a potentially rescheduled GTM agent design review. It also notes that no parking lot items are needed for the review.",
+      "confidence": 0.95,
+      "title_auto": true,
+      "intent_confidence": 0.98
+    }
+  },
+  {
+    "id": "1d8b36e1-1573-4897-b5cd-1d09cacad9e9",
+    "suggestion_type": "create_project",
+    "status": "dismissed",
+    "payload": {
+      "type": "project",
+      "title": "Security roadmap",
+      "due_at": null,
+      "content": "Introduce security as a new roadmap element.",
+      "evidence": "New roadmap elements to introduce: - Security",
+      "assigned_to": null,
+      "_fingerprint": "c3e5408a60f429705a8542b7b3c6fc2bed014bc9",
+      "source_entity_id": "23b1e62e-6c61-4cfd-b85c-58c3ca567618",
+      "relationship_type": "related"
+    },
+    "created_at": "2026-06-08 17:25:15.69959+00",
+    "source_note_id": "23b1e62e-6c61-4cfd-b85c-58c3ca567618",
+    "source_note_content": "Danish's strategic direction from 2026-06-08 standup:\n\nAgent Platform role across 3 agent families:\n1. Admin agent family - currently strongest role\n2. Deals agent family - self-sufficient, early adopters, some net new requirements coming\n3. GTM agent family - needs deep support from us (observability, telemetry, alerting, monitoring, UI/UX)\n\nRole: SWAT team - strategically step in, address specific concern, get out. GTM takes priority.\n\nNew roadmap elements to introduce:\n- Security\n- Observability / telemetry\n- Toolkit robustness and flexibility for newer integration patterns\n- Agent memories not being utilized optimally\n- No reinforcement learning happening - agents don't utilize previous conversations\n\nMerger context: renewed focus on AI/agents and pace. Plan B (stay independent) in play while merger is uncertain. Expect more scrutiny on pace and quality.",
+    "source_note_title": "Agent platform strategy and roadmap priorities",
+    "ai_meta": {
+      "intent": "update",
+      "summary": "Danish outlined the Agent Platform's role across three agent families, emphasizing GTM support as the top priority and a SWAT-team operating model. The note also captures new roadmap themes and merger-related context increasing scrutiny on pace and quality.",
+      "confidence": 0.95,
+      "title_auto": true,
+      "intent_confidence": 0.98
+    }
+  },
+  {
+    "id": "bc1a6bb5-c45a-4f15-ba59-22c656e9b914",
+    "suggestion_type": "create_project",
+    "status": "dismissed",
+    "payload": {
+      "type": "project",
+      "title": "Deals agent family support",
+      "due_at": null,
+      "content": "Self-sufficient with early adopters; some net-new requirements are expected.",
+      "evidence": "Deals agent family - self-sufficient, early adopters, some net new requirements coming",
+      "assigned_to": null,
+      "_fingerprint": "6a8c645295a2ae853e33d7b027324836f953d59a",
+      "source_entity_id": "23b1e62e-6c61-4cfd-b85c-58c3ca567618",
+      "relationship_type": "related"
+    },
+    "created_at": "2026-06-08 17:25:15.69959+00",
+    "source_note_id": "23b1e62e-6c61-4cfd-b85c-58c3ca567618",
+    "source_note_content": "Danish's strategic direction from 2026-06-08 standup:\n\nAgent Platform role across 3 agent families:\n1. Admin agent family - currently strongest role\n2. Deals agent family - self-sufficient, early adopters, some net new requirements coming\n3. GTM agent family - needs deep support from us (observability, telemetry, alerting, monitoring, UI/UX)\n\nRole: SWAT team - strategically step in, address specific concern, get out. GTM takes priority.\n\nNew roadmap elements to introduce:\n- Security\n- Observability / telemetry\n- Toolkit robustness and flexibility for newer integration patterns\n- Agent memories not being utilized optimally\n- No reinforcement learning happening - agents don't utilize previous conversations\n\nMerger context: renewed focus on AI/agents and pace. Plan B (stay independent) in play while merger is uncertain. Expect more scrutiny on pace and quality.",
+    "source_note_title": "Agent platform strategy and roadmap priorities",
+    "ai_meta": {
+      "intent": "update",
+      "summary": "Danish outlined the Agent Platform's role across three agent families, emphasizing GTM support as the top priority and a SWAT-team operating model. The note also captures new roadmap themes and merger-related context increasing scrutiny on pace and quality.",
+      "confidence": 0.95,
+      "title_auto": true,
+      "intent_confidence": 0.98
+    }
+  },
+  {
+    "id": "01053d05-0fba-4669-ad3b-2674ae7484ef",
+    "suggestion_type": "create_project",
+    "status": "dismissed",
+    "payload": {
+      "type": "project",
+      "title": "SWAT team operating model",
+      "due_at": null,
+      "content": "Strategically step in, address a specific concern, and get out.",
+      "evidence": "Role: SWAT team - strategically step in, address specific concern, get out.",
+      "assigned_to": null,
+      "_fingerprint": "80daba87662a460944533c5d95b5f240535a2cb7",
+      "source_entity_id": "23b1e62e-6c61-4cfd-b85c-58c3ca567618",
+      "relationship_type": "related"
+    },
+    "created_at": "2026-06-08 17:25:15.69959+00",
+    "source_note_id": "23b1e62e-6c61-4cfd-b85c-58c3ca567618",
+    "source_note_content": "Danish's strategic direction from 2026-06-08 standup:\n\nAgent Platform role across 3 agent families:\n1. Admin agent family - currently strongest role\n2. Deals agent family - self-sufficient, early adopters, some net new requirements coming\n3. GTM agent family - needs deep support from us (observability, telemetry, alerting, monitoring, UI/UX)\n\nRole: SWAT team - strategically step in, address specific concern, get out. GTM takes priority.\n\nNew roadmap elements to introduce:\n- Security\n- Observability / telemetry\n- Toolkit robustness and flexibility for newer integration patterns\n- Agent memories not being utilized optimally\n- No reinforcement learning happening - agents don't utilize previous conversations\n\nMerger context: renewed focus on AI/agents and pace. Plan B (stay independent) in play while merger is uncertain. Expect more scrutiny on pace and quality.",
+    "source_note_title": "Agent platform strategy and roadmap priorities",
+    "ai_meta": {
+      "intent": "update",
+      "summary": "Danish outlined the Agent Platform's role across three agent families, emphasizing GTM support as the top priority and a SWAT-team operating model. The note also captures new roadmap themes and merger-related context increasing scrutiny on pace and quality.",
+      "confidence": 0.95,
+      "title_auto": true,
+      "intent_confidence": 0.98
+    }
+  },
+  {
+    "id": "c659c9bc-00b4-4e9c-8830-ea2d81c71bfc",
+    "suggestion_type": "create_project",
+    "status": "dismissed",
+    "payload": {
+      "type": "project",
+      "title": "Admin agent family support",
+      "due_at": null,
+      "content": "Current strongest role within the Agent Platform across the three agent families.",
+      "evidence": "Admin agent family - currently strongest role",
+      "assigned_to": null,
+      "_fingerprint": "29b490cccf1cf43edaaa7b35afa5903773da7737",
+      "source_entity_id": "23b1e62e-6c61-4cfd-b85c-58c3ca567618",
+      "relationship_type": "related"
+    },
+    "created_at": "2026-06-08 17:25:15.69959+00",
+    "source_note_id": "23b1e62e-6c61-4cfd-b85c-58c3ca567618",
+    "source_note_content": "Danish's strategic direction from 2026-06-08 standup:\n\nAgent Platform role across 3 agent families:\n1. Admin agent family - currently strongest role\n2. Deals agent family - self-sufficient, early adopters, some net new requirements coming\n3. GTM agent family - needs deep support from us (observability, telemetry, alerting, monitoring, UI/UX)\n\nRole: SWAT team - strategically step in, address specific concern, get out. GTM takes priority.\n\nNew roadmap elements to introduce:\n- Security\n- Observability / telemetry\n- Toolkit robustness and flexibility for newer integration patterns\n- Agent memories not being utilized optimally\n- No reinforcement learning happening - agents don't utilize previous conversations\n\nMerger context: renewed focus on AI/agents and pace. Plan B (stay independent) in play while merger is uncertain. Expect more scrutiny on pace and quality.",
+    "source_note_title": "Agent platform strategy and roadmap priorities",
+    "ai_meta": {
+      "intent": "update",
+      "summary": "Danish outlined the Agent Platform's role across three agent families, emphasizing GTM support as the top priority and a SWAT-team operating model. The note also captures new roadmap themes and merger-related context increasing scrutiny on pace and quality.",
+      "confidence": 0.95,
+      "title_auto": true,
+      "intent_confidence": 0.98
+    }
+  },
+  {
+    "id": "2fad742b-26df-4801-97ef-aa23fd230353",
+    "suggestion_type": "link_existing",
+    "status": "dismissed",
+    "payload": {
+      "title": "Platform Evangelism / Adoption",
+      "evidence": "Deals agent family - self-sufficient, early adopters",
+      "target_type": "area",
+      "_fingerprint": "852ee5a4f404c897f76ec39a0e95ffff7e7a2923",
+      "source_entity_id": "23b1e62e-6c61-4cfd-b85c-58c3ca567618",
+      "target_entity_id": "bbc774a2-1460-4e46-ab55-09a773b7d7e9",
+      "relationship_type": "related"
+    },
+    "created_at": "2026-06-08 17:25:15.69959+00",
+    "source_note_id": "23b1e62e-6c61-4cfd-b85c-58c3ca567618",
+    "source_note_content": "Danish's strategic direction from 2026-06-08 standup:\n\nAgent Platform role across 3 agent families:\n1. Admin agent family - currently strongest role\n2. Deals agent family - self-sufficient, early adopters, some net new requirements coming\n3. GTM agent family - needs deep support from us (observability, telemetry, alerting, monitoring, UI/UX)\n\nRole: SWAT team - strategically step in, address specific concern, get out. GTM takes priority.\n\nNew roadmap elements to introduce:\n- Security\n- Observability / telemetry\n- Toolkit robustness and flexibility for newer integration patterns\n- Agent memories not being utilized optimally\n- No reinforcement learning happening - agents don't utilize previous conversations\n\nMerger context: renewed focus on AI/agents and pace. Plan B (stay independent) in play while merger is uncertain. Expect more scrutiny on pace and quality.",
+    "source_note_title": "Agent platform strategy and roadmap priorities",
+    "ai_meta": {
+      "intent": "update",
+      "summary": "Danish outlined the Agent Platform's role across three agent families, emphasizing GTM support as the top priority and a SWAT-team operating model. The note also captures new roadmap themes and merger-related context increasing scrutiny on pace and quality.",
+      "confidence": 0.95,
+      "title_auto": true,
+      "intent_confidence": 0.98
+    }
+  },
+  {
+    "id": "7b38f494-85df-4999-b1d4-ee04c6e2f78e",
+    "suggestion_type": "create_project",
+    "status": "dismissed",
+    "payload": {
+      "type": "project",
+      "title": "Agent memory utilization",
+      "due_at": null,
+      "content": "Address underutilization of agent memories.",
+      "evidence": "Agent memories not being utilized optimally",
+      "assigned_to": null,
+      "_fingerprint": "f1466e144a28355119eb89e9ac713bee12942170",
+      "source_entity_id": "23b1e62e-6c61-4cfd-b85c-58c3ca567618",
+      "relationship_type": "related"
+    },
+    "created_at": "2026-06-08 17:25:15.69959+00",
+    "source_note_id": "23b1e62e-6c61-4cfd-b85c-58c3ca567618",
+    "source_note_content": "Danish's strategic direction from 2026-06-08 standup:\n\nAgent Platform role across 3 agent families:\n1. Admin agent family - currently strongest role\n2. Deals agent family - self-sufficient, early adopters, some net new requirements coming\n3. GTM agent family - needs deep support from us (observability, telemetry, alerting, monitoring, UI/UX)\n\nRole: SWAT team - strategically step in, address specific concern, get out. GTM takes priority.\n\nNew roadmap elements to introduce:\n- Security\n- Observability / telemetry\n- Toolkit robustness and flexibility for newer integration patterns\n- Agent memories not being utilized optimally\n- No reinforcement learning happening - agents don't utilize previous conversations\n\nMerger context: renewed focus on AI/agents and pace. Plan B (stay independent) in play while merger is uncertain. Expect more scrutiny on pace and quality.",
+    "source_note_title": "Agent platform strategy and roadmap priorities",
+    "ai_meta": {
+      "intent": "update",
+      "summary": "Danish outlined the Agent Platform's role across three agent families, emphasizing GTM support as the top priority and a SWAT-team operating model. The note also captures new roadmap themes and merger-related context increasing scrutiny on pace and quality.",
+      "confidence": 0.95,
+      "title_auto": true,
+      "intent_confidence": 0.98
+    }
+  },
+  {
+    "id": "9d5083c8-7385-43c1-a508-3e76d487926f",
+    "suggestion_type": "create_project",
+    "status": "dismissed",
+    "payload": {
+      "type": "project",
+      "title": "Conversation reinforcement learning",
+      "due_at": null,
+      "content": "No reinforcement learning is happening; agents do not utilize previous conversations.",
+      "evidence": "No reinforcement learning happening - agents don't utilize previous conversations",
+      "assigned_to": null,
+      "_fingerprint": "73dc80826be9a0e734c2b56c53050de233988c7b",
+      "source_entity_id": "23b1e62e-6c61-4cfd-b85c-58c3ca567618",
+      "relationship_type": "related"
+    },
+    "created_at": "2026-06-08 17:25:15.69959+00",
+    "source_note_id": "23b1e62e-6c61-4cfd-b85c-58c3ca567618",
+    "source_note_content": "Danish's strategic direction from 2026-06-08 standup:\n\nAgent Platform role across 3 agent families:\n1. Admin agent family - currently strongest role\n2. Deals agent family - self-sufficient, early adopters, some net new requirements coming\n3. GTM agent family - needs deep support from us (observability, telemetry, alerting, monitoring, UI/UX)\n\nRole: SWAT team - strategically step in, address specific concern, get out. GTM takes priority.\n\nNew roadmap elements to introduce:\n- Security\n- Observability / telemetry\n- Toolkit robustness and flexibility for newer integration patterns\n- Agent memories not being utilized optimally\n- No reinforcement learning happening - agents don't utilize previous conversations\n\nMerger context: renewed focus on AI/agents and pace. Plan B (stay independent) in play while merger is uncertain. Expect more scrutiny on pace and quality.",
+    "source_note_title": "Agent platform strategy and roadmap priorities",
+    "ai_meta": {
+      "intent": "update",
+      "summary": "Danish outlined the Agent Platform's role across three agent families, emphasizing GTM support as the top priority and a SWAT-team operating model. The note also captures new roadmap themes and merger-related context increasing scrutiny on pace and quality.",
+      "confidence": 0.95,
+      "title_auto": true,
+      "intent_confidence": 0.98
+    }
+  },
+  {
+    "id": "c6792b87-fb96-4287-adfb-31b4bf60e6be",
+    "suggestion_type": "create_project",
+    "status": "dismissed",
+    "payload": {
+      "type": "project",
+      "title": "Merger contingency planning",
+      "due_at": null,
+      "content": "Plan B to stay independent remains in play while merger uncertainty continues; expect more scrutiny on pace and quality.",
+      "evidence": "Plan B (stay independent) in play while merger is uncertain. Expect more scrutiny on pace and quality.",
+      "assigned_to": null,
+      "_fingerprint": "7a7b7fb2b02516ab6b987ffdb99bae42a7200a56",
+      "source_entity_id": "23b1e62e-6c61-4cfd-b85c-58c3ca567618",
+      "relationship_type": "related"
+    },
+    "created_at": "2026-06-08 17:25:15.69959+00",
+    "source_note_id": "23b1e62e-6c61-4cfd-b85c-58c3ca567618",
+    "source_note_content": "Danish's strategic direction from 2026-06-08 standup:\n\nAgent Platform role across 3 agent families:\n1. Admin agent family - currently strongest role\n2. Deals agent family - self-sufficient, early adopters, some net new requirements coming\n3. GTM agent family - needs deep support from us (observability, telemetry, alerting, monitoring, UI/UX)\n\nRole: SWAT team - strategically step in, address specific concern, get out. GTM takes priority.\n\nNew roadmap elements to introduce:\n- Security\n- Observability / telemetry\n- Toolkit robustness and flexibility for newer integration patterns\n- Agent memories not being utilized optimally\n- No reinforcement learning happening - agents don't utilize previous conversations\n\nMerger context: renewed focus on AI/agents and pace. Plan B (stay independent) in play while merger is uncertain. Expect more scrutiny on pace and quality.",
+    "source_note_title": "Agent platform strategy and roadmap priorities",
+    "ai_meta": {
+      "intent": "update",
+      "summary": "Danish outlined the Agent Platform's role across three agent families, emphasizing GTM support as the top priority and a SWAT-team operating model. The note also captures new roadmap themes and merger-related context increasing scrutiny on pace and quality.",
+      "confidence": 0.95,
+      "title_auto": true,
+      "intent_confidence": 0.98
+    }
+  },
+  {
+    "id": "6d2c7d3d-23f9-4592-8cd2-d30e668675d6",
+    "suggestion_type": "create_task",
+    "status": "dismissed",
+    "payload": {
+      "type": "task",
+      "title": "Resolve repro",
+      "due_at": null,
+      "content": "Resolve the reproduction issue.",
+      "evidence": "\"review resolve repro\"",
+      "assigned_to": null,
+      "_fingerprint": "d7aabc29f1701e5f68c1bcc7c0b9e37d713e5b02",
+      "source_entity_id": "1c2301f3-e25d-47cb-968d-9e8745fe8615",
+      "relationship_type": "derived_from"
+    },
+    "created_at": "2026-06-08 14:42:51.21676+00",
+    "source_note_id": "1c2301f3-e25d-47cb-968d-9e8745fe8615",
+    "source_note_content": "review resolve repro",
+    "source_note_title": "Review and resolve repro",
+    "ai_meta": {
+      "intent": "task_signal",
+      "summary": "A brief note indicating a need to review and resolve a reproduction issue. No additional context or named entities are provided.",
+      "confidence": 0.72,
+      "title_auto": true,
+      "intent_confidence": 0.86
+    }
+  },
+  {
+    "id": "c3fe9ba5-5e12-466e-b221-dda3d7e2ecd4",
+    "suggestion_type": "create_task",
+    "status": "dismissed",
+    "payload": {
+      "type": "task",
+      "title": "Review repro",
+      "due_at": null,
+      "content": "Review the reproduction issue.",
+      "evidence": "\"review resolve repro\"",
+      "assigned_to": null,
+      "_fingerprint": "af7131ea43a788cb2ed961e5f7d18313266e3857",
+      "source_entity_id": "1c2301f3-e25d-47cb-968d-9e8745fe8615",
+      "relationship_type": "derived_from"
+    },
+    "created_at": "2026-06-08 14:42:51.21676+00",
+    "source_note_id": "1c2301f3-e25d-47cb-968d-9e8745fe8615",
+    "source_note_content": "review resolve repro",
+    "source_note_title": "Review and resolve repro",
+    "ai_meta": {
+      "intent": "task_signal",
+      "summary": "A brief note indicating a need to review and resolve a reproduction issue. No additional context or named entities are provided.",
+      "confidence": 0.72,
+      "title_auto": true,
+      "intent_confidence": 0.86
+    }
+  },
+  {
+    "id": "b3195ac6-e1c9-4ce5-b65e-fe473bac7184",
+    "suggestion_type": "link_existing",
+    "status": "dismissed",
+    "payload": {
+      "title": "Agentic SDLC",
+      "evidence": "agent platform future state and backend-side engineering work are part of the broader agent platform domain",
+      "target_type": "area",
+      "source_entity_id": "357fb3bc-556b-4a4b-b650-5e6ce10af390",
+      "target_entity_id": "173ceb8a-0cd2-4bd5-b751-0e47b806bf19",
+      "relationship_type": "related"
+    },
+    "created_at": "2026-06-07 16:25:39.444567+00",
+    "source_note_id": "357fb3bc-556b-4a4b-b650-5e6ce10af390",
+    "source_note_content": "Need to draft a future state vision for agent platform and list down the potential work items across all components such that we can use it for a meaningful prioritization. Right now rhe Product roadmap is heavily influenced by frontend components since that\u2019s what product team is more familiar and comfortable with. There\u2019s a lot more that needs to happen for the backend side of things which is purely on the engineering team to drive, I think.",
+    "source_note_title": "Draft agent platform future-state vision",
+    "ai_meta": {
+      "summary": "The note asks for a future-state vision for the agent platform and a comprehensive list of work items across all components to support meaningful prioritization. It also highlights that the current product roadmap is skewed toward frontend components, while backend work needs stronger engineering ownership.",
+      "confidence": 0.95,
+      "title_auto": true
+    }
+  },
+  {
+    "id": "ccff7d37-b2c3-47c0-9a85-cfed7208f260",
+    "suggestion_type": "create_project",
+    "status": "dismissed",
+    "payload": {
+      "type": "project",
+      "title": "Conversation history search functionality",
+      "due_at": null,
+      "content": null,
+      "evidence": "features like conversation history search functionality",
+      "assigned_to": null,
+      "source_entity_id": "323112bb-74de-4e8a-9196-e6c0d2917bb8",
+      "relationship_type": "related"
+    },
+    "created_at": "2026-05-30 19:02:15.388948+00",
+    "source_note_id": "323112bb-74de-4e8a-9196-e6c0d2917bb8",
+    "source_note_content": "**Meeting assets for Danish - Ram 1:1** \n\n\n\n## Quick recap\n\nThis meeting was a feedback discussion between Ram and Danish regarding Hemant's performance as PM on the agent platform team. Danish provided positive feedback on Hemant's effectiveness with design teams, customer-facing features, and team rapport, but noted areas for improvement including technical alignment with the platform's capabilities and stronger partnerships with other teams like search and memory. Ram shared that he's considering restructuring the PM role, potentially splitting it into two positions - one focused on UX aspects and another on more technical backend work with Rishabh. They discussed upcoming organizational changes where teams will need to align their work more closely with AI agent initiatives, with Brigu planning to review fall launch priorities and potentially reallocate resources. Ram also provided feedback to Danish, praising his strong technical abilities and management skills while emphasizing the need for better proactive communication to shift perceptions about the team's impact across the organization.\n\n## Next steps\n\n### Danish\n\n- [Work with Hemant (and optionally Rishabh) to prepare a clear, compelling story for how current/future work aligns with Brigu's agent/agent platform vision, in preparation for upcoming ED sessions where resource allocation will be evaluated.](https://tasks.zoom.us/?meetingId=ZzuT1%2F3xTTeM2iPYFCprrg%3D%3D&stepId=598c0761-5ba9-11f1-9b4f-d64545e70e1d)\n- [Push for more proactive team visibility\u2014organize and execute regular show-and-tell sessions (e.g., PM all-hands, workshops) to communicate team progress and impact to partner teams and leadership; report back to Ram by end of week on actions taken.](https://tasks.zoom.us/?meetingId=ZzuT1%2F3xTTeM2iPYFCprrg%3D%3D&stepId=598c0a59-5ba9-11f1-b58a-d64545e70e1d)\n- [Draft and share a recommendation for a one-time bonus or appreciation for front-end engineer Gonick, and coordinate with Michelle to move this forward.](https://tasks.zoom.us/?meetingId=ZzuT1%2F3xTTeM2iPYFCprrg%3D%3D&stepId=598c0ccd-5ba9-11f1-a5a1-d64545e70e1d)\n- [Review and prioritize the list of E2E items and other pending topics with the team as soon as possible, and coordinate with Ram and Sarosh as needed.](https://tasks.zoom.us/?meetingId=ZzuT1%2F3xTTeM2iPYFCprrg%3D%3D&stepId=598c1131-5ba9-11f1-9c1a-d64545e70e1d)\n- [Continue to monitor and provide feedback on team morale and engagement, and escalate any issues or suggestions to Ram and leadership as appropriate.](https://tasks.zoom.us/?meetingId=ZzuT1%2F3xTTeM2iPYFCprrg%3D%3D&stepId=598c156b-5ba9-11f1-b4d3-d64545e70e1d)\n\n### Ram\n\n- [Secure a 1-hour meeting slot with Sarosh next week to review and align on fall launch priorities and ensure tight alignment with Brigu's vision (before leaving for vacation).](https://tasks.zoom.us/?meetingId=ZzuT1%2F3xTTeM2iPYFCprrg%3D%3D&stepId=598c013a-5ba9-11f1-af8b-d64545e70e1d)\n- [Keep Danish updated on any feedback or changes relevant to team morale, resource allocation, or organizational structure, especially as they pertain to the agent platform team.](https://tasks.zoom.us/?meetingId=ZzuT1%2F3xTTeM2iPYFCprrg%3D%3D&stepId=598c0f06-5ba9-11f1-b4b1-d64545e70e1d)\n- [Formalize and communicate the potential reorganization of the PM role (splitting UX-focused and technical PM responsibilities) within the next week, including communication to Sarosh and impacted team members.](https://tasks.zoom.us/?meetingId=ZzuT1%2F3xTTeM2iPYFCprrg%3D%3D&stepId=598c1353-5ba9-11f1-a644-d64545e70e1d)\n\n## Summary\n\n### Performance Feedback and Technology Alignment\n\nDanish provided feedback on Hemant's performance, noting his effectiveness in design and UX work, proactive approach with the team, and good rapport with team members. However, Danish identified a concern about a mismatch between the platform's technology capabilities and its focus on customer-facing features, which sometimes detracts from serving internal agents like GTM and deals agents. The discussion was cut off mid-conversation when Ram asked for additional constructive criticism.\n\n### Tech Partnership Restructuring Discussion\n\nDanish discussed challenges with tech partnerships, particularly highlighting weaker collaboration with the search and memory team on features like conversation history search functionality. Ram shared feedback from the design team about struggles with grounding in customer scenarios and expressed concerns about the current PM's technical adequacy for the team's evolving needs. Ram proposed potentially restructuring the team into two PM roles - one focused on UX and the other on technical aspects - with Rishabh potentially taking on a more technical partnership role.\n\n### PM Team Restructuring Discussion\n\nRam discussed plans to restructure the PM team, potentially moving Rishabh to a different PM role, and sought Danish's feedback on the proposal. Danish expressed support for the idea, citing Rishabh's strong collaborative work on agent memories and the benefits of keeping related components within the same organization. Ram also mentioned ongoing challenges with Tony's transition from team management to individual contributor status, particularly his difficulty managing upwards, and noted that Utsav is leaving the company.\n\n### AI Reorganization Strategy Discussion\n\nRam debriefed Danish on a recent meeting with Brigu, where they discussed an upcoming reorganization focused on AI agent initiatives. Brigu emphasized that all work must align with either agent development or the broader agentic story, with resources being reallocated based on alignment with this vision. Danish expressed concerns about prioritization and the need to converge their current technology approach, while Ram suggested they should prepare to present their work's alignment with the new vision in upcoming one-hour ED sessions. They agreed to schedule additional time with Soros to review and prioritize their fall launch funding decisions.\n\n### Team Morale and Retention Discussion\n\nRam discussed team morale challenges across the organization and mentioned that Brigu is seeking feedback and ideas from team leaders about potential issues. Danish shared that his team had a difficult situation with a non-performing resource who has now left the company, and he is recommending a front-end engineer named Gonick for a one-time bonus or appreciation since his promotion would not occur until November. Ram confirmed that retention bonus money typically returns to the pool and suggested Danish make the case for Gonick's bonus to Michelle.\n\n### Team Perception Management Strategy\n\nRam provided feedback to Danish, praising his technical skills and team performance while highlighting the need for better perception management across the organization. Ram emphasized that the team needs to proactively showcase their work through regular presentations and updates to leadership, as they haven't done so since December and this is creating perception issues about their value and impact. Ram assigned Danish the action of organizing a team presentation by the end of the week and requested regular updates to help improve visibility for leadership.",
+    "source_note_title": "Ram and Danish 1:1 follow-ups",
+    "ai_meta": {
+      "summary": "Meeting notes cover feedback on Hemant\u2019s PM performance, possible PM role restructuring, and alignment of the agent platform team with Brigu\u2019s AI agent vision. The note also captures multiple follow-ups for Danish and Ram around visibility, prioritization, morale, and a bonus recommendation.",
+      "confidence": 0.98,
+      "title_auto": true
+    }
+  },
+  {
+    "id": "3f2ee459-d752-4d47-bbab-c96ca0a85eb4",
+    "suggestion_type": "create_project",
+    "status": "dismissed",
+    "payload": {
+      "type": "project",
+      "title": "Agent memories collaboration",
+      "due_at": null,
+      "content": null,
+      "evidence": "Rishabh's strong collaborative work on agent memories",
+      "assigned_to": null,
+      "source_entity_id": "323112bb-74de-4e8a-9196-e6c0d2917bb8",
+      "relationship_type": "related"
+    },
+    "created_at": "2026-05-30 19:02:15.388948+00",
+    "source_note_id": "323112bb-74de-4e8a-9196-e6c0d2917bb8",
+    "source_note_content": "**Meeting assets for Danish - Ram 1:1** \n\n\n\n## Quick recap\n\nThis meeting was a feedback discussion between Ram and Danish regarding Hemant's performance as PM on the agent platform team. Danish provided positive feedback on Hemant's effectiveness with design teams, customer-facing features, and team rapport, but noted areas for improvement including technical alignment with the platform's capabilities and stronger partnerships with other teams like search and memory. Ram shared that he's considering restructuring the PM role, potentially splitting it into two positions - one focused on UX aspects and another on more technical backend work with Rishabh. They discussed upcoming organizational changes where teams will need to align their work more closely with AI agent initiatives, with Brigu planning to review fall launch priorities and potentially reallocate resources. Ram also provided feedback to Danish, praising his strong technical abilities and management skills while emphasizing the need for better proactive communication to shift perceptions about the team's impact across the organization.\n\n## Next steps\n\n### Danish\n\n- [Work with Hemant (and optionally Rishabh) to prepare a clear, compelling story for how current/future work aligns with Brigu's agent/agent platform vision, in preparation for upcoming ED sessions where resource allocation will be evaluated.](https://tasks.zoom.us/?meetingId=ZzuT1%2F3xTTeM2iPYFCprrg%3D%3D&stepId=598c0761-5ba9-11f1-9b4f-d64545e70e1d)\n- [Push for more proactive team visibility\u2014organize and execute regular show-and-tell sessions (e.g., PM all-hands, workshops) to communicate team progress and impact to partner teams and leadership; report back to Ram by end of week on actions taken.](https://tasks.zoom.us/?meetingId=ZzuT1%2F3xTTeM2iPYFCprrg%3D%3D&stepId=598c0a59-5ba9-11f1-b58a-d64545e70e1d)\n- [Draft and share a recommendation for a one-time bonus or appreciation for front-end engineer Gonick, and coordinate with Michelle to move this forward.](https://tasks.zoom.us/?meetingId=ZzuT1%2F3xTTeM2iPYFCprrg%3D%3D&stepId=598c0ccd-5ba9-11f1-a5a1-d64545e70e1d)\n- [Review and prioritize the list of E2E items and other pending topics with the team as soon as possible, and coordinate with Ram and Sarosh as needed.](https://tasks.zoom.us/?meetingId=ZzuT1%2F3xTTeM2iPYFCprrg%3D%3D&stepId=598c1131-5ba9-11f1-9c1a-d64545e70e1d)\n- [Continue to monitor and provide feedback on team morale and engagement, and escalate any issues or suggestions to Ram and leadership as appropriate.](https://tasks.zoom.us/?meetingId=ZzuT1%2F3xTTeM2iPYFCprrg%3D%3D&stepId=598c156b-5ba9-11f1-b4d3-d64545e70e1d)\n\n### Ram\n\n- [Secure a 1-hour meeting slot with Sarosh next week to review and align on fall launch priorities and ensure tight alignment with Brigu's vision (before leaving for vacation).](https://tasks.zoom.us/?meetingId=ZzuT1%2F3xTTeM2iPYFCprrg%3D%3D&stepId=598c013a-5ba9-11f1-af8b-d64545e70e1d)\n- [Keep Danish updated on any feedback or changes relevant to team morale, resource allocation, or organizational structure, especially as they pertain to the agent platform team.](https://tasks.zoom.us/?meetingId=ZzuT1%2F3xTTeM2iPYFCprrg%3D%3D&stepId=598c0f06-5ba9-11f1-b4b1-d64545e70e1d)\n- [Formalize and communicate the potential reorganization of the PM role (splitting UX-focused and technical PM responsibilities) within the next week, including communication to Sarosh and impacted team members.](https://tasks.zoom.us/?meetingId=ZzuT1%2F3xTTeM2iPYFCprrg%3D%3D&stepId=598c1353-5ba9-11f1-a644-d64545e70e1d)\n\n## Summary\n\n### Performance Feedback and Technology Alignment\n\nDanish provided feedback on Hemant's performance, noting his effectiveness in design and UX work, proactive approach with the team, and good rapport with team members. However, Danish identified a concern about a mismatch between the platform's technology capabilities and its focus on customer-facing features, which sometimes detracts from serving internal agents like GTM and deals agents. The discussion was cut off mid-conversation when Ram asked for additional constructive criticism.\n\n### Tech Partnership Restructuring Discussion\n\nDanish discussed challenges with tech partnerships, particularly highlighting weaker collaboration with the search and memory team on features like conversation history search functionality. Ram shared feedback from the design team about struggles with grounding in customer scenarios and expressed concerns about the current PM's technical adequacy for the team's evolving needs. Ram proposed potentially restructuring the team into two PM roles - one focused on UX and the other on technical aspects - with Rishabh potentially taking on a more technical partnership role.\n\n### PM Team Restructuring Discussion\n\nRam discussed plans to restructure the PM team, potentially moving Rishabh to a different PM role, and sought Danish's feedback on the proposal. Danish expressed support for the idea, citing Rishabh's strong collaborative work on agent memories and the benefits of keeping related components within the same organization. Ram also mentioned ongoing challenges with Tony's transition from team management to individual contributor status, particularly his difficulty managing upwards, and noted that Utsav is leaving the company.\n\n### AI Reorganization Strategy Discussion\n\nRam debriefed Danish on a recent meeting with Brigu, where they discussed an upcoming reorganization focused on AI agent initiatives. Brigu emphasized that all work must align with either agent development or the broader agentic story, with resources being reallocated based on alignment with this vision. Danish expressed concerns about prioritization and the need to converge their current technology approach, while Ram suggested they should prepare to present their work's alignment with the new vision in upcoming one-hour ED sessions. They agreed to schedule additional time with Soros to review and prioritize their fall launch funding decisions.\n\n### Team Morale and Retention Discussion\n\nRam discussed team morale challenges across the organization and mentioned that Brigu is seeking feedback and ideas from team leaders about potential issues. Danish shared that his team had a difficult situation with a non-performing resource who has now left the company, and he is recommending a front-end engineer named Gonick for a one-time bonus or appreciation since his promotion would not occur until November. Ram confirmed that retention bonus money typically returns to the pool and suggested Danish make the case for Gonick's bonus to Michelle.\n\n### Team Perception Management Strategy\n\nRam provided feedback to Danish, praising his technical skills and team performance while highlighting the need for better perception management across the organization. Ram emphasized that the team needs to proactively showcase their work through regular presentations and updates to leadership, as they haven't done so since December and this is creating perception issues about their value and impact. Ram assigned Danish the action of organizing a team presentation by the end of the week and requested regular updates to help improve visibility for leadership.",
+    "source_note_title": "Ram and Danish 1:1 follow-ups",
+    "ai_meta": {
+      "summary": "Meeting notes cover feedback on Hemant\u2019s PM performance, possible PM role restructuring, and alignment of the agent platform team with Brigu\u2019s AI agent vision. The note also captures multiple follow-ups for Danish and Ram around visibility, prioritization, morale, and a bonus recommendation.",
+      "confidence": 0.98,
+      "title_auto": true
+    }
+  },
+  {
+    "id": "4456e795-9308-4777-aad3-1ae75bdd186d",
+    "suggestion_type": "create_project",
+    "status": "dismissed",
+    "payload": {
+      "type": "project",
+      "title": "Design team grounding in customer scenarios",
+      "due_at": null,
+      "content": null,
+      "evidence": "struggles with grounding in customer scenarios",
+      "assigned_to": null,
+      "source_entity_id": "323112bb-74de-4e8a-9196-e6c0d2917bb8",
+      "relationship_type": "related"
+    },
+    "created_at": "2026-05-30 19:02:15.388948+00",
+    "source_note_id": "323112bb-74de-4e8a-9196-e6c0d2917bb8",
+    "source_note_content": "**Meeting assets for Danish - Ram 1:1** \n\n\n\n## Quick recap\n\nThis meeting was a feedback discussion between Ram and Danish regarding Hemant's performance as PM on the agent platform team. Danish provided positive feedback on Hemant's effectiveness with design teams, customer-facing features, and team rapport, but noted areas for improvement including technical alignment with the platform's capabilities and stronger partnerships with other teams like search and memory. Ram shared that he's considering restructuring the PM role, potentially splitting it into two positions - one focused on UX aspects and another on more technical backend work with Rishabh. They discussed upcoming organizational changes where teams will need to align their work more closely with AI agent initiatives, with Brigu planning to review fall launch priorities and potentially reallocate resources. Ram also provided feedback to Danish, praising his strong technical abilities and management skills while emphasizing the need for better proactive communication to shift perceptions about the team's impact across the organization.\n\n## Next steps\n\n### Danish\n\n- [Work with Hemant (and optionally Rishabh) to prepare a clear, compelling story for how current/future work aligns with Brigu's agent/agent platform vision, in preparation for upcoming ED sessions where resource allocation will be evaluated.](https://tasks.zoom.us/?meetingId=ZzuT1%2F3xTTeM2iPYFCprrg%3D%3D&stepId=598c0761-5ba9-11f1-9b4f-d64545e70e1d)\n- [Push for more proactive team visibility\u2014organize and execute regular show-and-tell sessions (e.g., PM all-hands, workshops) to communicate team progress and impact to partner teams and leadership; report back to Ram by end of week on actions taken.](https://tasks.zoom.us/?meetingId=ZzuT1%2F3xTTeM2iPYFCprrg%3D%3D&stepId=598c0a59-5ba9-11f1-b58a-d64545e70e1d)\n- [Draft and share a recommendation for a one-time bonus or appreciation for front-end engineer Gonick, and coordinate with Michelle to move this forward.](https://tasks.zoom.us/?meetingId=ZzuT1%2F3xTTeM2iPYFCprrg%3D%3D&stepId=598c0ccd-5ba9-11f1-a5a1-d64545e70e1d)\n- [Review and prioritize the list of E2E items and other pending topics with the team as soon as possible, and coordinate with Ram and Sarosh as needed.](https://tasks.zoom.us/?meetingId=ZzuT1%2F3xTTeM2iPYFCprrg%3D%3D&stepId=598c1131-5ba9-11f1-9c1a-d64545e70e1d)\n- [Continue to monitor and provide feedback on team morale and engagement, and escalate any issues or suggestions to Ram and leadership as appropriate.](https://tasks.zoom.us/?meetingId=ZzuT1%2F3xTTeM2iPYFCprrg%3D%3D&stepId=598c156b-5ba9-11f1-b4d3-d64545e70e1d)\n\n### Ram\n\n- [Secure a 1-hour meeting slot with Sarosh next week to review and align on fall launch priorities and ensure tight alignment with Brigu's vision (before leaving for vacation).](https://tasks.zoom.us/?meetingId=ZzuT1%2F3xTTeM2iPYFCprrg%3D%3D&stepId=598c013a-5ba9-11f1-af8b-d64545e70e1d)\n- [Keep Danish updated on any feedback or changes relevant to team morale, resource allocation, or organizational structure, especially as they pertain to the agent platform team.](https://tasks.zoom.us/?meetingId=ZzuT1%2F3xTTeM2iPYFCprrg%3D%3D&stepId=598c0f06-5ba9-11f1-b4b1-d64545e70e1d)\n- [Formalize and communicate the potential reorganization of the PM role (splitting UX-focused and technical PM responsibilities) within the next week, including communication to Sarosh and impacted team members.](https://tasks.zoom.us/?meetingId=ZzuT1%2F3xTTeM2iPYFCprrg%3D%3D&stepId=598c1353-5ba9-11f1-a644-d64545e70e1d)\n\n## Summary\n\n### Performance Feedback and Technology Alignment\n\nDanish provided feedback on Hemant's performance, noting his effectiveness in design and UX work, proactive approach with the team, and good rapport with team members. However, Danish identified a concern about a mismatch between the platform's technology capabilities and its focus on customer-facing features, which sometimes detracts from serving internal agents like GTM and deals agents. The discussion was cut off mid-conversation when Ram asked for additional constructive criticism.\n\n### Tech Partnership Restructuring Discussion\n\nDanish discussed challenges with tech partnerships, particularly highlighting weaker collaboration with the search and memory team on features like conversation history search functionality. Ram shared feedback from the design team about struggles with grounding in customer scenarios and expressed concerns about the current PM's technical adequacy for the team's evolving needs. Ram proposed potentially restructuring the team into two PM roles - one focused on UX and the other on technical aspects - with Rishabh potentially taking on a more technical partnership role.\n\n### PM Team Restructuring Discussion\n\nRam discussed plans to restructure the PM team, potentially moving Rishabh to a different PM role, and sought Danish's feedback on the proposal. Danish expressed support for the idea, citing Rishabh's strong collaborative work on agent memories and the benefits of keeping related components within the same organization. Ram also mentioned ongoing challenges with Tony's transition from team management to individual contributor status, particularly his difficulty managing upwards, and noted that Utsav is leaving the company.\n\n### AI Reorganization Strategy Discussion\n\nRam debriefed Danish on a recent meeting with Brigu, where they discussed an upcoming reorganization focused on AI agent initiatives. Brigu emphasized that all work must align with either agent development or the broader agentic story, with resources being reallocated based on alignment with this vision. Danish expressed concerns about prioritization and the need to converge their current technology approach, while Ram suggested they should prepare to present their work's alignment with the new vision in upcoming one-hour ED sessions. They agreed to schedule additional time with Soros to review and prioritize their fall launch funding decisions.\n\n### Team Morale and Retention Discussion\n\nRam discussed team morale challenges across the organization and mentioned that Brigu is seeking feedback and ideas from team leaders about potential issues. Danish shared that his team had a difficult situation with a non-performing resource who has now left the company, and he is recommending a front-end engineer named Gonick for a one-time bonus or appreciation since his promotion would not occur until November. Ram confirmed that retention bonus money typically returns to the pool and suggested Danish make the case for Gonick's bonus to Michelle.\n\n### Team Perception Management Strategy\n\nRam provided feedback to Danish, praising his technical skills and team performance while highlighting the need for better perception management across the organization. Ram emphasized that the team needs to proactively showcase their work through regular presentations and updates to leadership, as they haven't done so since December and this is creating perception issues about their value and impact. Ram assigned Danish the action of organizing a team presentation by the end of the week and requested regular updates to help improve visibility for leadership.",
+    "source_note_title": "Ram and Danish 1:1 follow-ups",
+    "ai_meta": {
+      "summary": "Meeting notes cover feedback on Hemant\u2019s PM performance, possible PM role restructuring, and alignment of the agent platform team with Brigu\u2019s AI agent vision. The note also captures multiple follow-ups for Danish and Ram around visibility, prioritization, morale, and a bonus recommendation.",
+      "confidence": 0.98,
+      "title_auto": true
+    }
+  }
+]

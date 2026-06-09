@@ -1,0 +1,252 @@
+{
+  "timestamp": "20260609_220603",
+  "dry_run": false,
+  "total": 27,
+  "skipped": 0,
+  "correct": 14,
+  "results": [
+    {
+      "suggestion_id": "f2532710-f75d-4559-9ea6-d7b16666dd9e",
+      "suggested_title": "Update team after more time",
+      "expected_action": "new",
+      "got_action": "no_candidates",
+      "correct": true,
+      "candidates_extracted": 0,
+      "reason": "extraction returned no candidates"
+    },
+    {
+      "suggestion_id": "acbcb037-c5ac-4be4-aee2-672cc11c5668",
+      "suggested_title": "Agent Platform",
+      "expected_action": "link",
+      "got_action": "no_candidates",
+      "correct": false,
+      "candidates_extracted": 0,
+      "reason": "extraction returned no candidates"
+    },
+    {
+      "suggestion_id": "4b800312-0574-4a26-aa46-2e85321ca5ca",
+      "suggested_title": "Agent Platform",
+      "expected_action": "accept",
+      "got_action": "no_candidates",
+      "correct": false,
+      "candidates_extracted": 0,
+      "reason": "extraction returned no candidates"
+    },
+    {
+      "suggestion_id": "20f4d063-830b-4510-a86e-a13ba21ba7dd",
+      "suggested_title": "Resolve issue",
+      "expected_action": "new",
+      "got_action": "no_candidates",
+      "correct": true,
+      "candidates_extracted": 0,
+      "reason": "extraction returned no candidates"
+    },
+    {
+      "suggestion_id": "df9e40ff-411a-4806-8200-9183c641add2",
+      "suggested_title": "Agent Platform",
+      "expected_action": "accept",
+      "got_action": "no_candidates",
+      "correct": false,
+      "candidates_extracted": 0,
+      "reason": "extraction returned no candidates"
+    },
+    {
+      "suggestion_id": "ab2ad33d-20cf-4c42-84ff-f624433760dc",
+      "suggested_title": "HITL CS2 Onboarding Demo",
+      "expected_action": "accept",
+      "got_action": "no_candidates",
+      "correct": false,
+      "candidates_extracted": 0,
+      "reason": "extraction returned no candidates"
+    },
+    {
+      "suggestion_id": "38b4a6cb-f8bf-49ef-810e-41a8a275c6a7",
+      "suggested_title": "Decide next focus",
+      "expected_action": "new",
+      "got_action": "no_candidates",
+      "correct": true,
+      "candidates_extracted": 0,
+      "reason": "extraction returned no candidates"
+    },
+    {
+      "suggestion_id": "ff8588db-4ca3-4cae-9725-571b7155b70a",
+      "suggested_title": "GTM agent family support",
+      "expected_action": "accept",
+      "got_action": "no_candidates",
+      "correct": false,
+      "candidates_extracted": 0,
+      "reason": "extraction returned no candidates"
+    },
+    {
+      "suggestion_id": "53085f18-c7e6-4201-9a83-03a28a685a3e",
+      "suggested_title": "reasoning UI",
+      "expected_action": "new",
+      "got_action": "no_candidates",
+      "correct": true,
+      "candidates_extracted": 0,
+      "reason": "extraction returned no candidates"
+    },
+    {
+      "suggestion_id": "d87fe898-971a-438d-9f70-053ca138a142",
+      "suggested_title": "Toolkit robustness and flexibility",
+      "expected_action": "link",
+      "got_action": "no_candidates",
+      "correct": false,
+      "candidates_extracted": 0,
+      "reason": "extraction returned no candidates"
+    },
+    {
+      "suggestion_id": "3a39c25a-84d2-494f-98c0-8504661ec4d2",
+      "suggested_title": "Attend all hands in Vancouver",
+      "expected_action": "new",
+      "got_action": "no_candidates",
+      "correct": true,
+      "candidates_extracted": 0,
+      "reason": "extraction returned no candidates"
+    },
+    {
+      "suggestion_id": "966160db-2e45-4044-b1ea-2dbcb748d6e9",
+      "suggested_title": "Attend sprint planning",
+      "expected_action": "new",
+      "got_action": "no_candidates",
+      "correct": true,
+      "candidates_extracted": 0,
+      "reason": "extraction returned no candidates"
+    },
+    {
+      "suggestion_id": "34fda214-05e0-4991-abff-866492fcdcba",
+      "suggested_title": "Reschedule GTM agent design review",
+      "expected_action": "new",
+      "got_action": "no_candidates",
+      "correct": true,
+      "candidates_extracted": 0,
+      "reason": "extraction returned no candidates"
+    },
+    {
+      "suggestion_id": "1d8b36e1-1573-4897-b5cd-1d09cacad9e9",
+      "suggested_title": "Security roadmap",
+      "expected_action": "link",
+      "got_action": "no_candidates",
+      "correct": false,
+      "candidates_extracted": 0,
+      "reason": "extraction returned no candidates"
+    },
+    {
+      "suggestion_id": "bc1a6bb5-c45a-4f15-ba59-22c656e9b914",
+      "suggested_title": "Deals agent family support",
+      "expected_action": "link",
+      "got_action": "no_candidates",
+      "correct": false,
+      "candidates_extracted": 0,
+      "reason": "extraction returned no candidates"
+    },
+    {
+      "suggestion_id": "01053d05-0fba-4669-ad3b-2674ae7484ef",
+      "suggested_title": "SWAT team operating model",
+      "expected_action": "new",
+      "got_action": "no_candidates",
+      "correct": true,
+      "candidates_extracted": 0,
+      "reason": "extraction returned no candidates"
+    },
+    {
+      "suggestion_id": "c659c9bc-00b4-4e9c-8830-ea2d81c71bfc",
+      "suggested_title": "Admin agent family support",
+      "expected_action": "link",
+      "got_action": "no_candidates",
+      "correct": false,
+      "candidates_extracted": 0,
+      "reason": "extraction returned no candidates"
+    },
+    {
+      "suggestion_id": "2fad742b-26df-4801-97ef-aa23fd230353",
+      "suggested_title": "Platform Evangelism / Adoption",
+      "expected_action": "new",
+      "got_action": "no_candidates",
+      "correct": true,
+      "candidates_extracted": 0,
+      "reason": "extraction returned no candidates"
+    },
+    {
+      "suggestion_id": "7b38f494-85df-4999-b1d4-ee04c6e2f78e",
+      "suggested_title": "Agent memory utilization",
+      "expected_action": "link",
+      "got_action": "no_candidates",
+      "correct": false,
+      "candidates_extracted": 0,
+      "reason": "extraction returned no candidates"
+    },
+    {
+      "suggestion_id": "9d5083c8-7385-43c1-a508-3e76d487926f",
+      "suggested_title": "Conversation reinforcement learning",
+      "expected_action": "new",
+      "got_action": "no_candidates",
+      "correct": true,
+      "candidates_extracted": 0,
+      "reason": "extraction returned no candidates"
+    },
+    {
+      "suggestion_id": "c6792b87-fb96-4287-adfb-31b4bf60e6be",
+      "suggested_title": "Merger contingency planning",
+      "expected_action": "new",
+      "got_action": "no_candidates",
+      "correct": true,
+      "candidates_extracted": 0,
+      "reason": "extraction returned no candidates"
+    },
+    {
+      "suggestion_id": "6d2c7d3d-23f9-4592-8cd2-d30e668675d6",
+      "suggested_title": "Resolve repro",
+      "expected_action": "new",
+      "got_action": "no_candidates",
+      "correct": true,
+      "candidates_extracted": 0,
+      "reason": "extraction returned no candidates"
+    },
+    {
+      "suggestion_id": "c3fe9ba5-5e12-466e-b221-dda3d7e2ecd4",
+      "suggested_title": "Review repro",
+      "expected_action": "new",
+      "got_action": "no_candidates",
+      "correct": true,
+      "candidates_extracted": 0,
+      "reason": "extraction returned no candidates"
+    },
+    {
+      "suggestion_id": "b3195ac6-e1c9-4ce5-b65e-fe473bac7184",
+      "suggested_title": "Agentic SDLC",
+      "expected_action": "link",
+      "got_action": "no_candidates",
+      "correct": false,
+      "candidates_extracted": 0,
+      "reason": "extraction returned no candidates"
+    },
+    {
+      "suggestion_id": "ccff7d37-b2c3-47c0-9a85-cfed7208f260",
+      "suggested_title": "Conversation history search functionality",
+      "expected_action": "link",
+      "got_action": "no_candidates",
+      "correct": false,
+      "candidates_extracted": 0,
+      "reason": "extraction returned no candidates"
+    },
+    {
+      "suggestion_id": "3f2ee459-d752-4d47-bbab-c96ca0a85eb4",
+      "suggested_title": "Agent memories collaboration",
+      "expected_action": "link",
+      "got_action": "no_candidates",
+      "correct": false,
+      "candidates_extracted": 0,
+      "reason": "extraction returned no candidates"
+    },
+    {
+      "suggestion_id": "4456e795-9308-4777-aad3-1ae75bdd186d",
+      "suggested_title": "Design team grounding in customer scenarios",
+      "expected_action": "new",
+      "got_action": "no_candidates",
+      "correct": true,
+      "candidates_extracted": 0,
+      "reason": "extraction returned no candidates"
+    }
+  ]
+}

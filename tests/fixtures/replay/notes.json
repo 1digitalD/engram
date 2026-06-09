@@ -1,0 +1,246 @@
+[
+  {
+    "id": "33768363-b8ea-4880-94f9-e5dbb2ffd010",
+    "title": "Standup updates on roadmap and team",
+    "content": "Himmat standup updates (2026-06-08):\n- Doing more on admin agent side (no PM currently, quality concerns)\n- Will update team after more time with Rohit Behbav and others\n- Working through enhanced roadmap for next 2-3 releases (walked stakeholders through last week)\n- Will present roadmap to team this week\n- Sprint planning: Thursday\n- All hands in Vancouver: today\n- Context: renewed focus on AI/agents and pace, Plan B in play (merger uncertain), leadership scrutinizing pace and quality\n- Praised GTM crew collaboration quality\n- Praised Sushmidha taking over GTM design",
+    "ai_meta": {
+      "intent": "update",
+      "summary": "Himmat shared standup updates about admin agent work, roadmap planning for the next few releases, and upcoming team presentations and sprint planning. The note also captures context about leadership scrutiny, merger uncertainty, and praise for collaboration and design ownership.",
+      "confidence": 0.93,
+      "title_auto": true,
+      "intent_confidence": 0.98
+    },
+    "source": "quick_capture",
+    "created_at": "2026-06-08 17:27:51.338706+00"
+  },
+  {
+    "id": "f1f8efe4-9bca-4947-a426-7f91ceeb5816",
+    "title": "Standup updates on dashboards and issue resolution",
+    "content": "Sanket Prabhu standup updates (2026-06-08):\n- Reached out to resolve an issue and set up a meeting\n- Working on creating dashboards based on existing spans\n- Will continue working on that",
+    "ai_meta": {
+      "intent": "update",
+      "summary": "Sanket Prabhu shared standup updates about resolving an issue, setting up a meeting, and creating dashboards from existing spans. He plans to continue the dashboard work.",
+      "confidence": 0.93,
+      "title_auto": true,
+      "intent_confidence": 0.98
+    },
+    "source": "quick_capture",
+    "created_at": "2026-06-08 17:27:37.360759+00"
+  },
+  {
+    "id": "9d2f26a1-295d-4f81-8722-17779238c151",
+    "title": "HITL integration standup updates",
+    "content": "Gonick Nalwa standup updates (2026-06-08):\n- Working on HITL integration end-to-end\n- Current piece: aligning HITL registry on backend with tool spec design in Agent Toolkit\n- Should have working piece by end of day today\n- Will schedule call with relevant folks to discuss approach and next steps (by EOD today)",
+    "ai_meta": {
+      "intent": "task_signal",
+      "summary": "Standup update on end-to-end HITL integration work. The note mentions backend registry alignment with Agent Toolkit tool spec design, an end-of-day working piece target, and scheduling a call to discuss approach and next steps.",
+      "confidence": 0.95,
+      "title_auto": true,
+      "intent_confidence": 0.98
+    },
+    "source": "quick_capture",
+    "created_at": "2026-06-08 17:27:23.929829+00"
+  },
+  {
+    "id": "63b6ad42-45c4-4dae-8f0f-48eebcb40d49",
+    "title": "Standup updates on PRs and on-call",
+    "content": "Ola standup updates (2026-06-08):\n- Reviewing PRs and design from Akash (GTM agent)\n- Working on ticket about \"start new conversation when user lands on agent center\" (David comment)\n  - PR out, reviewed, Utsava had follow-up comment\n - Should have updated PR out today\n  - Use case was covered in initial PR, will test again to double check\n- On-call tickets worked on\n- Will decide what to focus on after fixing that ticket",
+    "ai_meta": {
+      "intent": "update",
+      "summary": "Daily standup notes covering PR review work, a ticket about starting a new conversation when a user lands on agent center, and on-call ticket handling. The note also indicates a follow-up PR update and a decision on next focus after the ticket is fixed.",
+      "confidence": 0.93,
+      "title_auto": true,
+      "intent_confidence": 0.98
+    },
+    "source": "quick_capture",
+    "created_at": "2026-06-08 17:27:03.766213+00"
+  },
+  {
+    "id": "140a3569-ec8c-4875-95e4-3a67e27a173b",
+    "title": "GTM agent design and table enhancements",
+    "content": "Sushmidha Jawahar standup updates (2026-06-08):\n- Taking over GTM agent design from Aditi (bandwidth + collaboration with Chloe)\n- Collaborating with both teams on GTM agent\n- Updated table enhancement doc with truncation rules from Lexi collaboration:\n  - 80 character limit for truncation/wrapping\n  - 80 pixels minimum column width\n  - Max 2 lines only (prevents table height doubling)\n  - Tooltip on hover always shows full text\n  - UXP working on variable table height (hug content)\n- Wants to preview Priya's reasoning UI (video or call)",
+    "ai_meta": {
+      "intent": "update",
+      "summary": "Standup updates cover ownership changes for GTM agent design, collaboration across teams, and a documentation update for table truncation rules. It also includes a request to preview Priya's reasoning UI.",
+      "confidence": 0.95,
+      "title_auto": true,
+      "intent_confidence": 0.98
+    },
+    "source": "quick_capture",
+    "created_at": "2026-06-08 17:26:44.447045+00"
+  },
+  {
+    "id": "f60287f1-a699-4c6c-9df9-9cb4aecb5c7e",
+    "title": "GTM agent trigger and toolkit parity updates",
+    "content": "Akash standup updates (2026-06-08):\n- GTM agent user response trigger: P1, design doc created, reached out to Lance for review\n- Implementation: couple of PRs out, frontend part needs review from frontend team, backend parts already asked Sanket to review\n- Still missing: parity between Python and TypeScript toolkit\n- Priority: get type discrimination merged first so GTM agent doesn't have the issue",
+    "ai_meta": {
+      "intent": "update",
+      "summary": "Standup update on the GTM agent user response trigger, implementation review status, and a remaining Python/TypeScript toolkit parity gap. The priority is to merge type discrimination first to avoid the GTM agent issue.",
+      "confidence": 0.95,
+      "title_auto": true,
+      "intent_confidence": 0.98
+    },
+    "source": "quick_capture",
+    "created_at": "2026-06-08 17:26:22.891306+00"
+  },
+  {
+    "id": "5401ff17-7c13-4aac-8b62-024377fc2682",
+    "title": "Priya Luthra standup updates",
+    "content": "Priya Luthra standup updates (2026-06-08):\n- Finished front end part of reasoning ticket - 1 ticket left for code review, ping Sanket and Akash for review\n- Toolkit agent reasoning: working end-to-end on local with mocked data, PR out, need to resolve cursor board comments, then need backend help for reasoning helpers in toolkit\n- On-call: synced with Ola, adding a ticket to current sprint\n- Automation passing rate: 100%\n- Action: share reasoning UI video with Sushmidha",
+    "ai_meta": {
+      "intent": "update",
+      "summary": "Standup update covering progress on the reasoning ticket, toolkit agent reasoning, on-call coordination, and automation status. Includes follow-up actions to get code review, resolve PR comments, add a sprint ticket, and share a reasoning UI video.",
+      "confidence": 0.95,
+      "title_auto": true,
+      "intent_confidence": 0.99
+    },
+    "source": "quick_capture",
+    "created_at": "2026-06-08 17:25:59.760525+00"
+  },
+  {
+    "id": "f6d6f9d0-97c9-40e9-a85b-27c28e170c05",
+    "title": "Standup events and GTM review timing",
+    "content": "Key events and deadlines from standup:\n- Sprint planning: Thursday (2026-06-11)\n- All hands in Vancouver: today (2026-06-08) - focus on renewed AI/agents and pace\n- GTM agent design review meeting: potentially rescheduled, no parking lot items needed",
+    "ai_meta": {
+      "intent": "update",
+      "summary": "This note captures key standup events and deadlines, including sprint planning, an all-hands in Vancouver, and a potentially rescheduled GTM agent design review. It also notes that no parking lot items are needed for the review.",
+      "confidence": 0.95,
+      "title_auto": true,
+      "intent_confidence": 0.98
+    },
+    "source": "quick_capture",
+    "created_at": "2026-06-08 17:25:46.004362+00"
+  },
+  {
+    "id": "23b1e62e-6c61-4cfd-b85c-58c3ca567618",
+    "title": "Agent platform strategy and roadmap priorities",
+    "content": "Danish's strategic direction from 2026-06-08 standup:\n\nAgent Platform role across 3 agent families:\n1. Admin agent family - currently strongest role\n2. Deals agent family - self-sufficient, early adopters, some net new requirements coming\n3. GTM agent family - needs deep support from us (observability, telemetry, alerting, monitoring, UI/UX)\n\nRole: SWAT team - strategically step in, address specific concern, get out. GTM takes priority.\n\nNew roadmap elements to introduce:\n- Security\n- Observability / telemetry\n- Toolkit robustness and flexibility for newer integration patterns\n- Agent memories not being utilized optimally\n- No reinforcement learning happening - agents don't utilize previous conversations\n\nMerger context: renewed focus on AI/agents and pace. Plan B (stay independent) in play while merger is uncertain. Expect more scrutiny on pace and quality.",
+    "ai_meta": {
+      "intent": "update",
+      "summary": "Danish outlined the Agent Platform's role across three agent families, emphasizing GTM support as the top priority and a SWAT-team operating model. The note also captures new roadmap themes and merger-related context increasing scrutiny on pace and quality.",
+      "confidence": 0.95,
+      "title_auto": true,
+      "intent_confidence": 0.98
+    },
+    "source": "quick_capture",
+    "created_at": "2026-06-08 17:25:15.69959+00"
+  },
+  {
+    "id": "06e1dfeb-f3d4-4378-86d9-def3a77e098e",
+    "title": "Review resolve live repro",
+    "content": "noop",
+    "ai_meta": {
+      "reviewed_at": "2026-06-08T14:43:47.414929+00:00",
+      "review_state": "resolved",
+      "review_resolution": "no_change_needed"
+    },
+    "source": "manual",
+    "created_at": "2026-06-08 14:43:47.38777+00"
+  },
+  {
+    "id": "1c2301f3-e25d-47cb-968d-9e8745fe8615",
+    "title": "Review and resolve repro",
+    "content": "review resolve repro",
+    "ai_meta": {
+      "intent": "task_signal",
+      "summary": "A brief note indicating a need to review and resolve a reproduction issue. No additional context or named entities are provided.",
+      "confidence": 0.72,
+      "title_auto": true,
+      "intent_confidence": 0.86
+    },
+    "source": "quick_capture",
+    "created_at": "2026-06-08 14:42:51.21676+00"
+  },
+  {
+    "id": "b49dbf26-6e88-42bd-b8a9-664b89153f5d",
+    "title": "Session 2026-06-05 16:27 UTC (debug-pr)",
+    "content": "User investigated Engram session-stop hook failures (502 errors) and determined the Stop event fires per-turn (not session-end) as an intentional retry mechanism. Discussed patching strategies for transient server errors.",
+    "ai_meta": {
+      "summary": "User investigated Engram session-stop hook failures (502 errors) and determined the Stop event fires per-turn (not session-end) as an intentional retry mechanism. Discussed patching strategies for transient server errors.",
+      "confidence": 0.0
+    },
+    "source": "manual",
+    "created_at": "2026-06-05 16:27:23.985145+00"
+  },
+  {
+    "id": "52220c23-ec88-4db6-9c68-99558f35338e",
+    "title": "Session 2026-06-05 16:25 UTC (debug-pr)",
+    "content": "User asked about multi-repo support in Claude Code; investigated Engram session-stop hook firing on every turn (Stop event, not SessionEnd) and returning 502 errors. Confirmed upstream design is intentional (retry mechanism with idempotency). Engram MCP server is partially up (initialize succeeds, but a downstream tool call in extraction pipeline returns 502). User requested stack trace to debug server-side root cause.",
+    "ai_meta": {
+      "summary": "User asked about multi-repo support in Claude Code; investigated Engram session-stop hook firing on every turn (Stop event, not SessionEnd) and returning 502 errors. Confirmed upstream design is intentional (retry mechanism with idempotency). Engram MCP server is partially up (initialize succeeds, but a downstream tool call in extraction pipeline returns 502). User requested stack trace to debug server-side root cause.",
+      "confidence": 0.0
+    },
+    "source": "manual",
+    "created_at": "2026-06-05 16:25:30.926484+00"
+  },
+  {
+    "id": "fff0aa67-dcee-46cc-b02a-04cf0968d93f",
+    "title": "Session 2026-06-05 16:22 UTC (dcfa087e)",
+    "content": "Investigated Engram session-stop hook firing on every turn due to 502 errors; confirmed Stop event is intentional (retry mechanism for extraction failures), not a misconfiguration. Engram MCP server is partially recovered but specific downstream endpoint still returning 502.",
+    "ai_meta": {
+      "summary": "Investigated Engram session-stop hook firing on every turn due to 502 errors; confirmed Stop event is intentional (retry mechanism for extraction failures), not a misconfiguration. Engram MCP server is partially recovered but specific downstream endpoint still returning 502.",
+      "confidence": 0.0
+    },
+    "source": "manual",
+    "created_at": "2026-06-05 16:22:09.920593+00"
+  },
+  {
+    "id": "729f1f49-116a-4725-ab0e-777be96a1bdc",
+    "title": "Decision: cut canonical memory message-type translation",
+    "content": "Estimated to take through end of July (~2 months). Danish rejected the investment as not worth it right now \u2014 does not directly unblock product, reporting, or security. Akash invested ~1.5 months and is unhappy with the cut; rationale must be communicated. Importance: P0.",
+    "ai_meta": {
+      "reviewed_at": "2026-06-08T14:44:38.061266+00:00",
+      "review_state": "resolved",
+      "review_resolution": "no_change_needed"
+    },
+    "source": "manual",
+    "created_at": "2026-06-02 21:33:42.578048+00"
+  },
+  {
+    "id": "0d5a7f4c-95bd-4932-beb6-b5bd8e433084",
+    "title": "Risk: leadership may agree on priorities without providing capacity relief",
+    "content": "Verbal alignment is not the same as practical capacity. Roadmap must force explicit trade-offs (scope / timeline / capacity). Importance: P0.",
+    "ai_meta": {
+      "reviewed_at": "2026-06-08T14:45:35.609157+00:00",
+      "review_state": "resolved",
+      "review_resolution": "no_change_needed"
+    },
+    "source": "manual",
+    "created_at": "2026-06-02 21:33:42.437901+00"
+  },
+  {
+    "id": "4f71e498-5e48-42f9-8c07-7ff1ca72277d",
+    "title": "Risk: backend capacity is the real bottleneck",
+    "content": "Current team is 4 frontend + 2 backend, and most critical work is backend-heavy (telemetry, memory, security, convergence, reporting). Capacity does not match roadmap expectations. Importance: P0.",
+    "ai_meta": {
+      "reviewed_at": "2026-06-08T14:45:50.329513+00:00",
+      "review_state": "resolved",
+      "review_resolution": "no_change_needed"
+    },
+    "source": "manual",
+    "created_at": "2026-06-02 21:33:42.275134+00"
+  },
+  {
+    "id": "7b60f9e8-fe41-4689-a5bb-e5a62f59caef",
+    "title": "Session 2026-06-02 18:47 UTC (3364be92)",
+    "content": "User provided a comprehensive structured snapshot of Agent Platform work: 4 projects (Observability/Telemetry, Value Narrative, Audit Service, Resourcing & Team Health), 14 tasks across those projects, 4 areas, 12+ people, and 9 resources with full relationship mapping. All entities have been created/updated in Engram with status, priority, ownership, and stakeholder links established.",
+    "ai_meta": {
+      "summary": "User provided a comprehensive structured snapshot of Agent Platform work: 4 projects (Observability/Telemetry, Value Narrative, Audit Service, Resourcing & Team Health), 14 tasks across those projects, 4 areas, 12+ people, and 9 resources with full relationship mapping. All entities have been created/updated in Engram with status, priority, ownership, and stakeholder links established.",
+      "confidence": 0.0
+    },
+    "source": "manual",
+    "created_at": "2026-06-02 18:47:44.5858+00"
+  },
+  {
+    "id": "e194e4b1-b0fe-4541-afbc-ebaea7d7c258",
+    "title": "Sprint planning decisions \u2014 June 1, 2026",
+    "content": "Key decisions and principles from the June 1, 2026 sprint planning:\n\n1. Data table work tracked as a NEW epic \u2014 do not reopen the old closed epic. (Lexi to create.)\n2. Table controls assumed to take priority over stop-stream unless Himmat says otherwise. (Lexi to confirm with Himmat afternoon of June 1.)\n3. Table state reset should NOT be fixed in conversation history immediately if Agent Memory rollout lands within ~1\u20132 weeks. Plan B needed if rollout slips.\n4. Agent Memory rollout path: bug bash \u2192 enable in latest \u2192 keep in latest ~1 week \u2192 production. (Sanket owns.)\n5. Copy-paste does not need a fully custom perfect UX; start with AG Grid defaults.\n6. No separate row-level copy affordance should be added \u2014 manual selection is fine.\n7. Duplicate table count display should be streamlined to a single indicator (remove top custom count; keep table-native bottom count).\n8. Table title should come from the agent/LLM, not be inferred by the platform.\n9. Unified chat component is NOT currently justified as priority work. (Priya to clarify impact.)\n10. State management may deserve separate treatment from broad chat unification.\n11. Principle: work that is not user-visible or not clearly painful should not automatically be prioritized.\n12. Telemetry crew tickets exist, but platform-level span/metric plumbing must be resolved first.\n13. New Relic production may require metric whitelisting; latest allows everything.\n14. Security enhancements unlikely to be implemented this sprint; design/policy may be ready.\n15. Reasoning CS2 should be its own follow-up epic rather than extending CS1 indefinitely.\n16. Show-and-tell should be product-style, feature-level demos \u2014 not implementation-first technical walkthroughs.\n17. Show-and-tell should dissolve frontend/backend boundaries and show complete adoption path (FE, backend contract, memory).\n18. HITL may need use cases outside current policy/tool-spec trigger model.\n19. Canonical message type estimate is too large; needs a narrower \"most gain / least resistance\" path. (Danish, Akash, Sanket to sync.)",
+    "ai_meta": {
+      "reviewed_at": "2026-06-08T14:46:00.185169+00:00",
+      "review_state": "resolved",
+      "review_resolution": "no_change_needed"
+    },
+    "source": "manual",
+    "created_at": "2026-06-01 19:41:51.482367+00"
+  }
+]

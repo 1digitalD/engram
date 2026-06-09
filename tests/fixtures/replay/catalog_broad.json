@@ -1,0 +1,1143 @@
+[
+  {
+    "id": "728e6f47-df49-4eca-a85e-7ea6f019e2ca",
+    "type": "task",
+    "title": "Align HITL registry with tool spec design",
+    "status": "in_progress",
+    "content_preview": "Current piece: aligning HITL registry on backend with tool spec design in Agent Toolkit."
+  },
+  {
+    "id": "cfdc2991-0cdd-4ace-8e5a-d11a81a45daa",
+    "type": "task",
+    "title": "Set up review session",
+    "status": "open",
+    "content_preview": "A one-hour session has been scheduled for the design review."
+  },
+  {
+    "id": "b51485d1-fb29-4abc-b1ec-04dc39ecc84b",
+    "type": "task",
+    "title": "Draft design document",
+    "status": "open",
+    "content_preview": "Draft the agent memories solution design document; the draft should be ready today."
+  },
+  {
+    "id": "9ecc83ab-0b8a-42f6-a745-6a817adaf56d",
+    "type": "task",
+    "title": "Review agent memories solution design",
+    "status": "open",
+    "content_preview": "Kurt requested a review of the solution design."
+  },
+  {
+    "id": "90e6d8fb-7835-494c-b376-b24df5a7c699",
+    "type": "person",
+    "title": "Adrianna",
+    "status": "active",
+    "content_preview": null
+  },
+  {
+    "id": "aa0a4023-8e15-41da-beb7-0e8d90cea964",
+    "type": "person",
+    "title": "Akash",
+    "status": "active",
+    "content_preview": null
+  },
+  {
+    "id": "2232817f-0901-4de2-ba96-ee38c59d66e1",
+    "type": "person",
+    "title": "Kurt",
+    "status": "active",
+    "content_preview": "Stakeholder asking for Highspot Express observability."
+  },
+  {
+    "id": "d8774ce9-de44-4412-9300-0bc7d87a532b",
+    "type": "person",
+    "title": "Himmat",
+    "status": "active",
+    "content_preview": "Stakeholder / partner lead for GTM and table work; previously owned data table priorities, closed beta expectations, feedback event stable ids. Currently a partner / stakeholder driving diagnostics do"
+  },
+  {
+    "id": "f30eae4b-857c-40d2-b94c-4c55803db85e",
+    "type": "task",
+    "title": "Hold sprint planning",
+    "status": "open",
+    "content_preview": "Sprint planning is scheduled for Thursday."
+  },
+  {
+    "id": "2b445e23-8009-4fe3-bb3d-4c351919895e",
+    "type": "task",
+    "title": "Present roadmap to team",
+    "status": "open",
+    "content_preview": "Present the enhanced roadmap for the next 2-3 releases to the team this week."
+  },
+  {
+    "id": "7cce9ae5-f957-4b09-8394-1ad5f7499533",
+    "type": "person",
+    "title": "Sushmidha",
+    "status": "active",
+    "content_preview": null
+  },
+  {
+    "id": "e8275d18-dccf-4775-acc0-cbb09fa088d7",
+    "type": "person",
+    "title": "Rohit Behbav",
+    "status": "active",
+    "content_preview": null
+  },
+  {
+    "id": "d4a8f3cf-077c-426c-9071-07a9da457e13",
+    "type": "task",
+    "title": "Create dashboards from existing spans",
+    "status": "open",
+    "content_preview": "Working on creating dashboards based on existing spans."
+  },
+  {
+    "id": "880c4dc3-fd4e-451a-a3e8-966ce85f4264",
+    "type": "task",
+    "title": "Set up meeting",
+    "status": "open",
+    "content_preview": "Reached out to resolve an issue and set up a meeting."
+  },
+  {
+    "id": "082eaf0f-bcc5-4f9b-a6fa-00d0fedbba5d",
+    "type": "person",
+    "title": "Sanket Prabhu",
+    "status": "active",
+    "content_preview": "Agent Memory / backend. Owns Agent Memory feature flag, bug bash, rollout to latest and production, feedback stable IDs with Himmat."
+  },
+  {
+    "id": "b2af273c-4eaa-4a44-a682-e2bd3037fa1e",
+    "type": "task",
+    "title": "Deliver working HITL integration piece",
+    "status": "open",
+    "content_preview": "Should have working piece by end of day today."
+  },
+  {
+    "id": "5f1e93c3-050a-4e0b-93fa-fae9a0abd8f8",
+    "type": "person",
+    "title": "Gonick Nalwa",
+    "status": "active",
+    "content_preview": null
+  },
+  {
+    "id": "ff1329d9-d9ed-4fe3-a24a-d035c71da2c2",
+    "type": "task",
+    "title": "Work on on-call tickets",
+    "status": "open",
+    "content_preview": "Handle on-call tickets."
+  },
+  {
+    "id": "78a6b42d-5423-4e10-b1cf-780165dc7696",
+    "type": "task",
+    "title": "Retest initial use case",
+    "status": "open",
+    "content_preview": "Double check that the use case covered in the initial PR still works."
+  },
+  {
+    "id": "40fe2fc4-650d-4035-ae78-bbeffacfcc5d",
+    "type": "task",
+    "title": "Fix agent center conversation ticket",
+    "status": "open",
+    "content_preview": "Work on the ticket about starting a new conversation when the user lands on agent center; PR is out and reviewed, with a follow-up comment from Utsava."
+  },
+  {
+    "id": "4b7d1f4c-e7e2-4456-981e-a32f9783a77c",
+    "type": "task",
+    "title": "Review Akash's PRs and design",
+    "status": "open",
+    "content_preview": "Review PRs and design from Akash related to GTM agent."
+  },
+  {
+    "id": "cb4ca957-7347-4e26-812e-b3a0b5d66083",
+    "type": "person",
+    "title": "Utsava",
+    "status": "active",
+    "content_preview": null
+  },
+  {
+    "id": "52655aa9-2111-4bc3-b74d-6e5eee5d068a",
+    "type": "person",
+    "title": "David",
+    "status": "active",
+    "content_preview": null
+  },
+  {
+    "id": "062b584d-17b8-4e32-9bb2-b24e1362fc08",
+    "type": "resource",
+    "title": "table enhancement doc",
+    "status": "active",
+    "content_preview": "Document updated with truncation and wrapping rules for tables."
+  },
+  {
+    "id": "6a360e87-69a6-4f76-984c-c3baca960c36",
+    "type": "person",
+    "title": "Sushmidha Jawahar",
+    "status": "active",
+    "content_preview": "Standup update author and implied owner of the listed actions."
+  },
+  {
+    "id": "734221b6-b455-4747-be6a-bdfa9dfd32be",
+    "type": "person",
+    "title": "Sushmidha Jawahar",
+    "status": "active",
+    "content_preview": "Design/product UX collaborator for table work. Owns table title, duplicate count display, sort/context metadata, copy behavior expectations."
+  },
+  {
+    "id": "61f7c24c-d118-4ff2-b09d-1227bcfc0982",
+    "type": "task",
+    "title": "Update table enhancement doc",
+    "status": "open",
+    "content_preview": "Incorporate truncation rules from Lexi collaboration: 80 character limit for truncation/wrapping, 80 pixels minimum column width, max 2 lines only, tooltip on hover always shows full text, and UXP wor"
+  },
+  {
+    "id": "29e4f5d5-6e93-4141-97c0-0754e0503b5a",
+    "type": "task",
+    "title": "Collaborate on GTM agent",
+    "status": "open",
+    "content_preview": "Work with both teams on GTM agent."
+  },
+  {
+    "id": "5a361b4b-00dc-4fe7-a2dd-0bb03989f46b",
+    "type": "task",
+    "title": "Take over GTM agent design",
+    "status": "open",
+    "content_preview": "Take ownership from Aditi; coordinate bandwidth and collaboration with Chloe."
+  },
+  {
+    "id": "ab807766-e687-4948-9583-0d5f6c8163be",
+    "type": "person",
+    "title": "Priya",
+    "status": "active",
+    "content_preview": null
+  },
+  {
+    "id": "dcde3cf9-197f-4fdd-9fb8-39528eb32388",
+    "type": "person",
+    "title": "Lexi",
+    "status": "active",
+    "content_preview": null
+  },
+  {
+    "id": "857f60da-7ebe-47dd-bd36-6c337f9dae6c",
+    "type": "person",
+    "title": "Chloe",
+    "status": "active",
+    "content_preview": "Stakeholder mentioned in table feedback / GTM context."
+  },
+  {
+    "id": "9a805dca-37da-43b4-b7a5-73684619d74f",
+    "type": "person",
+    "title": "Aditi",
+    "status": "active",
+    "content_preview": null
+  },
+  {
+    "id": "80ac14b0-c1ad-4c6e-af0b-edcbcd7a81f9",
+    "type": "resource",
+    "title": "GTM agent user response trigger design doc",
+    "status": "active",
+    "content_preview": "Design document for the GTM agent user response trigger."
+  },
+  {
+    "id": "197ca9a9-5069-48c7-a62e-7045f4236bbc",
+    "type": "task",
+    "title": "Resolve Python TypeScript toolkit parity",
+    "status": "open",
+    "content_preview": "Address the missing parity between the Python and TypeScript toolkit."
+  },
+  {
+    "id": "539617e5-78f0-4fad-be7c-ac1dbfc6d6fa",
+    "type": "task",
+    "title": "Merge type discrimination",
+    "status": "open",
+    "content_preview": "Merge type discrimination first so the GTM agent does not have the issue."
+  },
+  {
+    "id": "a0b6cc66-680d-4cc6-b97f-2fa3b4ab1aec",
+    "type": "task",
+    "title": "Review backend implementation",
+    "status": "open",
+    "content_preview": "Review the backend parts of the GTM agent implementation."
+  },
+  {
+    "id": "3a1cc269-a325-4cf8-b43f-d9d0a45e75a2",
+    "type": "task",
+    "title": "Review frontend implementation",
+    "status": "open",
+    "content_preview": "Review the frontend part of the GTM agent implementation."
+  },
+  {
+    "id": "a4da64db-0b12-42d8-ad99-f058e8bd2658",
+    "type": "task",
+    "title": "Review design doc",
+    "status": "open",
+    "content_preview": "Review the GTM agent user response trigger design doc."
+  },
+  {
+    "id": "3e7c9dbe-6ddf-4676-a167-297c45cb7bbf",
+    "type": "person",
+    "title": "Sanket",
+    "status": "active",
+    "content_preview": null
+  },
+  {
+    "id": "9f480555-ade7-48c0-8615-0a245d0749c0",
+    "type": "person",
+    "title": "Lance",
+    "status": "active",
+    "content_preview": null
+  },
+  {
+    "id": "ec9faa42-deee-4949-9cf6-833aaaf12113",
+    "type": "resource",
+    "title": "Reasoning UI video",
+    "status": "active",
+    "content_preview": "Video to be shared with Sushmidha."
+  },
+  {
+    "id": "2823f457-c1a1-4d5c-b70b-e6d86176badc",
+    "type": "person",
+    "title": "Priya Luthra",
+    "status": "active",
+    "content_preview": "Frontend / reasoning / chat component. Owns unified chat component, state management scope, reasoning CS1/CS2."
+  },
+  {
+    "id": "7922523a-b3b4-4868-9456-a125d4d03947",
+    "type": "task",
+    "title": "Share reasoning UI video",
+    "status": "open",
+    "content_preview": "Share the reasoning UI video with Sushmidha."
+  },
+  {
+    "id": "bdcbec3f-ecee-4884-ba9f-94e49a479368",
+    "type": "task",
+    "title": "Add ticket to current sprint",
+    "status": "open",
+    "content_preview": "On-call follow-up after syncing with Ola."
+  },
+  {
+    "id": "1c159853-5686-494a-96f3-64d18375d407",
+    "type": "task",
+    "title": "Get backend help for reasoning helpers",
+    "status": "open",
+    "content_preview": "Need backend help for reasoning helpers in toolkit after resolving PR comments."
+  },
+  {
+    "id": "6c8357be-359f-420b-96cd-52897b9a3b64",
+    "type": "task",
+    "title": "Resolve cursor board comments",
+    "status": "open",
+    "content_preview": "Toolkit agent reasoning PR is out; resolve cursor board comments before moving to backend help for reasoning helpers in toolkit."
+  },
+  {
+    "id": "78b21166-de21-4dc1-a992-b9a6727c6feb",
+    "type": "task",
+    "title": "Get reasoning ticket code reviewed",
+    "status": "open",
+    "content_preview": "One ticket remains for code review; ping Sanket and Akash for review."
+  },
+  {
+    "id": "659eacdf-4676-4c03-82e3-e1ca813b7ccb",
+    "type": "person",
+    "title": "Ola",
+    "status": "active",
+    "content_preview": "Engineer / on-call. Works on HITL state management, P3 automation, show-and-tell timing."
+  },
+  {
+    "id": "7fdd711c-4533-44ad-a1d2-e5da6cd7dfc3",
+    "type": "person",
+    "title": "Danish",
+    "status": "active",
+    "content_preview": null
+  },
+  {
+    "id": "8c9ae536-e04c-4fd9-adfa-d51dd33084c1",
+    "type": "task",
+    "title": "Wait for Davidson's final call on CS2",
+    "status": "done",
+    "content_preview": "Owner: Priya. Status: waiting. Blocks CS2 planning clarity."
+  },
+  {
+    "id": "30935c03-e8dc-468c-87d9-3222dba91313",
+    "type": "task",
+    "title": "Explore P3 bugs/tickets automation using agentic mechanisms",
+    "status": "open",
+    "content_preview": "Owner: Ola. Only if bandwidth this week. Ola is on call this week, so likely deprioritized. End of week check."
+  },
+  {
+    "id": "ca312540-0e22-4928-bac7-09a0f52cc42d",
+    "type": "task",
+    "title": "Prepare HITL show-and-tell candidate",
+    "status": "done",
+    "content_preview": "Owners: Ola / Gonick / Priya / Lexi / Danish. HITL likely first show-and-tell topic. Maybe this week or next week."
+  },
+  {
+    "id": "0499b715-8fb3-439d-b149-e22823fbc7a8",
+    "type": "task",
+    "title": "Enable Agent Memory feature flag in latest if bug bash clean",
+    "status": "done",
+    "content_preview": "Owner: Sanket. Latest first, not production. Target: June 1\u20135, 2026."
+  },
+  {
+    "id": "61b462a5-efc6-4c19-9eb9-6aa9b546b4d6",
+    "type": "task",
+    "title": "Use Wednesday meeting to plan next show-and-tell",
+    "status": "done",
+    "content_preview": "Owner: Gonick / team. This Wednesday (June 3, 2026). Gives enough time to prepare for next week."
+  },
+  {
+    "id": "8e0afc30-b4c9-4e91-9e65-0d780fba449f",
+    "type": "task",
+    "title": "Define backend work items",
+    "status": "open",
+    "content_preview": "Identify and define the backend-side work that engineering needs to drive."
+  },
+  {
+    "id": "01be7e93-506f-4be9-8fb0-64c55fdfd669",
+    "type": "task",
+    "title": "Balance roadmap across components",
+    "status": "open",
+    "content_preview": "Address the current product roadmap bias toward frontend components and include backend-side work in prioritization."
+  },
+  {
+    "id": "cd19e07c-aafa-4f1b-bf15-462e38c1f3af",
+    "type": "task",
+    "title": "List potential work items",
+    "status": "open",
+    "content_preview": "List potential work items across all components so they can be used for meaningful prioritization."
+  },
+  {
+    "id": "83de9e1b-a1c1-4062-9bb8-5e97eb99bcce",
+    "type": "task",
+    "title": "Draft future-state vision",
+    "status": "open",
+    "content_preview": "Draft a future-state vision for the agent platform."
+  },
+  {
+    "id": "722ab7b6-bf4f-4968-b594-04f80414eb27",
+    "type": "task",
+    "title": "Reassess canonical message type scope",
+    "status": "done",
+    "content_preview": "Owners: Danish / Akash / Sanket. June 1, 2026 follow-up sync. Current estimate is too large; find least resistance / highest gain path."
+  },
+  {
+    "id": "a62b9ae3-ec04-4000-9875-3a31357d238a",
+    "type": "resource",
+    "title": "HS-156663: [Agent] Admin - Introduce Actions and HITL",
+    "status": "active",
+    "content_preview": "Jira ticket HS-156663 at highspot.atlassian.net. Status: Up Next. URL: https://highspot.atlassian.net/browse/HS-156663"
+  },
+  {
+    "id": "8e63c641-840b-4c5c-8eb4-b7d8c32bc75d",
+    "type": "resource",
+    "title": "HS-187055: GTM Agent | Structured HITL approval for Archive action",
+    "status": "active",
+    "content_preview": "Jira ticket HS-187055 at highspot.atlassian.net. Status: In Progress. URL: https://highspot.atlassian.net/browse/HS-187055"
+  },
+  {
+    "id": "4c65de32-4ed3-450b-97e8-7ddffe4011b9",
+    "type": "resource",
+    "title": "HS-186201: HITL and Action Cards onboarding demos",
+    "status": "active",
+    "content_preview": "Jira ticket HS-186201 at highspot.atlassian.net. Status: To-Do. URL: https://highspot.atlassian.net/browse/HS-186201"
+  },
+  {
+    "id": "ce5026c7-506f-4d3d-8693-92e27c3e64b8",
+    "type": "resource",
+    "title": "HS-185216: Reasoning V2: Persistence + agent memory for reasoningBlocks",
+    "status": "active",
+    "content_preview": "Jira ticket HS-185216 at highspot.atlassian.net. Status: Deploy Next Release. URL: https://highspot.atlassian.net/browse/HS-185216"
+  },
+  {
+    "id": "f0a0a55f-c534-4f88-91dd-b4457a20ea8d",
+    "type": "resource",
+    "title": "HS-186856: Register OTel TracerProvider + trace exporter",
+    "status": "active",
+    "content_preview": "Jira ticket HS-186856 at highspot.atlassian.net. Status: To-Do. URL: https://highspot.atlassian.net/browse/HS-186856"
+  },
+  {
+    "id": "b113af55-6308-4f3b-b44b-d32eee31da9d",
+    "type": "resource",
+    "title": "HS-184831: [Observability] Build New Relic dashboards for Agent Telemetry",
+    "status": "active",
+    "content_preview": "Jira ticket HS-184831 at highspot.atlassian.net. Status: To-Do. URL: https://highspot.atlassian.net/browse/HS-184831"
+  },
+  {
+    "id": "fa8827f9-79f3-4389-a3c9-53a1a19ee160",
+    "type": "resource",
+    "title": "HS-181863: [Telemetry] New Relic dashboards: adoption, quality, ops",
+    "status": "active",
+    "content_preview": "Jira ticket HS-181863 at highspot.atlassian.net. Status: To-Do. URL: https://highspot.atlassian.net/browse/HS-181863"
+  },
+  {
+    "id": "3d668c87-2a32-44e7-aa5f-cdc49f3289fb",
+    "type": "resource",
+    "title": "HS-185696: Agent Memory Canonical Schema v2 \u2014 Per-Agent Dual-Write",
+    "status": "active",
+    "content_preview": "Jira ticket HS-185696 at highspot.atlassian.net. Status: Dev Ready. URL: https://highspot.atlassian.net/browse/HS-185696"
+  },
+  {
+    "id": "da6b76e9-4e61-4963-9a93-3e3b6a82b762",
+    "type": "resource",
+    "title": "HS-181809: Conversation History Deprecation - Production",
+    "status": "active",
+    "content_preview": "Jira ticket HS-181809 at highspot.atlassian.net. Status: Dev Ready. URL: https://highspot.atlassian.net/browse/HS-181809"
+  },
+  {
+    "id": "8d8723ef-0c7f-4c03-8031-3557029472b5",
+    "type": "resource",
+    "title": "HS-182900: conversation_histories \u2192 agent_memories (Data Migration)",
+    "status": "active",
+    "content_preview": "Jira ticket HS-182900 at highspot.atlassian.net. Status: Dev Ready. URL: https://highspot.atlassian.net/browse/HS-182900"
+  },
+  {
+    "id": "41ae3200-7a5a-43cb-a412-064455ffc5d5",
+    "type": "person",
+    "title": "Gonick",
+    "status": "active",
+    "content_preview": "Frontend engineer on Agent Platform team. Strong performer \u2014 retention/recognition concern, transactional bonus request awaiting Bhrighu approval. Also referred to as Gonik. Assigned to HITL, Chat, an"
+  },
+  {
+    "id": "8b35645d-d18b-4de4-8685-733d8a11830b",
+    "type": "person",
+    "title": "Utsav",
+    "status": "active",
+    "content_preview": "Former team member. Attrition example; informational reference for resourcing context. Also spelled Utzav."
+  },
+  {
+    "id": "0dcec86a-3c6b-4ae4-bc8c-845af06eebc8",
+    "type": "person",
+    "title": "Bhrighu",
+    "status": "active",
+    "content_preview": "Senior leader; decision-maker / approver. Also referred to as Brigu, Briggy, Rigu, Bhrighu. Needs clearer Agent Platform value story. Awaiting approval on Gonik transactional bonus. Asks teams to rati"
+  },
+  {
+    "id": "6e6638e1-17e2-4919-a300-062e604ac7ee",
+    "type": "person",
+    "title": "Sarosh / Saroj",
+    "status": "active",
+    "content_preview": "Leadership stakeholder. Also referred to as Saroj, Sarosh, Sarvosha. Involved in audit framing and Gonik bonus path. Alignment partner for Agent Platform value story; engineering leadership aware of t"
+  },
+  {
+    "id": "acbeaa43-50db-4c34-a7bd-7d82b74b23ac",
+    "type": "task",
+    "title": "Build local HITL/disambiguation tool",
+    "status": "done",
+    "content_preview": "Owner: Gonick. Target: June 1, 2026. Update June 2, 2026. Gonick expects to have more to discuss tomorrow."
+  },
+  {
+    "id": "c06b8a5b-fb6f-4b3b-ab7b-e84c2b047316",
+    "type": "resource",
+    "title": "Agent security policy draft",
+    "status": "active",
+    "content_preview": "Governance / security policy for agents. In progress with Mali."
+  },
+  {
+    "id": "62931be5-2ded-49e9-919a-2e2729432fff",
+    "type": "resource",
+    "title": "Slack thread with priority / support list",
+    "status": "active",
+    "content_preview": "Earlier list of items Agent Platform needs to support. Shared between Danish and Himmat."
+  },
+  {
+    "id": "5ad95f7a-13ee-4d96-b5f2-d6c0f0fbe443",
+    "type": "resource",
+    "title": "Agent telemetry adoption tickets",
+    "status": "active",
+    "content_preview": "Per-agent implementation tasks for adding Agent Toolkit spans. Created, pending adoption."
+  },
+  {
+    "id": "47885fa4-58c0-4315-b126-ffec30a1fb27",
+    "type": "resource",
+    "title": "Snowflake",
+    "status": "active",
+    "content_preview": "Referenced in telemetry / reporting questions. Needs clarification on role."
+  },
+  {
+    "id": "63afe885-6d42-4e6b-a76a-6366af31de42",
+    "type": "resource",
+    "title": "New Relic",
+    "status": "active",
+    "content_preview": "Target observability destination for telemetry. Integration blocked / fragmented."
+  },
+  {
+    "id": "5694c961-8697-423d-871b-c6b0ccbbf1ed",
+    "type": "resource",
+    "title": "Agent V2 sample agent",
+    "status": "active",
+    "content_preview": "Sample implementation showing telemetry pipeline usage. Built / orchestrated. Owner: Danish."
+  },
+  {
+    "id": "4b4eecd4-161b-413c-90ec-5bfdaa138283",
+    "type": "resource",
+    "title": "Agent Toolkit telemetry library",
+    "status": "active",
+    "content_preview": "Emits standardized telemetry / traces from agents. Built. Owner: Danish."
+  },
+  {
+    "id": "e299c4d2-c779-4ebb-8fd8-705d24e0dc4d",
+    "type": "resource",
+    "title": "Companion diagnostics doc",
+    "status": "active",
+    "content_preview": "To define specifics around diagnostics, reasoning, citation / source behavior. To be written by Himmat."
+  },
+  {
+    "id": "e195613a-ef7e-4aa1-87e7-98c024fcbeb7",
+    "type": "resource",
+    "title": "Himmat's diagnostics / telemetry doc",
+    "status": "active",
+    "content_preview": "Primary doc requiring Danish's review / input. Shared but not yet reviewed."
+  },
+  {
+    "id": "6cce51fa-c05f-486a-9b8f-5d49b3d78d24",
+    "type": "task",
+    "title": "Build backend staffing business case (+2 engineers)",
+    "status": "open",
+    "content_preview": "Current team: 4 frontend + 2 backend. Backend load is the bottleneck. +2 backend engineers would materially help. Build list of priority items that cannot fit with current capacity. Folded into Resour"
+  },
+  {
+    "id": "66705e03-b7aa-4eed-b9f3-d8c9df2604dc",
+    "type": "task",
+    "title": "Continue agent security policy work with Mali",
+    "status": "in_progress",
+    "content_preview": "Tied to convergence and governance. Ongoing. Owners: Danish + Mali."
+  },
+  {
+    "id": "ae2cbc80-7ad6-4e6a-aab4-1aab70e9f1f6",
+    "type": "task",
+    "title": "Define hidden vs visible reasoning behavior",
+    "status": "open",
+    "content_preview": "Reasoning may be captured for diagnostics / evals but not always exposed to customers. Resolve during design discussion. Owners: Danish + Himmat."
+  },
+  {
+    "id": "374aa8e0-45d3-452e-9fb3-79da4e6222dd",
+    "type": "task",
+    "title": "Clarify whether citations apply broadly or only to retrieval / search-answer / custom-agent use cases",
+    "status": "open",
+    "content_preview": "Danish challenged that citations may not apply equally to deals / admin / analytics agents. Resolve during companion doc review. Owners: Himmat + Danish."
+  },
+  {
+    "id": "0848f2d9-e401-42ab-a400-c5582da6308d",
+    "type": "task",
+    "title": "Document decision to cut / deprioritize canonical memory message type translation",
+    "status": "open",
+    "content_preview": "Important \u2014 Akash invested ~1.5 months and is unhappy with the cut. Provide rationale and manage expectations. Immediate."
+  },
+  {
+    "id": "19389b2d-1097-453d-8891-754fd604c385",
+    "type": "task",
+    "title": "Decide whether Agent Platform team should implement telemetry adoption for other agents",
+    "status": "open",
+    "content_preview": "Decision deferred until adoption progress can be assessed. Danish noted the team may step in if agent teams do not. Owners: Danish + Himmat."
+  },
+  {
+    "id": "7d873eb9-b4f3-4d14-a269-eac43d1f3067",
+    "type": "task",
+    "title": "Drive adoption of Agent Toolkit telemetry in each agent",
+    "status": "open",
+    "content_preview": "Tickets are already created for each agent. Adoption is pending \u2014 gated on New Relic path being clarified. Owners: agent teams, supported by Danish."
+  },
+  {
+    "id": "951d5c79-c3d2-40a3-bcbb-b00efa18b5e6",
+    "type": "task",
+    "title": "Standardize telemetry path into New Relic",
+    "status": "in_progress",
+    "content_preview": "Fragmented pipeline is the key blocker. Continue escalation from engineering sync. Owners: Danish + platform stakeholders (Sai, Varun, Rohit). Kurt and Sarosh already aware."
+  },
+  {
+    "id": "16949eae-61c2-4640-9c55-142cc44b3f21",
+    "type": "task",
+    "title": "Align leadership on roadmap trade-offs",
+    "status": "open",
+    "content_preview": "Force explicit trade-offs in scope / timeline / capacity. Himmat said new roadmap may take ~2 weeks to land. Owners: Himmat + Danish."
+  },
+  {
+    "id": "d95d5512-9758-4f55-bdf9-aea8143c8715",
+    "type": "task",
+    "title": "Create / maintain clear list of backend priority items",
+    "status": "open",
+    "content_preview": "Should show what can be done with current capacity vs what needs more people. Used as input to roadmap / resource discussion."
+  },
+  {
+    "id": "030151a9-8e2e-44b2-9494-23b43a837a12",
+    "type": "task",
+    "title": "Have prioritization / resource conversation with Sarosh",
+    "status": "open",
+    "content_preview": "After leads sync \u2014 Danish explicitly said this conversation is post-leads. Same-day timing."
+  },
+  {
+    "id": "c0d6442a-9bab-47e8-a4e9-84b063df381d",
+    "type": "task",
+    "title": "Bring resourcing / prioritization issue into leads sync",
+    "status": "open",
+    "content_preview": "Main point: backend capacity does not match roadmap expectations. Owners: Danish + Himmat. Same-day as meeting."
+  },
+  {
+    "id": "9677459f-9d8a-4433-93bc-56bb4d72dd10",
+    "type": "person",
+    "title": "Mali",
+    "status": "active",
+    "content_preview": "Security collaborator. Working with Danish on agent security / governance policy. Tied to convergence and governance."
+  },
+  {
+    "id": "86da8277-d68b-4658-a809-33fbef07b268",
+    "type": "person",
+    "title": "Varun",
+    "status": "active",
+    "content_preview": "Telemetry / observability stakeholder. Also referred to as Warun. Works with Danish on New Relic pipeline standardization."
+  },
+  {
+    "id": "114c3b5a-8b10-40e2-876c-88729b1ef61c",
+    "type": "task",
+    "title": "Discuss telemetry plan of action with Sai and Varun",
+    "status": "in_progress",
+    "content_preview": "Sync with Sai and Varun on the telemetry plan before formalizing. (Status: planned \u2014 pending discussion.)"
+  },
+  {
+    "id": "99c37f46-aaa0-45f5-b5a4-908d250cfd55",
+    "type": "task",
+    "title": "Complete Agent Memory bug bash",
+    "status": "done",
+    "content_preview": "Owner: Sanket + team. Offline bug bash had low traction; should be scheduled as a focused activity. Target: June 1\u20135, 2026 if clean."
+  },
+  {
+    "id": "7a26ee1e-8a3e-4f57-8550-eb6e636426fa",
+    "type": "task",
+    "title": "Create new epic for data table enhancement work",
+    "status": "done",
+    "content_preview": "Owner: Lexi. Do not reuse/reopen the old closed epic. Area: Data Table Enhancements."
+  },
+  {
+    "id": "356ab173-9d1f-4b97-9d7f-018a7481db7d",
+    "type": "resource",
+    "title": "Transactional bonus request for Gonik",
+    "status": "active",
+    "content_preview": "HR resource. Awaiting Brigu approval. Owners on escalation path: Sarosh / Michelle."
+  },
+  {
+    "id": "e380f0b0-0edd-4b0e-80ce-cc8165544624",
+    "type": "resource",
+    "title": "Gonik recommendation letter",
+    "status": "active",
+    "content_preview": "HR resource. Drafted. Supports the transactional bonus request."
+  },
+  {
+    "id": "d46995f0-0e3a-46c4-8b81-da2cf4001632",
+    "type": "resource",
+    "title": "OpsGenie account removal notice \u2014 Daniel",
+    "status": "archived",
+    "content_preview": "Offboarding resource confirming Daniel's OpsGenie account was removed."
+  },
+  {
+    "id": "a58d478d-29fb-4707-b48d-707ee5eccf2e",
+    "type": "resource",
+    "title": "CDC / analytics / Snowflake pipelines",
+    "status": "active",
+    "content_preview": "Existing data architecture; candidate for reuse as the foundation for the audit service. Owners: Danish / architecture partners."
+  },
+  {
+    "id": "f388a87a-3f97-484e-b418-4b088db0d82d",
+    "type": "resource",
+    "title": "Audit service security policy",
+    "status": "active",
+    "content_preview": "Security policy for the Audit Trail Service. In progress."
+  },
+  {
+    "id": "4d652681-240e-4bb5-98ec-2a93f70025cb",
+    "type": "resource",
+    "title": "Audit service solution design document",
+    "status": "active",
+    "content_preview": "Design document for the Audit Trail Service. Started; high-level scope in progress."
+  },
+  {
+    "id": "e4365bc8-221f-47ac-94a6-6621afa7c1c5",
+    "type": "resource",
+    "title": "Agent Platform roadmap",
+    "status": "active",
+    "content_preview": "Planning resource for Agent Platform. Needs alignment across Danish, Ram, Sarosh/Saroj, Nathan."
+  },
+  {
+    "id": "a2f302ea-8ea4-452b-9264-82b795aca1a3",
+    "type": "resource",
+    "title": "Collector / span transport setup",
+    "status": "active",
+    "content_preview": "Technical resource: collector configuration + span transport plumbing. Needs validation. Owners: Danish / Sai / Varun."
+  },
+  {
+    "id": "7e63362a-54dd-472f-bb17-23ba29c02613",
+    "type": "resource",
+    "title": "Highspot Express observability Jira ticket",
+    "status": "active",
+    "content_preview": "Tracks observability setup for Highspot Express. Tagged on: Rohit. Owner: Danish."
+  },
+  {
+    "id": "58568774-f49e-49a8-875c-e0fa817a43a1",
+    "type": "task",
+    "title": "Request Daniel backfill",
+    "status": "open",
+    "content_preview": "Submit backfill request for Daniel's exit to recover team capacity. (Status: planned.)"
+  },
+  {
+    "id": "83a32d29-fadb-459b-a759-70d73e60b299",
+    "type": "task",
+    "title": "Share final telemetry decision and plan with Nathan",
+    "status": "open",
+    "content_preview": "After Sai/Varun discussion, share the agreed-upon telemetry decision and plan with Nathan for App Platform alignment. (Status: planned \u2014 blocked on prior discussion.)"
+  },
+  {
+    "id": "7436b7f2-4910-4bdc-89b0-c31359001f7a",
+    "type": "task",
+    "title": "Monitor merger checkpoint for internal mobility / staffing implications",
+    "status": "in_progress",
+    "content_preview": "Per Raghu, merger checkpoint mid-to-late July 2026 \u2014 watch for internal mobility / staffing implications. Owners: Danish / Nathan."
+  },
+  {
+    "id": "22a80b48-3391-4032-812e-72e5750501e9",
+    "type": "task",
+    "title": "Continue team 1:1s after Daniel exit",
+    "status": "in_progress",
+    "content_preview": "Maintain ongoing 1:1 cadence with the team in the wake of Daniel's exit."
+  },
+  {
+    "id": "447cd6dc-6460-4650-ab00-72156ff644d6",
+    "type": "task",
+    "title": "Decide Akash support path",
+    "status": "in_progress",
+    "content_preview": "Evaluate options and decide on the appropriate support / fit path for Akash."
+  },
+  {
+    "id": "9123a710-6661-4c77-bf05-6f21c8862b67",
+    "type": "task",
+    "title": "Track Gonik transactional bonus approval",
+    "status": "in_progress",
+    "content_preview": "Recommendation letter drafted; transactional bonus request pending. Awaiting Brigu approval. Owners: Danish / Sarosh / Michelle."
+  },
+  {
+    "id": "c7021ea9-9973-445a-8c05-fda8c28c2fa5",
+    "type": "task",
+    "title": "Include extensibility for detailed change history / bulk actions in audit framing",
+    "status": "open",
+    "content_preview": "Make sure the audit-service framing accounts for detailed change history and bulk actions extensibility."
+  },
+  {
+    "id": "7bbf7720-e0d1-4e75-a4ad-93807590118d",
+    "type": "task",
+    "title": "Finish high-level audit-service scope",
+    "status": "in_progress",
+    "content_preview": "Wrap up the high-level scope for the audit service per Sarosh/Saroj request before going into detailed solution design."
+  },
+  {
+    "id": "56e20ff4-eb94-484c-8c5d-2b70047dedeb",
+    "type": "task",
+    "title": "Ask leadership for specific examples where agent teams were &quot;blocked by platform&quot;",
+    "status": "open",
+    "content_preview": "In a suitable forum, ask leadership for concrete examples where agent teams claim to have been blocked by platform \u2014 flush out specifics vs. generic perception."
+  },
+  {
+    "id": "f7cead81-dcf4-4ac4-819f-bb1bd26419fd",
+    "type": "task",
+    "title": "Document concrete examples of Agent Platform value",
+    "status": "open",
+    "content_preview": "Compile concrete data points / examples illustrating Agent Platform value before upward escalation."
+  },
+  {
+    "id": "dc0e1d3a-533a-454b-a226-e0d53391a8bb",
+    "type": "task",
+    "title": "Align Danish, Ram, Sarosh/Saroj, and Nathan on one Agent Platform story",
+    "status": "open",
+    "content_preview": "Reach a unified Agent Platform value narrative across Danish, Ram, Sarosh/Saroj, and Nathan before any upward escalation."
+  },
+  {
+    "id": "cfbdf5fe-6fb9-4bc7-8ac2-0dbcede5f538",
+    "type": "task",
+    "title": "Validate collector setup and span transport for Highspot Express",
+    "status": "open",
+    "content_preview": "Confirm collector and span transport are working end-to-end for Highspot Express. Owners: Danish / Sai / Varun / Rohit."
+  },
+  {
+    "id": "7abd08d9-8427-4fc2-aed3-11288f2c014b",
+    "type": "person",
+    "title": "Ron",
+    "status": "active",
+    "content_preview": "Heard Nathan challenge the &quot;blocked by platform&quot; concern. Informational reference."
+  },
+  {
+    "id": "803141d6-31d0-4771-8542-ccd3223ddb69",
+    "type": "person",
+    "title": "Raghu",
+    "status": "active",
+    "content_preview": "Source of merger checkpoint timing (mid-to-late July)."
+  },
+  {
+    "id": "b4e2ff92-70ee-4229-bbb3-4697df06b96c",
+    "type": "person",
+    "title": "Daniel",
+    "status": "archived",
+    "content_preview": "Former team member; exited. OpsGenie account removed. Backfill being requested."
+  },
+  {
+    "id": "4f3652c4-5fbd-463f-844a-828a98aafdc1",
+    "type": "person",
+    "title": "Rohit",
+    "status": "active",
+    "content_preview": "Tagged on the Highspot Express observability Jira ticket."
+  },
+  {
+    "id": "17c8065e-16b6-4ddc-964e-fd97a1d1b3fc",
+    "type": "person",
+    "title": "Sai",
+    "status": "active",
+    "content_preview": "Telemetry / observability stakeholder."
+  },
+  {
+    "id": "dae40c26-bd79-4450-b174-137c5d9e30f0",
+    "type": "person",
+    "title": "Nathan Harkenrider",
+    "status": "active",
+    "content_preview": "App Platform leader / advisor. Supports Agent Platform value narrative and telemetry alignment."
+  },
+  {
+    "id": "95cfcfea-82bc-457d-bdbf-a4cbee699573",
+    "type": "task",
+    "title": "Confirm whether table controls take priority over stop-stream",
+    "status": "done",
+    "content_preview": "Owner: Lexi. Lexi has a meeting with Himmat this afternoon (June 1, 2026)."
+  },
+  {
+    "id": "44805159-3de3-477c-b63f-831b78ff6752",
+    "type": "task",
+    "title": "Investigate stable IDs for feedback events",
+    "status": "open",
+    "content_preview": "Owners: Himmat + Sanket. Separate sync. Needed for reliable trace joining across systems."
+  },
+  {
+    "id": "72ea36f4-3b60-4d31-baca-851f4cd746ae",
+    "type": "task",
+    "title": "Validate sponsor design through mobile simulators or QA mechanism",
+    "status": "open",
+    "content_preview": "Owner: TBD / possibly Gonick later. When simulator/QA access available. Low-priority carryover."
+  },
+  {
+    "id": "d5d7e90d-116d-4173-93b9-241eaf55302c",
+    "type": "task",
+    "title": "Reach out if backend help needed for HITL local tool",
+    "status": "open",
+    "content_preview": "Owners: Gonick / Danish. As needed. Danish offered help because backend code can be tricky."
+  },
+  {
+    "id": "08542548-fd30-466d-9b78-49c3d957a55f",
+    "type": "task",
+    "title": "Create follow-up epic for Reasoning CS2",
+    "status": "open",
+    "content_preview": "Owner: Priya. Keep CS1 bounded; CS2 should not keep current epic open indefinitely. After Davidson final call."
+  },
+  {
+    "id": "89ff6c4e-10ae-4874-805e-317d3617683e",
+    "type": "task",
+    "title": "Identify agent-platform-owned security tooling",
+    "status": "open",
+    "content_preview": "Owners: Danish + Mali. After policy draft. Includes sanitization, PII, prompt checks, memory checks, gateway enforcement."
+  },
+  {
+    "id": "2f16d9be-4b13-4e27-b02b-e495d9696035",
+    "type": "task",
+    "title": "Draft agent security policy / standard",
+    "status": "in_progress",
+    "content_preview": "Owners: Danish + Mali. Design hopefully this sprint; implementation planning next sprint. Likely produces design/items, not implementation."
+  },
+  {
+    "id": "ec28b8f8-c182-4139-9c7d-143239bdd8eb",
+    "type": "task",
+    "title": "Investigate metric pipe / whitelist needs",
+    "status": "open",
+    "content_preview": "Owners: Danish / Akash / Sanket. Akash raised whitelisting; Sanket clarified production requires this, latest allows everything. After span path clarified."
+  },
+  {
+    "id": "15237853-4ffc-42a7-99d7-0c5aeefcbaee",
+    "type": "task",
+    "title": "Investigate span flow into New Relic",
+    "status": "in_progress",
+    "content_preview": "Owner: Danish. Current focus is spans before metrics."
+  },
+  {
+    "id": "c7b9fb3d-d6f0-4f7f-a969-364a6e92c525",
+    "type": "task",
+    "title": "Continue telemetry backend/channel investigation",
+    "status": "in_progress",
+    "content_preview": "Owner: Danish. Platform plumbing must work before crews can complete adoption."
+  },
+  {
+    "id": "19fa328f-a3d1-47d4-b3df-defda98996a5",
+    "type": "task",
+    "title": "Clarify why unified chat component matters now",
+    "status": "open",
+    "content_preview": "Owner: Priya. Must articulate pain, broken behavior, maintenance burden, or crew impact."
+  },
+  {
+    "id": "17398f84-3659-4847-8535-b2d736c9cb9c",
+    "type": "task",
+    "title": "Create or refine state management story/epic",
+    "status": "open",
+    "content_preview": "Owner: Priya. Needs clear problem statement before prioritization. Follow up with Danish/Gonick."
+  },
+  {
+    "id": "8bbed693-1dc5-4ba4-9f91-5c46befbc85b",
+    "type": "task",
+    "title": "Define fallback if Agent Memory rollout exceeds 2 weeks",
+    "status": "open",
+    "content_preview": "Owners: Danish / Lexi / Himmat / Sanket. Needed because customers are already noticing issue. Required before two-week window expires (~June 12\u201315, 2026)."
+  },
+  {
+    "id": "ff412087-a976-41b5-96e7-490a1394be4c",
+    "type": "task",
+    "title": "Manage closed beta expectations for table state issue",
+    "status": "open",
+    "content_preview": "Owner: Himmat. Himmat can buy roughly 10 days to 2 weeks. Keep eye out over next 10\u201314 days."
+  },
+  {
+    "id": "14b631c5-da89-4ea5-a600-0afb9faff80f",
+    "type": "task",
+    "title": "Close loop with partner crews on table-related responsibilities",
+    "status": "open",
+    "content_preview": "Owner: Himmat. Partner crews need to provide title/context and own out-of-scope capabilities. After Lexi starts platform side."
+  },
+  {
+    "id": "8d4895fa-24b2-4dcd-bdd8-4bb7f7962ffb",
+    "type": "task",
+    "title": "Add sorted/context metadata requirement for tables",
+    "status": "open",
+    "content_preview": "Owner: Sushmita. Example: sorted by X, top N, why only some rows shown."
+  },
+  {
+    "id": "bd865743-bda0-4e05-aca1-c5e29b3fb124",
+    "type": "task",
+    "title": "Add table title requirement",
+    "status": "open",
+    "content_preview": "Owner: Sushmita. If LLM/agent returns title, platform can show it."
+  },
+  {
+    "id": "61ff35db-e91b-4235-92cd-d746422c8034",
+    "type": "task",
+    "title": "Remove duplicate top \"showing X of Y\" display",
+    "status": "open",
+    "content_preview": "Owner: Lexi. Keep table-native bottom display."
+  },
+  {
+    "id": "1889d1b6-6195-480f-8eef-68856f1978b7",
+    "type": "task",
+    "title": "Check AG Grid out-of-box copy-paste behavior",
+    "status": "open",
+    "content_preview": "Owner: Lexi. Start with default AG Grid behavior; tweak only if needed."
+  },
+  {
+    "id": "51fbb763-341f-4d50-a058-27ecad27a747",
+    "type": "task",
+    "title": "Slice data table work into stories",
+    "status": "open",
+    "content_preview": "Owner: Lexi. Slice based on delivery sequencing. Area: Data Table Enhancements."
+  },
+  {
+    "id": "7ffe9642-e1f1-469b-ab60-556204a357f9",
+    "type": "person",
+    "title": "Davidson",
+    "status": "active",
+    "content_preview": "Reasoning CS2 decision maker. Priya waiting for his final call on CS2."
+  },
+  {
+    "id": "e4897721-447d-4d6d-be65-9812f08740f8",
+    "type": "person",
+    "title": "Akash Mandole",
+    "status": "active",
+    "content_preview": "Backend / canonical schema / telemetry input. Owns canonical message type, raised New Relic whitelist concern."
+  },
+  {
+    "id": "fbc1d5e7-98a3-4e2b-930c-6ff73b928ccb",
+    "type": "person",
+    "title": "Lexi Liu",
+    "status": "active",
+    "content_preview": "Frontend / table component owner. Owns new data table epic, table copy-paste, table display behavior, priority confirmation with Himmat."
+  },
+  {
+    "id": "e385e9da-b7bb-4dd9-8b2d-d375ea8a7d2e",
+    "type": "task",
+    "title": "Formalize PM reorganization",
+    "status": "open",
+    "content_preview": "Formalize and communicate the potential reorganization of the PM role, splitting UX-focused and technical PM responsibilities, within the next week, including communication to Sarosh and impacted team"
+  },
+  {
+    "id": "a15a296d-9fa5-4ad8-aa6e-86b93f8a4882",
+    "type": "task",
+    "title": "Share team updates",
+    "status": "open",
+    "content_preview": "Keep Danish updated on any feedback or changes relevant to team morale, resource allocation, or organizational structure, especially as they pertain to the agent platform team."
+  },
+  {
+    "id": "33b1ea04-6c8d-4328-b45f-7b22c66983cc",
+    "type": "task",
+    "title": "Schedule alignment meeting",
+    "status": "open",
+    "content_preview": "Secure a 1-hour meeting slot with Sarosh next week to review and align on fall launch priorities and ensure tight alignment with Brigu's vision before vacation."
+  },
+  {
+    "id": "82f7928e-54af-40cd-915e-8d778c258aa0",
+    "type": "task",
+    "title": "Monitor team morale",
+    "status": "open",
+    "content_preview": "Continue to monitor and provide feedback on team morale and engagement, escalating any issues or suggestions to Ram and leadership as appropriate."
+  },
+  {
+    "id": "ce89a3d2-bfd1-486e-b702-e3845ded7261",
+    "type": "task",
+    "title": "Prioritize E2E items",
+    "status": "open",
+    "content_preview": "Review and prioritize the list of E2E items and other pending topics with the team as soon as possible, coordinating with Ram and Sarosh as needed."
+  },
+  {
+    "id": "96bfa6bb-bc4c-4679-a2a6-bf015595cf96",
+    "type": "task",
+    "title": "Draft bonus recommendation",
+    "status": "open",
+    "content_preview": "Draft and share a recommendation for a one-time bonus or appreciation for front-end engineer Gonick, and coordinate with Michelle to move this forward."
+  },
+  {
+    "id": "2ed26520-b87a-44eb-8a31-ef40a51010b2",
+    "type": "task",
+    "title": "Increase team visibility",
+    "status": "open",
+    "content_preview": "Push for more proactive team visibility by organizing and executing regular show-and-tell sessions such as PM all-hands and workshops; report back to Ram by end of week on actions taken."
+  },
+  {
+    "id": "3e476c37-8025-433f-ac12-c9439f07b153",
+    "type": "task",
+    "title": "Prepare agent vision story",
+    "status": "open",
+    "content_preview": "Work with Hemant, and optionally Rishabh, to prepare a clear, compelling story for how current and future work aligns with Brigu's agent/agent platform vision for upcoming ED sessions and resource all"
+  },
+  {
+    "id": "f99750b0-a541-48cd-9740-5f099f7187b1",
+    "type": "person",
+    "title": "Ram",
+    "status": "active",
+    "content_preview": null
+  },
+  {
+    "id": "d97428ae-8f13-447f-99e7-a240c1618448",
+    "type": "person",
+    "title": "Tony",
+    "status": "active",
+    "content_preview": null
+  },
+  {
+    "id": "7bfdeaea-0da2-4077-b31e-5e7bceb05384",
+    "type": "person",
+    "title": "Michelle",
+    "status": "active",
+    "content_preview": null
+  },
+  {
+    "id": "cf9ad234-1f18-4229-a47a-d7091619bb62",
+    "type": "person",
+    "title": "Rishabh",
+    "status": "active",
+    "content_preview": null
+  }
+]

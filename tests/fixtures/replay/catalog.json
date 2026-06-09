@@ -1,0 +1,434 @@
+[
+  {
+    "id": "d3f5bc56-e36a-4a41-8f42-c4d44cb0bff8",
+    "type": "project",
+    "title": "HITL CS2 Onboarding Demo",
+    "content_preview": "Medium-high. Active. Owners: Monica, Ola, Gonick, Priya, Lexi. Potentially this week or next week. Use as first show-and-tell candidate. Should become an end-to-end demo across FE, backend contract, and memory.",
+    "status": "active",
+    "created_at": "2026-06-01 19:39:24.323396+00",
+    "updated_at": "2026-06-09 17:27:16.388428+00"
+  },
+  {
+    "id": "8cd97304-c7a6-4262-a6cf-2565fe5d9964",
+    "type": "area",
+    "title": "Agent Memory / Canonical Memory",
+    "content_preview": "Canonical memory and message-type translation work for agents. Scope is being cut where it does not unblock product / reporting / security needs.",
+    "status": "active",
+    "created_at": "2026-06-02 21:32:15.151101+00",
+    "updated_at": "2026-06-09 17:19:27.98603+00"
+  },
+  {
+    "id": "a6ff4cd3-f37b-4cc7-bad2-db0553f658d8",
+    "type": "project",
+    "title": "GTM agent family support",
+    "content_preview": "Provide deep support for observability, telemetry, alerting, monitoring, and UI/UX; GTM is the top priority.",
+    "status": "active",
+    "created_at": "2026-06-08 17:25:15.69959+00",
+    "updated_at": "2026-06-09 05:58:01.258981+00"
+  },
+  {
+    "id": "9449186a-f5d9-4638-9c9b-8086259fdf88",
+    "type": "area",
+    "title": "Agent Platform",
+    "content_preview": "Platform capabilities used by agent crews: HITL, memory, telemetry, chat, security, demos. Central umbrella area for most sprint items. Owners: Danish + team.",
+    "status": "active",
+    "created_at": "2026-06-01 19:37:54.226939+00",
+    "updated_at": "2026-06-08 17:30:17.339781+00"
+  },
+  {
+    "id": "c58f5fdf-e02b-4dc3-bcff-0c104d0d1a35",
+    "type": "project",
+    "title": "Enhanced roadmap for next 2-3 releases",
+    "content_preview": "Roadmap work being developed and walked through with stakeholders; to be presented to the team.",
+    "status": "active",
+    "created_at": "2026-06-08 17:27:51.338706+00",
+    "updated_at": "2026-06-08 17:28:35.433657+00"
+  },
+  {
+    "id": "d8e77fa8-8dc4-4f58-acfd-5be2a83a7990",
+    "type": "area",
+    "title": "Observability / Telemetry",
+    "content_preview": "Standard telemetry adoption, spans, metrics, New Relic dashboards. Status: blocked / foundational work in progress. Agent crew tickets exist, but platform plumbing is not fully working yet. Owners: Danish, Akash, Sanket.",
+    "status": "active",
+    "created_at": "2026-06-01 19:38:17.68972+00",
+    "updated_at": "2026-06-08 17:28:15.45997+00"
+  },
+  {
+    "id": "cc828941-bb15-4e36-ac91-80f80f6a0552",
+    "type": "area",
+    "title": "Backend",
+    "content_preview": "The backend side of the agent platform work that needs engineering ownership.",
+    "status": "active",
+    "created_at": "2026-06-07 16:25:39.444567+00",
+    "updated_at": "2026-06-08 17:28:00.40157+00"
+  },
+  {
+    "id": "c4f1ac13-260f-48d7-8ec2-d9ab1706c6e4",
+    "type": "area",
+    "title": "KTLO / On-call",
+    "content_preview": "On-call sync and sprint ticket follow-up.",
+    "status": "active",
+    "created_at": "2026-06-08 17:25:59.760525+00",
+    "updated_at": "2026-06-08 17:27:57.870095+00"
+  },
+  {
+    "id": "648333d1-411a-482c-a789-7e2a4ad0dc34",
+    "type": "area",
+    "title": "Frontend Agent UX Components",
+    "content_preview": "Table component, stop stream, reasoning streaming, chat component, HITL UI. Several items compete for frontend bandwidth. Owners: Lexi, Priya, Ola, Gonick.",
+    "status": "active",
+    "created_at": "2026-06-01 19:37:54.407615+00",
+    "updated_at": "2026-06-08 17:26:52.306714+00"
+  },
+  {
+    "id": "c7a97d17-486a-4f88-be01-0ef5df72d210",
+    "type": "project",
+    "title": "Toolkit robustness and flexibility",
+    "content_preview": "Improve toolkit robustness and flexibility for newer integration patterns.",
+    "status": "active",
+    "created_at": "2026-06-08 17:25:15.69959+00",
+    "updated_at": "2026-06-08 17:25:59.021527+00"
+  },
+  {
+    "id": "75ae2592-3d10-44ad-8ecd-b8654d87e392",
+    "type": "project",
+    "title": "Observability / telemetry roadmap",
+    "content_preview": "Introduce observability and telemetry as a new roadmap element.",
+    "status": "active",
+    "created_at": "2026-06-08 17:25:15.69959+00",
+    "updated_at": "2026-06-08 17:25:56.88521+00"
+  },
+  {
+    "id": "56ad5661-52cf-474d-b163-ae1d4e249666",
+    "type": "area",
+    "title": "Agent Security",
+    "content_preview": "Security policy, standards, toolkit support, gateway enforcement. Status: spike / design. Implementation likely starts next sprint or later. Owners: Danish, Mali.",
+    "status": "active",
+    "created_at": "2026-06-01 19:37:54.520689+00",
+    "updated_at": "2026-06-08 17:25:45.404528+00"
+  },
+  {
+    "id": "dca2e146-0e8f-4894-9e63-58226a58c022",
+    "type": "project",
+    "title": "Agent Memory Rollout / Conversation History Deprecation",
+    "content_preview": "High priority. Owners: Sanket, Danish. Active / bug bash pending. Latest enablement possibly this week if bug bash clean; production after ~1 week on latest. Gates whether table state reset needs a separate fix.",
+    "status": "active",
+    "created_at": "2026-06-01 19:39:23.628236+00",
+    "updated_at": "2026-06-07 20:00:33.815307+00"
+  },
+  {
+    "id": "78bb609b-5840-47f3-a4d3-a2343a1bc9e0",
+    "type": "project",
+    "title": "Agent Platform Show-and-Tell",
+    "content_preview": "P2. New epic. Owner: Danish + assigned owners. Maybe next Developers Roundtable / next week. Wednesday meeting can be used to plan next week's show-and-tell. Product-style demos for agent developers; not primarily technical demos.",
+    "status": "active",
+    "created_at": "2026-06-01 19:39:24.458916+00",
+    "updated_at": "2026-06-07 19:58:57.864476+00"
+  },
+  {
+    "id": "868a2a14-ecee-49ab-a332-2339cf3b68b1",
+    "type": "project",
+    "title": "Plan agent platform roadmap",
+    "content_preview": "Carefully plan the next phases of the agent platform and devise a technical roadmap that can be presented to leadership in a compelling, easy-to-prioritize way.",
+    "status": "active",
+    "created_at": "2026-06-07 19:54:14.361437+00",
+    "updated_at": "2026-06-07 19:54:39.506851+00"
+  },
+  {
+    "id": "ebcabf16-dd4b-4ac7-bb5b-1b6d5dd641de",
+    "type": "area",
+    "title": "Product roadmap",
+    "content_preview": "The roadmap is currently skewed toward frontend components.",
+    "status": "active",
+    "created_at": "2026-06-07 16:25:39.444567+00",
+    "updated_at": "2026-06-07 19:54:31.070892+00"
+  },
+  {
+    "id": "374e9827-7c43-4719-bc68-ec64afc18653",
+    "type": "project",
+    "title": "Fall launch priorities",
+    "content_preview": "Prepare for Bhrighu ED sessions where fall launch resource allocation will be evaluated. All work must align with agent/agentic story. Need to present Agent Platform alignment clearly. Strategic \u2014 ties to value narrative work.",
+    "status": "active",
+    "created_at": "2026-05-30 19:02:15.388948+00",
+    "updated_at": "2026-06-05 18:51:10.610656+00"
+  },
+  {
+    "id": "78e0ee35-f5aa-4341-a82c-3fd360311330",
+    "type": "project",
+    "title": "E2E items prioritization",
+    "content_preview": "Review and prioritize the list of E2E items and other pending topics with the team. Coordinate with Ram and Sarosh as needed. Action from Ram/Danish 1:1.",
+    "status": "active",
+    "created_at": "2026-05-30 19:02:15.388948+00",
+    "updated_at": "2026-06-05 18:51:10.494688+00"
+  },
+  {
+    "id": "65943290-763b-4512-a423-6dd5fa90af15",
+    "type": "project",
+    "title": "Team visibility plan",
+    "content_preview": "Improve Agent Platform team visibility across the org. Execute regular show-and-tell sessions, PM all-hands presentations, and workshops. Ram assigned this as action item \u2014 report back on progress. Linked to perception concerns.",
+    "status": "active",
+    "created_at": "2026-05-30 19:02:15.388948+00",
+    "updated_at": "2026-06-05 18:51:10.35918+00"
+  },
+  {
+    "id": "0d8ca225-3eed-4357-95fb-d20237489ffc",
+    "type": "project",
+    "title": "Security Enhancements / Agent Security Standard",
+    "content_preview": "Agent security standard and governance policy. Design/items identified; implementation next sprint or later. Includes: input/output validation, sanitization, PII reduction, prompt checks, memory checks, LLM gateway changes, rate limits, model policy. Also encompasses the governance policy for what makes agents secure. DRIs: Danish + Mali.",
+    "status": "active",
+    "created_at": "2026-06-01 19:39:24.042263+00",
+    "updated_at": "2026-06-05 18:50:32.384578+00"
+  },
+  {
+    "id": "de2d225f-d959-4bac-af9e-cd3d4145c6b7",
+    "type": "project",
+    "title": "Stabilize Agent Platform Observability / Telemetry",
+    "content_preview": "Stabilize collector + span transport so agent crews (incl. Highspot Express) get reliable telemetry into New Relic. Encompasses: pipeline standardization, span/metric plumbing, whitelist needs, and standard adoption at the infra level. Owner: Danish. Key contributors: Sai, Varun, Rohit, Akash, Sanket. Stakeholders: Nathan, Kurt, Sarosh. Status: active investigation \u2014 traces emitted but path to New",
+    "status": "active",
+    "created_at": "2026-06-02 18:43:51.114175+00",
+    "updated_at": "2026-06-05 18:50:00.86003+00"
+  },
+  {
+    "id": "b39a7356-6fbe-4fbb-8f75-24c75f9db323",
+    "type": "project",
+    "title": "HITL Disambiguation Local Tool",
+    "content_preview": "Medium. In progress. Owner: Gonick. Target: today / tomorrow update. Local tool lets LLM decide to trigger HITL/disambiguation without hardcoded agent logic.",
+    "status": "active",
+    "created_at": "2026-06-01 19:39:24.417384+00",
+    "updated_at": "2026-06-05 18:49:12.880632+00"
+  },
+  {
+    "id": "6fa43dcd-bc4b-4c65-8729-f23a6eb961d7",
+    "type": "project",
+    "title": "Agent memory scope reduction",
+    "content_preview": "Canonical memory message type translation estimated at ~2 months (through end of July). Danish is cutting / deprioritizing because it does not directly unblock product / reporting / security. Decision made; needs communication. Manage Akash's expectations and document rationale. DRIs: Danish + Akash.",
+    "status": "active",
+    "created_at": "2026-06-02 21:32:35.369375+00",
+    "updated_at": "2026-06-02 21:32:35.369721+00"
+  },
+  {
+    "id": "49d01248-8877-4f35-b759-6596439ba389",
+    "type": "project",
+    "title": "Source / citation contract clarification",
+    "content_preview": "Distinguish source as caller / surface metadata vs citation / provenance for retrieved answers. Open question whether citations apply broadly or only to retrieval / search-answer / custom-agent use cases. DRIs: Himmat + Danish.",
+    "status": "active",
+    "created_at": "2026-06-02 21:32:35.321412+00",
+    "updated_at": "2026-06-02 21:32:35.321707+00"
+  },
+  {
+    "id": "3eb688ae-797d-42b5-a62f-be32394416d8",
+    "type": "project",
+    "title": "Reasoning block / diagnostic metadata design",
+    "content_preview": "Proposal: agents should produce a reasoning / diagnostic block that may be shown or hidden depending on configuration. Reasoning may be captured for diagnostics / evals but not always exposed to customers. DRIs: Danish + Himmat. Follow-up: Himmat to write companion doc; Danish to review.",
+    "status": "active",
+    "created_at": "2026-06-02 21:32:35.2581+00",
+    "updated_at": "2026-06-02 21:32:35.25838+00"
+  },
+  {
+    "id": "ebf7f0cc-1cb7-441f-acf7-e912ca3f0395",
+    "type": "project",
+    "title": "Telemetry adoption across priority agents",
+    "content_preview": "Agent Toolkit telemetry libraries exist; per-agent adoption tickets created. Decide whether Agent Platform team should step in if agent teams stall. DRIs: Danish + agent teams.",
+    "status": "active",
+    "created_at": "2026-06-02 21:32:35.140311+00",
+    "updated_at": "2026-06-02 21:32:35.14061+00"
+  },
+  {
+    "id": "f528ddcd-fbd5-4960-af6b-8c336eb4011d",
+    "type": "project",
+    "title": "Define Agent Platform roadmap for next 3\u20135 cycles",
+    "content_preview": "Create a deliberate roadmap showing what gets done, what gets delayed, and what requires more backend capacity. DRIs: Danish + Himmat. Follow-up: leads sync + Sarosh.",
+    "status": "active",
+    "created_at": "2026-06-02 21:32:35.086443+00",
+    "updated_at": "2026-06-02 21:32:35.086705+00"
+  },
+  {
+    "id": "373e2872-ab0d-4310-9bb7-d1021115caf4",
+    "type": "area",
+    "title": "Source Attribution / Citations / Reasoning",
+    "content_preview": "Universal contract for source vs citation vs reasoning across agents. No clear contract today; citation quality and diagnostic traceability are known problems. Discovery / design needed.",
+    "status": "active",
+    "created_at": "2026-06-02 21:32:15.206837+00",
+    "updated_at": "2026-06-02 21:32:15.207307+00"
+  },
+  {
+    "id": "5955a41d-d77b-481d-9724-235568ec750c",
+    "type": "project",
+    "title": "Agent Platform Resourcing &amp; Team Health",
+    "content_preview": "Backfill, retention, and team health: Daniel backfill, Gonik transactional bonus, Akash support path, ongoing 1:1s, mid-to-late July merger checkpoint for internal mobility / staffing implications.",
+    "status": "active",
+    "created_at": "2026-06-02 18:43:51.260932+00",
+    "updated_at": "2026-06-02 18:43:51.261456+00"
+  },
+  {
+    "id": "18dd2fd0-4c02-4867-b5d6-945cadd8de04",
+    "type": "project",
+    "title": "Audit Trail Service Framing",
+    "content_preview": "High-level scope + framing for an Audit Trail Service. Sarosh/Saroj asked for higher-level framing before detailed solution design. Extensibility for detailed change history / bulk actions. Evaluate reuse of CDC / analytics / Snowflake patterns.",
+    "status": "active",
+    "created_at": "2026-06-02 18:43:51.218571+00",
+    "updated_at": "2026-06-02 18:43:51.219043+00"
+  },
+  {
+    "id": "474994a8-cf7c-4d17-ad21-6058385e6923",
+    "type": "project",
+    "title": "Create Agent Platform Value Narrative for Leadership",
+    "content_preview": "Build a coherent, data-backed Agent Platform value story for leadership (Brigu, Tony, Sarosh/Saroj, Ram). Goal: change platform perception before next leadership / leads forum.",
+    "status": "active",
+    "created_at": "2026-06-02 18:43:51.170009+00",
+    "updated_at": "2026-06-02 18:43:51.170485+00"
+  },
+  {
+    "id": "bbc774a2-1460-4e46-ab55-09a773b7d7e9",
+    "type": "area",
+    "title": "Platform Evangelism / Adoption",
+    "content_preview": "Show-and-tell demos for agent crews. Goal is product-style demos, not deep internal technical walkthroughs. Owners: Danish + component owners.",
+    "status": "active",
+    "created_at": "2026-06-01 19:37:54.559247+00",
+    "updated_at": "2026-06-02 18:42:48.102031+00"
+  },
+  {
+    "id": "45a229cf-4504-47e9-a535-8b35d74f599f",
+    "type": "area",
+    "title": "KTLO / On-call ",
+    "content_preview": "Support work, miscellaneous issues, potential agentic automation for P3s. Aspirational / capacity-dependent. Low-priority unless bandwidth appears. Owners: Ola, Gonick.",
+    "status": "active",
+    "created_at": "2026-06-01 19:37:54.593198+00",
+    "updated_at": "2026-06-01 21:07:11.38147+00"
+  },
+  {
+    "id": "173ceb8a-0cd2-4bd5-b751-0e47b806bf19",
+    "type": "area",
+    "title": "Agentic SDLC",
+    "content_preview": null,
+    "status": "active",
+    "created_at": "2026-06-01 21:07:03.810365+00",
+    "updated_at": "2026-06-01 21:07:03.810549+00"
+  },
+  {
+    "id": "657be076-3ae2-4753-9141-9594bfb8acf6",
+    "type": "project",
+    "title": "BugPilot Automation",
+    "content_preview": "Low priority. Aspirational. Owner: Ola. Only if bandwidth allows. Ola is on call this week.",
+    "status": "active",
+    "created_at": "2026-06-01 19:39:24.510833+00",
+    "updated_at": "2026-06-01 21:06:37.486357+00"
+  },
+  {
+    "id": "5bf0c900-9f14-4139-81a3-9e1c0dd93c36",
+    "type": "project",
+    "title": "HITL State Management",
+    "content_preview": "Medium. Nearly done. Owner: Ola. Maybe close this sprint. Danish to verify and close if nothing remains. Mentioned as 'virtually done.'",
+    "status": "active",
+    "created_at": "2026-06-01 19:39:24.370048+00",
+    "updated_at": "2026-06-01 19:39:24.370243+00"
+  },
+  {
+    "id": "6e2b120c-6da8-447e-b0cc-1579ac07e147",
+    "type": "project",
+    "title": "Reasoning Streaming",
+    "content_preview": "Medium. Active. Owners: Lexi / Priya. Listed as still ongoing.",
+    "status": "active",
+    "created_at": "2026-06-01 19:39:24.231541+00",
+    "updated_at": "2026-06-01 19:39:24.231735+00"
+  },
+  {
+    "id": "0d663de6-e37f-491c-84d4-e7fc7bad2dde",
+    "type": "project",
+    "title": "Stop Stream",
+    "content_preview": "Medium. Active but likely deprioritized. Owners: Lexi / Priya. Danish assumes table controls take priority over stop-stream unless Himmat says otherwise.",
+    "status": "active",
+    "created_at": "2026-06-01 19:39:24.185067+00",
+    "updated_at": "2026-06-01 19:39:24.185279+00"
+  },
+  {
+    "id": "2528d5da-5040-42e1-aa11-99c1ac7fde3b",
+    "type": "project",
+    "title": "Reasoning CS2 Follow-up",
+    "content_preview": "TBD priority. New epic needed. Owner: Priya. May follow immediately after CS1 depending on demos/feedback. Waiting for Davidson's final call.",
+    "status": "active",
+    "created_at": "2026-06-01 19:39:24.137669+00",
+    "updated_at": "2026-06-01 19:39:24.137935+00"
+  },
+  {
+    "id": "362af569-c502-47f7-b3ee-5e6c9b718fa1",
+    "type": "project",
+    "title": "Reasoning CS1",
+    "content_preview": "Medium-high. Active / continuing. Owner: Priya. Current sprint. Priya says CS1 is clear.",
+    "status": "active",
+    "created_at": "2026-06-01 19:39:24.085899+00",
+    "updated_at": "2026-06-01 19:39:24.086089+00"
+  },
+  {
+    "id": "4314b5c7-2ab0-43c0-84da-eda5ea4131ba",
+    "type": "project",
+    "title": "Chat / Agent State Management",
+    "content_preview": "Potentially medium priority. Needs scope definition. Owners: Priya, Gonick. Should not be prioritized unless there is clear pain, broken flow, or crew impact.",
+    "status": "active",
+    "created_at": "2026-06-01 19:39:23.899578+00",
+    "updated_at": "2026-06-01 19:39:23.899858+00"
+  },
+  {
+    "id": "5fb37a5f-c51b-4216-93b8-dc10ac6863fc",
+    "type": "project",
+    "title": "Unified Chat Component",
+    "content_preview": "Low / unclear priority. Not prioritized yet. Owners: Priya, Gonick, Danish. Broad epic exists but needs clearer justification. State management may be the real problem.",
+    "status": "active",
+    "created_at": "2026-06-01 19:39:23.852973+00",
+    "updated_at": "2026-06-01 19:39:23.853255+00"
+  },
+  {
+    "id": "fda1967d-737f-4ed1-8784-390331220585",
+    "type": "project",
+    "title": "Table Title / Display Context",
+    "content_preview": "Medium-high. Owners: Sushmita, Himmat, Lexi. Add to requirements this sprint. Agent crews should provide table title/context because platform cannot infer table meaning reliably.",
+    "status": "active",
+    "created_at": "2026-06-01 19:39:23.805466+00",
+    "updated_at": "2026-06-01 19:39:23.80569+00"
+  },
+  {
+    "id": "49ba29f4-180d-42f2-8913-39f536e00c56",
+    "type": "project",
+    "title": "Table Copy-Paste Behavior",
+    "content_preview": "Medium-high. Owners: Lexi, Sushmita, Himmat. To be investigated this sprint as part of table epic. Doesn't need to be perfect; just needs to not suck. Prefer out-of-box AG Grid behavior first.",
+    "status": "active",
+    "created_at": "2026-06-01 19:39:23.748454+00",
+    "updated_at": "2026-06-01 19:39:23.748692+00"
+  },
+  {
+    "id": "ee8bd057-21df-420e-9a79-41af956e612f",
+    "type": "project",
+    "title": "Table State Persistence After Navigation",
+    "content_preview": "High customer impact. Deferred / conditional. Owners: Lexi, Sanket, Himmat. Wait up to ~1.5\u20132 weeks. Plan B needed if Agent Memory rollout slips. Conversation history preserves only 10 rows after navigation; Agent Memory path appears to preserve full result.",
+    "status": "active",
+    "created_at": "2026-06-01 19:39:23.697472+00",
+    "updated_at": "2026-06-01 19:39:23.697692+00"
+  },
+  {
+    "id": "1ca2dfbc-c8c8-4119-a013-05ea6f4e7848",
+    "type": "project",
+    "title": "Data Table Enhancements",
+    "content_preview": "High priority. Owners: Lexi, Himmat, Sushmita. Existing old epic should remain closed; create a new epic because the work has enough scope. Start this sprint.",
+    "status": "active",
+    "created_at": "2026-06-01 19:39:23.535575+00",
+    "updated_at": "2026-06-01 19:39:23.535761+00"
+  },
+  {
+    "id": "2715c6f8-2472-48ce-8e04-931ed45db090",
+    "type": "area",
+    "title": "Agent Memory / Conversation History",
+    "content_preview": "Move functionality and data from conversation history to agent memory. Bug bash is the gating item before broader flag enablement. Owners: Sanket, Danish.",
+    "status": "active",
+    "created_at": "2026-06-01 19:37:54.360877+00",
+    "updated_at": "2026-06-01 19:37:54.361072+00"
+  },
+  {
+    "id": "93bac1c8-84ad-441b-b033-53d63fc9dda9",
+    "type": "area",
+    "title": "GTM Agent / Closed Beta Support",
+    "content_preview": "Support GTM closed beta issues, especially table UX. ~10 closed beta customers noticing table issues. Needs careful expectation management. Owners: Himmat, Lexi, Sushmita, Danish.",
+    "status": "active",
+    "created_at": "2026-06-01 19:37:54.303828+00",
+    "updated_at": "2026-06-01 19:37:54.304039+00"
+  }
+]

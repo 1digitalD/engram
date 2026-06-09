@@ -1,26 +1,38 @@
 # Engram v4 Principles
 
-Source of truth: GitHub issue #1, "Engram v4 clean cutover implementation plan".
+Source of truth: `docs/V4_WORLD_MODEL_PLAN.md` (supersedes GitHub issue #1 as of 2026-06-09).
 
-## Clean Cutover
+## Production Data Safety (added 2026-06-09 — supersedes "clean cutover" clause)
 
-Engram v4 is a fresh clean cutover. There is no backward compatibility requirement and no data migration requirement. Existing local app data can be deleted, and the system can start with a fresh database.
+The system now holds real production data that must be preserved. The original
+"no migration, data deletable" stance is retired.
 
-The only target runtime API for v4 is `/api/v4`. Existing `/api/v1` and `/api/v2` behavior is obsolete for v4 and must not be preserved.
+1. **Schema changes are additive-only.** New nullable/defaulted columns, new tables,
+   new enum values only. Never drop or rename columns or tables while data exists.
+2. **Every schema change ships as a numbered idempotent script** in
+   `scripts/migrations/NNN_<name>.sql`. Apply with explicit psql invocation.
+   Never run `flask init-db` against a database with real data.
+3. **Snapshot before any prod schema change or deploy:**
+   `bash scripts/backup_prod.sh` — verifies the dump is non-empty before continuing.
+   Dumps go to `backups/` (gitignored).
+4. **Tests never touch prod.** Tests run only against the isolated test DB
+   (`docker-compose.test.yml`, port 5433, tmpfs). `TEST_DATABASE_URL` must point
+   to port 5433. The conftest guards enforce this.
+5. **Prod DB access during development is read-only** except via the running API
+   or explicitly reviewed migration scripts.
 
-## Non-Negotiable Rules
+## API and Architecture Rules
 
 1. Do not preserve `/api/v1` or `/api/v2` behavior.
 2. Do not build compatibility adapters for old response shapes.
-3. Do not implement migration.
-4. Do not store relationship IDs inside `properties`.
-5. All relationships must use `EntityLink` / relationship records.
-6. Notes must remain source artifacts. AI can extract from notes, but must not convert notes into other entity types.
-7. AI must use balanced automation: source notes are always preserved, safe metadata/linking can be auto-applied, and high-confidence entity creation may be auto-applied only with explicit guardrails and audit events.
-8. Each cycle must be implemented, tested, verified, committed, and merged before starting the next cycle.
-9. Do not improvise outside the current cycle acceptance criteria.
-10. Keep the implementation simple, functional, explicit, and testable.
-11. Ruthlessly remove obsolete code once v4 replacements are working.
+3. Do not store relationship IDs inside `properties`.
+4. All relationships must use `EntityLink` / relationship records.
+5. Notes must remain source artifacts. AI can extract from notes, but must not convert notes into other entity types.
+6. AI must use balanced automation: source notes are always preserved, safe metadata/linking can be auto-applied, and high-confidence entity creation may be auto-applied only with explicit guardrails and audit events.
+7. Each slice must be implemented, tested, verified, committed, and merged before starting the next slice.
+8. Do not improvise outside the current slice acceptance criteria.
+9. Keep the implementation simple, functional, explicit, and testable.
+10. Ruthlessly remove obsolete code once replacements are working.
 
 ## Product Target
 
