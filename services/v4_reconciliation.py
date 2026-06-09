@@ -21,10 +21,13 @@ logger = logging.getLogger(__name__)
 RECONCILIATION_MODEL = os.getenv("OPENAI_RECONCILIATION_MODEL", "gpt-4o")
 SIMILARITY_THRESHOLD = 0.60
 TOP_K = 3
+CATALOG_CHAR_CAP = 8000  # ≈ 2000 tokens; projects/areas only
 
 SYSTEM_PROMPT = """\
 You are a deduplication and reconciliation engine for a personal knowledge workspace.
 Today's date: {today}
+
+{catalog_block}
 
 You receive a JSON array of extracted entity candidates from a note. Each candidate \
 includes the top existing entities that might be the same real-world thing, ranked by \
@@ -37,11 +40,14 @@ For each candidate decide the correct action:
   "link"   — A clear match exists but no fields need changing. Just link to it.
 
 MATCHING RULES:
-- Score < 0.65 → very unlikely match; prefer "new" unless titles are obviously the same.
+- Score < 0.65 → very unlikely match; prefer "new" UNLESS the WORKSPACE CATALOG above
+  contains an entry with the same or very similar title — then prefer "link" or "update".
 - Same person = same name (minor spelling differences OK).
 - Same task = same action item, possibly rephrased; same actor + same action = match.
-- Same project / area = same initiative or domain.
+- Same project / area = same initiative or domain; paraphrases count as matches
+  (e.g. "Deals agent family support" = "GTM agent family support").
 - Same resource = same document, tool, URL, or artifact.
+- Always check the WORKSPACE CATALOG before deciding "new" for a project or area.
 
 FOR "update" — include:
   "target_id"         : id of the matching entity
@@ -255,6 +261,55 @@ def _exact_match(title, entity_type):
     }]
 
 
+# ── Workspace catalog ────────────────────────────────────────────────────────
+
+def _build_catalog_block():
+    """Return a formatted string listing all active projects and areas.
+
+    Used to give the reconciler model explicit visibility into the workspace
+    so it can match paraphrased project names (e.g. "Deals agent family" →
+    "GTM agent family support") without relying solely on embedding similarity.
+
+    Capped at CATALOG_CHAR_CAP characters (≈ 2k tokens), truncated by most
+    recently updated first.
+    """
+    from models import Entity
+
+    entities = (
+        Entity.query
+        .filter(
+            Entity.type.in_(["project", "area"]),
+            Entity.lifecycle == "active",
+        )
+        .order_by(Entity.updated_at.desc())
+        .all()
+    )
+
+    if not entities:
+        return ""
+
+    lines = []
+    total = 0
+    header = "WORKSPACE CATALOG (active projects and areas — check before deciding 'new'):\n"
+    total += len(header)
+
+    for e in entities:
+        summary = (e.content or "").replace("\n", " ")[:120].strip()
+        line = f"  [{e.type}] {e.title}"
+        if summary:
+            line += f" — {summary}"
+        line += "\n"
+        if total + len(line) > CATALOG_CHAR_CAP:
+            break
+        lines.append(line)
+        total += len(line)
+
+    if not lines:
+        return ""
+
+    return header + "".join(lines)
+
+
 # ── LLM reconciliation call ───────────────────────────────────────────────────
 
 def _call_model(enriched):
@@ -262,6 +317,7 @@ def _call_model(enriched):
         return _heuristic_decisions(enriched)
 
     today = date.today().isoformat()
+    catalog_block = _build_catalog_block()
     user_payload = [
         {
             "index": i,
@@ -298,7 +354,10 @@ def _call_model(enriched):
             temperature=0,
             response_format={"type": "json_object"},
             messages=[
-                {"role": "system", "content": SYSTEM_PROMPT.format(today=today)},
+                {"role": "system", "content": SYSTEM_PROMPT.format(
+                    today=today,
+                    catalog_block=catalog_block,
+                )},
                 {"role": "user", "content": json.dumps(user_payload)},
             ],
         )
