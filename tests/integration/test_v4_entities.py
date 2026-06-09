@@ -263,3 +263,70 @@ def test_reject_invalid_status_for_type(client):
 
     assert response.status_code == 400
     assert "invalid status" in response.get_json()["error"]
+
+
+def test_project_updated_at_advances_when_task_is_linked_via_parent(client, app):
+    """A project's updated_at should advance when a task is parent-linked to it."""
+    project = client.post(
+        "/api/v4/entities",
+        json={"type": "project", "title": "Propagation Test Project"},
+    ).get_json()["data"]
+    task = client.post(
+        "/api/v4/entities",
+        json={"type": "task", "title": "Propagation Test Task"},
+    ).get_json()["data"]
+
+    import time
+    time.sleep(0.1)  # Ensure timestamps differ
+
+    old_updated = project["updated_at"]
+
+    # Link task → project (parent)
+    link_resp = client.post(
+        f"/api/v4/entities/{task['id']}/relationships",
+        json={"target_entity_id": project["id"], "relationship_type": "parent"},
+    )
+    assert link_resp.status_code == 201
+
+    # Project's updated_at should have advanced
+    project_after = client.get(f"/api/v4/entities/{project['id']}").get_json()["data"]
+    assert project_after["updated_at"] > old_updated, (
+        f"project updated_at should advance after task parent link: "
+        f"{project_after['updated_at']} <= {old_updated}"
+    )
+
+
+def test_project_updated_at_advances_when_child_task_is_updated(client, app):
+    """A project's updated_at should advance when a child task's status changes."""
+    project = client.post(
+        "/api/v4/entities",
+        json={"type": "project", "title": "Task Update Project"},
+    ).get_json()["data"]
+    task = client.post(
+        "/api/v4/entities",
+        json={"type": "task", "title": "Child Task", "status": "open"},
+    ).get_json()["data"]
+
+    # Link task → project
+    client.post(
+        f"/api/v4/entities/{task['id']}/relationships",
+        json={"target_entity_id": project["id"], "relationship_type": "parent"},
+    )
+
+    import time
+    time.sleep(0.1)
+
+    old_updated = client.get(f"/api/v4/entities/{project['id']}").get_json()["data"]["updated_at"]
+
+    # Update task status
+    client.patch(
+        f"/api/v4/entities/{task['id']}",
+        json={"status": "done"},
+    )
+
+    # Project's updated_at should have advanced
+    project_after = client.get(f"/api/v4/entities/{project['id']}").get_json()["data"]
+    assert project_after["updated_at"] > old_updated, (
+        f"project updated_at should advance after child task update: "
+        f"{project_after['updated_at']} <= {old_updated}"
+    )

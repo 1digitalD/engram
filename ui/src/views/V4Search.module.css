@@ -141,7 +141,7 @@
   border: 1px solid var(--border-faint);
   border-radius: var(--radius-md);
   display: grid;
-  gap: 2px;
+  gap: 6px;
   padding: var(--space-2) var(--space-3);
 }
 
@@ -149,14 +149,42 @@
   background: var(--surface2);
 }
 
-.type {
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  text-transform: uppercase;
+.metaRow,
+.tagRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
-.results small {
+.type,
+.status,
+.matchMeta,
+.tagChip {
+  border-radius: var(--radius-full);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1;
+  padding: 5px 8px;
+  text-transform: lowercase;
+}
+
+.type {
+  background: color-mix(in oklch, var(--surface2) 78%, transparent);
+  color: var(--text-muted);
+}
+
+.status {
+  background: color-mix(in oklch, var(--accent) 12%, var(--surface));
+  color: var(--accent);
+}
+
+.matchMeta,
+.tagChip {
+  background: color-mix(in oklch, var(--surface2) 92%, transparent);
+  color: var(--text-muted);
+}
+
+.emptyState {
   color: var(--text-muted);
 }
 

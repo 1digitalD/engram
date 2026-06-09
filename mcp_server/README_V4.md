@@ -6,7 +6,7 @@ requests and returns formatted text. It is write-enabled and has no separate per
 ## Exposed tools
 
 **Read:**
-- `search_entities(query, entity_type?, limit?)` — hybrid search, returns ranked entities
+- `search_entities(query?, entity_type?, mode?, status?, lifecycle?, tag?, limit?)` — search entities with hybrid/keyword/semantic or tag-only retrieval
 - `get_entity(entity_id, include_relationships?)` — canonical entity or detail view
 - `list_recent(entity_type?, limit?)` — recently updated active entities
 - `get_today()` — follow-ups, blocked/waiting tasks, active projects, recent notes, pending suggestions

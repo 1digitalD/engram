@@ -84,14 +84,31 @@ mcp_app = mcp.http_app(path="/mcp", transport="streamable-http")
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool(description="Search v4 entities using Engram hybrid search. Read-only.")
-def search_entities(query: str, entity_type: Optional[str] = None, limit: int = 10) -> str:
+@mcp.tool(description=(
+    "Search v4 entities using Engram search. "
+    "Supports hybrid, keyword, semantic, or tag-only retrieval. Read-only."
+))
+def search_entities(
+    query: str = "",
+    entity_type: Optional[str] = None,
+    mode: str = "hybrid",
+    status: Optional[str] = None,
+    lifecycle: str = "active",
+    tag: Optional[str] = None,
+    limit: int = 10,
+) -> str:
     limit = max(1, min(limit, 50))
-    params = {"q": query, "mode": "hybrid", "limit": limit}
+    params = {"mode": mode or "hybrid", "limit": limit, "lifecycle": lifecycle or "active"}
+    if query:
+        params["q"] = query
     if entity_type:
         params["type"] = entity_type
+    if status:
+        params["status"] = status
+    if tag:
+        params["tag"] = tag
     payload = _api("GET", "/search", params=params)
-    return format_search_results(payload, query)
+    return format_search_results(payload, query or f"tag:{tag}")
 
 
 @mcp.tool(description="Get one canonical v4 entity, optionally with relationship sections. Read-only.")

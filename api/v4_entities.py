@@ -722,6 +722,11 @@ def update_entity(entity_id):
             new_value={"lifecycle": entity.lifecycle},
         )
     _queue_embed_job(entity.id, "entity_update")
+
+    # When a task is updated, propagate updated_at to its parent projects
+    if entity.type == "task":
+        _touch_parent_projects(entity)
+
     db.session.commit()
 
     return jsonify({"data": _load_entity(entity.id).to_dict()})
@@ -1469,6 +1474,14 @@ def create_relationship(entity_id):
     db.session.add(link)
     db.session.flush()
     _write_event(source_entity, "relationship_added", new_value=link.to_dict())
+
+    # When a task is parent-linked to a project, advance the project's updated_at
+    if (relationship_type == "parent"
+        and source_entity.type == "task"):
+        target_entity = db.session.get(Entity, target_entity_id)
+        if target_entity is not None and target_entity.type == "project":
+            target_entity.updated_at = datetime.now(timezone.utc)
+
     db.session.commit()
 
     return jsonify({"data": link.to_dict()}), 201
@@ -2150,6 +2163,22 @@ def _link_task_to_note_projects(note, task, confidence, evidence, applied_change
             })
 
 
+def _touch_parent_projects(task):
+    """Advance updated_at on all active parent projects of a task.
+
+    Called whenever a task is modified so project surfaces reflect
+    current activity instead of going stale.
+    """
+    parent_links = EntityLink.query.filter_by(
+        source_entity_id=task.id,
+        relationship_type="parent",
+    ).all()
+    for link in parent_links:
+        parent = db.session.get(Entity, link.target_entity_id)
+        if parent is not None and parent.lifecycle == "active":
+            parent.updated_at = datetime.now(timezone.utc)
+
+
 def _apply_entity_update(note, entity, candidate, decision, relationship_type, confidence, evidence, applied_changes):
     fields = decision.get("fields") or {}
     changed = {}
@@ -2297,6 +2326,13 @@ def _create_entity_link(source_entity, target_entity, relationship_type, confide
     elif getattr(target_entity, "type", None) == "note" and getattr(source_entity, "type", None) != "note":
         from services.v4_summarization import queue_summarize_if_needed
         queue_summarize_if_needed(source_entity.id, has_existing_summary=bool(source_entity.ai_summary))
+
+    # When a task is parent-linked to a project, advance the project's
+    # updated_at so surfaces reflect current activity.
+    if (relationship_type == "parent"
+        and getattr(source_entity, "type", None) == "task"
+        and getattr(target_entity, "type", None) == "project"):
+        target_entity.updated_at = datetime.now(timezone.utc)
 
     return link
 

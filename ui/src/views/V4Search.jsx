@@ -16,19 +16,31 @@ function entityPath(entity) {
   return `/${base}/${entity.id}`;
 }
 
+function matchLabel(match = {}) {
+  if (match.source === 'tag') return `tag match${match.tag ? `: #${match.tag}` : ''}`;
+  if (match.source === 'hybrid') return 'hybrid match';
+  if (match.source === 'semantic') return 'semantic match';
+  if (match.source === 'keyword') return 'keyword match';
+  return 'search match';
+}
+
 export default function V4Search() {
   const location = useLocation();
   const fromState = { from: location.pathname + location.search };
   const [searchParams, setSearchParams] = useSearchParams();
   const tagFilter = searchParams.get('tag') || '';
-  const [query, setQuery] = useState('');
-  const [type, setType] = useState('');
-  const [mode, setMode] = useState('hybrid');
+  const queryParam = searchParams.get('q') || '';
+  const typeParam = searchParams.get('type') || '';
+  const modeParam = searchParams.get('mode') || 'hybrid';
+  const [query, setQuery] = useState(queryParam);
+  const [type, setType] = useState(typeParam);
+  const [mode, setMode] = useState(modeParam);
   const [results, setResults] = useState([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const hasActiveSearch = Boolean(queryParam || tagFilter);
 
-  async function runSearch({ q, tag } = {}) {
+  async function runSearch({ q, tag, searchType = type, searchMode = mode } = {}) {
     if (!q && !tag) return;
     setLoading(true);
     setError('');
@@ -36,8 +48,8 @@ export default function V4Search() {
       const response = await v4API.search({
         q: q || undefined,
         tag: tag || undefined,
-        type: type || undefined,
-        mode,
+        type: searchType || undefined,
+        mode: searchMode,
         limit: 25,
       });
       setResults(response.results || []);
@@ -49,24 +61,36 @@ export default function V4Search() {
     }
   }
 
-  // Auto-run when ?tag= changes in the URL (e.g. clicking a tag chip elsewhere).
   useEffect(() => {
-    if (tagFilter) {
-      runSearch({ tag: tagFilter });
+    setQuery(queryParam);
+    setType(typeParam);
+    setMode(modeParam);
+    if (queryParam || tagFilter) {
+      runSearch({ q: queryParam, tag: tagFilter, searchType: typeParam, searchMode: modeParam });
+    } else {
+      setResults([]);
+      setError('');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tagFilter]);
+  }, [queryParam, tagFilter, typeParam, modeParam]);
 
   async function handleSearch(event) {
     event.preventDefault();
     if (!query.trim() || loading) return;
-    if (tagFilter) setSearchParams({});
-    await runSearch({ q: query.trim() });
+    const next = {};
+    if (query.trim()) next.q = query.trim();
+    if (tagFilter) next.tag = tagFilter;
+    if (type) next.type = type;
+    if (mode && mode !== 'hybrid') next.mode = mode;
+    setSearchParams(next);
   }
 
   function clearTagFilter() {
-    setSearchParams({});
-    setResults([]);
+    const next = {};
+    if (queryParam) next.q = queryParam;
+    if (typeParam) next.type = typeParam;
+    if (modeParam && modeParam !== 'hybrid') next.mode = modeParam;
+    setSearchParams(next);
   }
 
   return (
@@ -116,8 +140,12 @@ export default function V4Search() {
 
       <section className={styles.results}>
         <h2>Results</h2>
-        {results.length === 0 ? (
-          <p>No results yet.</p>
+        {loading ? (
+          <p className={styles.emptyState}>Searching…</p>
+        ) : results.length === 0 ? (
+          <p className={styles.emptyState}>
+            {hasActiveSearch ? 'No results matched this search.' : 'Search by text or jump in from a tag.'}
+          </p>
         ) : (
           <ul>
             {results.map((result) => (
@@ -127,9 +155,19 @@ export default function V4Search() {
                   onChanged={() => setResults((cur) => cur.filter((r) => r.entity.id !== result.entity.id))}
                 />
                 <Link to={entityPath(result.entity)} state={fromState}>
-                  <span className={styles.type}>{result.entity.type}</span>
+                  <div className={styles.metaRow}>
+                    <span className={styles.type}>{result.entity.type}</span>
+                    <span className={styles.status}>{result.entity.status}</span>
+                    <span className={styles.matchMeta}>{matchLabel(result.match)}</span>
+                  </div>
                   <strong>{result.entity.title || 'Untitled'}</strong>
-                  <small>score {Number(result.score || 0).toFixed(3)}</small>
+                  {result.entity.tags?.length ? (
+                    <div className={styles.tagRow}>
+                      {result.entity.tags.slice(0, 3).map((tag) => (
+                        <span key={tag.id || tag.name} className={styles.tagChip}>#{tag.name}</span>
+                      ))}
+                    </div>
+                  ) : null}
                   {result.match?.snippet && <p>{result.match.snippet}</p>}
                 </Link>
               </li>

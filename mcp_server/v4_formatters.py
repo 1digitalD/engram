@@ -11,8 +11,11 @@ def format_search_results(payload, query):
         entity = result.get("entity") or {}
         score = result.get("score")
         score_text = f" score={score:.3f}" if isinstance(score, (int, float)) else ""
-        snippet = (result.get("match") or {}).get("snippet")
-        lines.append(f"{index}. `{entity.get('id')}` [{entity.get('type')}] {entity.get('title') or 'Untitled'}{score_text}")
+        match = result.get("match") or {}
+        snippet = match.get("snippet")
+        source = match.get("source")
+        source_text = f" source={source}" if source else ""
+        lines.append(f"{index}. `{entity.get('id')}` [{entity.get('type')}] {entity.get('title') or 'Untitled'}{score_text}{source_text}")
         if snippet:
             lines.append(f"   {snippet}")
     return "\n".join(lines)

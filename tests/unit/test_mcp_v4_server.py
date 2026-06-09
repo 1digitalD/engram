@@ -19,14 +19,49 @@ def test_search_entities_calls_v4_search(monkeypatch):
 
     monkeypatch.setattr(server, "_api", fake_api)
 
-    text = server.search_entities("memory", entity_type="project", limit=999)
+    text = server.search_entities(
+        "memory",
+        entity_type="project",
+        mode="semantic",
+        status="active",
+        lifecycle="archived",
+        tag="ops",
+        limit=999,
+    )
 
     assert calls == [(
         "GET",
         "/search",
-        {"params": {"q": "memory", "mode": "hybrid", "limit": 50, "type": "project"}},
+        {"params": {
+            "q": "memory",
+            "mode": "semantic",
+            "limit": 50,
+            "type": "project",
+            "status": "active",
+            "lifecycle": "archived",
+            "tag": "ops",
+        }},
     )]
     assert "Memory Lookup" in text
+
+
+def test_search_entities_supports_tag_only_queries(monkeypatch):
+    calls = []
+
+    def fake_api(method, path, **kwargs):
+        calls.append((method, path, kwargs))
+        return {"results": []}
+
+    monkeypatch.setattr(server, "_api", fake_api)
+
+    text = server.search_entities(query="", tag="ops")
+
+    assert calls == [(
+        "GET",
+        "/search",
+        {"params": {"mode": "hybrid", "limit": 10, "lifecycle": "active", "tag": "ops"}},
+    )]
+    assert "tag:ops" in text
 
 
 def test_get_entity_uses_detail_by_default(monkeypatch):

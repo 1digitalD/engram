@@ -7,7 +7,7 @@ def test_format_search_results_uses_v4_payload():
             "results": [{
                 "entity": {"id": "p1", "type": "project", "title": "Memory Lookup"},
                 "score": 0.91,
-                "match": {"snippet": "rollout"},
+                "match": {"source": "keyword", "snippet": "rollout"},
             }]
         },
         "memory",
@@ -15,6 +15,7 @@ def test_format_search_results_uses_v4_payload():
 
     assert "Memory Lookup" in text
     assert "score=0.910" in text
+    assert "source=keyword" in text
     assert "rollout" in text
 
 

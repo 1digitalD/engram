@@ -38,6 +38,21 @@ def test_keyword_search(client):
     assert data["mode"] == "keyword"
     assert [row["entity"]["title"] for row in data["results"]] == ["Memory rollout"]
     assert data["results"][0]["match"]["keyword_rank"] == 1
+    assert data["results"][0]["match"]["source"] == "keyword"
+    assert data["results"][0]["match"]["snippet"] == "Feature flags and rollback plan"
+
+
+def test_keyword_search_ranks_partial_matches_by_coverage(client):
+    _create_entity(client, "note", "Memory rollback", "Deployment memory rollback checklist")
+    _create_entity(client, "note", "Memory only", "Lookup notes")
+    _create_entity(client, "note", "Rollback only", "Deployment safety")
+
+    response = client.get("/api/v4/search?q=memory rollback&mode=keyword")
+
+    assert response.status_code == 200
+    titles = [row["entity"]["title"] for row in response.get_json()["results"]]
+    assert titles[0] == "Memory rollback"
+    assert set(titles) == {"Memory rollback", "Memory only", "Rollback only"}
 
 
 def test_semantic_search_with_mocked_embeddings(client, app):
@@ -55,6 +70,23 @@ def test_semantic_search_with_mocked_embeddings(client, app):
     assert data["mode"] == "semantic"
     assert data["results"][0]["entity"]["id"] == memory["id"]
     assert data["results"][0]["match"]["semantic_rank"] == 1
+    assert data["results"][0]["match"]["source"] == "semantic"
+    assert data["results"][0]["match"]["snippet"] == "deployment safety"
+
+
+def test_semantic_search_filters_weak_matches(client, app):
+    relevant = _create_entity(client, "note", "Relevant note", "Feature flags")
+    weak = _create_entity(client, "task", "Weak note", "Grocery list")
+    with app.app_context():
+        _add_chunk(relevant["id"], "deployment safety", [1.0] + [0.0] * 1535)
+        _add_chunk(weak["id"], "milk eggs", [0.0, 1.0] + [0.0] * 1534)
+
+    with patch("services.embeddings._embed_texts", return_value=[[1.0] + [0.0] * 1535]):
+        response = client.get("/api/v4/search?q=deployment&mode=semantic")
+
+    assert response.status_code == 200
+    results = response.get_json()["results"]
+    assert [row["entity"]["id"] for row in results] == [relevant["id"]]
 
 
 def test_hybrid_search_uses_rrf(client, app):
@@ -72,6 +104,9 @@ def test_hybrid_search_uses_rrf(client, app):
     assert data["mode"] == "hybrid"
     assert {row["entity"]["id"] for row in data["results"]} == {keyword["id"], semantic["id"]}
     assert all(row["score"] > 0 for row in data["results"])
+    by_id = {row["entity"]["id"]: row for row in data["results"]}
+    assert by_id[keyword["id"]]["match"]["source"] == "keyword"
+    assert by_id[semantic["id"]]["match"]["source"] == "semantic"
 
 
 def test_hybrid_search_degrades_to_keyword_without_embeddings(client, monkeypatch):
