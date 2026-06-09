@@ -1,10 +1,10 @@
 """Semantic deduplication and reconciliation for extracted entity candidates.
 
 Pipeline:
-  1. For each candidate, embed its title and find top-k existing entities of the
-     same type by cosine similarity.
-  2. Pass all candidates + their matches to an LLM in one batched call.
-  3. Return a decision per candidate: new / update / link.
+  1. Batch-embed all candidate titles in a single API call.
+  2. Load each entity type's chunk set once; score all candidates of that type.
+  3. Pass all candidates + their matches to an LLM in one batched call.
+  4. Return a decision per candidate: new / update / link.
 """
 from __future__ import annotations
 
@@ -88,11 +88,7 @@ def reconcile_candidates(candidates):
     if not candidates:
         return []
 
-    enriched = [
-        {"candidate": c, "matches": _find_similar(c.get("title", ""), c.get("type", ""))}
-        for c in candidates
-    ]
-
+    enriched = _enrich_candidates(candidates)
     decisions = _call_model(enriched)
 
     # Pad / fill defaults so caller always gets len(candidates) decisions
@@ -103,56 +99,115 @@ def reconcile_candidates(candidates):
     return decisions[:len(candidates)]
 
 
-# ── Semantic candidate lookup ─────────────────────────────────────────────────
+# ── Batch enrichment ──────────────────────────────────────────────────────────
 
-def _find_similar(title, entity_type):
-    from services.embeddings import embed_query
+def _enrich_candidates(candidates):
+    """Return enriched list [{candidate, matches}] using batched embeddings.
+
+    Single _embed_texts call for all N candidates.
+    Chunk set for each entity type loaded once and reused across candidates.
+    """
+    # --- Step 1: exact matches (no embedding needed) ---
+    exact_by_index = {}
+    for i, c in enumerate(candidates):
+        title = c.get("title", "")
+        entity_type = c.get("type", "")
+        if title and entity_type:
+            exact_by_index[i] = _exact_match(title, entity_type)
+
+    # --- Step 2: batch embed all titles in one API call ---
+    titles = [c.get("title", "") for c in candidates]
+    vectors = _embed_texts(titles) if any(titles) else []
+
+    # --- Step 3: load chunk sets once per entity type ---
+    types_needed = {c.get("type", "") for c in candidates if c.get("type")}
+    chunks_by_type = {
+        entity_type: _load_chunks_for_type(entity_type)
+        for entity_type in types_needed
+    }
+
+    # --- Step 4: score each candidate against its type's chunk set ---
+    enriched = []
+    for i, candidate in enumerate(candidates):
+        title = candidate.get("title", "")
+        entity_type = candidate.get("type", "")
+        exact = exact_by_index.get(i, [])
+
+        if not title or not entity_type or i >= len(vectors) or not vectors[i]:
+            enriched.append({"candidate": candidate, "matches": exact})
+            continue
+
+        vector = vectors[i]
+        best = {m["id"]: m for m in exact}  # seed with exact match
+
+        for chunk_entity_id, chunk_text, chunk_embedding, entity_data in chunks_by_type.get(entity_type, []):
+            if not chunk_embedding:
+                continue
+            score = _cosine(vector, chunk_embedding)
+            if score < SIMILARITY_THRESHOLD:
+                continue
+            current = best.get(chunk_entity_id)
+            if current is None or score > current["score"]:
+                best[chunk_entity_id] = {**entity_data, "score": score}
+
+        ranked = sorted(best.values(), key=lambda x: x["score"], reverse=True)
+        enriched.append({"candidate": candidate, "matches": ranked[:TOP_K]})
+
+    return enriched
+
+
+def _load_chunks_for_type(entity_type):
+    """Load all chunks for active entities of entity_type.
+
+    Returns list of (entity_id, chunk_text, embedding, entity_data_dict).
+    Called once per type per reconcile_candidates invocation.
+    """
     from models import Entity, EntityChunk
-    from sqlalchemy import func
-
-    if not title or not entity_type:
-        return []
-
-    # Always include an exact-match hit at score=1.0 if one exists. This ensures
-    # backward-compatible behaviour when embeddings are unavailable.
-    exact = _exact_match(title, entity_type)
-
-    vector = embed_query(title)
-    if not vector:
-        return exact
 
     entity_ids = {
-        e.id for e in Entity.query.filter(
+        e.id: e
+        for e in Entity.query.filter(
             Entity.type == entity_type,
             Entity.lifecycle != "deleted",
         ).all()
     }
     if not entity_ids:
-        return exact
+        return []
 
-    best = {m["id"]: m for m in exact}  # seed with exact match
+    rows = []
     for chunk in EntityChunk.query.filter(EntityChunk.entity_id.in_(entity_ids)).all():
-        if not chunk.embedding:
+        e = entity_ids.get(chunk.entity_id)
+        if e is None:
             continue
-        score = _cosine(vector, chunk.embedding)
-        if score < SIMILARITY_THRESHOLD:
-            continue
-        current = best.get(chunk.entity_id)
-        if current is None or score > current["score"]:
-            e = chunk.entity
-            best[chunk.entity_id] = {
-                "id": e.id,
-                "title": e.title,
-                "type": e.type,
-                "status": e.status,
-                "due_at": e.due_at.isoformat() if e.due_at else None,
-                "follow_up_at": e.follow_up_at.isoformat() if e.follow_up_at else None,
-                "content_preview": (e.content or "")[:300],
-                "score": score,
-            }
+        entity_data = {
+            "id": e.id,
+            "title": e.title,
+            "type": e.type,
+            "status": e.status,
+            "due_at": e.due_at.isoformat() if e.due_at else None,
+            "follow_up_at": e.follow_up_at.isoformat() if e.follow_up_at else None,
+            "content_preview": (e.content or "")[:300],
+        }
+        rows.append((chunk.entity_id, chunk.chunk_text, chunk.embedding, entity_data))
+    return rows
 
-    ranked = sorted(best.values(), key=lambda x: x["score"], reverse=True)
-    return ranked[:TOP_K]
+
+def _embed_texts(titles):
+    """Batch-embed a list of titles. Returns list of vectors (same order).
+
+    Returns empty list if OPENAI_API_KEY is absent or on error.
+    Thin wrapper so tests can patch services.v4_reconciliation._embed_texts.
+    """
+    if not os.getenv("OPENAI_API_KEY"):
+        return []
+    if not titles:
+        return []
+    try:
+        from services.embeddings import _embed_texts as _oe
+        return _oe(titles)
+    except Exception as e:
+        logger.error("batch embed failed: %s", e)
+        return []
 
 
 def _exact_match(title, entity_type):
@@ -226,7 +281,6 @@ def _call_model(enriched):
             ],
         )
         raw = response.choices[0].message.content or "{}"
-        # Defensive: reject non-object top-level values before accessing
         if raw.strip().startswith("["):
             logger.warning(
                 "reconciliation model returned an array (not an object). "
@@ -259,11 +313,9 @@ def _call_model(enriched):
 
 
 def _heuristic_decisions(enriched):
-    """Fallback when the model call fails.
+    """Fallback when the model call fails or OPENAI_API_KEY is absent.
 
     Exact matches (score=1.0) → link; everything else → new.
-    This preserves the pre-reconciliation behavior so tests and offline
-    environments degrade gracefully.
     """
     decisions = []
     for item in enriched:
@@ -275,7 +327,7 @@ def _heuristic_decisions(enriched):
                 "action": "link",
                 "target_id": top["id"],
                 "fields": {},
-                                "relationship_type": None,
+                "relationship_type": None,
                 "confidence": candidate.get("confidence", 0.5),
                 "reason": "exact title match (heuristic fallback)",
             })
@@ -284,7 +336,7 @@ def _heuristic_decisions(enriched):
                 "action": "new",
                 "target_id": None,
                 "fields": {},
-                                "relationship_type": None,
+                "relationship_type": None,
                 "confidence": candidate.get("confidence", 0.0),
                 "reason": "no match found (heuristic fallback)",
             })
