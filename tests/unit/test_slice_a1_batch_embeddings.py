@@ -70,9 +70,11 @@ class TestBatchEmbeddingCallCount:
         assert mock_embed.call_count == 1, (
             f"Expected 1 _embed_texts call for 8 candidates, got {mock_embed.call_count}"
         )
-        titles_sent = mock_embed.call_args[0][0]
-        assert len(titles_sent) == 8
-        assert titles_sent == [c["title"] for c in candidates]
+        docs_sent = mock_embed.call_args[0][0]
+        assert len(docs_sent) == 8
+        # Each doc must at minimum contain the candidate title (A2: composed doc)
+        for cand, doc in zip(candidates, docs_sent):
+            assert cand["title"] in doc
 
     def test_single_candidate_one_embed_call(self, client, app):
         candidates = [{"type": "task", "title": "Fix the bug", "confidence": 0.8}]
@@ -86,7 +88,8 @@ class TestBatchEmbeddingCallCount:
                 v4_reconciliation.reconcile_candidates(candidates)
 
         assert mock_embed.call_count == 1
-        assert mock_embed.call_args[0][0] == ["Fix the bug"]
+        doc_sent = mock_embed.call_args[0][0][0]
+        assert "Fix the bug" in doc_sent
 
     def test_zero_candidates_no_embed_call(self, client, app):
         with patch("services.v4_reconciliation._embed_texts") as mock_embed:

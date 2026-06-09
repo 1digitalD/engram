@@ -101,10 +101,32 @@ def reconcile_candidates(candidates):
 
 # ── Batch enrichment ──────────────────────────────────────────────────────────
 
+def _build_match_document(candidate):
+    """Compose a rich match document from a candidate for embedding.
+
+    Combines entity type + title + content + evidence so the query vector
+    captures paraphrase and context, not just the title token.
+    """
+    parts = []
+    entity_type = (candidate.get("type") or "").strip()
+    if entity_type:
+        parts.append(entity_type)
+    title = (candidate.get("title") or "").strip()
+    if title:
+        parts.append(title)
+    content = (candidate.get("content") or "").strip()
+    if content:
+        parts.append(content)
+    evidence = (candidate.get("evidence") or "").strip()
+    if evidence:
+        parts.append(evidence)
+    return " ".join(parts)
+
+
 def _enrich_candidates(candidates):
     """Return enriched list [{candidate, matches}] using batched embeddings.
 
-    Single _embed_texts call for all N candidates.
+    Single _embed_texts call for all N candidates using composed match docs.
     Chunk set for each entity type loaded once and reused across candidates.
     """
     # --- Step 1: exact matches (no embedding needed) ---
@@ -115,9 +137,9 @@ def _enrich_candidates(candidates):
         if title and entity_type:
             exact_by_index[i] = _exact_match(title, entity_type)
 
-    # --- Step 2: batch embed all titles in one API call ---
-    titles = [c.get("title", "") for c in candidates]
-    vectors = _embed_texts(titles) if any(titles) else []
+    # --- Step 2: batch embed composed match documents in one API call ---
+    match_docs = [_build_match_document(c) for c in candidates]
+    vectors = _embed_texts(match_docs) if any(match_docs) else []
 
     # --- Step 3: load chunk sets once per entity type ---
     types_needed = {c.get("type", "") for c in candidates if c.get("type")}
