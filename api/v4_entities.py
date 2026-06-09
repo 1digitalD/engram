@@ -1329,6 +1329,28 @@ def resolve_entity_review(entity_id):
     return jsonify({"data": _load_entity(entity.id).to_dict(), "meta": {"dismissed_suggestions": dismissed}})
 
 
+@api_v4_bp.route("/entities/<entity_id>/resolve", methods=["POST"])
+def resolve_note(entity_id):
+    """Mark a note as resolved (ai_status=done), clearing it from the inbox."""
+    entity = _load_entity(entity_id)
+    if entity is None:
+        return _error("entity not found", 404)
+    if entity.type != "note":
+        return _error("resolve is only supported for notes", 400)
+
+    old_status = entity.ai_status
+    entity.ai_status = "done"
+    _write_event(
+        entity,
+        "note_resolved",
+        old_value={"ai_status": old_status},
+        new_value={"ai_status": "done"},
+        actor="mcp:resolve_note",
+    )
+    db.session.commit()
+    return jsonify({"data": _load_entity(entity.id).to_dict()})
+
+
 @api_v4_bp.route("/entities/<entity_id>/ingest_candidates", methods=["POST"])
 def ingest_candidates(entity_id):
     """Accept pre-extracted candidates from a calling agent, bypassing LLM extraction."""
@@ -1578,6 +1600,30 @@ def _task_detail_sections(entity, links, related_entities):
         _section("resources", "Resources", _link_items(entity, links, related_entities, "outgoing", {"references", "related"}, {"resource"})),
         _section("blocking", "Blocking / Blocked By", _link_items(entity, links, related_entities, "both", {"blocks"}, {"task"})),
         _section("related_tasks", "Related Tasks", _link_items(entity, links, related_entities, "both", {"related"}, {"task"})),
+        _section("activity_updates", "Activity", _fetch_activity_updates(entity.id)),
+    ]
+
+
+def _fetch_activity_updates(entity_id, limit=5):
+    """Fetch recent activity update notes for an entity."""
+    updates = (
+        Entity.query.join(
+            EntityLink,
+            (EntityLink.source_entity_id == Entity.id) & (EntityLink.target_entity_id == entity_id),
+        )
+        .filter(
+            Entity.type == "note",
+            Entity.source == "activity_update",
+            EntityLink.relationship_type == "activity_update",
+            Entity.lifecycle == "active",
+        )
+        .order_by(Entity.updated_at.desc())
+        .limit(limit)
+        .all()
+    )
+    return [
+        {"id": u.id, "title": u.title, "content": u.content or "", "updated_at": u.updated_at.isoformat() if u.updated_at else None}
+        for u in updates
     ]
 
 
@@ -1599,6 +1645,7 @@ def _project_detail_sections(entity, links, related_entities):
         _section("people", "People", _link_items(entity, links, related_entities, "both", {"assigned_to", "mentions", "related"}, {"person"})),
         _section("related_projects", "Related Projects", _link_items(entity, links, related_entities, "both", {"related"}, {"project"})),
         _section("blocked_by_blocks", "Blocked By / Blocks", _link_items(entity, links, related_entities, "both", {"blocks"}, {"project"})),
+        _section("activity_updates", "Activity", _fetch_activity_updates(entity.id)),
     ]
 
 
@@ -1609,6 +1656,7 @@ def _area_detail_sections(entity, links, related_entities):
         _section("notes", "Notes", _link_items(entity, links, related_entities, "both", {"related", "mentions"}, {"note"})),
         _section("resources", "Resources", _link_items(entity, links, related_entities, "both", {"references", "related"}, {"resource"})),
         _section("people", "People", _link_items(entity, links, related_entities, "both", {"mentions", "assigned_to", "related"}, {"person"})),
+        _section("activity_updates", "Activity", _fetch_activity_updates(entity.id)),
     ]
 
 

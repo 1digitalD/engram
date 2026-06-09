@@ -302,6 +302,15 @@ def append_activity_update(entity_id: str, content: str) -> str:
     return format_activity_update(payload)
 
 
+@mcp.tool(description=(
+    "Mark a note as resolved, clearing it from the inbox. "
+    "Sets ai_status to done so the note no longer appears in the inbox queue."
+))
+def resolve_note(entity_id: str) -> str:
+    payload = _api("POST", f"/entities/{entity_id}/resolve")
+    return format_entity_write(payload)
+
+
 if __name__ == "__main__":
     transport = os.getenv("TRANSPORT", "stdio")
     if transport == "stdio":
