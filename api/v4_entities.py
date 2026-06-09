@@ -1944,16 +1944,17 @@ def _apply_reconciliation_decision(note, candidate, decision, applied_changes, s
     entity_type = _candidate_value(candidate, "type")
     title = _candidate_value(candidate, "title")
     rel_from_decision = decision.get("relationship_type")
-    if action == "new" and entity_type == "task":
-        # Tasks extracted from notes always use derived_from so they appear
-        # in the Derived Tasks section on the note detail view.
-        relationship_type = "derived_from"
-    elif rel_from_decision is not None:
+    if rel_from_decision is not None:
         relationship_type = rel_from_decision
     else:
         relationship_type = _default_relationship_type(entity_type)
     if relationship_type not in RELATIONSHIP_TYPES:
         relationship_type = _default_relationship_type(entity_type)
+    # Tasks extracted from notes should always trace back to their source
+    # note via derived_from for provenance/audit. The parent link to the
+    # project is added separately by _link_task_to_note_projects.
+    if action == "new" and entity_type == "task":
+        relationship_type = "derived_from"
 
     if action in ("update", "link"):
         target_id = decision.get("target_id")
@@ -2066,6 +2067,8 @@ def _apply_reconciliation_decision(note, candidate, decision, applied_changes, s
             source="ai",
             actor="agent:v4-capture",
         )
+        if entity_type == "task":
+            _link_task_to_note_projects(note, entity, confidence, evidence, applied_changes)
     else:
         _append_capture_suggestion(
             note,
@@ -2090,6 +2093,61 @@ def _apply_reconciliation_decision(note, candidate, decision, applied_changes, s
             },
             reason=decision.get("reason"),
         )
+
+
+def _link_task_to_note_projects(note, task, confidence, evidence, applied_changes):
+    """Create parent links from a newly auto-created task to every project
+    the source note is linked to.
+
+    When a task is extracted from a meeting note, it almost certainly belongs
+    to one or more of the projects that note references. Without this step,
+    tasks end up orphaned with only a derived_from link to the note, and
+    projects show zero open tasks.
+    """
+    project_link_types = {"related", "mentions", "parent"}
+    note_project_links = EntityLink.query.filter(
+        EntityLink.source_entity_id == note.id,
+        EntityLink.relationship_type.in_(project_link_types),
+    ).all()
+
+    project_ids = {
+        link.target_entity_id
+        for link in note_project_links
+    }
+
+    if not project_ids:
+        return
+
+    projects = Entity.query.filter(
+        Entity.id.in_(project_ids),
+        Entity.type == "project",
+        Entity.lifecycle == "active",
+    ).all()
+
+    for project in projects:
+        parent_link = _create_entity_link(
+            task,
+            project,
+            "parent",
+            confidence,
+            evidence,
+            source="ai",
+        )
+        if parent_link is not None:
+            _write_event(
+                task,
+                "relationship_added",
+                new_value=parent_link.to_dict(),
+                actor="agent:v4-capture",
+                confidence=confidence,
+                reason=evidence or f"inherited from note {note.id}",
+            )
+            applied_changes.append({
+                "type": "relationship_added",
+                "target_entity_id": project.id,
+                "relationship_type": "parent",
+                "confidence": confidence,
+            })
 
 
 def _apply_entity_update(note, entity, candidate, decision, relationship_type, confidence, evidence, applied_changes):

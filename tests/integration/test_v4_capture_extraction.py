@@ -753,3 +753,86 @@ def test_capture_suppresses_recently_dismissed_duplicate_suggestion(client, app)
 
     with app.app_context():
         assert AiSuggestion.query.filter_by(suggestion_type="create_task").count() == 1
+
+
+def test_capture_auto_created_task_links_to_source_note_projects(client, app):
+    """Tasks auto-created from a note should get parent links to any
+    projects the source note is already linked to.
+
+    This is the critical path that turns extracted tasks into visible
+    children of their projects, fixing project task_counts and the
+    project detail 'Open Tasks' section."""
+    project = client.post(
+        "/api/v4/entities",
+        json={"type": "project", "title": "Memory Lookup"},
+    ).get_json()["data"]
+
+    extraction = {
+        "links": [
+            {
+                "target_type": "project",
+                "title": "Memory Lookup",
+                "relationship_type": "related",
+                "confidence": 0.95,
+                "evidence": "Memory Lookup is the project",
+            }
+        ],
+        "entities": [
+            {
+                "type": "task",
+                "title": "Follow up on Memory Lookup rollout",
+                "confidence": 0.91,
+                "evidence": "need to follow up",
+            }
+        ],
+    }
+
+    with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction):
+        response = client.post(
+            "/api/v4/capture",
+            json={"content": "Follow up on Memory Lookup rollout"},
+        )
+
+    assert response.status_code == 201
+    data = response.get_json()
+    note_id = data["source_note"]["id"]
+
+    # Task should be auto-created
+    task_created = next(
+        (c for c in data["applied_changes"] if c["type"] == "entity_created" and c["entity_type"] == "task"),
+        None,
+    )
+    assert task_created is not None, "expected task to be auto-created"
+    task_id = task_created["entity_id"]
+
+    with app.app_context():
+        # Task → note (derived_from) — preserved for provenance
+        note_link = EntityLink.query.filter_by(
+            source_entity_id=task_id,
+            target_entity_id=note_id,
+            relationship_type="derived_from",
+        ).first()
+        assert note_link is not None, "task must have derived_from link to source note"
+
+        # Task → project (parent) — this is the new behavior
+        parent_link = EntityLink.query.filter_by(
+            source_entity_id=task_id,
+            target_entity_id=project["id"],
+            relationship_type="parent",
+        ).first()
+        assert parent_link is not None, "task must have parent link to project"
+
+        # Project detail should show the task in open_tasks
+        detail = client.get(f"/api/v4/entities/{project['id']}/detail")
+        sections = {s["key"]: s for s in detail.get_json()["sections"]}
+        open_tasks = sections["open_tasks"]["items"]
+        assert len(open_tasks) == 1
+        assert open_tasks[0]["entity"]["id"] == task_id
+        assert open_tasks[0]["entity"]["title"] == "Follow up on Memory Lookup rollout"
+
+        # Note detail should still show the task in derived_tasks
+        note_detail = client.get(f"/api/v4/entities/{note_id}/detail")
+        note_sections = {s["key"]: s for s in note_detail.get_json()["sections"]}
+        derived = note_sections["derived_tasks"]["items"]
+        assert len(derived) == 1
+        assert derived[0]["entity"]["id"] == task_id
