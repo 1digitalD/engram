@@ -278,6 +278,15 @@ Non-authoritative historical artifacts:
   - see `docs/iterations/SLICE_E1_SUMMARY_ENDPOINT.md`
   - not yet deployed — Phase E deploys after E4
 
+- Slice E2 (Home → stats + workflow shortcuts) implementation status:
+  - `V4Home.jsx` rewritten: single `v4API.summary()` call replaces the old `Promise.all([inbox, today, entities.list])`; removed the five duplicate entity-list panels (Review queue, Today, Stuck, Active projects, Inbox flow) and their `HomeSection`/`WorkflowLink`/`EntityList` helpers
+  - hero now shows 3 stat cards from `/summary`: in review (`inbox_count`), need attention (`today_count`), day reviewed (`reviewed_today`); below the hero, 3 `ShortcutCard` links (Capture → /inbox, Clear review → /suggestions, Run today → /today)
+  - `V4Home.module.css` pruned to hero/shortcut styles only
+  - `V4Home.test.jsx` rewritten to mock `v4API.summary` only; 2 tests (hero+shortcuts render from /summary; day-reviewed Yes/No)
+  - full UI suite green: 44 passed; build green
+  - see `docs/iterations/SLICE_E2_HOME_STATS_SHORTCUTS.md`
+  - not yet deployed — Phase E deploys after E4
+
 ## Validation Commands
 
 ```bash

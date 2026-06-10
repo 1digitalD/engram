@@ -53,7 +53,7 @@
 .heroStats {
   display: grid;
   gap: var(--space-2);
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .statCard {
@@ -83,201 +83,48 @@
   text-transform: uppercase;
 }
 
-.grid {
+.shortcutGrid {
   display: grid;
   gap: var(--space-3);
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.panel {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  min-width: 0;
-}
-
-.panelHeader {
-  align-items: baseline;
-  border-bottom: 1px solid var(--border-faint);
-  display: flex;
-  gap: var(--space-2);
-  justify-content: space-between;
-  padding-bottom: var(--space-2);
-}
-
-.panelTitleBlock {
-  min-width: 0;
-}
-
-.panelTitleBlock h2 {
-  font-size: var(--text-base);
-  font-weight: 650;
-  margin: 0;
-}
-
-.panelTitleBlock p {
-  color: var(--text-muted);
-  font-size: var(--text-xs);
-  margin-top: 2px;
-}
-
-.panelHeaderRight {
-  align-items: center;
-  display: flex;
-  gap: var(--space-2);
-}
-
-.countPill {
-  align-items: center;
-  background: color-mix(in oklch, var(--accent) 9%, var(--surface));
-  border: 1px solid color-mix(in oklch, var(--accent) 22%, var(--border));
-  border-radius: var(--radius-full);
-  color: var(--accent);
-  display: inline-flex;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 700;
-  justify-content: center;
-  min-height: 18px;
-  min-width: 22px;
-  padding: 2px 6px;
-}
-
-.inlineLink {
-  color: var(--accent);
-  font-size: var(--text-xs);
-  font-weight: 600;
-}
-
-.list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.row {
+.shortcutCard {
   border: 1px solid var(--border-faint);
-  border-radius: var(--radius-md);
-}
-
-.rowLink {
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
   color: var(--text);
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-  padding: 9px 10px;
-  text-decoration: none;
-}
-
-.rowLink:hover {
-  background: var(--surface2);
-}
-
-.rowLink strong {
-  font-size: var(--text-sm);
-  font-weight: 600;
-}
-
-.metaRow {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-
-.typePill,
-.statusPill,
-.priorityPill {
-  border-radius: var(--radius-full);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  padding: 1px 7px;
-  text-transform: lowercase;
-}
-
-.typePill {
-  background: color-mix(in oklch, var(--surface) 60%, var(--surface2));
-  border: 1px solid var(--border-faint);
-  color: var(--text-secondary);
-}
-
-.statusPill {
-  background: color-mix(in oklch, var(--accent) 8%, var(--surface));
-  border: 1px solid color-mix(in oklch, var(--accent) 22%, var(--border));
-  color: var(--accent);
-}
-
-.priorityPill {
-  background: color-mix(in oklch, var(--yellow) 14%, var(--surface));
-  border: 1px solid color-mix(in oklch, var(--yellow) 35%, var(--border));
-  color: color-mix(in oklch, var(--yellow) 70%, var(--text));
-}
-
-.empty {
-  color: var(--text-muted);
-  font-size: var(--text-sm);
-}
-
-.stalledBlock {
-  border-top: 1px dashed var(--border-faint);
-  margin-top: var(--space-1);
-  padding-top: var(--space-2);
-}
-
-.subhead {
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  margin-bottom: 6px;
-  text-transform: uppercase;
-}
-
-.workflowGrid {
-  display: grid;
   gap: var(--space-2);
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-}
-
-.workflowLink {
-  border: 1px solid var(--border-faint);
-  border-radius: var(--radius-md);
-  background: color-mix(in oklch, var(--surface2) 60%, var(--surface));
-  color: var(--text);
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
   min-width: 0;
-  padding: 10px 12px;
+  padding: var(--space-4);
   text-decoration: none;
 }
 
-.workflowLink:hover {
+.shortcutCard:hover {
   border-color: var(--border);
   background: color-mix(in oklch, var(--accent) 5%, var(--surface));
 }
 
-.workflowLink strong {
-  font-size: var(--text-sm);
+.shortcutCard strong {
+  font-size: var(--text-base);
   font-weight: 650;
 }
 
-.workflowLink span {
+.shortcutCard span {
   color: var(--text-muted);
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   line-height: 1.45;
 }
 
 @media (max-width: 1000px) {
-  .hero,
-  .grid {
+  .hero {
+    grid-template-columns: 1fr;
+  }
+
+  .shortcutGrid {
     grid-template-columns: 1fr;
   }
 }
@@ -287,22 +134,11 @@
     padding: var(--space-3);
   }
 
-  .hero,
-  .panel {
+  .hero {
     padding: var(--space-3);
   }
 
   .heroStats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .panelHeader {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .panelHeaderRight {
-    width: 100%;
-    justify-content: space-between;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }

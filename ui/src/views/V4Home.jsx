@@ -1,97 +1,26 @@
 import { useEffect, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { v4API } from '../api/v4Client';
-import MarkdownContent from '../components/MarkdownContent';
-import { getTodayActionableEntities, getTodayAttentionCount, getTodayStuckEntities } from '../utils/today';
 import styles from './V4Home.module.css';
 
-function entityPath(entity) {
-  if (!entity) return '#';
-  const base = entity.type === 'person' ? 'people' : `${entity.type}s`;
-  return `/${base}/${entity.id}`;
-}
-
-function entityTitle(entity) {
-  return entity?.title || entity?.content?.slice(0, 80) || 'Untitled note';
-}
-
-function HomeSection({ title, hint, count, action, children }) {
+function ShortcutCard({ to, label, detail }) {
   return (
-    <section className={styles.panel}>
-      <header className={styles.panelHeader}>
-        <div className={styles.panelTitleBlock}>
-          <h2>{title}</h2>
-          {hint ? <p>{hint}</p> : null}
-        </div>
-        <div className={styles.panelHeaderRight}>
-          {typeof count === 'number' ? <span className={styles.countPill}>{count}</span> : null}
-          {action || null}
-        </div>
-      </header>
-      {children}
-    </section>
-  );
-}
-
-function WorkflowLink({ to, label, detail }) {
-  return (
-    <Link to={to} className={styles.workflowLink}>
+    <Link to={to} className={styles.shortcutCard}>
       <strong>{label}</strong>
       <span>{detail}</span>
     </Link>
   );
 }
 
-function EntityList({ items, fromState }) {
-  if (!items.length) {
-    return <p className={styles.empty}>Nothing here.</p>;
-  }
-  return (
-    <ul className={styles.list}>
-      {items.map((entity) => (
-        <li key={entity.id} className={styles.row}>
-          <Link to={entityPath(entity)} state={fromState} className={styles.rowLink}>
-            <strong>{entity.title || 'Untitled'}</strong>
-            {entity.content ? <MarkdownContent content={entity.content} compact /> : null}
-            <span className={styles.metaRow}>
-              <span className={styles.typePill}>{entity.type}</span>
-              <span className={styles.statusPill}>{entity.status}</span>
-              {entity.properties?.priority ? (
-                <span className={styles.priorityPill}>!{entity.properties.priority}</span>
-              ) : null}
-            </span>
-          </Link>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
 export default function V4Home() {
-  const location = useLocation();
-  const fromState = { from: location.pathname + location.search };
-  const [state, setState] = useState({
-    inbox: null,
-    today: null,
-    projects: [],
-    error: '',
-  });
+  const [state, setState] = useState({ summary: null, error: '' });
 
   useEffect(() => {
     let active = true;
-    Promise.all([
-      v4API.inbox({ limit: 8 }),
-      v4API.today(),
-      v4API.entities.list({ type: 'project', status: 'active', lifecycle: 'active', limit: 8 }),
-    ])
-      .then(([inbox, today, projects]) => {
+    v4API.summary()
+      .then((summary) => {
         if (!active) return;
-        setState({
-          inbox,
-          today,
-          projects: projects.data || [],
-          error: '',
-        });
+        setState({ summary, error: '' });
       })
       .catch((err) => {
         if (!active) return;
@@ -113,7 +42,7 @@ export default function V4Home() {
     );
   }
 
-  if (!state.inbox || !state.today) {
+  if (!state.summary) {
     return (
       <main className={styles.home}>
         <section className={styles.hero}>
@@ -124,17 +53,7 @@ export default function V4Home() {
     );
   }
 
-  const { inbox, today, projects } = state;
-  const needsReview = inbox.needs_review || [];
-  const recent = inbox.recent || [];
-  const actionableToday = getTodayActionableEntities(today).slice(0, 6);
-  const stuck = getTodayStuckEntities(today).slice(0, 6);
-  const stalledProjects = today.projects_without_open_tasks || [];
-  const summary = {
-    review: needsReview.length,
-    today: getTodayAttentionCount(today),
-    stalledProjects: stalledProjects.length,
-  };
+  const { inbox_count: review, today_count: today, reviewed_today: reviewedToday } = state.summary;
 
   return (
     <main className={styles.home}>
@@ -148,95 +67,36 @@ export default function V4Home() {
         </div>
         <div className={styles.heroStats}>
           <Link to="/suggestions" className={styles.statCard}>
-            <strong>{summary.review}</strong>
+            <strong>{review}</strong>
             <span>in review</span>
           </Link>
           <Link to="/today" className={styles.statCard}>
-            <strong>{summary.today}</strong>
+            <strong>{today}</strong>
             <span>need attention</span>
           </Link>
-          <Link to="/projects" className={styles.statCard}>
-            <strong>{projects.length}</strong>
-            <span>active projects</span>
-          </Link>
-          <Link to="/inbox" className={styles.statCard}>
-            <strong>{recent.length}</strong>
-            <span>recent captures</span>
+          <Link to="/today" className={styles.statCard}>
+            <strong>{reviewedToday ? 'Yes' : 'No'}</strong>
+            <span>day reviewed</span>
           </Link>
         </div>
       </section>
 
-      <div className={styles.grid}>
-        <HomeSection
-          title="Review queue"
-          hint="Notes waiting on AI or user review."
-          count={needsReview.length}
-          action={<Link to="/suggestions" className={styles.inlineLink}>Open review</Link>}
-        >
-          <EntityList items={needsReview.slice(0, 5)} fromState={fromState} />
-        </HomeSection>
-
-        <HomeSection
-          title="Today"
-          hint="Overdue, due, and follow-up work."
-          count={actionableToday.length}
-          action={<Link to="/today" className={styles.inlineLink}>Open today</Link>}
-        >
-          <EntityList items={actionableToday} fromState={fromState} />
-        </HomeSection>
-
-        <HomeSection
-          title="Stuck"
-          hint="Blocked or waiting work that needs movement."
-          count={stuck.length + stalledProjects.length}
-          action={<Link to="/today" className={styles.inlineLink}>Review blockers</Link>}
-        >
-          {stuck.length > 0 ? (
-            <EntityList items={stuck} fromState={fromState} />
-          ) : (
-            <p className={styles.empty}>No blocked or waiting tasks.</p>
-          )}
-          {stalledProjects.length > 0 ? (
-            <div className={styles.stalledBlock}>
-              <p className={styles.subhead}>Projects missing a next task</p>
-              <EntityList items={stalledProjects.slice(0, 4)} fromState={fromState} />
-            </div>
-          ) : null}
-        </HomeSection>
-
-        <HomeSection
-          title="Active projects"
-          hint="Current project surfaces worth revisiting."
-          count={projects.length}
-          action={<Link to="/projects" className={styles.inlineLink}>All projects</Link>}
-        >
-          <EntityList items={projects.slice(0, 6)} fromState={fromState} />
-        </HomeSection>
-
-        <HomeSection
-          title="Inbox flow"
-          hint="Capture in Inbox, clear Review, then move into execution."
-          count={summary.review + recent.length}
-          action={<Link to="/inbox" className={styles.inlineLink}>Open inbox</Link>}
-        >
-          <div className={styles.workflowGrid}>
-            <WorkflowLink
-              to="/inbox"
-              label="Capture"
-              detail={`${recent.length} captured recently`}
-            />
-            <WorkflowLink
-              to="/suggestions"
-              label="Clear review"
-              detail={`${summary.review} note${summary.review === 1 ? '' : 's'} in review`}
-            />
-            <WorkflowLink
-              to="/today"
-              label="Run today"
-              detail={`${summary.today} item${summary.today === 1 ? '' : 's'} need attention`}
-            />
-          </div>
-        </HomeSection>
+      <div className={styles.shortcutGrid}>
+        <ShortcutCard
+          to="/inbox"
+          label="Capture"
+          detail="Capture a note or jump into the inbox queue."
+        />
+        <ShortcutCard
+          to="/suggestions"
+          label="Clear review"
+          detail={`${review} note${review === 1 ? '' : 's'} in review`}
+        />
+        <ShortcutCard
+          to="/today"
+          label="Run today"
+          detail={`${today} item${today === 1 ? '' : 's'} need attention`}
+        />
       </div>
     </main>
   );
