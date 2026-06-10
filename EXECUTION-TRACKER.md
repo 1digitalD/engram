@@ -296,6 +296,14 @@ Non-authoritative historical artifacts:
   - see `docs/iterations/SLICE_E3_INBOX_REVIEW_MERGE.md`
   - not yet deployed — Phase E deploys after E4
 
+- Slice E4 (Quick capture textarea + sidebar cleanup) implementation status:
+  - `QuickActionBar`'s note field is now a plain `<textarea aria-label="Quick note content">` (was `MarkdownEditor`); removed the now-unused `MarkdownEditor` import
+  - removed "Agent log" from sidebar `viewItems` and the unused `Activity` icon import; `/agent-activity` route + `V4AgentActivity` view unchanged (deep-link only)
+  - `App.test.jsx`: dropped the `MarkdownEditor` mock (real textarea now exercised); asserts "Agent log" link absent from sidebar
+  - full UI suite green: 44 passed; build green; full backend suite green: 226 passed (no backend changes)
+  - see `docs/iterations/SLICE_E4_QUICK_CAPTURE_SIDEBAR_CLEANUP.md`
+  - **Deploys Phase E** (this is the final E-slice)
+
 ## Validation Commands
 
 ```bash

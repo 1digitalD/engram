@@ -20,17 +20,6 @@ vi.mock('./api/v4Client', () => ({
   },
 }));
 
-vi.mock('./components/MarkdownEditor', () => ({
-  default: ({ value, onChange, placeholder }) => (
-    <textarea
-      aria-label="Quick note content"
-      placeholder={placeholder}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-    />
-  ),
-}));
-
 vi.mock('./views/V4Home', () => ({ default: () => <main>Home view</main> }));
 vi.mock('./views/V4Inbox', () => ({ default: () => <main>Inbox view</main> }));
 vi.mock('./views/V4Today', () => ({ default: () => <main>Today view</main> }));
@@ -61,8 +50,8 @@ describe('App shell', () => {
     expect(await screen.findByText('Home view')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Home/i })).toHaveAttribute('href', '/');
     expect(screen.getByRole('link', { name: /Inbox/i })).toHaveAttribute('href', '/inbox');
-    expect(screen.getByRole('link', { name: /Agent log/i })).toHaveAttribute('href', '/agent-activity');
     expect(screen.queryByRole('link', { name: /^Review$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Agent log/i })).not.toBeInTheDocument();
   });
 
   it('renders sidebar counts from the summary endpoint', async () => {

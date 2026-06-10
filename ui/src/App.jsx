@@ -15,11 +15,9 @@ import {
   Layers,
   Users,
   Link2,
-  Activity,
 } from 'lucide-react';
 import styles from './App.module.css';
 import { v4API } from './api/v4Client';
-import MarkdownEditor from './components/MarkdownEditor';
 import V4Inbox from './views/V4Inbox';
 import V4EntityList from './views/V4EntityList';
 import V4EntityDetail from './views/V4EntityDetail';
@@ -34,7 +32,6 @@ const viewItems = [
   ['/inbox', 'Inbox', Inbox, 'inbox'],
   ['/today', 'Today', Sun, 'today'],
   ['/search', 'Search', Search, null],
-  ['/agent-activity', 'Agent log', Activity, null],
 ];
 
 const libraryItems = [
@@ -170,11 +167,12 @@ function QuickActionBar() {
           {isNote ? (
             <>
               <div className={styles.quickEditorWrap}>
-                <MarkdownEditor
+                <textarea
                   value={noteContent}
-                  onChange={setNoteContent}
+                  onChange={(event) => setNoteContent(event.target.value)}
                   placeholder="Capture a note from anywhere…"
-                  minRows={3}
+                  aria-label="Quick note content"
+                  rows={3}
                 />
               </div>
               <button
