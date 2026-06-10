@@ -14,6 +14,7 @@ V4_TABLES = {
     "ai_suggestions",
     "jobs",
     "change_batches",
+    "app_settings",
 }
 
 FORBIDDEN_DTO_FIELDS = {

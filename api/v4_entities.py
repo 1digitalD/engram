@@ -11,7 +11,7 @@ from sqlalchemy.orm import selectinload
 
 from api import api_v4_bp
 from extensions import db
-from models import AiSuggestion, Entity, EntityEvent, EntityLink, EntityTag, Job, Tag
+from models import AiSuggestion, AppSetting, Entity, EntityEvent, EntityLink, EntityTag, Job, Tag
 from services.v4_attention import attention_for_entity
 
 STATUS_BY_TYPE = {
@@ -67,6 +67,8 @@ RELATIONSHIP_TYPES = {
     "blocks",
     "activity_update",
 }
+DEFAULT_OWNER_ALIASES = ["dan"]
+DEFAULT_DELEGATION_CADENCE_DAYS = 3
 AUTO_APPLY_CONFIDENCE = 0.8
 AUTO_CREATE_ENTITY_CONFIDENCE = 0.9
 RISKY_ENTITY_CREATION_TYPES = {"task", "project", "area", "resource", "person"}
@@ -973,7 +975,41 @@ def _create_activity_update_note(target, content, actor="user", confidence=None,
         reason=evidence,
         source_note_id=source_note_id,
     )
+    _refresh_delegation_cadence(target, source_note_id=source_note_id, actor=actor)
     return note, True
+
+
+def _refresh_delegation_cadence(target, source_note_id=None, actor="user"):
+    """If `target` is a task delegated to a non-owner person, push follow_up_at
+    forward by the delegation cadence following an activity update."""
+    if target.type != "task":
+        return
+    assignee_link = (
+        EntityLink.query.filter_by(
+            source_entity_id=target.id,
+            relationship_type="assigned_to",
+        )
+        .join(Entity, Entity.id == EntityLink.target_entity_id)
+        .filter(Entity.type == "person")
+        .first()
+    )
+    if assignee_link is None:
+        return
+    person = db.session.get(Entity, assignee_link.target_entity_id)
+    if person is None or _is_owner(person.title):
+        return
+    old_follow_up = target.follow_up_at
+    cadence_days = _delegation_cadence_days(person.id)
+    target.follow_up_at = _add_working_days(datetime.now(timezone.utc), cadence_days)
+    _write_event(
+        target,
+        "ai_updated",
+        old_value={"follow_up_at": old_follow_up.isoformat() if old_follow_up else None},
+        new_value={"follow_up_at": target.follow_up_at.isoformat()},
+        actor=actor,
+        reason="delegation cadence refresh",
+        source_note_id=source_note_id,
+    )
 
 
 @api_v4_bp.route("/entities/<entity_id>/activity_updates", methods=["POST"])
@@ -2493,6 +2529,41 @@ def _apply_entity_update(note, entity, candidate, decision, relationship_type, c
     )
 
 
+def _get_app_setting(key, default=None):
+    setting = db.session.get(AppSetting, key)
+    return setting.value if setting is not None else default
+
+
+def _owner_aliases():
+    aliases = _get_app_setting("owner_aliases", DEFAULT_OWNER_ALIASES)
+    return {str(a).strip().lower() for a in aliases}
+
+
+def _is_owner(name):
+    cleaned = _clean_text(name)
+    if cleaned is None:
+        return False
+    return cleaned.lower() in _owner_aliases()
+
+
+def _delegation_cadence_days(person_id=None):
+    overrides = _get_app_setting("cadence_overrides", {}) or {}
+    if person_id and person_id in overrides:
+        return overrides[person_id]
+    return _get_app_setting("default_cadence_days", DEFAULT_DELEGATION_CADENCE_DAYS)
+
+
+def _add_working_days(start, days):
+    """Add `days` working days (Mon-Fri) to `start`, skipping weekends."""
+    current = start
+    remaining = days
+    while remaining > 0:
+        current += timedelta(days=1)
+        if current.weekday() < 5:
+            remaining -= 1
+    return current
+
+
 def _parse_iso_date(value):
     """Parse an ISO 8601 date string into a timezone-aware datetime, or None."""
     if not value:
@@ -2983,6 +3054,19 @@ def _apply_assignee(note, entity, assigned_to, confidence, evidence, source, act
             confidence=confidence,
             reason=evidence,
         )
+        if entity.type == "task" and entity.follow_up_at is None and not _is_owner(assignee_name):
+            cadence_days = _delegation_cadence_days(person.id)
+            entity.follow_up_at = _add_working_days(datetime.now(timezone.utc), cadence_days)
+            _write_event(
+                entity,
+                "ai_updated",
+                old_value={"follow_up_at": None},
+                new_value={"follow_up_at": entity.follow_up_at.isoformat()},
+                actor=actor,
+                confidence=confidence,
+                reason="delegation cadence",
+                source_note_id=note.id if note is not None else None,
+            )
     return person, link, person_created
 
 

@@ -497,6 +497,37 @@ class ChangeBatch(BaseModel):
         return f"<ChangeBatch {self.id[:8]} actor={self.actor!r}>"
 
 
+# ─── App Settings ────────────────────────────────────────────────────────────
+
+
+class AppSetting(db.Model):
+    """Key/value settings store (owner identity, delegation cadence overrides).
+
+    Table: app_settings
+    """
+
+    __tablename__ = "app_settings"
+
+    key = Column(String(100), primary_key=True)
+    value = Column(JSON, nullable=False)
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        server_default=text("now()"),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+    def to_dict(self):
+        return {
+            "key": self.key,
+            "value": self.value,
+            "updated_at": _iso(self.updated_at),
+        }
+
+    def __repr__(self):
+        return f"<AppSetting {self.key!r}>"
+
+
 # ─── Helpers ─────────────────────────────────────────────────────────────────
 
 

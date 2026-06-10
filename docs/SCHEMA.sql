@@ -187,6 +187,12 @@ CREATE TABLE IF NOT EXISTS change_batches (
 CREATE INDEX IF NOT EXISTS change_batches_source_note_idx ON change_batches (source_note_id);
 CREATE INDEX IF NOT EXISTS change_batches_applied_at_idx  ON change_batches (applied_at DESC);
 
+CREATE TABLE IF NOT EXISTS app_settings (
+    key        TEXT PRIMARY KEY,
+    value      JSONB NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE OR REPLACE FUNCTION set_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN

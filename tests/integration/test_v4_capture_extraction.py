@@ -1448,3 +1448,101 @@ def test_revert_created_entity_marks_lifecycle_deleted(client, app):
 def test_revert_unknown_event_returns_404(client, app):
     response = client.post("/api/v4/events/does-not-exist/revert")
     assert response.status_code == 404
+
+
+def test_capture_assigns_delegation_sets_follow_up_at_cadence(client, app):
+    from datetime import datetime, timezone
+    from api.v4_entities import _add_working_days, _delegation_cadence_days
+
+    extraction = {
+        "entities": [
+            {
+                "type": "task",
+                "title": "Design GTM trigger doc",
+                "content": "Akash: design GTM trigger doc",
+                "assigned_to": "Akash",
+                "confidence": 0.91,
+                "evidence": "Akash: design GTM trigger doc",
+            }
+        ]
+    }
+
+    before = datetime.now(timezone.utc)
+    with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction):
+        response = client.post("/api/v4/capture", json={"content": "Akash: design GTM trigger doc"})
+
+    assert response.status_code == 201
+
+    with app.app_context():
+        task = Entity.query.filter_by(type="task", title="Design GTM trigger doc").one()
+        assert task.follow_up_at is not None
+        expected = _add_working_days(before, _delegation_cadence_days())
+        assert abs((task.follow_up_at - expected).total_seconds()) < 60
+        assert EntityEvent.query.filter_by(entity_id=task.id, event_type="ai_updated").count() >= 1
+
+
+def test_capture_does_not_set_cadence_for_owner_assignee(client, app):
+    extraction = {
+        "entities": [
+            {
+                "type": "task",
+                "title": "Review budget",
+                "content": "Dan: review budget",
+                "assigned_to": "Dan",
+                "confidence": 0.91,
+                "evidence": "Dan: review budget",
+            }
+        ]
+    }
+
+    with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction):
+        response = client.post("/api/v4/capture", json={"content": "Dan: review budget"})
+
+    assert response.status_code == 201
+
+    with app.app_context():
+        task = Entity.query.filter_by(type="task", title="Review budget").one()
+        assert task.follow_up_at is None
+
+
+def test_activity_update_refreshes_delegation_follow_up_at(client, app):
+    from datetime import datetime, timezone
+    from extensions import db
+    from api.v4_entities import _add_working_days, _delegation_cadence_days
+
+    with app.app_context():
+        person = Entity(
+            type="person", title="Akash", content=None, status="active", lifecycle="active",
+            source="user", properties={}, ai_meta={}, ai_status="pending",
+        )
+        db.session.add(person)
+        db.session.flush()
+        task = Entity(
+            type="task", title="Design GTM trigger doc", content=None, status="open", lifecycle="active",
+            source="user", properties={}, ai_meta={}, ai_status="pending",
+            follow_up_at=datetime(2020, 1, 1, tzinfo=timezone.utc),
+        )
+        db.session.add(task)
+        db.session.flush()
+        link = EntityLink(
+            source_entity_id=task.id,
+            target_entity_id=person.id,
+            relationship_type="assigned_to",
+            source="user",
+        )
+        db.session.add(link)
+        db.session.commit()
+        task_id = task.id
+
+    before = datetime.now(timezone.utc)
+    response = client.post(
+        f"/api/v4/entities/{task_id}/activity_updates",
+        json={"content": "Akash shared the first draft of the GTM trigger doc"},
+    )
+    assert response.status_code == 201
+
+    with app.app_context():
+        task = db.session.get(Entity, task_id)
+        expected = _add_working_days(before, _delegation_cadence_days())
+        assert abs((task.follow_up_at - expected).total_seconds()) < 60
+        assert EntityEvent.query.filter_by(entity_id=task_id, event_type="ai_updated").count() >= 1

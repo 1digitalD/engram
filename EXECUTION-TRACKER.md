@@ -209,6 +209,12 @@ Non-authoritative historical artifacts:
   - red-first integration tests (6 new) + 1 new UI test; full backend suite green: 201 passed (was 195); UI: 43 passed (was 42), build green
   - no extraction/reconciliation changes in this slice, so replay eval not re-run
   - **Phase B deployed to prod (2026-06-09)**: pre-migration snapshot taken (`backups/engram_prod_pre_b3_20260609_225003.dump`), `scripts/migrations/001_add_event_revert_fields.sql` applied to prod Postgres (additive only), `./scripts/engram-deploy.sh` run, `/api/v4/health` and `/api/v4/today` smoke-tested OK
+- Slice C1 (delegation detection + cadence) implementation status:
+  - new additive `app_settings` key/value table (`docs/SCHEMA.sql` + `scripts/migrations/002_add_app_settings.sql`, not yet applied to prod) holds owner aliases (`default: ["dan"]`) and per-person cadence overrides; defaults apply with no rows present
+  - `_apply_assignee` now sets `follow_up_at = now + cadence working days` (default 3) on a task when assigned to a non-owner person and no `follow_up_at` is already set, recording an `ai_updated` event; covers capture and suggestion-accept paths
+  - `_create_activity_update_note` now calls `_refresh_delegation_cadence`, pushing a delegated task's `follow_up_at` forward by the cadence again on each activity update
+  - red-first integration tests (3 new) + `V4_TABLES` unit-test update; full suite green: 204 passed (was 201)
+  - see `docs/iterations/SLICE_C1_DELEGATION_CADENCE.md`; not yet deployed (Phase C deploys once after C4)
 
 ## Validation Commands
 
