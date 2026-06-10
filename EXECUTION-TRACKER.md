@@ -193,6 +193,13 @@ Non-authoritative historical artifacts:
   - red-first integration tests added (`tests/integration/test_v4_capture_extraction.py`), full suite green: 192 passed (was 189)
   - replay eval run 3x post-change: 17/27, 17/27, 16/27 — below the single Phase A baseline reading (19/27) but the wrong items are dominated by pre-existing umbrella-area/Hemant matching noise documented in `SLICE_B1_UMBRELLA_LINK_FILTER.md`, not by `progress_update`; see `docs/iterations/SLICE_B1_PROGRESS_UPDATE.md` for full analysis
   - acceptance target "≥3 activity updates from one real standup note" verified at the mechanism level via integration tests; live model picked `progress_update` only 1-2x per 27-candidate eval run — follow-up prompt tuning needed to increase pickup rate
+- Slice B2 (auto-apply state changes carried by `progress_update`) implementation status:
+  - `progress_update` decisions can carry an optional `fields.status`; `SYSTEM_PROMPT` documents when to use it (shipped/delivered → done, waiting on X → waiting, blocked on X → blocked)
+  - at confidence ≥ `AUTO_APPLY_CONFIDENCE` (0.8) and a status valid for the target's type and different from current, the status is auto-applied with an `ai_updated` `EntityEvent` recording `old_value`/`new_value`
+  - below the gate, the status change becomes an `update_entity` suggestion (reuses existing `_accept_update_entity_suggestion`); the activity-update note is still applied either way (additive/safe per B1)
+  - invalid/unchanged statuses are silently ignored (vocabulary guard via `VALID_STATUS`)
+  - red-first integration tests added, full suite green: 195 passed (was 192)
+  - replay eval run once post-change: 15/27 — consistent with the same pre-existing umbrella-area/person-matching noise as B1's runs (17/27, 17/27, 16/27), not caused by this slice's status logic (which fired on 0 status-bearing decisions in this run); see `docs/iterations/SLICE_B2_STATUS_AUTO_APPLY.md`
 
 ## Validation Commands
 

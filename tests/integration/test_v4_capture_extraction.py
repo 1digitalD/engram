@@ -1003,3 +1003,171 @@ def test_capture_progress_update_dedups_within_24h(client, app):
     updates = client.get(f"/api/v4/entities/{project_id}/activity_updates").get_json()["data"]
     matching = [u for u in updates if u["content"] == "Shipped the HITL piece"]
     assert len(matching) == 1
+
+
+def test_capture_progress_update_with_high_confidence_status_auto_applies(client, app):
+    task_response = client.post(
+        "/api/v4/entities",
+        json={"type": "task", "title": "Build HITL piece", "content": "Task"},
+    )
+    task_id = task_response.get_json()["data"]["id"]
+
+    extraction = {
+        "entities": [
+            {
+                "type": "task",
+                "title": "Build HITL piece",
+                "content": "Shipped the HITL piece",
+                "confidence": 0.9,
+                "evidence": "Shipped the HITL piece",
+            },
+        ]
+    }
+    decisions = [
+        {
+            "action": "progress_update",
+            "target_id": task_id,
+            "update_text": "Shipped the HITL piece",
+            "fields": {"status": "done"},
+            "confidence": 0.92,
+            "reason": "task delivered",
+        },
+    ]
+
+    with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction), patch(
+        "services.v4_reconciliation.reconcile_candidates", return_value=decisions
+    ):
+        response = client.post("/api/v4/capture", json={"content": "Standup notes"})
+
+    assert response.status_code == 201
+    data = response.get_json()
+    assert data["suggestions"] == []
+
+    activity_changes = [c for c in data["applied_changes"] if c["type"] == "activity_update_added"]
+    assert len(activity_changes) == 1
+
+    status_changes = [c for c in data["applied_changes"] if c["type"] == "entity_updated"]
+    assert status_changes == [
+        {
+            "type": "entity_updated",
+            "entity_id": task_id,
+            "entity_type": "task",
+            "title": "Build HITL piece",
+            "changes": {"status": "done"},
+        }
+    ]
+
+    with app.app_context():
+        from extensions import db
+        task = db.session.get(Entity, task_id)
+        assert task.status == "done"
+
+        event = (
+            EntityEvent.query.filter_by(entity_id=task_id, event_type="ai_updated")
+            .order_by(EntityEvent.created_at.desc())
+            .first()
+        )
+        assert event is not None
+        assert event.old_value == {"status": "open"}
+        assert event.new_value == {"status": "done"}
+
+
+def test_capture_progress_update_with_low_confidence_status_becomes_suggestion(client, app):
+    task_response = client.post(
+        "/api/v4/entities",
+        json={"type": "task", "title": "Build infra", "content": "Task"},
+    )
+    task_id = task_response.get_json()["data"]["id"]
+
+    extraction = {
+        "entities": [
+            {
+                "type": "task",
+                "title": "Build infra",
+                "content": "Still waiting on infra",
+                "confidence": 0.6,
+                "evidence": "Still waiting on infra",
+            },
+        ]
+    }
+    decisions = [
+        {
+            "action": "progress_update",
+            "target_id": task_id,
+            "update_text": "Still waiting on infra",
+            "fields": {"status": "waiting"},
+            "confidence": 0.5,
+            "reason": "possible status change",
+        },
+    ]
+
+    with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction), patch(
+        "services.v4_reconciliation.reconcile_candidates", return_value=decisions
+    ):
+        response = client.post("/api/v4/capture", json={"content": "Standup notes"})
+
+    assert response.status_code == 201
+    data = response.get_json()
+
+    # Activity update is additive/safe — still applied even at low confidence.
+    activity_changes = [c for c in data["applied_changes"] if c["type"] == "activity_update_added"]
+    assert len(activity_changes) == 1
+
+    # Status change is not auto-applied below the confidence gate.
+    assert all(c["type"] != "entity_updated" for c in data["applied_changes"])
+
+    assert len(data["suggestions"]) == 1
+    suggestion = data["suggestions"][0]
+    assert suggestion["operation_type"] == "update_entity"
+    assert suggestion["payload"]["target_entity_id"] == task_id
+    assert suggestion["payload"]["fields"] == {"status": "waiting"}
+
+    with app.app_context():
+        from extensions import db
+        task = db.session.get(Entity, task_id)
+        assert task.status == "open"
+
+
+def test_capture_progress_update_with_invalid_status_is_ignored(client, app):
+    task_response = client.post(
+        "/api/v4/entities",
+        json={"type": "task", "title": "Build infra", "content": "Task"},
+    )
+    task_id = task_response.get_json()["data"]["id"]
+
+    extraction = {
+        "entities": [
+            {
+                "type": "task",
+                "title": "Build infra",
+                "content": "Some progress",
+                "confidence": 0.9,
+                "evidence": "Some progress",
+            },
+        ]
+    }
+    decisions = [
+        {
+            "action": "progress_update",
+            "target_id": task_id,
+            "update_text": "Some progress",
+            "fields": {"status": "not_a_real_status"},
+            "confidence": 0.95,
+            "reason": "progress note",
+        },
+    ]
+
+    with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction), patch(
+        "services.v4_reconciliation.reconcile_candidates", return_value=decisions
+    ):
+        response = client.post("/api/v4/capture", json={"content": "Standup notes"})
+
+    assert response.status_code == 201
+    data = response.get_json()
+    assert data["suggestions"] == []
+    assert all(c["type"] != "entity_updated" for c in data["applied_changes"])
+
+    with app.app_context():
+        from extensions import db
+        task = db.session.get(Entity, task_id)
+        assert task.status == "open"

@@ -2068,6 +2068,52 @@ def _apply_reconciliation_decision(note, candidate, decision, applied_changes, s
             "confidence": confidence,
             "created": created,
         })
+
+        new_status = (decision.get("fields") or {}).get("status")
+        if new_status in VALID_STATUS.get(target.type, set()) and new_status != target.status:
+            if confidence >= AUTO_APPLY_CONFIDENCE:
+                old_status = target.status
+                target.status = new_status
+                applied_changes.append({
+                    "type": "entity_updated",
+                    "entity_id": target.id,
+                    "entity_type": target.type,
+                    "title": target.title,
+                    "changes": {"status": new_status},
+                })
+                _write_event(
+                    target,
+                    "ai_updated",
+                    old_value={"status": old_status},
+                    new_value={"status": new_status},
+                    actor="agent:v4-capture",
+                    confidence=confidence,
+                    reason=decision.get("reason"),
+                )
+                _queue_embed_job(target.id, "capture_auto_update")
+            else:
+                _append_capture_suggestion(
+                    note,
+                    candidate,
+                    action="update",
+                    entity_type=target.type,
+                    relationship_type=relationship_type,
+                    confidence=confidence,
+                    evidence=evidence,
+                    suggestions=suggestions,
+                    suggestion_type=f"update_{target.type}",
+                    operation_type="update_entity",
+                    payload={
+                        "target_entity_id": target.id,
+                        "target_type": target.type,
+                        "title": target.title,
+                        "fields": {"status": new_status},
+                        "relationship_type": relationship_type,
+                        "assigned_to": _candidate_value(candidate, "assigned_to"),
+                        "evidence": evidence,
+                    },
+                    reason=decision.get("reason"),
+                )
         return
 
     if action == "update":

@@ -78,6 +78,12 @@ FOR "progress_update" — include:
   "update_text": a concise (one sentence) summary of the status/progress, \
                   written from the entity's point of view (e.g. "Shipped the \
                   HITL piece", "Still waiting on infra")
+  "fields"     : optional object with "status" if the update text clearly \
+                  implies a status transition for the target (e.g. "shipped" \
+                  / "delivered" / "done" → "done", "still waiting on X" → \
+                  "waiting", "blocked on X" → "blocked"). Use the target \
+                  entity type's status vocabulary. Omit "fields" entirely if \
+                  no status change is implied.
 
 Return a JSON object with a "decisions" array — one entry per candidate, \
 in the same order as the input:
