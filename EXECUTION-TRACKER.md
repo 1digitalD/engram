@@ -243,14 +243,14 @@ Non-authoritative historical artifacts:
   - Today UI shows a `~<priority>` pill ("Inherited from project") when an item has no own priority but an inherited one
   - new read-only `scripts/list_project_priorities.py` lists active projects + priority for Dan's bulk-review (priority itself is already editable per-entity via the existing generic priority control, so no new UI control was needed)
   - red-first tests (2 unit + 1 integration); full backend suite green: 213 passed (was 210); UI 43 passed, build green; live QA against prod confirms no regressions (no prod project has a priority set yet, so no `~<priority>` pill renders)
-  - see `docs/iterations/SLICE_D1_PROJECT_PRIORITY_INHERITANCE.md`; not yet deployed
+  - see `docs/iterations/SLICE_D1_PROJECT_PRIORITY_INHERITANCE.md`; deployed with Phase D (2026-06-10)
 
 - Slice D2 (priority escalation from capture) implementation status:
   - `_accept_update_entity_suggestion` now supports `fields.priority`, validating against `low|medium|high|urgent` and writing to `target_entity.properties.priority` (recorded via the existing `updated` event)
   - reconciliation `SYSTEM_PROMPT` for `progress_update` now also accepts `fields.priority`, populated only when the update text uses explicit escalation language (not inferred from routine status updates)
   - in `_apply_reconciliation_decision`'s `progress_update` branch, when escalation implies a priority strictly higher than the target's current `properties.priority`, a `change_priority`-style `update_entity` suggestion (`payload.fields={"priority": "<level>"}`) is always created via `_append_capture_suggestion` — never auto-applied regardless of confidence
   - red-first tests: 2 integration (`test_v4_suggestions.py` accept w/ valid + invalid priority), 2 integration (`test_v4_capture_extraction.py` escalation creates suggestion; non-escalating priority is ignored); full backend suite green: 217 passed (was 213)
-  - see `docs/iterations/SLICE_D2_PRIORITY_ESCALATION.md`; not yet deployed
+  - see `docs/iterations/SLICE_D2_PRIORITY_ESCALATION.md`; deployed with Phase D (2026-06-10)
 
 - Slice D3 (server-side attention v2: impact + staleness) implementation status:
   - `attention_for_entity` gains `staleness_days` (weighted via a tiered table: ≥21d→25, ≥14d→18, ≥7d→10, ≥3d→4) and `blocks_count` (weighted `min(24, count*12)`); both are pure inputs computed by the caller, no DB access inside the function
@@ -258,7 +258,7 @@ Non-authoritative historical artifacts:
   - `GET /api/v4/today` now also queries undated/unscheduled open tasks (`due_at` and `follow_up_at` both null), scores them via impact+staleness, and returns the top 20 with score > 0 as a new `unscheduled_attention_tasks` bucket; staleness/impact are also threaded into all other task buckets
   - Today UI: new "Needs attention (no date set)" section renders `unscheduled_attention_tasks`; `getTodayAttentionCount` includes them in the daily total (focus-now ranking left unchanged to avoid displacing existing high-signal items)
   - red-first tests: 3 unit (staleness table, impact table, undated-high-priority-stale-task outranks dated-low-priority-task per spec) + 1 integration (`/today` surfaces stale + blocking undated tasks, excludes quiet ones); full backend suite green: 221 passed (was 217); UI 43 passed, build green; live-checked against prod `/today` on a scratch port (20 unscheduled tasks surfaced correctly, then torn down)
-  - see `docs/iterations/SLICE_D3_ATTENTION_V2.md`; not yet deployed
+  - see `docs/iterations/SLICE_D3_ATTENTION_V2.md`; deployed with Phase D (2026-06-10)
 
 - Slice D4 (Today restructure + day reviewed) implementation status:
   - `GET /api/v4/today` gains a new `upcoming_due_tasks` bucket (due_at in (today, end of week]), threaded through the same staleness/impact/priority pipeline as the other task buckets
@@ -266,7 +266,8 @@ Non-authoritative historical artifacts:
   - new `POST /api/v4/today/review` writes `app_settings.last_reviewed_at = now()` and returns the same `last_reviewed_at`/`reviewed_today` shape
   - Today UI regrouped per spec: "Overdue"/"Due today" stay on top; overdue follow-ups, follow-ups, blocked, waiting, and unscheduled-attention tasks are merged into one "Your actions" section (each item keeps its original reason pill); "Delegations needing a nudge" unchanged; new collapsed "Deadlines ahead" section combines `upcoming_follow_ups` + `upcoming_due_tasks`; new "Mark day reviewed" button in the header calls the new endpoint and disables itself once `reviewed_today` is true
   - red-first tests: 2 new integration tests (`upcoming_due_tasks` bucket excludes overdue/due-today; day-reviewed flow incl. midnight reset via backdated `app_settings` row); full backend suite green: 223 passed (was 221); UI 43 passed, build green; live-checked against prod `/today` on the dev server (read-only — did not click "Mark day reviewed" since it proxies to the live prod DB)
-  - see `docs/iterations/SLICE_D4_TODAY_RESTRUCTURE.md`; **deploys Phase D**
+  - see `docs/iterations/SLICE_D4_TODAY_RESTRUCTURE.md`
+  - **Phase D deployed to prod (2026-06-10)**: pre-deploy snapshot taken (`backups/engram_prod_pre_phased_20260610_093236.dump`, no new migration needed — `app_settings` already present from Phase C), `./scripts/engram-deploy.sh` run, `/api/v4/health` and `/api/v4/today` smoke-tested OK (new `upcoming_due_tasks`/`last_reviewed_at`/`reviewed_today` fields present and correct)
 
 ## Validation Commands
 
