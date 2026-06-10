@@ -190,6 +190,23 @@ function DelegationQuietRow({ entity, fromState }) {
   );
 }
 
+function StaleProjectRow({ entity, fromState, archival }) {
+  return (
+    <li className={styles.row}>
+      <Link to={entityPath(entity)} state={fromState} className={styles.rowLink}>
+        <strong>{entity.title || 'Untitled project'}</strong>
+      </Link>
+      <div className={styles.metaRow}>
+        <span className={styles.statusPill}>{entity.status}</span>
+        <span className={styles.reasonPill}>
+          no activity in {entity.stale_days} day{entity.stale_days === 1 ? '' : 's'}
+        </span>
+        {archival && <span className={styles.reasonPill}>consider archiving</span>}
+      </div>
+    </li>
+  );
+}
+
 function EntitySection({ title, items, onQuickStatus, onUpdateField, onChanged, fromState, accent, reason }) {
   if (items.length === 0) return null;
   return (
@@ -270,6 +287,8 @@ export default function V4Today() {
   const overdue = today.overdue || [];
   const dueToday = today.due_today || [];
   const idleProjects = today.projects_without_open_tasks || [];
+  const staleProjects = today.stale_projects || [];
+  const suggestedArchival = today.suggested_archival || [];
   const recentNotes = today.recent_notes || [];
   const delegationsQuiet = today.delegations_quiet || [];
 
@@ -413,6 +432,24 @@ export default function V4Today() {
         onChanged={load}
         fromState={fromState}
       />
+
+      {(staleProjects.length > 0 || suggestedArchival.length > 0) && (
+        <details className={styles.collapsible}>
+          <summary className={styles.collapsibleSummary}>
+            Stale projects · {staleProjects.length + suggestedArchival.length} project{(staleProjects.length + suggestedArchival.length) === 1 ? '' : 's'} with no recent activity
+          </summary>
+          <section className={styles.panel}>
+            <ul className={styles.list}>
+              {suggestedArchival.map((p) => (
+                <StaleProjectRow key={p.id} entity={p} fromState={fromState} archival />
+              ))}
+              {staleProjects.map((p) => (
+                <StaleProjectRow key={p.id} entity={p} fromState={fromState} />
+              ))}
+            </ul>
+          </section>
+        </details>
+      )}
 
       {idleProjects.length > 0 && (
         <details className={styles.collapsible}>

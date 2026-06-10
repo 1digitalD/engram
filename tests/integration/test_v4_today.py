@@ -291,6 +291,60 @@ def test_v4_today_does_not_surface_delegations_to_owner(client, app):
     assert owner_task["id"] not in {item["id"] for item in data["delegations_quiet"]}
 
 
+def test_v4_today_surfaces_stale_and_archival_projects(client, app):
+    fresh_project = _create_entity(client, "project", "Fresh project")
+    stale_project = _create_entity(client, "project", "Stale project")
+    archival_project = _create_entity(client, "project", "Ancient project")
+    done_project = _create_entity(client, "project", "Done long ago", status="completed")
+
+    with app.app_context():
+        from sqlalchemy import update
+        db.session.execute(
+            update(Entity)
+            .where(Entity.id == stale_project["id"])
+            .values(created_at=datetime.now(timezone.utc) - timedelta(days=15))
+        )
+        db.session.execute(
+            update(Entity)
+            .where(Entity.id == archival_project["id"])
+            .values(created_at=datetime.now(timezone.utc) - timedelta(days=31))
+        )
+        db.session.execute(
+            update(Entity)
+            .where(Entity.id == done_project["id"])
+            .values(created_at=datetime.now(timezone.utc) - timedelta(days=60))
+        )
+        db.session.commit()
+        db.session.expire_all()
+
+    response = client.get("/api/v4/today")
+    assert response.status_code == 200
+    data = response.get_json()
+
+    stale_ids = {item["id"] for item in data["stale_projects"]}
+    archival_ids = {item["id"] for item in data["suggested_archival"]}
+
+    assert stale_project["id"] in stale_ids
+    assert archival_project["id"] not in stale_ids
+    assert fresh_project["id"] not in stale_ids
+
+    assert archival_project["id"] in archival_ids
+    assert stale_project["id"] not in archival_ids
+    assert done_project["id"] not in archival_ids
+    assert fresh_project["id"] not in archival_ids
+
+    stale_item = next(item for item in data["stale_projects"] if item["id"] == stale_project["id"])
+    assert stale_item["stale_days"] >= 14
+
+    archival_item = next(item for item in data["suggested_archival"] if item["id"] == archival_project["id"])
+    assert archival_item["stale_days"] >= 30
+
+    summary_response = client.get("/api/v4/summary")
+    assert summary_response.status_code == 200
+    summary = summary_response.get_json()
+    assert summary["stale_projects_count"] == len(stale_ids) + len(archival_ids)
+
+
 def test_v4_person_detail_includes_current_load_with_last_heard(client, app):
     akash = _create_entity(client, "person", "Akash")
     open_task = _create_entity(client, "task", "Design GTM trigger doc", status="open")

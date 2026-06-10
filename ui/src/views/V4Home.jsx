@@ -53,7 +53,12 @@ export default function V4Home() {
     );
   }
 
-  const { inbox_count: review, today_count: today, reviewed_today: reviewedToday } = state.summary;
+  const {
+    inbox_count: review,
+    today_count: today,
+    reviewed_today: reviewedToday,
+    stale_projects_count: staleProjects,
+  } = state.summary;
 
   return (
     <main className={styles.home}>
@@ -77,6 +82,10 @@ export default function V4Home() {
           <Link to="/today" className={styles.statCard}>
             <strong>{reviewedToday ? 'Yes' : 'No'}</strong>
             <span>day reviewed</span>
+          </Link>
+          <Link to="/today" className={styles.statCard}>
+            <strong>{staleProjects}</strong>
+            <span>stale projects</span>
           </Link>
         </div>
       </section>

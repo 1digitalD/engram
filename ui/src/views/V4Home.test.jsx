@@ -22,6 +22,7 @@ describe('V4Home', () => {
       suggestions_count: 1,
       last_reviewed_at: null,
       reviewed_today: false,
+      stale_projects_count: 2,
     });
 
     render(
@@ -38,6 +39,7 @@ describe('V4Home', () => {
     expect(within(heroStats).getByRole('link', { name: /^4 need attention$/i })).toHaveAttribute('href', '/today');
     expect(within(heroStats).getByText('No')).toBeInTheDocument();
     expect(within(heroStats).getByText('day reviewed')).toBeInTheDocument();
+    expect(within(heroStats).getByRole('link', { name: /^2 stale projects$/i })).toHaveAttribute('href', '/today');
 
     expect(screen.getByRole('link', { name: /^Capture/ })).toHaveAttribute('href', '/inbox');
     expect(screen.getByText(/1 note in review/i)).toBeInTheDocument();

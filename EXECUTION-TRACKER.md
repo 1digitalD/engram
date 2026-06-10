@@ -304,6 +304,31 @@ Non-authoritative historical artifacts:
   - see `docs/iterations/SLICE_E4_QUICK_CAPTURE_SIDEBAR_CLEANUP.md`
   - **Phase E deployed to prod (2026-06-10)**: pre-deploy snapshot taken (`backups/engram_prod_pre_phased_20260610_113920.dump`, no new migration needed), `./scripts/engram-deploy.sh` run, `/api/v4/health` and `/api/v4/summary` smoke-tested OK (`{"inbox_count":1,"last_reviewed_at":null,"reviewed_today":false,"suggestions_count":1,"today_count":39}`)
 
+## Phase F
+
+- Slice F1 (stale projects + suggested archival) implementation status:
+  - new `_project_staleness_days(entities, now)` maps active-project id ->
+    days since the most recent of `created_at`, latest `activity_update`
+    note (`_latest_activity_updates`, reused from D3), or latest
+    non-`created` `EntityEvent` (new `_latest_event_at`); `Entity.updated_at`
+    can't be used as the trigger `entities_updated_at` forces it to `now()`
+    on every UPDATE
+  - `GET /api/v4/today` gains `stale_projects` (14-29 days inactive) and
+    `suggested_archival` (30+ days inactive), each active project annotated
+    via `_entity_with_attention` plus `stale_days`; `GET /api/v4/summary`
+    gains `stale_projects_count` (sum of both)
+  - Today UI: new collapsible "Stale projects" section (archival items first,
+    tagged "consider archiving"); Home hero stats gain a 4th card "stale
+    projects" linking to `/today` (`.heroStats` grid now `repeat(4, ...)`,
+    `repeat(2, ...)` at the 900px breakpoint)
+  - red-first test: 1 new integration test
+    (`test_v4_today_surfaces_stale_and_archival_projects`, backdating
+    `created_at` for 3 projects); full backend suite green: 227 passed (was
+    227, +1 new); UI 44 passed (unchanged count, both edited specs extended);
+    build green
+  - see `docs/iterations/SLICE_F1_STALE_PROJECTS.md`
+  - not deployed — Phase F deploys after F2 (per plan)
+
 ## Validation Commands
 
 ```bash

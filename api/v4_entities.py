@@ -226,6 +226,12 @@ def search():
 DONE_TASK_STATUSES = {"done", "completed", "cancelled"}
 OPEN_TASK_STATUSES = {"open", "in_progress", "waiting", "blocked"}
 
+# Phase F (proactive monitoring): an active project with no activity update,
+# event, or field change in this many days is "stale"; at the longer
+# threshold, archival is suggested (never applied automatically).
+STALE_PROJECT_DAYS = 14
+ARCHIVAL_SUGGESTION_DAYS = 30
+
 
 @api_v4_bp.route("/today", methods=["GET"])
 def today():
@@ -371,6 +377,26 @@ def _build_today_payload(now):
 
     delegations_quiet = _delegations_quiet(now)
 
+    active_projects = (
+        _entity_query()
+        .filter(Entity.type == "project", Entity.lifecycle == "active", Entity.status == "active")
+        .all()
+    )
+    project_staleness = _project_staleness_days(active_projects, now)
+    stale_projects = []
+    suggested_archival = []
+    for project in active_projects:
+        days = project_staleness.get(project.id, 0)
+        if days >= STALE_PROJECT_DAYS:
+            entry = _entity_with_attention(project)
+            entry["stale_days"] = days
+            if days >= ARCHIVAL_SUGGESTION_DAYS:
+                suggested_archival.append(entry)
+            else:
+                stale_projects.append(entry)
+    stale_projects.sort(key=lambda item: item["stale_days"], reverse=True)
+    suggested_archival.sort(key=lambda item: item["stale_days"], reverse=True)
+
     pending_suggestions = (
         AiSuggestion.query.filter_by(status="pending")
         .order_by(AiSuggestion.created_at.desc())
@@ -436,6 +462,8 @@ def _build_today_payload(now):
         ],
         "recent_notes": [_entity_with_attention(entity) for entity in recent_notes],
         "delegations_quiet": delegations_quiet,
+        "stale_projects": stale_projects,
+        "suggested_archival": suggested_archival,
         "pending_suggestions": [suggestion.to_dict() for suggestion in pending_suggestions],
         # Retained for any external callers; matches the new bucket structure semantically.
         "blocked_or_waiting_tasks": [with_priority(e) for e in (blocked_tasks + waiting_tasks)],
@@ -492,6 +520,9 @@ def summary():
         "suggestions_count": _needs_review_count(),
         "last_reviewed_at": today_payload["last_reviewed_at"],
         "reviewed_today": today_payload["reviewed_today"],
+        "stale_projects_count": (
+            len(today_payload["stale_projects"]) + len(today_payload["suggested_archival"])
+        ),
     })
 
 
@@ -613,6 +644,43 @@ def _staleness_days_for(entities, now):
             reference = reference.replace(tzinfo=timezone.utc)
         result[entity.id] = max(0, (now - reference).days)
     return result
+
+
+def _project_staleness_days(entities, now):
+    """Map entity_id -> days since the most recent of: an activity-update
+    note, an EntityEvent, or any field change (`updated_at`). Batched."""
+    if not entities:
+        return {}
+    entity_ids = [e.id for e in entities]
+    latest_update = _latest_activity_updates(entity_ids)
+    latest_event = _latest_event_at(entity_ids)
+    result = {}
+    for entity in entities:
+        candidates = [entity.created_at]
+        if entity.id in latest_update:
+            candidates.append(latest_update[entity.id][0])
+        if entity.id in latest_event:
+            candidates.append(latest_event[entity.id])
+        candidates = [c for c in candidates if c is not None]
+        reference = max(candidates)
+        if reference.tzinfo is None:
+            reference = reference.replace(tzinfo=timezone.utc)
+        result[entity.id] = max(0, (now - reference).days)
+    return result
+
+
+def _latest_event_at(entity_ids):
+    """Map entity_id -> created_at of its most recent non-creation
+    EntityEvent (the `created` event is already covered by `created_at`)."""
+    if not entity_ids:
+        return {}
+    rows = (
+        db.session.query(EntityEvent.entity_id, func.max(EntityEvent.created_at))
+        .filter(EntityEvent.entity_id.in_(entity_ids), EntityEvent.event_type != "created")
+        .group_by(EntityEvent.entity_id)
+        .all()
+    )
+    return dict(rows)
 
 
 def _blocking_impact_counts(entities):

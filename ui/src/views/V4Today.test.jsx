@@ -61,6 +61,12 @@ describe('V4Today', () => {
       delegations_quiet: [
         { id: 'dq1', type: 'task', title: 'Design GTM trigger doc', status: 'open', days_silent: 10, last_update: null },
       ],
+      stale_projects: [
+        { id: 'sp1', type: 'project', title: 'Quietly stalled project', status: 'active', stale_days: 16 },
+      ],
+      suggested_archival: [
+        { id: 'sa1', type: 'project', title: 'Long-forgotten project', status: 'active', stale_days: 42 },
+      ],
     });
 
     render(
@@ -91,6 +97,12 @@ describe('V4Today', () => {
     expect(screen.getByText('Due later this week')).toBeInTheDocument();
     expect(screen.getByText('Mark day reviewed')).toBeInTheDocument();
     expect(screen.getByText('Needs next task')).toBeInTheDocument();
+    expect(screen.getByText(/Stale projects/)).toBeInTheDocument();
+    expect(screen.getByText('Quietly stalled project')).toBeInTheDocument();
+    expect(screen.getByText('no activity in 16 days')).toBeInTheDocument();
+    expect(screen.getByText('Long-forgotten project')).toBeInTheDocument();
+    expect(screen.getByText('no activity in 42 days')).toBeInTheDocument();
+    expect(screen.getByText('consider archiving')).toBeInTheDocument();
     expect(screen.getByText('Recent note')).toBeInTheDocument();
     expect(screen.getByText('Delegations needing a nudge')).toBeInTheDocument();
     expect(screen.getByText('Design GTM trigger doc')).toBeInTheDocument();
