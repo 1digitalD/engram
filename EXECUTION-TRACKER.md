@@ -276,7 +276,7 @@ Non-authoritative historical artifacts:
   - `ui/src/api/v4Client.js` gains `v4API.summary()`; `App.jsx`'s `useSidebarCounts` now makes one `/summary` call instead of three (`/inbox`, `/today`, `/suggestions`)
   - red-first tests: 2 new unit tests (dedupe-across-buckets parity, empty-payload) + 1 new integration test (`/summary` counts match `/today`+`/inbox` via the same Python dedupe function); full backend suite green: 226 passed (was 223); UI 43 passed, build green
   - see `docs/iterations/SLICE_E1_SUMMARY_ENDPOINT.md`
-  - not yet deployed — Phase E deploys after E4
+  - deployed with Phase E (2026-06-10)
 
 - Slice E2 (Home → stats + workflow shortcuts) implementation status:
   - `V4Home.jsx` rewritten: single `v4API.summary()` call replaces the old `Promise.all([inbox, today, entities.list])`; removed the five duplicate entity-list panels (Review queue, Today, Stuck, Active projects, Inbox flow) and their `HomeSection`/`WorkflowLink`/`EntityList` helpers
@@ -285,7 +285,7 @@ Non-authoritative historical artifacts:
   - `V4Home.test.jsx` rewritten to mock `v4API.summary` only; 2 tests (hero+shortcuts render from /summary; day-reviewed Yes/No)
   - full UI suite green: 44 passed; build green
   - see `docs/iterations/SLICE_E2_HOME_STATS_SHORTCUTS.md`
-  - not yet deployed — Phase E deploys after E4
+  - deployed with Phase E (2026-06-10)
 
 - Slice E3 (Inbox + Review merge) implementation status:
   - removed the "Review" (`/suggestions`) entry from the sidebar `viewItems` and the unused `Sparkles` icon import; `useSidebarCounts` no longer tracks a `suggestions` count
@@ -294,7 +294,7 @@ Non-authoritative historical artifacts:
   - `App.test.jsx` updated: assert "Review" link absent from sidebar
   - full UI suite green: 44 passed; build green
   - see `docs/iterations/SLICE_E3_INBOX_REVIEW_MERGE.md`
-  - not yet deployed — Phase E deploys after E4
+  - deployed with Phase E (2026-06-10)
 
 - Slice E4 (Quick capture textarea + sidebar cleanup) implementation status:
   - `QuickActionBar`'s note field is now a plain `<textarea aria-label="Quick note content">` (was `MarkdownEditor`); removed the now-unused `MarkdownEditor` import
@@ -302,7 +302,7 @@ Non-authoritative historical artifacts:
   - `App.test.jsx`: dropped the `MarkdownEditor` mock (real textarea now exercised); asserts "Agent log" link absent from sidebar
   - full UI suite green: 44 passed; build green; full backend suite green: 226 passed (no backend changes)
   - see `docs/iterations/SLICE_E4_QUICK_CAPTURE_SIDEBAR_CLEANUP.md`
-  - **Deploys Phase E** (this is the final E-slice)
+  - **Phase E deployed to prod (2026-06-10)**: pre-deploy snapshot taken (`backups/engram_prod_pre_phased_20260610_113920.dump`, no new migration needed), `./scripts/engram-deploy.sh` run, `/api/v4/health` and `/api/v4/summary` smoke-tested OK (`{"inbox_count":1,"last_reviewed_at":null,"reviewed_today":false,"suggestions_count":1,"today_count":39}`)
 
 ## Validation Commands
 
