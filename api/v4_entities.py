@@ -766,6 +766,110 @@ def get_entity_events(entity_id):
     return jsonify({"data": [event.to_dict() for event in events]})
 
 
+CAPTURE_CHANGE_EVENT_TYPES = {
+    "created",
+    "ai_updated",
+    "relationship_added",
+    "activity_update_added",
+}
+
+
+@api_v4_bp.route("/entities/<entity_id>/capture-changes", methods=["GET"])
+def get_capture_changes(entity_id):
+    if db.session.get(Entity, entity_id) is None:
+        return _error("entity not found", 404)
+    events = (
+        EntityEvent.query.filter_by(source_note_id=entity_id)
+        .filter(EntityEvent.event_type.in_(CAPTURE_CHANGE_EVENT_TYPES))
+        .order_by(EntityEvent.created_at.asc())
+        .all()
+    )
+    return jsonify({"data": [event.to_dict() for event in events]})
+
+
+@api_v4_bp.route("/events/<event_id>/revert", methods=["POST"])
+def revert_event(event_id):
+    event = db.session.get(EntityEvent, event_id)
+    if event is None:
+        return _error("event not found", 404)
+    if event.reverted_at is not None:
+        return _error("event already reverted", 409)
+
+    entity = db.session.get(Entity, event.entity_id)
+    if entity is None:
+        return _error("entity for event not found", 404)
+
+    if event.event_type == "ai_updated":
+        old_value = event.old_value or {}
+        new_value = event.new_value or {}
+        restored = {}
+        for field in new_value:
+            if field == "status":
+                status = old_value.get("status")
+                if status is None or status not in VALID_STATUS.get(entity.type, set()):
+                    return _error(f"cannot revert: invalid prior status {status!r}")
+                entity.status = status
+                restored["status"] = status
+            elif field == "title":
+                entity.title = old_value.get("title")
+                restored["title"] = entity.title
+            elif field in ("due_at", "follow_up_at"):
+                parsed, err = _parse_datetime_or_error(old_value.get(field))
+                if err:
+                    return err
+                setattr(entity, field, parsed)
+                restored[field] = old_value.get(field)
+            else:
+                return _error(f"cannot revert field: {field}")
+        db.session.flush()
+        _write_event(entity, "reverted", old_value=new_value, new_value=restored, reason=f"revert of event {event.id}")
+        _queue_embed_job(entity.id, "revert")
+
+    elif event.event_type == "created":
+        old_lifecycle = entity.lifecycle
+        entity.lifecycle = "deleted"
+        db.session.flush()
+        _write_event(
+            entity, "reverted",
+            old_value={"lifecycle": old_lifecycle}, new_value={"lifecycle": "deleted"},
+            reason=f"revert of event {event.id}",
+        )
+
+    elif event.event_type == "activity_update_added":
+        note_id = (event.new_value or {}).get("note_id")
+        au_note = db.session.get(Entity, note_id) if note_id else None
+        if au_note is None:
+            return _error("activity-update note not found", 404)
+        old_lifecycle = au_note.lifecycle
+        au_note.lifecycle = "archived"
+        db.session.flush()
+        _write_event(
+            au_note, "reverted",
+            old_value={"lifecycle": old_lifecycle}, new_value={"lifecycle": "archived"},
+            reason=f"revert of event {event.id}",
+        )
+
+    elif event.event_type == "relationship_added":
+        link_id = (event.new_value or {}).get("id")
+        link = db.session.get(EntityLink, link_id) if link_id else None
+        if link is not None:
+            link_snapshot = link.to_dict()
+            db.session.delete(link)
+            db.session.flush()
+            _write_event(
+                entity, "reverted",
+                old_value=link_snapshot, new_value=None,
+                reason=f"revert of event {event.id}",
+            )
+
+    else:
+        return _error(f"cannot revert event of type: {event.event_type}")
+
+    event.reverted_at = datetime.now(timezone.utc)
+    db.session.commit()
+    return jsonify({"data": event.to_dict()})
+
+
 MAX_ACTIVITY_UPDATES_PER_TARGET = 30
 
 
@@ -792,7 +896,7 @@ def get_activity_updates(entity_id):
     return jsonify({"data": [note.to_dict() for note in notes]})
 
 
-def _create_activity_update_note(target, content, actor="user", confidence=None, evidence=None):
+def _create_activity_update_note(target, content, actor="user", confidence=None, evidence=None, source_note_id=None):
     """Create (or reuse) an activity-update note linked to `target`.
 
     Returns (note_or_None, created_bool). Returns (existing, False) if an
@@ -867,6 +971,7 @@ def _create_activity_update_note(target, content, actor="user", confidence=None,
         actor=actor,
         confidence=confidence,
         reason=evidence,
+        source_note_id=source_note_id,
     )
     return note, True
 
@@ -1815,7 +1920,7 @@ def _add_tag(entity, raw_name):
     return tag
 
 
-def _write_event(entity, event_type, old_value=None, new_value=None, actor="user", confidence=None, reason=None):
+def _write_event(entity, event_type, old_value=None, new_value=None, actor="user", confidence=None, reason=None, source_note_id=None):
     db.session.add(
         EntityEvent(
             entity_id=entity.id,
@@ -1825,6 +1930,7 @@ def _write_event(entity, event_type, old_value=None, new_value=None, actor="user
             new_value=new_value,
             confidence=confidence,
             reason=reason,
+            source_note_id=source_note_id,
         )
     )
 
@@ -1920,6 +2026,7 @@ def _reconcile_capture_candidates(note, extraction):
             actor="agent:v4-capture",
             confidence=extraction.get("confidence"),
             reason="ai_title_set",
+            source_note_id=note.id,
         )
 
     if summary:
@@ -1936,6 +2043,7 @@ def _reconcile_capture_candidates(note, extraction):
             new_value={"summary": summary},
             actor="agent:v4-capture",
             confidence=extraction.get("confidence"),
+            source_note_id=note.id,
         )
     elif ai_title and title_auto:
         # Title set but no summary — still need to persist ai_meta if we touched it.
@@ -1959,6 +2067,7 @@ def _reconcile_capture_candidates(note, extraction):
             new_value={"tag_id": tag.id, "tag": tag.name},
             actor="agent:v4-capture",
             confidence=confidence,
+            source_note_id=note.id,
         )
 
     # Flatten link and entity candidates into a single list for reconciliation.
@@ -2056,7 +2165,7 @@ def _apply_reconciliation_decision(note, candidate, decision, applied_changes, s
         if not update_text:
             return
         au_note, created = _create_activity_update_note(
-            target, update_text, actor="agent:v4-capture", confidence=confidence, evidence=evidence
+            target, update_text, actor="agent:v4-capture", confidence=confidence, evidence=evidence, source_note_id=note.id
         )
         if au_note is None:
             return
@@ -2089,6 +2198,7 @@ def _apply_reconciliation_decision(note, candidate, decision, applied_changes, s
                     actor="agent:v4-capture",
                     confidence=confidence,
                     reason=decision.get("reason"),
+                    source_note_id=note.id,
                 )
                 _queue_embed_job(target.id, "capture_auto_update")
             else:
@@ -2155,7 +2265,7 @@ def _apply_reconciliation_decision(note, candidate, decision, applied_changes, s
                     "relationship_type": relationship_type,
                     "confidence": confidence,
                 })
-                _write_event(note, "relationship_added", new_value=link.to_dict(), actor="agent:v4-capture", confidence=confidence, reason=evidence)
+                _write_event(note, "relationship_added", new_value=link.to_dict(), actor="agent:v4-capture", confidence=confidence, reason=evidence, source_note_id=note.id)
         else:
             _append_capture_suggestion(
                 note,
@@ -2194,7 +2304,7 @@ def _apply_reconciliation_decision(note, candidate, decision, applied_changes, s
         )
         link_source, link_target = _candidate_link_endpoints(note, entity, relationship_type)
         link = _create_entity_link(link_source, link_target, relationship_type, confidence, evidence)
-        _write_event(entity, "created", new_value=entity.to_dict(), actor="agent:v4-capture", confidence=confidence, reason=evidence)
+        _write_event(entity, "created", new_value=entity.to_dict(), actor="agent:v4-capture", confidence=confidence, reason=evidence, source_note_id=note.id)
         applied_changes.append({
             "type": "entity_created",
             "entity_id": entity.id,
@@ -2203,7 +2313,7 @@ def _apply_reconciliation_decision(note, candidate, decision, applied_changes, s
             "confidence": confidence,
         })
         if link is not None:
-            _write_event(note, "relationship_added", new_value=link.to_dict(), actor="agent:v4-capture", confidence=confidence, reason=evidence)
+            _write_event(note, "relationship_added", new_value=link.to_dict(), actor="agent:v4-capture", confidence=confidence, reason=evidence, source_note_id=note.id)
             applied_changes.append({
                 "type": "relationship_added",
                 "target_entity_id": entity.id,
@@ -2294,6 +2404,7 @@ def _link_task_to_note_projects(note, task, confidence, evidence, applied_change
                 actor="agent:v4-capture",
                 confidence=confidence,
                 reason=evidence or f"inherited from note {note.id}",
+                source_note_id=note.id,
             )
             applied_changes.append({
                 "type": "relationship_added",
@@ -2322,9 +2433,11 @@ def _touch_parent_projects(task):
 def _apply_entity_update(note, entity, candidate, decision, relationship_type, confidence, evidence, applied_changes):
     fields = decision.get("fields") or {}
     changed = {}
+    previous = {}
 
     new_status = fields.get("status")
     if new_status and new_status in VALID_STATUS.get(entity.type, set()):
+        previous["status"] = entity.status
         entity.status = new_status
         changed["status"] = new_status
 
@@ -2332,6 +2445,7 @@ def _apply_entity_update(note, entity, candidate, decision, relationship_type, c
     if raw_due:
         parsed = _parse_iso_date(raw_due)
         if parsed:
+            previous["due_at"] = entity.due_at.isoformat() if entity.due_at else None
             entity.due_at = parsed
             changed["due_at"] = raw_due
 
@@ -2339,6 +2453,7 @@ def _apply_entity_update(note, entity, candidate, decision, relationship_type, c
     if raw_follow_up:
         parsed = _parse_iso_date(raw_follow_up)
         if parsed:
+            previous["follow_up_at"] = entity.follow_up_at.isoformat() if entity.follow_up_at else None
             entity.follow_up_at = parsed
             changed["follow_up_at"] = raw_follow_up
 
@@ -2353,7 +2468,10 @@ def _apply_entity_update(note, entity, candidate, decision, relationship_type, c
             "title": entity.title,
             "changes": changed,
         })
-        _write_event(entity, "ai_updated", new_value=changed, actor="agent:v4-capture", confidence=confidence, reason=decision.get("reason"))
+        _write_event(
+            entity, "ai_updated", old_value=previous, new_value=changed, actor="agent:v4-capture",
+            confidence=confidence, reason=decision.get("reason"), source_note_id=note.id,
+        )
         _queue_embed_job(entity.id, "capture_auto_update")
     if link is not None:
         applied_changes.append({
@@ -2362,7 +2480,7 @@ def _apply_entity_update(note, entity, candidate, decision, relationship_type, c
             "relationship_type": relationship_type,
             "confidence": confidence,
         })
-        _write_event(note, "relationship_added", new_value=link.to_dict(), actor="agent:v4-capture", confidence=confidence, reason=evidence)
+        _write_event(note, "relationship_added", new_value=link.to_dict(), actor="agent:v4-capture", confidence=confidence, reason=evidence, source_note_id=note.id)
     _apply_assignee_and_record(
         note,
         entity,
@@ -2805,6 +2923,7 @@ def _apply_assignee_and_record(note, entity, assigned_to, confidence, evidence, 
             actor=actor,
             confidence=confidence,
             reason=evidence,
+            source_note_id=note.id,
         )
         applied_changes.append({
             "type": "entity_created",

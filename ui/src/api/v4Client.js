@@ -51,6 +51,10 @@ export const v4API = {
     delete: deleteEntity,
     events: (id) => v4Request('GET', `/entities/${encodeURIComponent(id)}/events`),
     canonical: (id) => v4Request('GET', `/entities/${encodeURIComponent(id)}/canonical`),
+    captureChanges: (id) => v4Request('GET', `/entities/${encodeURIComponent(id)}/capture-changes`),
+  },
+  events: {
+    revert: (id) => v4Request('POST', `/events/${encodeURIComponent(id)}/revert`),
   },
   relationships: {
     list: (entityId) => v4Request('GET', `/entities/${encodeURIComponent(entityId)}/relationships`),

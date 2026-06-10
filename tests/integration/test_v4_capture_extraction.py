@@ -1171,3 +1171,280 @@ def test_capture_progress_update_with_invalid_status_is_ignored(client, app):
         from extensions import db
         task = db.session.get(Entity, task_id)
         assert task.status == "open"
+
+
+def test_capture_changes_lists_agent_applied_changes_for_note(client, app):
+    task_response = client.post(
+        "/api/v4/entities",
+        json={"type": "task", "title": "Build HITL piece", "content": "Task"},
+    )
+    task_id = task_response.get_json()["data"]["id"]
+
+    extraction = {
+        "entities": [
+            {
+                "type": "task",
+                "title": "Build HITL piece",
+                "content": "Shipped the HITL piece",
+                "confidence": 0.9,
+                "evidence": "Shipped the HITL piece",
+            },
+        ]
+    }
+    decisions = [
+        {
+            "action": "progress_update",
+            "target_id": task_id,
+            "update_text": "Shipped the HITL piece",
+            "fields": {"status": "done"},
+            "confidence": 0.92,
+            "reason": "task delivered",
+        },
+    ]
+
+    with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction), patch(
+        "services.v4_reconciliation.reconcile_candidates", return_value=decisions
+    ):
+        response = client.post("/api/v4/capture", json={"content": "Standup notes"})
+
+    note_id = response.get_json()["source_note"]["id"]
+
+    changes_response = client.get(f"/api/v4/entities/{note_id}/capture-changes")
+    assert changes_response.status_code == 200
+    events = changes_response.get_json()["data"]
+
+    event_types = {e["event_type"] for e in events}
+    assert "ai_updated" in event_types
+    assert "activity_update_added" in event_types
+    for e in events:
+        assert e["actor"] == "agent:v4-capture"
+        assert e["reverted_at"] is None
+
+
+def test_revert_ai_updated_status_change_restores_old_status(client, app):
+    task_response = client.post(
+        "/api/v4/entities",
+        json={"type": "task", "title": "Build HITL piece", "content": "Task"},
+    )
+    task_id = task_response.get_json()["data"]["id"]
+
+    extraction = {
+        "entities": [
+            {
+                "type": "task",
+                "title": "Build HITL piece",
+                "content": "Shipped the HITL piece",
+                "confidence": 0.9,
+                "evidence": "Shipped the HITL piece",
+            },
+        ]
+    }
+    decisions = [
+        {
+            "action": "progress_update",
+            "target_id": task_id,
+            "update_text": "Shipped the HITL piece",
+            "fields": {"status": "done"},
+            "confidence": 0.92,
+            "reason": "task delivered",
+        },
+    ]
+
+    with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction), patch(
+        "services.v4_reconciliation.reconcile_candidates", return_value=decisions
+    ):
+        response = client.post("/api/v4/capture", json={"content": "Standup notes"})
+
+    note_id = response.get_json()["source_note"]["id"]
+
+    with app.app_context():
+        from extensions import db
+        event = (
+            EntityEvent.query.filter_by(entity_id=task_id, event_type="ai_updated")
+            .order_by(EntityEvent.created_at.desc())
+            .first()
+        )
+        event_id = event.id
+
+    revert_response = client.post(f"/api/v4/events/{event_id}/revert")
+    assert revert_response.status_code == 200
+
+    with app.app_context():
+        from extensions import db
+        task = db.session.get(Entity, task_id)
+        assert task.status == "open"
+
+        reverted_event = db.session.get(EntityEvent, event_id)
+        assert reverted_event.reverted_at is not None
+
+        revert_log = (
+            EntityEvent.query.filter_by(entity_id=task_id, event_type="reverted")
+            .order_by(EntityEvent.created_at.desc())
+            .first()
+        )
+        assert revert_log is not None
+        assert revert_log.old_value == {"status": "done"}
+        assert revert_log.new_value == {"status": "open"}
+
+    # Reverting again is rejected
+    second_response = client.post(f"/api/v4/events/{event_id}/revert")
+    assert second_response.status_code == 409
+
+
+def test_revert_activity_update_archives_note(client, app):
+    project_response = client.post(
+        "/api/v4/entities",
+        json={"type": "project", "title": "Agent Platform", "content": "Project"},
+    )
+    project_id = project_response.get_json()["data"]["id"]
+
+    extraction = {
+        "entities": [
+            {
+                "type": "project",
+                "title": "Agent Platform",
+                "content": "Made progress",
+                "confidence": 0.9,
+                "evidence": "Made progress on Agent Platform",
+            },
+        ]
+    }
+    decisions = [
+        {
+            "action": "progress_update",
+            "target_id": project_id,
+            "update_text": "Made progress",
+            "confidence": 0.92,
+            "reason": "progress update",
+        },
+    ]
+
+    with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction), patch(
+        "services.v4_reconciliation.reconcile_candidates", return_value=decisions
+    ):
+        client.post("/api/v4/capture", json={"content": "Standup notes"})
+
+    with app.app_context():
+        from extensions import db
+        event = (
+            EntityEvent.query.filter_by(entity_id=project_id, event_type="activity_update_added")
+            .order_by(EntityEvent.created_at.desc())
+            .first()
+        )
+        event_id = event.id
+        au_note_id = event.new_value["note_id"]
+
+    revert_response = client.post(f"/api/v4/events/{event_id}/revert")
+    assert revert_response.status_code == 200
+
+    with app.app_context():
+        from extensions import db
+        au_note = db.session.get(Entity, au_note_id)
+        assert au_note.lifecycle == "archived"
+
+
+def test_revert_relationship_added_removes_link(client, app):
+    project_response = client.post(
+        "/api/v4/entities",
+        json={"type": "project", "title": "Agent Platform", "content": "Project"},
+    )
+    project_id = project_response.get_json()["data"]["id"]
+
+    extraction = {
+        "entities": [
+            {
+                "type": "project",
+                "title": "Agent Platform",
+                "content": "Related discussion",
+                "confidence": 0.9,
+                "evidence": "Discussed Agent Platform",
+            },
+        ]
+    }
+    decisions = [
+        {
+            "action": "link",
+            "target_id": project_id,
+            "relationship_type": "related",
+            "confidence": 0.92,
+            "reason": "mentions Agent Platform",
+        },
+    ]
+
+    with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction), patch(
+        "services.v4_reconciliation.reconcile_candidates", return_value=decisions
+    ):
+        response = client.post("/api/v4/capture", json={"content": "Standup notes"})
+
+    note_id = response.get_json()["source_note"]["id"]
+
+    with app.app_context():
+        from extensions import db
+        event = (
+            EntityEvent.query.filter_by(entity_id=note_id, event_type="relationship_added")
+            .order_by(EntityEvent.created_at.desc())
+            .first()
+        )
+        event_id = event.id
+        link_id = event.new_value["id"]
+
+    revert_response = client.post(f"/api/v4/events/{event_id}/revert")
+    assert revert_response.status_code == 200
+
+    with app.app_context():
+        from extensions import db
+        link = db.session.get(EntityLink, link_id)
+        assert link is None
+
+
+def test_revert_created_entity_marks_lifecycle_deleted(client, app):
+    extraction = {
+        "entities": [
+            {
+                "type": "task",
+                "title": "Write release notes",
+                "content": "Need to write release notes",
+                "confidence": 0.9,
+                "evidence": "Need to write release notes",
+            },
+        ]
+    }
+    decisions = [
+        {
+            "action": "new",
+            "confidence": 0.95,
+            "reason": "new task",
+        },
+    ]
+
+    with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction), patch(
+        "services.v4_reconciliation.reconcile_candidates", return_value=decisions
+    ):
+        response = client.post("/api/v4/capture", json={"content": "Standup notes"})
+
+    data = response.get_json()
+    created = [c for c in data["applied_changes"] if c["type"] == "entity_created"]
+    assert len(created) == 1
+    task_id = created[0]["entity_id"]
+
+    with app.app_context():
+        from extensions import db
+        event = (
+            EntityEvent.query.filter_by(entity_id=task_id, event_type="created")
+            .order_by(EntityEvent.created_at.desc())
+            .first()
+        )
+        event_id = event.id
+
+    revert_response = client.post(f"/api/v4/events/{event_id}/revert")
+    assert revert_response.status_code == 200
+
+    with app.app_context():
+        from extensions import db
+        task = db.session.get(Entity, task_id)
+        assert task.lifecycle == "deleted"
+
+
+def test_revert_unknown_event_returns_404(client, app):
+    response = client.post("/api/v4/events/does-not-exist/revert")
+    assert response.status_code == 404

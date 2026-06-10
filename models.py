@@ -217,8 +217,10 @@ class EntityEvent(BaseModel):
     new_value = Column(JSON, nullable=True)
     confidence = Column(Float, nullable=True)
     reason = Column(Text, nullable=True)
+    source_note_id = Column(String(36), ForeignKey("entities.id", ondelete="SET NULL"), nullable=True)
+    reverted_at = Column(DateTime, nullable=True)
 
-    entity = relationship("Entity", back_populates="events")
+    entity = relationship("Entity", back_populates="events", foreign_keys=[entity_id])
 
     def to_dict(self):
         return {
@@ -230,6 +232,8 @@ class EntityEvent(BaseModel):
             "new_value": self.new_value,
             "confidence": self.confidence,
             "reason": self.reason,
+            "source_note_id": self.source_note_id,
+            "reverted_at": _iso(self.reverted_at),
             "created_at": _iso(self.created_at),
         }
 
@@ -292,7 +296,12 @@ class Entity(BaseModel):
         "EntityLink", foreign_keys="EntityLink.target_entity_id", back_populates="target_entity",
     )
     chunks = relationship("EntityChunk", back_populates="entity", cascade="all, delete-orphan")
-    events = relationship("EntityEvent", back_populates="entity", cascade="all, delete-orphan")
+    events = relationship(
+        "EntityEvent",
+        back_populates="entity",
+        cascade="all, delete-orphan",
+        foreign_keys="EntityEvent.entity_id",
+    )
     jobs = relationship("Job", back_populates="entity")
 
     def to_dict(self):

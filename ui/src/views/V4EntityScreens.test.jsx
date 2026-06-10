@@ -20,6 +20,10 @@ vi.mock('../api/v4Client', () => ({
       events: vi.fn(),
       update: vi.fn(),
       delete: vi.fn(),
+      captureChanges: vi.fn(),
+    },
+    events: {
+      revert: vi.fn(),
     },
     capture: vi.fn(),
     relationships: {
@@ -42,6 +46,7 @@ describe('v4 entity screens', () => {
     sessionStorage.clear();
     v4API.entities.list.mockResolvedValue({ data: [] });
     v4API.entities.events.mockResolvedValue({ data: [] });
+    v4API.entities.captureChanges.mockResolvedValue({ data: [] });
     v4API.activityUpdates.list.mockResolvedValue({ data: [] });
     v4API.suggestions.list.mockResolvedValue({ data: [] });
   });
@@ -553,6 +558,78 @@ describe('v4 entity screens', () => {
     expect(screen.getByText('pending review')).toBeInTheDocument();
     expect(await screen.findByText(/1 suggestion from this note still needs review/i)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Open Suggestions/i })).toHaveAttribute('href', '/suggestions');
+  });
+
+  it('shows what the agent did on a note and allows reverting a change', async () => {
+    const detail = {
+      entity: {
+        id: 'n9',
+        type: 'note',
+        title: 'Standup notes',
+        content: 'Body',
+        status: 'active',
+        created_at: '2026-06-09T09:00:00+00:00',
+        updated_at: '2026-06-09T10:00:00+00:00',
+        follow_up_at: null,
+        reference_url: null,
+        properties: {},
+        tags: [],
+      },
+      sections: [],
+    };
+    v4API.entities.detail.mockResolvedValue(detail);
+    v4API.entities.events.mockResolvedValue({ data: [] });
+    v4API.suggestions.list.mockResolvedValue({ data: [] });
+    v4API.entities.captureChanges.mockResolvedValue({
+      data: [
+        {
+          id: 'ev1',
+          entity_id: 'task-1',
+          event_type: 'ai_updated',
+          actor: 'agent:v4-capture',
+          old_value: { status: 'open' },
+          new_value: { status: 'done' },
+          confidence: 0.92,
+          reason: 'task delivered',
+          reverted_at: null,
+          created_at: '2026-06-09T10:01:00+00:00',
+        },
+      ],
+    });
+    v4API.events.revert.mockResolvedValue({ data: { id: 'ev1', reverted_at: '2026-06-09T10:05:00+00:00' } });
+
+    render(
+      <MemoryRouter initialEntries={['/notes/n9']}>
+        <Routes>
+          <Route path="/notes/:id" element={<V4EntityDetail type="note" />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('What the agent did')).toBeInTheDocument();
+    expect(screen.getByText('AI updated')).toBeInTheDocument();
+    expect(screen.getByText('task delivered')).toBeInTheDocument();
+
+    v4API.entities.captureChanges.mockResolvedValue({
+      data: [
+        {
+          id: 'ev1',
+          entity_id: 'task-1',
+          event_type: 'ai_updated',
+          actor: 'agent:v4-capture',
+          old_value: { status: 'open' },
+          new_value: { status: 'done' },
+          confidence: 0.92,
+          reason: 'task delivered',
+          reverted_at: '2026-06-09T10:05:00+00:00',
+          created_at: '2026-06-09T10:01:00+00:00',
+        },
+      ],
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Revert' }));
+    await waitFor(() => expect(v4API.events.revert).toHaveBeenCalledWith('ev1'));
+    expect(await screen.findByText('Reverted')).toBeInTheDocument();
   });
 
   it('renders a task workspace overview from existing detail sections', async () => {

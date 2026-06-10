@@ -200,6 +200,15 @@ Non-authoritative historical artifacts:
   - invalid/unchanged statuses are silently ignored (vocabulary guard via `VALID_STATUS`)
   - red-first integration tests added, full suite green: 195 passed (was 192)
   - replay eval run once post-change: 15/27 — consistent with the same pre-existing umbrella-area/person-matching noise as B1's runs (17/27, 17/27, 16/27), not caused by this slice's status logic (which fired on 0 status-bearing decisions in this run); see `docs/iterations/SLICE_B2_STATUS_AUTO_APPLY.md`
+- Slice B3 (capture changelog + one-click undo) implementation status — **Phase B complete**:
+  - additive schema: `entity_events.source_note_id` (FK → entities, links an event back to the capturing note) and `entity_events.reverted_at`, plus new `event_type` value `'reverted'`; `docs/SCHEMA.sql` updated and `scripts/migrations/001_add_event_revert_fields.sql` added for prod (not yet applied)
+  - every `agent:v4-capture` `EntityEvent` written during capture now stamps `source_note_id`; `_apply_entity_update`'s `ai_updated` event now also records `old_value` (previously only `new_value`, which made it un-revertible)
+  - new `GET /api/v4/entities/<id>/capture-changes` lists an note's agent-applied changes (`created`, `ai_updated`, `relationship_added`, `activity_update_added`)
+  - new `POST /api/v4/events/<id>/revert` inverts a single change (status/title/due_at/follow_up_at restore, link removal, activity-update archival, created-entity → lifecycle deleted), itself logs a `reverted` EntityEvent, 409 on double-revert, 404 on unknown event
+  - frontend: `CaptureChangesPanel` ("What the agent did") on note detail with per-row Revert
+  - red-first integration tests (6 new) + 1 new UI test; full backend suite green: 201 passed (was 195); UI: 43 passed (was 42), build green
+  - no extraction/reconciliation changes in this slice, so replay eval not re-run
+  - remaining for Phase B deploy: apply `scripts/migrations/001_add_event_revert_fields.sql` to prod (after `pg_dump` snapshot), then `./scripts/engram-deploy.sh` + smoke test
 
 ## Validation Commands
 

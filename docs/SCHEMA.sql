@@ -112,13 +112,15 @@ CREATE TABLE IF NOT EXISTS entity_events (
                     'relationship_added', 'relationship_updated', 'relationship_removed',
                     'tag_added', 'tag_removed', 'ai_processed', 'ai_updated', 'ai_summarized',
                     'suggestion_accepted', 'suggestion_dismissed', 'suggestion_expired',
-                    'review_marked_resolved', 'activity_update_added'
+                    'review_marked_resolved', 'activity_update_added', 'reverted'
                   )),
     actor       TEXT NOT NULL,
     old_value   JSONB,
     new_value   JSONB,
     confidence  FLOAT,
     reason      TEXT,
+    source_note_id TEXT REFERENCES entities (id) ON DELETE SET NULL,
+    reverted_at TIMESTAMPTZ,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -129,6 +131,9 @@ CREATE INDEX IF NOT EXISTS entity_events_type_idx
 CREATE INDEX IF NOT EXISTS entity_events_actor_idx
     ON entity_events (actor)
     WHERE actor LIKE 'agent:%';
+CREATE INDEX IF NOT EXISTS entity_events_source_note_idx
+    ON entity_events (source_note_id, created_at ASC)
+    WHERE source_note_id IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS ai_suggestions (
     id                TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,

@@ -125,6 +125,7 @@ function eventTitle(event) {
     suggestion_accepted: 'Suggestion accepted',
     suggestion_dismissed: 'Suggestion dismissed',
     activity_update_added: 'Activity update added',
+    reverted: 'Reverted',
   };
   return labels[event.event_type] || humanizeToken(event.event_type);
 }
@@ -756,6 +757,10 @@ export default function V4EntityDetail({ type: routeType }) {
 
       {entity.type === 'note' && (
         <NoteWorkspacePanel entity={entity} detail={detail} />
+      )}
+
+      {entity.type === 'note' && (
+        <CaptureChangesPanel entityId={entity.id} className={styles.fullWidthPanel} />
       )}
 
       <section className={styles.segmentsStack} aria-label={`${entityType} relationship segments`}>
@@ -1524,6 +1529,90 @@ function ActivityUpdatesSection({ entityId, className = '' }) {
               <span className={styles.activityUpdateMeta}>
                 {formatDateTime(note.updated_at)}
               </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </CollapsibleSection>
+  );
+}
+
+function CaptureChangesPanel({ entityId, className = '' }) {
+  const [changes, setChanges] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [revertingId, setRevertingId] = useState(null);
+
+  async function load() {
+    setLoading(true);
+    try {
+      const response = await v4API.entities.captureChanges(entityId);
+      setChanges(response.data || []);
+      setError('');
+    } catch (err) {
+      setError(err.message || 'Failed to load agent changes');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    let active = true;
+    load().catch(() => {});
+    return () => { active = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entityId]);
+
+  async function handleRevert(eventId) {
+    setRevertingId(eventId);
+    setError('');
+    try {
+      await v4API.events.revert(eventId);
+      await load();
+    } catch (err) {
+      setError(err.message || 'Failed to revert change');
+    } finally {
+      setRevertingId(null);
+    }
+  }
+
+  if (!loading && changes.length === 0 && !error) return null;
+
+  return (
+    <CollapsibleSection
+      ariaLabel="What the agent did"
+      className={[styles.segmentPanel, styles.segmentPanelCool, className].filter(Boolean).join(' ')}
+      headerClassName={styles.segmentHeader}
+      title="What the agent did"
+      canCollapse={false}
+      meta={<span className={styles.countPill}>{changes.length}</span>}
+    >
+      {error && <div className={styles.error} role="alert">{error}</div>}
+      {loading ? (
+        <p className={styles.muted}>Loading…</p>
+      ) : (
+        <ul className={styles.eventList}>
+          {changes.map((change) => (
+            <li key={change.id} className={styles.eventItem}>
+              <div className={styles.eventHeader}>
+                <strong>{eventTitle(change)}</strong>
+                <span className={styles.mutedMeta}>{formatDateTime(change.created_at)}</span>
+              </div>
+              {eventReason(change) ? <p className={styles.eventReason}>{eventReason(change)}</p> : null}
+              <div>
+                {change.reverted_at ? (
+                  <span className={styles.metaStaticChip}>Reverted</span>
+                ) : (
+                  <button
+                    type="button"
+                    className={styles.secondaryButton}
+                    onClick={() => handleRevert(change.id)}
+                    disabled={revertingId === change.id}
+                  >
+                    {revertingId === change.id ? 'Reverting…' : 'Revert'}
+                  </button>
+                )}
+              </div>
             </li>
           ))}
         </ul>
