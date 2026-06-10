@@ -78,12 +78,24 @@ FOR "progress_update" — include:
   "update_text": a concise (one sentence) summary of the status/progress, \
                   written from the entity's point of view (e.g. "Shipped the \
                   HITL piece", "Still waiting on infra")
-  "fields"     : optional object with "status" if the update text clearly \
-                  implies a status transition for the target (e.g. "shipped" \
-                  / "delivered" / "done" → "done", "still waiting on X" → \
-                  "waiting", "blocked on X" → "blocked"). Use the target \
-                  entity type's status vocabulary. Omit "fields" entirely if \
-                  no status change is implied.
+  "fields"     : optional object with any subset of:
+                    "status"   — if the update text clearly implies a status \
+                                  transition for the target (e.g. "shipped" \
+                                  / "delivered" / "done" → "done", "still \
+                                  waiting on X" → "waiting", "blocked on X" \
+                                  → "blocked"). Use the target entity type's \
+                                  status vocabulary.
+                    "priority" — one of "low" | "medium" | "high" | "urgent" \
+                                  ONLY if the update text expresses urgency \
+                                  escalation language about the target \
+                                  (e.g. "this is now urgent", "becoming \
+                                  critical", "needs to jump the queue", \
+                                  "top priority now", "escalating this"). \
+                                  Do not infer priority from routine status \
+                                  updates — only from explicit escalation \
+                                  language.
+                  Omit "fields" entirely if neither is implied; omit \
+                  individual keys that don't apply.
   "blocked_by_id" : if "fields.status" is "blocked" or "waiting" AND the \
                   update text names a specific blocking thing or person that \
                   matches an entity in the WORKSPACE CATALOG or this note's \

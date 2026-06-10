@@ -343,6 +343,95 @@ def test_accept_update_entity_suggestion_updates_task_and_links_source_note(clie
         assert EntityEvent.query.filter_by(entity_id=note_id, event_type="suggestion_accepted").count() == 1
 
 
+def test_accept_update_entity_suggestion_sets_priority(client, app):
+    note_id = _create_note(app)
+    with app.app_context():
+        task = Entity(
+            type="task",
+            title="Fix prod outage",
+            content="Initial task",
+            status="open",
+            lifecycle="active",
+            source="test",
+            properties={},
+            ai_meta={},
+            ai_status="pending",
+        )
+        db.session.add(task)
+        db.session.flush()
+        task_id = task.id
+        db.session.commit()
+
+    suggestion_id = _create_suggestion(
+        app,
+        note_id,
+        "update_task",
+        {
+            "target_entity_id": task_id,
+            "target_type": "task",
+            "title": "Fix prod outage",
+            "fields": {"priority": "urgent"},
+            "relationship_type": "derived_from",
+            "evidence": "this is now urgent",
+        },
+        operation_type="update_entity",
+    )
+
+    response = client.post(f"/api/v4/suggestions/{suggestion_id}/accept")
+
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["created_entity"]["properties"]["priority"] == "urgent"
+
+    with app.app_context():
+        updated_task = db.session.get(Entity, task_id)
+        assert updated_task.properties["priority"] == "urgent"
+        assert EntityEvent.query.filter_by(entity_id=task_id, event_type="updated").count() == 1
+
+
+def test_accept_update_entity_suggestion_rejects_invalid_priority(client, app):
+    note_id = _create_note(app)
+    with app.app_context():
+        task = Entity(
+            type="task",
+            title="Fix prod outage",
+            content="Initial task",
+            status="open",
+            lifecycle="active",
+            source="test",
+            properties={},
+            ai_meta={},
+            ai_status="pending",
+        )
+        db.session.add(task)
+        db.session.flush()
+        task_id = task.id
+        db.session.commit()
+
+    suggestion_id = _create_suggestion(
+        app,
+        note_id,
+        "update_task",
+        {
+            "target_entity_id": task_id,
+            "target_type": "task",
+            "title": "Fix prod outage",
+            "fields": {"priority": "extreme"},
+            "relationship_type": "derived_from",
+            "evidence": "this is now urgent",
+        },
+        operation_type="update_entity",
+    )
+
+    response = client.post(f"/api/v4/suggestions/{suggestion_id}/accept")
+
+    assert response.status_code == 400
+
+    with app.app_context():
+        updated_task = db.session.get(Entity, task_id)
+        assert updated_task.properties.get("priority") is None
+
+
 def test_accept_create_person_project_area_resource_suggestions(client, app):
     note_id = _create_note(app)
     cases = [

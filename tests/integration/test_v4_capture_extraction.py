@@ -1239,6 +1239,99 @@ def test_capture_progress_update_blocked_status_creates_blocks_link(client, app)
         assert link is not None
 
 
+def test_capture_progress_update_escalation_creates_priority_suggestion(client, app):
+    task_response = client.post(
+        "/api/v4/entities",
+        json={"type": "task", "title": "Fix prod outage", "content": "Task"},
+    )
+    task_id = task_response.get_json()["data"]["id"]
+
+    extraction = {
+        "entities": [
+            {
+                "type": "task",
+                "title": "Fix prod outage",
+                "content": "This is now urgent, escalating",
+                "confidence": 0.9,
+                "evidence": "This is now urgent, escalating",
+            },
+        ]
+    }
+    decisions = [
+        {
+            "action": "progress_update",
+            "target_id": task_id,
+            "update_text": "Escalated to urgent",
+            "fields": {"priority": "urgent"},
+            "confidence": 0.95,
+            "reason": "escalation language detected",
+        },
+    ]
+
+    with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction), patch(
+        "services.v4_reconciliation.reconcile_candidates", return_value=decisions
+    ):
+        response = client.post("/api/v4/capture", json={"content": "Standup notes"})
+
+    assert response.status_code == 201
+    data = response.get_json()
+
+    # Activity update is applied, but the priority change is never auto-applied.
+    activity_changes = [c for c in data["applied_changes"] if c["type"] == "activity_update_added"]
+    assert len(activity_changes) == 1
+    assert all(c["type"] != "entity_updated" for c in data["applied_changes"])
+
+    assert len(data["suggestions"]) == 1
+    suggestion = data["suggestions"][0]
+    assert suggestion["operation_type"] == "update_entity"
+    assert suggestion["payload"]["target_entity_id"] == task_id
+    assert suggestion["payload"]["fields"] == {"priority": "urgent"}
+
+    with app.app_context():
+        from extensions import db
+        task = db.session.get(Entity, task_id)
+        assert (task.properties or {}).get("priority") is None
+
+
+def test_capture_progress_update_no_escalation_below_current_priority(client, app):
+    task_response = client.post(
+        "/api/v4/entities",
+        json={"type": "task", "title": "Polish docs", "content": "Task", "properties": {"priority": "high"}},
+    )
+    task_id = task_response.get_json()["data"]["id"]
+
+    extraction = {
+        "entities": [
+            {
+                "type": "task",
+                "title": "Polish docs",
+                "content": "Made some progress on this",
+                "confidence": 0.9,
+                "evidence": "Made some progress on this",
+            },
+        ]
+    }
+    decisions = [
+        {
+            "action": "progress_update",
+            "target_id": task_id,
+            "update_text": "Made progress",
+            "fields": {"priority": "low"},
+            "confidence": 0.95,
+            "reason": "no escalation",
+        },
+    ]
+
+    with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction), patch(
+        "services.v4_reconciliation.reconcile_candidates", return_value=decisions
+    ):
+        response = client.post("/api/v4/capture", json={"content": "Standup notes"})
+
+    assert response.status_code == 201
+    data = response.get_json()
+    assert data["suggestions"] == []
+
+
 def test_capture_changes_lists_agent_applied_changes_for_note(client, app):
     task_response = client.post(
         "/api/v4/entities",

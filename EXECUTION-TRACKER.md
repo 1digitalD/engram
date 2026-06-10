@@ -245,6 +245,13 @@ Non-authoritative historical artifacts:
   - red-first tests (2 unit + 1 integration); full backend suite green: 213 passed (was 210); UI 43 passed, build green; live QA against prod confirms no regressions (no prod project has a priority set yet, so no `~<priority>` pill renders)
   - see `docs/iterations/SLICE_D1_PROJECT_PRIORITY_INHERITANCE.md`; not yet deployed
 
+- Slice D2 (priority escalation from capture) implementation status:
+  - `_accept_update_entity_suggestion` now supports `fields.priority`, validating against `low|medium|high|urgent` and writing to `target_entity.properties.priority` (recorded via the existing `updated` event)
+  - reconciliation `SYSTEM_PROMPT` for `progress_update` now also accepts `fields.priority`, populated only when the update text uses explicit escalation language (not inferred from routine status updates)
+  - in `_apply_reconciliation_decision`'s `progress_update` branch, when escalation implies a priority strictly higher than the target's current `properties.priority`, a `change_priority`-style `update_entity` suggestion (`payload.fields={"priority": "<level>"}`) is always created via `_append_capture_suggestion` — never auto-applied regardless of confidence
+  - red-first tests: 2 integration (`test_v4_suggestions.py` accept w/ valid + invalid priority), 2 integration (`test_v4_capture_extraction.py` escalation creates suggestion; non-escalating priority is ignored); full backend suite green: 217 passed (was 213)
+  - see `docs/iterations/SLICE_D2_PRIORITY_ESCALATION.md`; not yet deployed
+
 ## Validation Commands
 
 ```bash

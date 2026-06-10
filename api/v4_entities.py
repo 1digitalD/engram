@@ -24,6 +24,8 @@ STATUS_BY_TYPE = {
 }
 
 ENTITY_TYPES = {"note", "task", "project", "area", "resource", "person"}
+PRIORITY_LEVELS = {"low", "medium", "high", "urgent"}
+PRIORITY_ORDER = {"low": 1, "medium": 2, "high": 3, "urgent": 4}
 DEFAULT_STATUS = {
     "note": "active",
     "task": "open",
@@ -1347,7 +1349,7 @@ def _accept_update_entity_suggestion(suggestion):
     if not isinstance(fields, dict):
         return _error("fields must be an object")
 
-    unsupported = set(fields) - {"status", "due_at", "follow_up_at"}
+    unsupported = set(fields) - {"status", "due_at", "follow_up_at", "priority"}
     if unsupported:
         return _error("unsupported update fields: " + ", ".join(sorted(unsupported)))
 
@@ -1377,6 +1379,16 @@ def _accept_update_entity_suggestion(suggestion):
         if follow_up_at != target_entity.follow_up_at:
             target_entity.follow_up_at = follow_up_at
             changed["follow_up_at"] = follow_up_at.isoformat() if follow_up_at else None
+
+    if "priority" in fields:
+        priority = fields["priority"]
+        if priority not in PRIORITY_LEVELS:
+            return _error("invalid priority: " + str(priority))
+        if priority != (target_entity.properties or {}).get("priority"):
+            properties = dict(target_entity.properties or {})
+            properties["priority"] = priority
+            target_entity.properties = properties
+            changed["priority"] = priority
 
     relationship_type = payload.get("relationship_type") or _default_relationship_type(target_entity.type)
     if relationship_type not in RELATIONSHIP_TYPES:
@@ -2324,6 +2336,32 @@ def _apply_reconciliation_decision(note, candidate, decision, applied_changes, s
                         "fields": {"status": new_status},
                         "relationship_type": relationship_type,
                         "assigned_to": _candidate_value(candidate, "assigned_to"),
+                        "evidence": evidence,
+                    },
+                    reason=decision.get("reason"),
+                )
+
+        new_priority = (decision.get("fields") or {}).get("priority")
+        if new_priority in PRIORITY_LEVELS:
+            current_priority = (target.properties or {}).get("priority")
+            if PRIORITY_ORDER.get(new_priority, 0) > PRIORITY_ORDER.get(current_priority, 0):
+                _append_capture_suggestion(
+                    note,
+                    candidate,
+                    action="update",
+                    entity_type=target.type,
+                    relationship_type=relationship_type,
+                    confidence=confidence,
+                    evidence=evidence,
+                    suggestions=suggestions,
+                    suggestion_type=f"update_{target.type}",
+                    operation_type="update_entity",
+                    payload={
+                        "target_entity_id": target.id,
+                        "target_type": target.type,
+                        "title": target.title,
+                        "fields": {"priority": new_priority},
+                        "relationship_type": relationship_type,
                         "evidence": evidence,
                     },
                     reason=decision.get("reason"),
