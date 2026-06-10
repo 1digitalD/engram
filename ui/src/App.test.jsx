@@ -62,6 +62,7 @@ describe('App shell', () => {
     expect(screen.getByRole('link', { name: /Home/i })).toHaveAttribute('href', '/');
     expect(screen.getByRole('link', { name: /Inbox/i })).toHaveAttribute('href', '/inbox');
     expect(screen.getByRole('link', { name: /Agent log/i })).toHaveAttribute('href', '/agent-activity');
+    expect(screen.queryByRole('link', { name: /^Review$/i })).not.toBeInTheDocument();
   });
 
   it('renders sidebar counts from the summary endpoint', async () => {
@@ -80,7 +81,6 @@ describe('App shell', () => {
     await waitFor(() => expect(v4API.summary).toHaveBeenCalled());
     expect(screen.getByRole('link', { name: /Today/i })).toHaveTextContent('7');
     expect(screen.getByRole('link', { name: /Inbox/i })).toHaveTextContent('2');
-    expect(screen.getByRole('link', { name: /Review/i })).toHaveTextContent('2');
   });
 
   it('supports quick note capture from the shell', async () => {

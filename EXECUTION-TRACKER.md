@@ -287,6 +287,15 @@ Non-authoritative historical artifacts:
   - see `docs/iterations/SLICE_E2_HOME_STATS_SHORTCUTS.md`
   - not yet deployed — Phase E deploys after E4
 
+- Slice E3 (Inbox + Review merge) implementation status:
+  - removed the "Review" (`/suggestions`) entry from the sidebar `viewItems` and the unused `Sparkles` icon import; `useSidebarCounts` no longer tracks a `suggestions` count
+  - `/suggestions` route + `V4Suggestions` view unchanged — stays as a deep-link target from `V4Inbox`'s "Open review queue" links and capture-result suggestion counts
+  - `V4Inbox.jsx` already merged capture form + needs-review queue + recent captures — no changes needed there
+  - `App.test.jsx` updated: assert "Review" link absent from sidebar
+  - full UI suite green: 44 passed; build green
+  - see `docs/iterations/SLICE_E3_INBOX_REVIEW_MERGE.md`
+  - not yet deployed — Phase E deploys after E4
+
 ## Validation Commands
 
 ```bash

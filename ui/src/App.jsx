@@ -9,7 +9,6 @@ import {
   Plus,
   Sun,
   Search,
-  Sparkles,
   FileText,
   FolderKanban,
   CheckSquare,
@@ -35,7 +34,6 @@ const viewItems = [
   ['/inbox', 'Inbox', Inbox, 'inbox'],
   ['/today', 'Today', Sun, 'today'],
   ['/search', 'Search', Search, null],
-  ['/suggestions', 'Review', Sparkles, 'suggestions'],
   ['/agent-activity', 'Agent log', Activity, null],
 ];
 
@@ -49,7 +47,7 @@ const libraryItems = [
 ];
 
 function useSidebarCounts(refreshKey) {
-  const [counts, setCounts] = useState({ inbox: null, today: null, suggestions: null });
+  const [counts, setCounts] = useState({ inbox: null, today: null });
 
   useEffect(() => {
     let active = true;
@@ -58,11 +56,10 @@ function useSidebarCounts(refreshKey) {
       setCounts({
         inbox: data?.inbox_count ?? null,
         today: data?.today_count ?? null,
-        suggestions: data?.suggestions_count ?? null,
       });
     }).catch(() => {
       if (!active) return;
-      setCounts({ inbox: null, today: null, suggestions: null });
+      setCounts({ inbox: null, today: null });
     });
     return () => { active = false; };
   }, [refreshKey]);
