@@ -45,6 +45,9 @@ describe('V4Today', () => {
         { id: 's1', source_entity_id: 'n2', suggestion_type: 'create_task', payload: { title: 'Suggested task' } },
         { id: 's2', source_entity_id: 'n2', suggestion_type: 'link_existing', payload: { title: 'Suggested project' } },
       ],
+      delegations_quiet: [
+        { id: 'dq1', type: 'task', title: 'Design GTM trigger doc', status: 'open', days_silent: 10, last_update: null },
+      ],
     });
 
     render(
@@ -69,6 +72,9 @@ describe('V4Today', () => {
     expect(screen.getByText('Waiting work')).toBeInTheDocument();
     expect(screen.getByText('Needs next task')).toBeInTheDocument();
     expect(screen.getByText('Recent note')).toBeInTheDocument();
+    expect(screen.getByText('Delegations needing a nudge')).toBeInTheDocument();
+    expect(screen.getByText('Design GTM trigger doc')).toBeInTheDocument();
+    expect(screen.getByText('10 days silent')).toBeInTheDocument();
     expect(screen.getAllByRole('link', { name: /Overdue task/i })[0]).toHaveAttribute('href', '/tasks/od1');
     expect(v4API.today).toHaveBeenCalled();
   });

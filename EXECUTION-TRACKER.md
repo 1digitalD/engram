@@ -215,6 +215,11 @@ Non-authoritative historical artifacts:
   - `_create_activity_update_note` now calls `_refresh_delegation_cadence`, pushing a delegated task's `follow_up_at` forward by the cadence again on each activity update
   - red-first integration tests (3 new) + `V4_TABLES` unit-test update; full suite green: 204 passed (was 201)
   - see `docs/iterations/SLICE_C1_DELEGATION_CADENCE.md`; not yet deployed (Phase C deploys once after C4)
+- Slice C2 ("gone quiet" surfacing in /today) implementation status:
+  - `GET /api/v4/today` gains `delegations_quiet`: tasks delegated to a non-owner person whose `follow_up_at` has passed with no activity update since, each annotated with `days_silent` and `last_update` preview; computed via new `_delegations_quiet(now)` helper with two batched queries (no N+1)
+  - Today UI gains a "Delegations needing a nudge" section (hidden when empty)
+  - red-first integration tests (2 new) + 1 UI test; full backend suite green: 206 passed (was 204); UI 43 passed, build green; live QA against prod confirms correct (empty) rendering
+  - see `docs/iterations/SLICE_C2_GONE_QUIET.md`; not yet deployed (Phase C deploys once after C4)
 
 ## Validation Commands
 

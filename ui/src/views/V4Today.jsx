@@ -163,6 +163,28 @@ function EntityRow({ entity, onQuickStatus, onUpdateField, onChanged, fromState,
   );
 }
 
+function DelegationQuietRow({ entity, fromState }) {
+  return (
+    <li className={styles.row}>
+      <Link to={entityPath(entity)} state={fromState} className={styles.rowLink}>
+        <strong>{entity.title || 'Untitled'}</strong>
+        {entity.last_update && (
+          <MarkdownContent content={entity.last_update} compact />
+        )}
+      </Link>
+      <div className={styles.metaRow}>
+        <span className={styles.typePill}>{entity.type}</span>
+        <span className={styles.reasonPill}>
+          {entity.days_silent} day{entity.days_silent === 1 ? '' : 's'} silent
+        </span>
+        {!entity.last_update && (
+          <span className={styles.mutedMeta}>no activity update yet</span>
+        )}
+      </div>
+    </li>
+  );
+}
+
 function EntitySection({ title, items, onQuickStatus, onUpdateField, onChanged, fromState, accent, reason }) {
   if (items.length === 0) return null;
   return (
@@ -240,6 +262,7 @@ export default function V4Today() {
   const waiting = today.waiting_tasks || [];
   const idleProjects = today.projects_without_open_tasks || [];
   const recentNotes = today.recent_notes || [];
+  const delegationsQuiet = today.delegations_quiet || [];
 
   const totalActionable = getTodayAttentionCount(today);
   const focusNow = getTodayFocusItems(today, 6);
@@ -350,6 +373,20 @@ export default function V4Today() {
         fromState={fromState}
         reason="waiting"
       />
+      {delegationsQuiet.length > 0 && (
+        <section className={`${styles.panel} ${styles.panel_overdue}`}>
+          <header className={styles.panelHeader}>
+            <h2>Delegations needing a nudge</h2>
+            <span className={styles.count}>{delegationsQuiet.length}</span>
+          </header>
+          <ul className={styles.list}>
+            {delegationsQuiet.map((entity) => (
+              <DelegationQuietRow key={entity.id} entity={entity} fromState={fromState} />
+            ))}
+          </ul>
+        </section>
+      )}
+
       <EntitySection
         title="Recent notes"
         items={recentNotes}

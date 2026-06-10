@@ -82,6 +82,54 @@ def test_v4_today_returns_execution_sections(client, app):
     assert data["pending_suggestions"][0]["payload"]["title"] == "Suggested task"
 
 
+def test_v4_today_surfaces_quiet_delegations(client, app):
+    yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
+    far_past = (datetime.now(timezone.utc) - timedelta(days=10)).isoformat()
+
+    akash = _create_entity(client, "person", "Akash")
+    quiet_task = _create_entity(client, "task", "Design GTM trigger doc", follow_up_at=far_past)
+    fresh_task = _create_entity(client, "task", "Write status update", follow_up_at=yesterday)
+    not_due_task = _create_entity(
+        client, "task", "Plan roadmap",
+        follow_up_at=(datetime.now(timezone.utc) + timedelta(days=2)).isoformat(),
+    )
+
+    _link(client, quiet_task["id"], akash["id"], "assigned_to")
+    _link(client, fresh_task["id"], akash["id"], "assigned_to")
+    _link(client, not_due_task["id"], akash["id"], "assigned_to")
+
+    response = client.post(
+        f"/api/v4/entities/{fresh_task['id']}/activity_updates",
+        json={"content": "Akash shared a draft today"},
+    )
+    assert response.status_code == 201
+
+    response = client.get("/api/v4/today")
+    assert response.status_code == 200
+    data = response.get_json()
+
+    quiet_ids = {item["id"] for item in data["delegations_quiet"]}
+    assert quiet_task["id"] in quiet_ids
+    assert fresh_task["id"] not in quiet_ids
+    assert not_due_task["id"] not in quiet_ids
+
+    quiet_item = next(item for item in data["delegations_quiet"] if item["id"] == quiet_task["id"])
+    assert quiet_item["days_silent"] >= 9
+    assert quiet_item["last_update"] is None
+
+
+def test_v4_today_does_not_surface_delegations_to_owner(client, app):
+    far_past = (datetime.now(timezone.utc) - timedelta(days=10)).isoformat()
+    dan = _create_entity(client, "person", "Dan")
+    owner_task = _create_entity(client, "task", "Owner's own task", follow_up_at=far_past)
+    _link(client, owner_task["id"], dan["id"], "assigned_to")
+
+    response = client.get("/api/v4/today")
+    assert response.status_code == 200
+    data = response.get_json()
+    assert owner_task["id"] not in {item["id"] for item in data["delegations_quiet"]}
+
+
 def test_v4_inbox_separates_needs_review_from_recent(client, app):
     needs_pending = _create_entity(client, "note", "Needs review (pending)")
     processed = _create_entity(client, "note", "Already processed")

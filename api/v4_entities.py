@@ -334,6 +334,8 @@ def today():
         .limit(25)
         .all()
     )
+    delegations_quiet = _delegations_quiet(now)
+
     pending_suggestions = (
         AiSuggestion.query.filter_by(status="pending")
         .order_by(AiSuggestion.created_at.desc())
@@ -365,6 +367,7 @@ def today():
             for entity in projects_without_open_tasks
         ],
         "recent_notes": [_entity_with_attention(entity) for entity in recent_notes],
+        "delegations_quiet": delegations_quiet,
         "pending_suggestions": [suggestion.to_dict() for suggestion in pending_suggestions],
         # Retained for any external callers; matches the new bucket structure semantically.
         "blocked_or_waiting_tasks": [_entity_with_attention(e) for e in (blocked_tasks + waiting_tasks)],
@@ -2562,6 +2565,70 @@ def _add_working_days(start, days):
         if current.weekday() < 5:
             remaining -= 1
     return current
+
+
+def _delegations_quiet(now):
+    """Tasks delegated to a non-owner person whose follow_up_at has passed
+    with no activity update since. Batched (no N+1)."""
+    from sqlalchemy.orm import aliased
+
+    PersonEntity = aliased(Entity)
+    owner_aliases = _owner_aliases()
+
+    tasks = (
+        _entity_query()
+        .join(EntityLink, (EntityLink.source_entity_id == Entity.id) & (EntityLink.relationship_type == "assigned_to"))
+        .join(PersonEntity, PersonEntity.id == EntityLink.target_entity_id)
+        .filter(
+            Entity.type == "task",
+            Entity.lifecycle == "active",
+            ~Entity.status.in_(DONE_TASK_STATUSES),
+            Entity.follow_up_at.isnot(None),
+            Entity.follow_up_at < now,
+            PersonEntity.type == "person",
+            ~func.lower(PersonEntity.title).in_(owner_aliases),
+        )
+        .order_by(Entity.follow_up_at.asc())
+        .limit(50)
+        .all()
+    )
+    if not tasks:
+        return []
+
+    task_ids = [task.id for task in tasks]
+    update_rows = (
+        db.session.query(EntityLink.target_entity_id, Entity.created_at, Entity.content)
+        .join(Entity, Entity.id == EntityLink.source_entity_id)
+        .filter(
+            EntityLink.relationship_type == "activity_update",
+            EntityLink.target_entity_id.in_(task_ids),
+        )
+        .order_by(EntityLink.target_entity_id, Entity.created_at.desc())
+        .all()
+    )
+    latest_update = {}
+    for target_id, created_at, content in update_rows:
+        if target_id not in latest_update:
+            latest_update[target_id] = (created_at, content)
+
+    results = []
+    for task in tasks:
+        last = latest_update.get(task.id)
+        last_created, last_content = last if last else (None, None)
+        if last_created is not None:
+            reference = last_created
+            if reference.tzinfo is None:
+                reference = reference.replace(tzinfo=timezone.utc)
+            if reference >= task.follow_up_at:
+                continue
+        else:
+            reference = task.follow_up_at
+
+        item = _entity_with_attention(task, context=["delegation_quiet"])
+        item["days_silent"] = (now - reference).days
+        item["last_update"] = last_content[:160] if last_content else None
+        results.append(item)
+    return results
 
 
 def _parse_iso_date(value):
