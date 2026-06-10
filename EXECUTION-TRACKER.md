@@ -232,7 +232,7 @@ Non-authoritative historical artifacts:
   - high-confidence `progress_update` status auto-apply to blocked/waiting now also creates a `blocks` link (blocker → target) when `blocked_by_id` resolves to an existing, non-cyclic entity, with an `applied_changes` entry and `relationship_added` `EntityEvent`
   - red-first integration tests (3 new); full suite green: 210 passed (was 207)
   - see `docs/iterations/SLICE_C4_BLOCKS_LINKS.md`
-  - **Phase C ready to deploy**: combined C1-C4 prod migration is `scripts/migrations/002_add_app_settings.sql` (additive `app_settings` table); C4 itself adds no schema
+  - **Phase C deployed to prod (2026-06-10)**: pre-migration snapshot taken (`backups/engram_prod_pre_phasec_20260610_065610.dump`), `scripts/migrations/002_add_app_settings.sql` applied to prod Postgres (additive only, defaults apply with no rows present), `./scripts/engram-deploy.sh` run, `/api/v4/health` and `/api/v4/today` (including new `delegations_quiet`) smoke-tested OK
 
 ## Validation Commands
 
