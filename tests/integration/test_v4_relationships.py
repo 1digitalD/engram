@@ -96,6 +96,40 @@ def test_self_link_rejected(client):
     assert "self-link" in response.get_json()["error"]
 
 
+def test_blocks_cycle_rejected(client):
+    task_a = _create_entity(client, "task", "Write spec")
+    task_b = _create_entity(client, "task", "Implement spec")
+
+    first = _create_relationship(client, task_a["id"], task_b["id"], "blocks")
+    second = _create_relationship(client, task_b["id"], task_a["id"], "blocks")
+
+    assert first.status_code == 201
+    assert second.status_code == 409
+    assert "cycle" in second.get_json()["error"]
+
+
+def test_blocks_cycle_rejected_via_update(client, app):
+    task_a = _create_entity(client, "task", "Write spec")
+    task_b = _create_entity(client, "task", "Implement spec")
+    task_c = _create_entity(client, "task", "Ship feature")
+
+    assert _create_relationship(client, task_a["id"], task_b["id"], "blocks").status_code == 201
+    assert _create_relationship(client, task_b["id"], task_c["id"], "blocks").status_code == 201
+
+    # c->a as "related" is fine, but turning it into "blocks" would close the
+    # cycle a->b->c->a.
+    third = _create_relationship(client, task_c["id"], task_a["id"], "related")
+    assert third.status_code == 201
+    third_id = third.get_json()["data"]["id"]
+
+    update_response = client.patch(
+        f"/api/v4/relationships/{third_id}",
+        json={"relationship_type": "blocks"},
+    )
+    assert update_response.status_code == 409
+    assert "cycle" in update_response.get_json()["error"]
+
+
 def test_relationship_delete_writes_event(client, app):
     task = _create_entity(client, "task", "Ask Henry")
     note = _create_entity(client, "note", "Talked to Henry")

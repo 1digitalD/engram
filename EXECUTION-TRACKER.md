@@ -226,6 +226,13 @@ Non-authoritative historical artifacts:
   - `PersonWorkspacePanel`'s "Current load" card now lists all of `current_load` (was a single primary-task pointer), each with status/priority and a "Last heard ..." or "No activity update yet" line
   - red-first integration test added; full backend suite green: 207 passed (was 206); UI 43 passed, build green
   - see `docs/iterations/SLICE_C3_PERSON_LOAD.md`; not yet deployed (Phase C deploys once after C4)
+- Slice C4 (blocks links from updates) implementation status:
+  - reconciler `progress_update` decisions can carry `blocked_by_id`; `SYSTEM_PROMPT` documents when to set it (status becomes blocked/waiting and a specific blocker entity is named)
+  - new `_creates_blocks_cycle(source_id, target_id)` (BFS over existing `blocks` links); `_create_entity_link` refuses cyclic `blocks` links, and the manual `POST /entities/<id>/relationships` and `PATCH /relationships/<id>` paths return 409 "relationship would create a blocks cycle"
+  - high-confidence `progress_update` status auto-apply to blocked/waiting now also creates a `blocks` link (blocker → target) when `blocked_by_id` resolves to an existing, non-cyclic entity, with an `applied_changes` entry and `relationship_added` `EntityEvent`
+  - red-first integration tests (3 new); full suite green: 210 passed (was 207)
+  - see `docs/iterations/SLICE_C4_BLOCKS_LINKS.md`
+  - **Phase C ready to deploy**: combined C1-C4 prod migration is `scripts/migrations/002_add_app_settings.sql` (additive `app_settings` table); C4 itself adds no schema
 
 ## Validation Commands
 

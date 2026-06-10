@@ -84,6 +84,12 @@ FOR "progress_update" — include:
                   "waiting", "blocked on X" → "blocked"). Use the target \
                   entity type's status vocabulary. Omit "fields" entirely if \
                   no status change is implied.
+  "blocked_by_id" : if "fields.status" is "blocked" or "waiting" AND the \
+                  update text names a specific blocking thing or person that \
+                  matches an entity in the WORKSPACE CATALOG or this note's \
+                  other candidates (e.g. "blocked on the API contract doc", \
+                  "waiting on Akash"), the id of that blocking entity. \
+                  Omit if no specific blocker entity can be identified.
 
 Return a JSON object with a "decisions" array — one entry per candidate, \
 in the same order as the input:
@@ -95,6 +101,7 @@ in the same order as the input:
       "target_id": null,
       "fields": {{}},
       "update_text": null,
+      "blocked_by_id": null,
       "relationship_type": "related",
       "confidence": 0.0,
       "reason": "brief explanation"

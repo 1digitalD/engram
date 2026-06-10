@@ -1173,6 +1173,72 @@ def test_capture_progress_update_with_invalid_status_is_ignored(client, app):
         assert task.status == "open"
 
 
+def test_capture_progress_update_blocked_status_creates_blocks_link(client, app):
+    blocked_response = client.post(
+        "/api/v4/entities",
+        json={"type": "task", "title": "Ship rollout memo", "content": "Task"},
+    )
+    blocked_id = blocked_response.get_json()["data"]["id"]
+
+    blocker_response = client.post(
+        "/api/v4/entities",
+        json={"type": "task", "title": "Finalize API contract", "content": "Task"},
+    )
+    blocker_id = blocker_response.get_json()["data"]["id"]
+
+    extraction = {
+        "entities": [
+            {
+                "type": "task",
+                "title": "Ship rollout memo",
+                "content": "Still blocked on the API contract",
+                "confidence": 0.9,
+                "evidence": "Still blocked on the API contract",
+            },
+        ]
+    }
+    decisions = [
+        {
+            "action": "progress_update",
+            "target_id": blocked_id,
+            "update_text": "Still blocked on the API contract",
+            "fields": {"status": "blocked"},
+            "blocked_by_id": blocker_id,
+            "confidence": 0.92,
+            "reason": "blocked on API contract",
+        },
+    ]
+
+    with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction), patch(
+        "services.v4_reconciliation.reconcile_candidates", return_value=decisions
+    ):
+        response = client.post("/api/v4/capture", json={"content": "Standup notes"})
+
+    assert response.status_code == 201
+    data = response.get_json()
+    assert data["suggestions"] == []
+
+    link_changes = [c for c in data["applied_changes"] if c["type"] == "relationship_added"]
+    assert any(
+        c["source_entity_id"] == blocker_id
+        and c["target_entity_id"] == blocked_id
+        and c["relationship_type"] == "blocks"
+        for c in link_changes
+    )
+
+    with app.app_context():
+        from extensions import db
+        task = db.session.get(Entity, blocked_id)
+        assert task.status == "blocked"
+
+        link = EntityLink.query.filter_by(
+            source_entity_id=blocker_id,
+            target_entity_id=blocked_id,
+            relationship_type="blocks",
+        ).one()
+        assert link is not None
+
+
 def test_capture_changes_lists_agent_applied_changes_for_note(client, app):
     task_response = client.post(
         "/api/v4/entities",

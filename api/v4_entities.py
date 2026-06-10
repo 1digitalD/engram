@@ -1650,6 +1650,8 @@ def create_relationship(entity_id):
         relationship_type=relationship_type,
     ).first():
         return _error("duplicate relationship", 409)
+    if relationship_type == "blocks" and _creates_blocks_cycle(entity_id, target_entity_id):
+        return _error("relationship would create a blocks cycle", 409)
 
     link = EntityLink(
         source_entity_id=entity_id,
@@ -1695,6 +1697,8 @@ def update_relationship(relationship_id):
         ).first()
         if duplicate:
             return _error("duplicate relationship", 409)
+        if relationship_type == "blocks" and _creates_blocks_cycle(link.source_entity_id, link.target_entity_id):
+            return _error("relationship would create a blocks cycle", 409)
         link.relationship_type = relationship_type
     for field in ("source", "confidence", "evidence"):
         if field in data:
@@ -2243,6 +2247,29 @@ def _apply_reconciliation_decision(note, candidate, decision, applied_changes, s
                     source_note_id=note.id,
                 )
                 _queue_embed_job(target.id, "capture_auto_update")
+
+                if new_status in {"blocked", "waiting"}:
+                    blocker_id = decision.get("blocked_by_id")
+                    blocker = db.session.get(Entity, blocker_id) if blocker_id else None
+                    if blocker is not None and blocker.id != target.id:
+                        link = _create_entity_link(blocker, target, "blocks", confidence, evidence)
+                        if link is not None:
+                            applied_changes.append({
+                                "type": "relationship_added",
+                                "source_entity_id": blocker.id,
+                                "target_entity_id": target.id,
+                                "relationship_type": "blocks",
+                                "confidence": confidence,
+                            })
+                            _write_event(
+                                target,
+                                "relationship_added",
+                                new_value=link.to_dict(),
+                                actor="agent:v4-capture",
+                                confidence=confidence,
+                                reason=decision.get("reason"),
+                                source_note_id=note.id,
+                            )
             else:
                 _append_capture_suggestion(
                     note,
@@ -2737,6 +2764,32 @@ def _create_suggestion(note, suggestion_type, operation_type, payload, confidenc
     return suggestion
 
 
+def _creates_blocks_cycle(source_entity_id, target_entity_id):
+    """True if adding source --blocks--> target would create a cycle, i.e. if
+    target can already (transitively) reach source via 'blocks' links."""
+    if source_entity_id == target_entity_id:
+        return True
+    visited = set()
+    frontier = [target_entity_id]
+    while frontier:
+        current = frontier.pop()
+        if current == source_entity_id:
+            return True
+        if current in visited:
+            continue
+        visited.add(current)
+        next_ids = [
+            row[0] for row in db.session.query(EntityLink.target_entity_id)
+            .filter(
+                EntityLink.source_entity_id == current,
+                EntityLink.relationship_type == "blocks",
+            )
+            .all()
+        ]
+        frontier.extend(next_ids)
+    return False
+
+
 def _create_entity_link(source_entity, target_entity, relationship_type, confidence, evidence, source="ai"):
     existing = EntityLink.query.filter_by(
         source_entity_id=source_entity.id,
@@ -2744,6 +2797,8 @@ def _create_entity_link(source_entity, target_entity, relationship_type, confide
         relationship_type=relationship_type,
     ).first()
     if existing is not None:
+        return None
+    if relationship_type == "blocks" and _creates_blocks_cycle(source_entity.id, target_entity.id):
         return None
     link = EntityLink(
         source_entity_id=source_entity.id,
