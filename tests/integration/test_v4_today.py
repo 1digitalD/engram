@@ -28,6 +28,35 @@ def _link(client, source_id, target_id, relationship_type):
     assert response.status_code == 201
 
 
+def test_v4_summary_matches_today_and_inbox_counts(client, app):
+    from services.v4_attention import today_attention_count
+
+    yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
+
+    _create_entity(client, "task", "Overdue task", due_at=yesterday)
+    _create_entity(client, "task", "Blocked task", status="blocked")
+    _create_entity(client, "note", "Needs review note")
+
+    response = client.get("/api/v4/summary")
+    assert response.status_code == 200
+    summary = response.get_json()
+
+    today_response = client.get("/api/v4/today")
+    assert today_response.status_code == 200
+    today_data = today_response.get_json()
+
+    inbox_response = client.get("/api/v4/inbox", query_string={"limit": 200})
+    assert inbox_response.status_code == 200
+    inbox_data = inbox_response.get_json()
+
+    assert summary["today_count"] == today_attention_count(today_data)
+    assert summary["today_count"] > 0
+    assert summary["inbox_count"] == len(inbox_data["needs_review"])
+    assert summary["suggestions_count"] == summary["inbox_count"]
+    assert summary["last_reviewed_at"] == today_data["last_reviewed_at"]
+    assert summary["reviewed_today"] == today_data["reviewed_today"]
+
+
 def test_v4_today_returns_execution_sections(client, app):
     yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
     today = datetime.now(timezone.utc).isoformat()

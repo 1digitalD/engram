@@ -49,6 +49,42 @@ STALENESS_THRESHOLDS = (
 IMPACT_WEIGHT_PER_BLOCK = 12
 IMPACT_WEIGHT_CAP = 24
 
+# Note intents that are notable enough to count toward "today" attention even
+# when the note itself carries no due/follow-up date. Mirrors
+# `HIGH_SIGNAL_NOTE_INTENTS` in `ui/src/utils/today.js`.
+HIGH_SIGNAL_NOTE_INTENTS = {"blocker", "follow_up", "delegation"}
+
+
+def today_attention_count(today_payload):
+    """Count of distinct entities needing attention today.
+
+    Pure port of `getTodayAttentionCount` (`ui/src/utils/today.js`): dedupes
+    by entity id across the actionable, stuck, high-signal-note, and
+    unscheduled-attention buckets of a `/today` payload.
+    """
+    seen = set()
+    buckets = (
+        (today_payload.get("overdue") or [])
+        + (today_payload.get("due_today") or [])
+        + (today_payload.get("overdue_follow_ups") or [])
+        + (today_payload.get("follow_ups") or [])
+        + (today_payload.get("blocked_tasks") or [])
+        + (today_payload.get("waiting_tasks") or [])
+        + [
+            note for note in (today_payload.get("recent_notes") or [])
+            if (note.get("ai") or {}).get("intent") in HIGH_SIGNAL_NOTE_INTENTS
+        ]
+        + (today_payload.get("unscheduled_attention_tasks") or [])
+    )
+    count = 0
+    for item in buckets:
+        key = item.get("id")
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        count += 1
+    return count
+
 
 def attention_for_entity(
     entity,

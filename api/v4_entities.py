@@ -12,7 +12,7 @@ from sqlalchemy.orm import selectinload
 from api import api_v4_bp
 from extensions import db
 from models import AiSuggestion, AppSetting, Entity, EntityEvent, EntityLink, EntityTag, Job, Tag, _iso
-from services.v4_attention import attention_for_entity
+from services.v4_attention import attention_for_entity, today_attention_count
 
 STATUS_BY_TYPE = {
     "note": ["active", "processed", "archived"],
@@ -229,7 +229,10 @@ OPEN_TASK_STATUSES = {"open", "in_progress", "waiting", "blocked"}
 
 @api_v4_bp.route("/today", methods=["GET"])
 def today():
-    now = datetime.now(timezone.utc)
+    return jsonify(_build_today_payload(datetime.now(timezone.utc)))
+
+
+def _build_today_payload(now):
     start_of_today = datetime.combine(now.date(), time.min, tzinfo=timezone.utc)
     end_of_today = datetime.combine(now.date(), time.max, tzinfo=timezone.utc)
 
@@ -415,7 +418,7 @@ def today():
         last_reviewed_at and _parse_datetime(last_reviewed_at) >= start_of_today
     )
 
-    return jsonify({
+    return {
         "overdue": [with_priority(entity) for entity in overdue],
         "due_today": [with_priority(entity) for entity in due_today],
         "overdue_follow_ups": [with_priority(entity) for entity in overdue_follow_ups],
@@ -436,7 +439,7 @@ def today():
         "pending_suggestions": [suggestion.to_dict() for suggestion in pending_suggestions],
         # Retained for any external callers; matches the new bucket structure semantically.
         "blocked_or_waiting_tasks": [with_priority(e) for e in (blocked_tasks + waiting_tasks)],
-    })
+    }
 
 
 @api_v4_bp.route("/today/review", methods=["POST"])
@@ -450,9 +453,7 @@ def mark_today_reviewed():
     })
 
 
-@api_v4_bp.route("/inbox", methods=["GET"])
-def inbox():
-    limit = max(1, min(request.args.get("limit", 30, type=int), 200))
+def _needs_review_query():
     unresolved_review = or_(
         Entity.ai_meta["review_state"].as_string().is_(None),
         Entity.ai_meta["review_state"].as_string() != "resolved",
@@ -465,18 +466,41 @@ def inbox():
         .distinct().all()
     }
 
+    return _entity_query().filter(
+        Entity.type == "note",
+        Entity.lifecycle == "active",
+        unresolved_review,
+        or_(
+            Entity.ai_status == "pending",
+            Entity.ai_status == "failed",
+            Entity.id.in_(notes_with_suggestions) if notes_with_suggestions else Entity.id.is_(None),
+        ),
+    )
+
+
+def _needs_review_count():
+    return _needs_review_query().count()
+
+
+@api_v4_bp.route("/summary", methods=["GET"])
+def summary():
+    now = datetime.now(timezone.utc)
+    today_payload = _build_today_payload(now)
+    return jsonify({
+        "inbox_count": _needs_review_count(),
+        "today_count": today_attention_count(today_payload),
+        "suggestions_count": _needs_review_count(),
+        "last_reviewed_at": today_payload["last_reviewed_at"],
+        "reviewed_today": today_payload["reviewed_today"],
+    })
+
+
+@api_v4_bp.route("/inbox", methods=["GET"])
+def inbox():
+    limit = max(1, min(request.args.get("limit", 30, type=int), 200))
+
     needs_review = (
-        _entity_query()
-        .filter(
-            Entity.type == "note",
-            Entity.lifecycle == "active",
-            unresolved_review,
-            or_(
-                Entity.ai_status == "pending",
-                Entity.ai_status == "failed",
-                Entity.id.in_(notes_with_suggestions) if notes_with_suggestions else Entity.id.is_(None),
-            ),
-        )
+        _needs_review_query()
         .order_by(Entity.updated_at.desc(), Entity.created_at.desc())
         .all()
     )

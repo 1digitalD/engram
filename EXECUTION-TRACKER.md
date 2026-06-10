@@ -269,6 +269,15 @@ Non-authoritative historical artifacts:
   - see `docs/iterations/SLICE_D4_TODAY_RESTRUCTURE.md`
   - **Phase D deployed to prod (2026-06-10)**: pre-deploy snapshot taken (`backups/engram_prod_pre_phased_20260610_093236.dump`, no new migration needed — `app_settings` already present from Phase C), `./scripts/engram-deploy.sh` run, `/api/v4/health` and `/api/v4/today` smoke-tested OK (new `upcoming_due_tasks`/`last_reviewed_at`/`reviewed_today` fields present and correct)
 
+- Slice E1 (`/api/v4/summary` + sidebar counts) implementation status:
+  - new `services/v4_attention.today_attention_count(today_payload)` — pure port of the JS `getTodayAttentionCount` dedupe logic (overdue/due-today/follow-up/blocked/waiting/high-signal-note/unscheduled buckets, deduped by entity id)
+  - `today()` refactored into `_build_today_payload(now)` (same JSON contract); `/inbox`'s "needs review" filter extracted into `_needs_review_query()`/`_needs_review_count()`, shared with the new endpoint
+  - new `GET /api/v4/summary` returns `{inbox_count, today_count, suggestions_count, last_reviewed_at, reviewed_today}` in one call
+  - `ui/src/api/v4Client.js` gains `v4API.summary()`; `App.jsx`'s `useSidebarCounts` now makes one `/summary` call instead of three (`/inbox`, `/today`, `/suggestions`)
+  - red-first tests: 2 new unit tests (dedupe-across-buckets parity, empty-payload) + 1 new integration test (`/summary` counts match `/today`+`/inbox` via the same Python dedupe function); full backend suite green: 226 passed (was 223); UI 43 passed, build green
+  - see `docs/iterations/SLICE_E1_SUMMARY_ENDPOINT.md`
+  - not yet deployed — Phase E deploys after E4
+
 ## Validation Commands
 
 ```bash

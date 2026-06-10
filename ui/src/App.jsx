@@ -21,7 +21,6 @@ import {
 import styles from './App.module.css';
 import { v4API } from './api/v4Client';
 import MarkdownEditor from './components/MarkdownEditor';
-import { getTodayAttentionCount } from './utils/today';
 import V4Inbox from './views/V4Inbox';
 import V4EntityList from './views/V4EntityList';
 import V4EntityDetail from './views/V4EntityDetail';
@@ -54,22 +53,16 @@ function useSidebarCounts(refreshKey) {
 
   useEffect(() => {
     let active = true;
-    Promise.allSettled([
-      v4API.inbox({ limit: 200 }),
-      v4API.today(),
-      v4API.suggestions.list({ status: 'pending', limit: 1 }),
-    ]).then(([inboxRes, todayRes, sugRes]) => {
+    v4API.summary().then((data) => {
       if (!active) return;
-      const inboxCount = inboxRes.status === 'fulfilled'
-        ? (inboxRes.value.needs_review?.length ?? null)
-        : null;
-      const todayCount = todayRes.status === 'fulfilled'
-        ? getTodayAttentionCount(todayRes.value)
-        : null;
-      const sugCount = inboxRes.status === 'fulfilled'
-        ? (inboxRes.value.needs_review?.length ?? null)
-        : null;
-      setCounts({ inbox: inboxCount, today: todayCount, suggestions: sugCount });
+      setCounts({
+        inbox: data?.inbox_count ?? null,
+        today: data?.today_count ?? null,
+        suggestions: data?.suggestions_count ?? null,
+      });
+    }).catch(() => {
+      if (!active) return;
+      setCounts({ inbox: null, today: null, suggestions: null });
     });
     return () => { active = false; };
   }, [refreshKey]);

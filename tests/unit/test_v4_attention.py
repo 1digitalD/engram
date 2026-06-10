@@ -1,7 +1,32 @@
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
-from services.v4_attention import attention_for_entity
+from services.v4_attention import attention_for_entity, today_attention_count
+
+
+def test_today_attention_count_dedupes_across_buckets():
+    shared = {"id": "shared-1"}
+    payload = {
+        "overdue": [shared],
+        "due_today": [{"id": "due-1"}],
+        "overdue_follow_ups": [shared],
+        "follow_ups": [],
+        "blocked_tasks": [{"id": "blocked-1"}],
+        "waiting_tasks": [{"id": "waiting-1"}],
+        "recent_notes": [
+            {"id": "note-1", "ai": {"intent": "blocker"}},
+            {"id": "note-2", "ai": {"intent": "fyi"}},
+        ],
+        "unscheduled_attention_tasks": [{"id": "unscheduled-1"}, shared],
+    }
+
+    # shared-1 (deduped), due-1, blocked-1, waiting-1, note-1 (high-signal),
+    # unscheduled-1 = 6. note-2 ("fyi" intent) is not high-signal.
+    assert today_attention_count(payload) == 6
+
+
+def test_today_attention_count_handles_missing_buckets():
+    assert today_attention_count({}) == 0
 
 
 def test_attention_scores_overdue_blocked_urgent_task():

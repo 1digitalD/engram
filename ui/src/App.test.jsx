@@ -13,6 +13,7 @@ vi.mock('./api/v4Client', () => ({
       create: vi.fn(),
     },
     today: vi.fn(),
+    summary: vi.fn(),
     suggestions: {
       list: vi.fn(),
     },
@@ -48,6 +49,7 @@ describe('App shell', () => {
     v4API.inbox.mockResolvedValue({ needs_review: [{ id: 'n1' }] });
     v4API.entities.list.mockResolvedValue({ meta: { total: 4 }, data: [] });
     v4API.today.mockResolvedValue({});
+    v4API.summary.mockResolvedValue({ inbox_count: 1, today_count: 0, suggestions_count: 1 });
     v4API.suggestions.list.mockResolvedValue({ meta: { total: 2 }, data: [] });
 
     render(
@@ -62,19 +64,12 @@ describe('App shell', () => {
     expect(screen.getByRole('link', { name: /Agent log/i })).toHaveAttribute('href', '/agent-activity');
   });
 
-  it('uses the same actionable today buckets as the Today screen', async () => {
+  it('renders sidebar counts from the summary endpoint', async () => {
     v4API.inbox.mockResolvedValue({ needs_review: [{ id: 'n1' }, { id: 'n2' }] });
     v4API.entities.list.mockResolvedValue({ meta: { total: 4 }, data: [] });
-    v4API.today.mockResolvedValue({
-      overdue: [{ id: '1' }],
-      due_today: [{ id: '2' }],
-      overdue_follow_ups: [{ id: '1' }, { id: '3' }],
-      follow_ups: [{ id: '4' }],
-      blocked_tasks: [{ id: '5' }],
-      waiting_tasks: [{ id: '5' }, { id: '6' }],
-      recent_notes: [{ id: 'n3', ai: { intent: 'blocker' } }],
-    });
+    v4API.today.mockResolvedValue({});
     v4API.suggestions.list.mockResolvedValue({ meta: { total: 2 }, data: [] });
+    v4API.summary.mockResolvedValue({ inbox_count: 2, today_count: 7, suggestions_count: 2 });
 
     render(
       <MemoryRouter initialEntries={['/']}>
@@ -82,7 +77,7 @@ describe('App shell', () => {
       </MemoryRouter>,
     );
 
-    await waitFor(() => expect(v4API.today).toHaveBeenCalled());
+    await waitFor(() => expect(v4API.summary).toHaveBeenCalled());
     expect(screen.getByRole('link', { name: /Today/i })).toHaveTextContent('7');
     expect(screen.getByRole('link', { name: /Inbox/i })).toHaveTextContent('2');
     expect(screen.getByRole('link', { name: /Review/i })).toHaveTextContent('2');
@@ -93,6 +88,7 @@ describe('App shell', () => {
     v4API.entities.list.mockResolvedValue({ meta: { total: 0 }, data: [] });
     v4API.today.mockResolvedValue({});
     v4API.suggestions.list.mockResolvedValue({ meta: { total: 0 }, data: [] });
+    v4API.summary.mockResolvedValue({ inbox_count: 0, today_count: 0, suggestions_count: 0 });
     v4API.capture.mockResolvedValue({ source_note: { id: 'n1' } });
 
     render(
@@ -120,6 +116,7 @@ describe('App shell', () => {
     v4API.entities.list.mockResolvedValue({ meta: { total: 0 }, data: [] });
     v4API.today.mockResolvedValue({});
     v4API.suggestions.list.mockResolvedValue({ meta: { total: 0 }, data: [] });
+    v4API.summary.mockResolvedValue({ inbox_count: 0, today_count: 0, suggestions_count: 0 });
 
     render(
       <MemoryRouter initialEntries={['/projects']}>
