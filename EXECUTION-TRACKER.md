@@ -208,7 +208,7 @@ Non-authoritative historical artifacts:
   - frontend: `CaptureChangesPanel` ("What the agent did") on note detail with per-row Revert
   - red-first integration tests (6 new) + 1 new UI test; full backend suite green: 201 passed (was 195); UI: 43 passed (was 42), build green
   - no extraction/reconciliation changes in this slice, so replay eval not re-run
-  - remaining for Phase B deploy: apply `scripts/migrations/001_add_event_revert_fields.sql` to prod (after `pg_dump` snapshot), then `./scripts/engram-deploy.sh` + smoke test
+  - **Phase B deployed to prod (2026-06-09)**: pre-migration snapshot taken (`backups/engram_prod_pre_b3_20260609_225003.dump`), `scripts/migrations/001_add_event_revert_fields.sql` applied to prod Postgres (additive only), `./scripts/engram-deploy.sh` run, `/api/v4/health` and `/api/v4/today` smoke-tested OK
 
 ## Validation Commands
 
