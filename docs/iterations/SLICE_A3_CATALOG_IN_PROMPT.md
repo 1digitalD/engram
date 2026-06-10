@@ -52,6 +52,35 @@ Expected to fix:
 Target: ≥ 85% accuracy on labeled set (up from offline baseline of 51%).
 Live eval to be run with OPENAI_API_KEY set.
 
+## Live eval results (2026-06-09)
+
+File: `docs/iterations/replay_results/20260609_235658.json`
+Score: 19/27 (70%) — up from 51% offline baseline, but below the 85% target.
+
+7 of the 9 original false-create labels from A0 are now fixed: "Toolkit
+robustness and flexibility", "Deals agent family support", "Admin agent
+family support", "Agent memory utilization", "Agentic SDLC", "Conversation
+history search functionality", "Agent memories collaboration", "Agent
+Platform".
+
+New regression: the catalog made the model **over-eager to link to broad
+umbrella areas**. 8 incorrect decisions:
+- "Security roadmap" still wrong (now `new ≠ link`, inverted from before —
+  candidate "Security" treated as project but only an area match exists)
+- "SWAT team operating model", "Conversation reinforcement learning",
+  "Merger contingency planning", "Design team grounding in customer
+  scenarios" — all incorrectly linked to umbrella area "Agent Platform"
+  (`link ≠ new`)
+- "Platform Evangelism / Adoption" — linked to itself incorrectly (`link ≠
+  new`)
+- "reasoning UI" — incorrectly linked to person "Sushmidha Jawahar"
+  (`link ≠ new`)
+- "Attend sprint planning" — `update ≠ new` against "Hold sprint planning"
+
+This is the seed for a Phase B slice: tighten the matching rules so broad
+umbrella areas (e.g. "Agent Platform") are only linked on close title/scope
+match, not whenever a candidate is thematically related.
+
 ## Phase A complete — deploy checkpoint
 
 All three matching slices (A1, A2, A3) are merged. This is a Phase A deploy
