@@ -220,6 +220,12 @@ Non-authoritative historical artifacts:
   - Today UI gains a "Delegations needing a nudge" section (hidden when empty)
   - red-first integration tests (2 new) + 1 UI test; full backend suite green: 206 passed (was 204); UI 43 passed, build green; live QA against prod confirms correct (empty) rendering
   - see `docs/iterations/SLICE_C2_GONE_QUIET.md`; not yet deployed (Phase C deploys once after C4)
+- Slice C3 (person workspace: load + last-heard) implementation status:
+  - `GET /api/v4/entities/<id>/detail` gains `current_load` for `person` entities: each open assigned task plus `last_heard_at`/`last_heard_preview` from its most recent activity-update note, via new `_person_current_load(person)` helper
+  - refactored `_latest_activity_updates(entity_ids)` out of C2's `_delegations_quiet` so both features share the same batched (no N+1) lookup
+  - `PersonWorkspacePanel`'s "Current load" card now lists all of `current_load` (was a single primary-task pointer), each with status/priority and a "Last heard ..." or "No activity update yet" line
+  - red-first integration test added; full backend suite green: 207 passed (was 206); UI 43 passed, build green
+  - see `docs/iterations/SLICE_C3_PERSON_LOAD.md`; not yet deployed (Phase C deploys once after C4)
 
 ## Validation Commands
 

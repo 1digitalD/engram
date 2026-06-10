@@ -130,6 +130,33 @@ def test_v4_today_does_not_surface_delegations_to_owner(client, app):
     assert owner_task["id"] not in {item["id"] for item in data["delegations_quiet"]}
 
 
+def test_v4_person_detail_includes_current_load_with_last_heard(client, app):
+    akash = _create_entity(client, "person", "Akash")
+    open_task = _create_entity(client, "task", "Design GTM trigger doc", status="open")
+    done_task = _create_entity(client, "task", "Already shipped", status="done")
+
+    _link(client, open_task["id"], akash["id"], "assigned_to")
+    _link(client, done_task["id"], akash["id"], "assigned_to")
+
+    response = client.post(
+        f"/api/v4/entities/{open_task['id']}/activity_updates",
+        json={"content": "Akash shared the first draft"},
+    )
+    assert response.status_code == 201
+
+    response = client.get(f"/api/v4/entities/{akash['id']}/detail")
+    assert response.status_code == 200
+    data = response.get_json()
+
+    load_ids = {item["task"]["id"] for item in data["current_load"]}
+    assert open_task["id"] in load_ids
+    assert done_task["id"] not in load_ids
+
+    open_item = next(item for item in data["current_load"] if item["task"]["id"] == open_task["id"])
+    assert open_item["last_heard_at"] is not None
+    assert "first draft" in open_item["last_heard_preview"]
+
+
 def test_v4_inbox_separates_needs_review_from_recent(client, app):
     needs_pending = _create_entity(client, "note", "Needs review (pending)")
     processed = _create_entity(client, "note", "Already processed")

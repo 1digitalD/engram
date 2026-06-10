@@ -830,6 +830,18 @@ describe('v4 entity screens', () => {
           }],
         },
       ],
+      current_load: [
+        {
+          task: { id: 't90', type: 'task', title: 'Prep review', status: 'in_progress', properties: { priority: 'high' } },
+          last_heard_at: '2026-05-21T09:00:00+00:00',
+          last_heard_preview: 'Akash shared the first draft',
+        },
+        {
+          task: { id: 't91', type: 'task', title: 'Wait on feedback', status: 'waiting' },
+          last_heard_at: null,
+          last_heard_preview: null,
+        },
+      ],
     };
     v4API.entities.detail.mockResolvedValue(detail);
     v4API.entities.events.mockResolvedValue({ data: [] });
@@ -848,6 +860,8 @@ describe('v4 entity screens', () => {
     expect(screen.getAllByText('Prep review').length).toBeGreaterThan(0);
     expect(screen.getByText('No follow-up date set')).toBeInTheDocument();
     expect(screen.getAllByRole('link', { name: /Prep review/i })[0]).toHaveAttribute('href', '/tasks/t90');
+    expect(screen.getByText(/Akash shared the first draft/)).toBeInTheDocument();
+    expect(screen.getByText('No activity update yet')).toBeInTheDocument();
   });
 
   it('renders a resource workspace overview from existing detail sections', async () => {

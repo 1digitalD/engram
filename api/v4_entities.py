@@ -11,7 +11,7 @@ from sqlalchemy.orm import selectinload
 
 from api import api_v4_bp
 from extensions import db
-from models import AiSuggestion, AppSetting, Entity, EntityEvent, EntityLink, EntityTag, Job, Tag
+from models import AiSuggestion, AppSetting, Entity, EntityEvent, EntityLink, EntityTag, Job, Tag, _iso
 from services.v4_attention import attention_for_entity
 
 STATUS_BY_TYPE = {
@@ -648,7 +648,10 @@ def get_entity_detail(entity_id):
     entity = _load_entity(entity_id)
     if entity is None:
         return _error("entity not found", 404)
-    return jsonify({"entity": entity.to_dict(), "sections": _relationship_detail_sections(entity)})
+    detail = {"entity": entity.to_dict(), "sections": _relationship_detail_sections(entity)}
+    if entity.type == "person":
+        detail["current_load"] = _person_current_load(entity)
+    return jsonify(detail)
 
 
 @api_v4_bp.route("/entities/<entity_id>", methods=["PATCH"])
@@ -2567,6 +2570,58 @@ def _add_working_days(start, days):
     return current
 
 
+def _latest_activity_updates(entity_ids):
+    """Map entity_id -> (created_at, content) of its most recent activity-update note."""
+    if not entity_ids:
+        return {}
+    rows = (
+        db.session.query(EntityLink.target_entity_id, Entity.created_at, Entity.content)
+        .join(Entity, Entity.id == EntityLink.source_entity_id)
+        .filter(
+            EntityLink.relationship_type == "activity_update",
+            EntityLink.target_entity_id.in_(entity_ids),
+        )
+        .order_by(EntityLink.target_entity_id, Entity.created_at.desc())
+        .all()
+    )
+    latest = {}
+    for target_id, created_at, content in rows:
+        if target_id not in latest:
+            latest[target_id] = (created_at, content)
+    return latest
+
+
+def _person_current_load(person):
+    """Open tasks assigned to `person`, each with last-activity-update info."""
+    tasks = (
+        _entity_query()
+        .join(EntityLink, (EntityLink.source_entity_id == Entity.id) & (EntityLink.relationship_type == "assigned_to"))
+        .filter(
+            Entity.type == "task",
+            Entity.lifecycle == "active",
+            Entity.status.in_(OPEN_TASK_STATUSES),
+            EntityLink.target_entity_id == person.id,
+        )
+        .order_by(Entity.follow_up_at.asc().nullslast(), Entity.updated_at.desc())
+        .limit(50)
+        .all()
+    )
+    if not tasks:
+        return []
+
+    latest_update = _latest_activity_updates([task.id for task in tasks])
+    results = []
+    for task in tasks:
+        last = latest_update.get(task.id)
+        last_created, last_content = last if last else (None, None)
+        results.append({
+            "task": _entity_with_attention(task),
+            "last_heard_at": _iso(last_created),
+            "last_heard_preview": last_content[:160] if last_content else None,
+        })
+    return results
+
+
 def _delegations_quiet(now):
     """Tasks delegated to a non-owner person whose follow_up_at has passed
     with no activity update since. Batched (no N+1)."""
@@ -2596,20 +2651,7 @@ def _delegations_quiet(now):
         return []
 
     task_ids = [task.id for task in tasks]
-    update_rows = (
-        db.session.query(EntityLink.target_entity_id, Entity.created_at, Entity.content)
-        .join(Entity, Entity.id == EntityLink.source_entity_id)
-        .filter(
-            EntityLink.relationship_type == "activity_update",
-            EntityLink.target_entity_id.in_(task_ids),
-        )
-        .order_by(EntityLink.target_entity_id, Entity.created_at.desc())
-        .all()
-    )
-    latest_update = {}
-    for target_id, created_at, content in update_rows:
-        if target_id not in latest_update:
-            latest_update[target_id] = (created_at, content)
+    latest_update = _latest_activity_updates(task_ids)
 
     results = []
     for task in tasks:

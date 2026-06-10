@@ -1121,11 +1121,11 @@ function PersonWorkspacePanel({ entity, detail }) {
   const projects = sectionItems(detail, 'projects');
   const resources = sectionItems(detail, 'resources');
   const relatedPeople = sectionItems(detail, 'related_people');
+  const currentLoad = detail?.current_load || [];
 
   const openAssignedTasks = assignedTasks.filter((item) => ['open', 'in_progress', 'waiting', 'blocked'].includes(item.entity.status));
   const blockedAssignedTasks = openAssignedTasks.filter((item) => ['waiting', 'blocked'].includes(item.entity.status));
   const activeProjects = projects.filter((item) => item.entity.status === 'active');
-  const primaryTask = openAssignedTasks.find((item) => ['in_progress', 'open'].includes(item.entity.status)) || openAssignedTasks[0] || null;
 
   const warnings = [];
   if (openAssignedTasks.length === 0) warnings.push('No open assigned tasks');
@@ -1165,14 +1165,25 @@ function PersonWorkspacePanel({ entity, detail }) {
       <div className={styles.workspaceGrid}>
         <section className={styles.workspaceCard}>
           <h3>Current load</h3>
-          {primaryTask ? (
-            <Link to={pathForEntity(primaryTask.entity)} className={styles.workspaceLinkCard}>
-              <strong>{primaryTask.entity.title || 'Untitled task'}</strong>
-              <span className={styles.metaRow}>
-                <span className={styles.statusPill}>{primaryTask.entity.status}</span>
-                {primaryTask.entity.properties?.priority ? <span className={styles.priorityPill}>Priority {primaryTask.entity.properties.priority}</span> : null}
-              </span>
-            </Link>
+          {currentLoad.length > 0 ? (
+            <ul className={styles.eventList}>
+              {currentLoad.map(({ task, last_heard_at: lastHeardAt, last_heard_preview: lastHeardPreview }) => (
+                <li key={task.id} className={styles.eventItem}>
+                  <Link to={pathForEntity(task)} className={styles.workspaceLinkCard}>
+                    <strong>{task.title || 'Untitled task'}</strong>
+                    <span className={styles.metaRow}>
+                      <span className={styles.statusPill}>{task.status}</span>
+                      {task.properties?.priority ? <span className={styles.priorityPill}>Priority {task.properties.priority}</span> : null}
+                    </span>
+                  </Link>
+                  <p className={styles.mutedMeta}>
+                    {lastHeardAt
+                      ? `Last heard ${formatDateTime(lastHeardAt)}${lastHeardPreview ? ` — ${lastHeardPreview}` : ''}`
+                      : 'No activity update yet'}
+                  </p>
+                </li>
+              ))}
+            </ul>
           ) : (
             <p className={styles.muted}>No open assigned task is linked right now.</p>
           )}
