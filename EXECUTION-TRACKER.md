@@ -252,6 +252,14 @@ Non-authoritative historical artifacts:
   - red-first tests: 2 integration (`test_v4_suggestions.py` accept w/ valid + invalid priority), 2 integration (`test_v4_capture_extraction.py` escalation creates suggestion; non-escalating priority is ignored); full backend suite green: 217 passed (was 213)
   - see `docs/iterations/SLICE_D2_PRIORITY_ESCALATION.md`; not yet deployed
 
+- Slice D3 (server-side attention v2: impact + staleness) implementation status:
+  - `attention_for_entity` gains `staleness_days` (weighted via a tiered table: ≥21d→25, ≥14d→18, ≥7d→10, ≥3d→4) and `blocks_count` (weighted `min(24, count*12)`); both are pure inputs computed by the caller, no DB access inside the function
+  - new batched helpers `_staleness_days_for(entities, now)` (last activity-update, falling back to `created_at`) and `_blocking_impact_counts(entities)` (active non-done entities blocked via `blocks` links)
+  - `GET /api/v4/today` now also queries undated/unscheduled open tasks (`due_at` and `follow_up_at` both null), scores them via impact+staleness, and returns the top 20 with score > 0 as a new `unscheduled_attention_tasks` bucket; staleness/impact are also threaded into all other task buckets
+  - Today UI: new "Needs attention (no date set)" section renders `unscheduled_attention_tasks`; `getTodayAttentionCount` includes them in the daily total (focus-now ranking left unchanged to avoid displacing existing high-signal items)
+  - red-first tests: 3 unit (staleness table, impact table, undated-high-priority-stale-task outranks dated-low-priority-task per spec) + 1 integration (`/today` surfaces stale + blocking undated tasks, excludes quiet ones); full backend suite green: 221 passed (was 217); UI 43 passed, build green; live-checked against prod `/today` on a scratch port (20 unscheduled tasks surfaced correctly, then torn down)
+  - see `docs/iterations/SLICE_D3_ATTENTION_V2.md`; not yet deployed
+
 ## Validation Commands
 
 ```bash

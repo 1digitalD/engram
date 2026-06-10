@@ -114,6 +114,51 @@ def test_v4_today_task_inherits_project_priority(client, app):
     )
 
 
+def test_v4_today_surfaces_unscheduled_tasks_by_impact_and_staleness(client, app):
+    yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
+
+    # Dated, low-priority overdue task.
+    _create_entity(client, "task", "Routine overdue task", due_at=yesterday, properties={"priority": "low"})
+
+    # Undated, high-priority task that's gone stale — should outrank the
+    # dated low-priority task and appear in `unscheduled_attention_tasks`.
+    stale_task = _create_entity(client, "task", "Stale high-priority task", properties={"priority": "high"})
+
+    # Undated task with no priority, but blocks another active task — should
+    # also surface via impact.
+    blocker_task = _create_entity(client, "task", "Blocker task")
+    blocked_task = _create_entity(client, "task", "Some other open task")
+    _link(client, blocker_task["id"], blocked_task["id"], "blocks")
+
+    # An undated, low-attention task with neither priority/staleness/impact —
+    # should not surface.
+    _create_entity(client, "task", "Quiet undated task")
+
+    with app.app_context():
+        from sqlalchemy import update
+        db.session.execute(
+            update(Entity)
+            .where(Entity.id == stale_task["id"])
+            .values(created_at=datetime.now(timezone.utc) - timedelta(days=21))
+        )
+        db.session.commit()
+
+    response = client.get("/api/v4/today")
+    assert response.status_code == 200
+    data = response.get_json()
+
+    by_id = {item["id"]: item for item in data["unscheduled_attention_tasks"]}
+    assert stale_task["id"] in by_id
+    assert blocker_task["id"] in by_id
+    assert "Quiet undated task" not in {item["title"] for item in data["unscheduled_attention_tasks"]}
+
+    stale_item = by_id[stale_task["id"]]
+    assert any(r["key"] == "staleness" for r in stale_item["attention"]["reasons"])
+
+    blocker_item = by_id[blocker_task["id"]]
+    assert any(r["key"] == "impact:blocks" for r in blocker_item["attention"]["reasons"])
+
+
 def test_v4_today_surfaces_quiet_delegations(client, app):
     yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
     far_past = (datetime.now(timezone.utc) - timedelta(days=10)).isoformat()

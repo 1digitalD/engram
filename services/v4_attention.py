@@ -34,12 +34,42 @@ CONTEXT_WEIGHTS = {
     "project_without_open_tasks": 18,
 }
 
+# Staleness: weight by days since the entity's last activity (no update,
+# no recent change). Lets undated/unscheduled tasks accrue attention from
+# being neglected, not just from due/follow-up dates.
+STALENESS_THRESHOLDS = (
+    (21, 25),
+    (14, 18),
+    (7, 10),
+    (3, 4),
+)
 
-def attention_for_entity(entity, *, pending_suggestion_count=0, context=None, now=None, inherited_priority=None):
+# Impact: weight by how many other active, non-done entities this entity
+# blocks. Lets a blocker task rank highly even with no date of its own.
+IMPACT_WEIGHT_PER_BLOCK = 12
+IMPACT_WEIGHT_CAP = 24
+
+
+def attention_for_entity(
+    entity,
+    *,
+    pending_suggestion_count=0,
+    context=None,
+    now=None,
+    inherited_priority=None,
+    staleness_days=None,
+    blocks_count=0,
+):
     """Return derived attention metadata for an entity-like object.
 
     `inherited_priority` (e.g. a parent project's priority) is used only when
     the entity has no `properties.priority` of its own.
+
+    `staleness_days` (days since the entity's last activity) and
+    `blocks_count` (how many other active entities this one blocks) let
+    undated tasks accrue attention from neglect (staleness) and impact
+    (blockage) rather than only from due/follow-up dates. Both are computed
+    by the caller via batched queries — this function stays pure.
     """
     now = now or datetime.now(timezone.utc)
     reasons = []
@@ -84,6 +114,23 @@ def attention_for_entity(entity, *, pending_suggestion_count=0, context=None, no
         if weight:
             reasons.append({"key": f"context:{item}", "label": item.replace("_", " "), "weight": weight})
 
+    if staleness_days is not None:
+        staleness_weight = _staleness_weight(staleness_days)
+        if staleness_weight:
+            reasons.append({
+                "key": "staleness",
+                "label": f"no update in {staleness_days} days",
+                "weight": staleness_weight,
+            })
+
+    if blocks_count:
+        impact_weight = min(IMPACT_WEIGHT_CAP, blocks_count * IMPACT_WEIGHT_PER_BLOCK)
+        reasons.append({
+            "key": "impact:blocks",
+            "label": f"blocks {blocks_count} other item{'s' if blocks_count != 1 else ''}",
+            "weight": impact_weight,
+        })
+
     score = max(0, min(100, sum(reason["weight"] for reason in reasons)))
     return {
         "score": score,
@@ -105,6 +152,13 @@ def _add_date_reason(reasons, key, label, value, now, *, overdue_weight, today_w
         days_until = (value.date() - now.date()).days
         if days_until <= 7:
             reasons.append({"key": f"{key}:upcoming", "label": f"{label} upcoming", "weight": upcoming_weight})
+
+
+def _staleness_weight(days):
+    for threshold, weight in STALENESS_THRESHOLDS:
+        if days >= threshold:
+            return weight
+    return 0
 
 
 def _level(score):

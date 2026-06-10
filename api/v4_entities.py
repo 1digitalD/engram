@@ -336,6 +336,23 @@ def today():
         .limit(25)
         .all()
     )
+    # Open tasks with no due/follow-up date of their own — invisible to the
+    # date-based buckets above. Ranked by impact + staleness so neglected or
+    # blocking work still surfaces.
+    unscheduled_tasks = (
+        _entity_query()
+        .filter(
+            Entity.type == "task",
+            Entity.lifecycle == "active",
+            Entity.status.in_(OPEN_TASK_STATUSES),
+            Entity.due_at.is_(None),
+            Entity.follow_up_at.is_(None),
+        )
+        .order_by(Entity.updated_at.desc())
+        .limit(100)
+        .all()
+    )
+
     delegations_quiet = _delegations_quiet(now)
 
     pending_suggestions = (
@@ -356,12 +373,29 @@ def today():
         .all()
     )
 
-    inherited_priorities = _inherited_task_priorities(
-        overdue + due_today + overdue_follow_ups + follow_ups + upcoming_follow_ups + blocked_tasks + waiting_tasks
+    all_tasks = (
+        overdue + due_today + overdue_follow_ups + follow_ups + upcoming_follow_ups
+        + blocked_tasks + waiting_tasks + unscheduled_tasks
     )
+    inherited_priorities = _inherited_task_priorities(all_tasks)
+    staleness_by_id = _staleness_days_for(all_tasks, now)
+    impact_by_id = _blocking_impact_counts(all_tasks)
 
     def with_priority(entity, **kwargs):
-        return _entity_with_attention(entity, inherited_priority=inherited_priorities.get(entity.id), **kwargs)
+        return _entity_with_attention(
+            entity,
+            inherited_priority=inherited_priorities.get(entity.id),
+            staleness_days=staleness_by_id.get(entity.id),
+            blocks_count=impact_by_id.get(entity.id, 0),
+            **kwargs,
+        )
+
+    unscheduled_attention = sorted(
+        (with_priority(entity) for entity in unscheduled_tasks),
+        key=lambda item: item["attention"]["score"],
+        reverse=True,
+    )
+    unscheduled_attention = [item for item in unscheduled_attention if item["attention"]["score"] > 0][:20]
 
     return jsonify({
         "overdue": [with_priority(entity) for entity in overdue],
@@ -371,6 +405,7 @@ def today():
         "upcoming_follow_ups": [with_priority(entity) for entity in upcoming_follow_ups],
         "blocked_tasks": [with_priority(entity) for entity in blocked_tasks],
         "waiting_tasks": [with_priority(entity) for entity in waiting_tasks],
+        "unscheduled_attention_tasks": unscheduled_attention,
         "projects_without_open_tasks": [
             _entity_with_attention(entity, context=["project_without_open_tasks"])
             for entity in projects_without_open_tasks
@@ -457,13 +492,23 @@ def inbox():
     })
 
 
-def _entity_with_attention(entity, *, pending_suggestion_count=0, context=None, inherited_priority=None):
+def _entity_with_attention(
+    entity,
+    *,
+    pending_suggestion_count=0,
+    context=None,
+    inherited_priority=None,
+    staleness_days=None,
+    blocks_count=0,
+):
     data = entity.to_dict()
     data["attention"] = attention_for_entity(
         entity,
         pending_suggestion_count=pending_suggestion_count,
         context=context,
         inherited_priority=inherited_priority,
+        staleness_days=staleness_days,
+        blocks_count=blocks_count,
     )
     if inherited_priority and not (entity.properties or {}).get("priority"):
         data["inherited_priority"] = inherited_priority
@@ -493,6 +538,46 @@ def _inherited_task_priorities(tasks):
         if priority:
             result[task_id] = priority
     return result
+
+
+def _staleness_days_for(entities, now):
+    """Map entity_id -> days since its last activity (most recent
+    activity-update note, falling back to updated_at). Batched (no N+1)."""
+    if not entities:
+        return {}
+    entity_ids = [e.id for e in entities]
+    latest_update = _latest_activity_updates(entity_ids)
+    result = {}
+    for entity in entities:
+        last = latest_update.get(entity.id)
+        reference = last[0] if last else entity.created_at
+        if reference is None:
+            continue
+        if reference.tzinfo is None:
+            reference = reference.replace(tzinfo=timezone.utc)
+        result[entity.id] = max(0, (now - reference).days)
+    return result
+
+
+def _blocking_impact_counts(entities):
+    """Map entity_id -> count of other active, non-done entities it blocks
+    (via a `blocks` relationship link). Batched (no N+1)."""
+    if not entities:
+        return {}
+    entity_ids = [e.id for e in entities]
+    rows = (
+        db.session.query(EntityLink.source_entity_id, func.count(EntityLink.target_entity_id))
+        .join(Entity, Entity.id == EntityLink.target_entity_id)
+        .filter(
+            EntityLink.source_entity_id.in_(entity_ids),
+            EntityLink.relationship_type == "blocks",
+            Entity.lifecycle == "active",
+            ~Entity.status.in_(DONE_TASK_STATUSES),
+        )
+        .group_by(EntityLink.source_entity_id)
+        .all()
+    )
+    return {source_id: count for source_id, count in rows}
 
 
 @api_v4_bp.route("/agent-activity", methods=["GET"])

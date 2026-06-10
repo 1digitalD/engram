@@ -47,6 +47,10 @@ export function getTodayStuckEntities(today) {
   ]);
 }
 
+export function getTodayUnscheduledAttentionEntities(today) {
+  return dedupeEntities(today?.unscheduled_attention_tasks || []);
+}
+
 export function getTodayAttentionNotes(today) {
   return dedupeEntities(
     (today?.recent_notes || []).filter((entity) => HIGH_SIGNAL_NOTE_INTENTS.includes(entity?.ai?.intent)),
@@ -58,6 +62,7 @@ export function getTodayAttentionCount(today) {
     ...getTodayActionableEntities(today),
     ...getTodayStuckEntities(today),
     ...getTodayAttentionNotes(today),
+    ...getTodayUnscheduledAttentionEntities(today),
   ]).length;
 }
 

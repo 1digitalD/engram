@@ -39,6 +39,13 @@ describe('V4Today', () => {
         attention: { score: 56, level: 'high', reasons: [{ key: 'status:blocked', label: 'blocked' }] },
       }],
       waiting_tasks: [{ id: 'w1', type: 'task', title: 'Waiting work', status: 'waiting' }],
+      unscheduled_attention_tasks: [{
+        id: 'ua1',
+        type: 'task',
+        title: 'Stale undated task',
+        status: 'open',
+        attention: { score: 43, level: 'medium', reasons: [{ key: 'staleness', label: 'no update in 14 days' }] },
+      }],
       projects_without_open_tasks: [{ id: 'p1', type: 'project', title: 'Needs next task', status: 'active' }],
       recent_notes: [
         { id: 'n1', type: 'note', title: 'Recent note', status: 'active' },
@@ -62,7 +69,7 @@ describe('V4Today', () => {
     expect((await screen.findAllByText('Overdue task')).length).toBeGreaterThan(0);
     expect(screen.getAllByText('Overdue inherited priority task').length).toBeGreaterThan(0);
     expect(screen.getAllByText('~urgent').length).toBeGreaterThan(0);
-    expect(screen.getByText('8 items need your attention today.')).toBeInTheDocument();
+    expect(screen.getByText('9 items need your attention today.')).toBeInTheDocument();
     expect(screen.getByText('Focus now')).toBeInTheDocument();
     expect(screen.getAllByText('overdue').length).toBeGreaterThan(0);
     expect(screen.getAllByText('due today').length).toBeGreaterThan(0);
@@ -75,6 +82,8 @@ describe('V4Today', () => {
     expect(screen.getByText('Blocked work')).toBeInTheDocument();
     expect(screen.getByText('high · blocked')).toBeInTheDocument();
     expect(screen.getByText('Waiting work')).toBeInTheDocument();
+    expect(screen.getAllByText('Stale undated task').length).toBeGreaterThan(0);
+    expect(screen.getByText('Needs attention (no date set)')).toBeInTheDocument();
     expect(screen.getByText('Needs next task')).toBeInTheDocument();
     expect(screen.getByText('Recent note')).toBeInTheDocument();
     expect(screen.getByText('Delegations needing a nudge')).toBeInTheDocument();

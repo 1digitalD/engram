@@ -101,6 +101,7 @@ function reasonLabel(reason) {
   if (reason === 'captured_blocker') return 'captured blocker';
   if (reason === 'captured_follow_up') return 'captured follow-up';
   if (reason === 'captured_delegation') return 'captured delegation';
+  if (reason === 'needs_attention') return 'needs attention';
   return reason;
 }
 
@@ -262,6 +263,7 @@ export default function V4Today() {
   const upcomingFollowUps = today.upcoming_follow_ups || [];
   const blocked = today.blocked_tasks || [];
   const waiting = today.waiting_tasks || [];
+  const unscheduledAttention = today.unscheduled_attention_tasks || [];
   const idleProjects = today.projects_without_open_tasks || [];
   const recentNotes = today.recent_notes || [];
   const delegationsQuiet = today.delegations_quiet || [];
@@ -374,6 +376,14 @@ export default function V4Today() {
         onChanged={load}
         fromState={fromState}
         reason="waiting"
+      />
+      <EntitySection
+        title="Needs attention (no date set)"
+        items={unscheduledAttention}
+        onQuickStatus={handleQuickStatus}
+        onUpdateField={handleUpdateField}
+        onChanged={load}
+        fromState={fromState}
       />
       {delegationsQuiet.length > 0 && (
         <section className={`${styles.panel} ${styles.panel_overdue}`}>
