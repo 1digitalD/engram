@@ -2,6 +2,8 @@
 
 from datetime import datetime, timedelta, timezone
 
+from sqlalchemy.orm.attributes import flag_modified
+
 from extensions import db
 from models import AiSuggestion, Entity
 
@@ -157,6 +159,59 @@ def test_v4_today_surfaces_unscheduled_tasks_by_impact_and_staleness(client, app
 
     blocker_item = by_id[blocker_task["id"]]
     assert any(r["key"] == "impact:blocks" for r in blocker_item["attention"]["reasons"])
+
+
+def test_v4_today_includes_upcoming_due_tasks(client, app):
+    in_three_days = (datetime.now(timezone.utc) + timedelta(days=3)).isoformat()
+    in_three_weeks = (datetime.now(timezone.utc) + timedelta(days=21)).isoformat()
+
+    upcoming_due_task = _create_entity(client, "task", "Upcoming due task", due_at=in_three_days)
+    far_future_task = _create_entity(client, "task", "Far future due task", due_at=in_three_weeks)
+
+    response = client.get("/api/v4/today")
+    assert response.status_code == 200
+    data = response.get_json()
+
+    upcoming_ids = {item["id"] for item in data["upcoming_due_tasks"]}
+    assert upcoming_due_task["id"] in upcoming_ids
+    assert far_future_task["id"] not in upcoming_ids
+    # Tasks due later this week shouldn't also clutter overdue/due_today.
+    assert upcoming_due_task["id"] not in {item["id"] for item in data["overdue"]}
+    assert upcoming_due_task["id"] not in {item["id"] for item in data["due_today"]}
+
+
+def test_v4_today_day_reviewed_flow(client, app):
+    response = client.get("/api/v4/today")
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["last_reviewed_at"] is None
+    assert data["reviewed_today"] is False
+
+    response = client.post("/api/v4/today/review")
+    assert response.status_code == 200
+    reviewed = response.get_json()
+    assert reviewed["last_reviewed_at"] is not None
+    assert reviewed["reviewed_today"] is True
+
+    response = client.get("/api/v4/today")
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["last_reviewed_at"] == reviewed["last_reviewed_at"]
+    assert data["reviewed_today"] is True
+
+    # Simulate a review from a previous day: still recorded, but no longer "today".
+    with app.app_context():
+        from models import AppSetting
+        setting = db.session.get(AppSetting, "last_reviewed_at")
+        setting.value = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
+        flag_modified(setting, "value")
+        db.session.commit()
+
+    response = client.get("/api/v4/today")
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["last_reviewed_at"] is not None
+    assert data["reviewed_today"] is False
 
 
 def test_v4_today_surfaces_quiet_delegations(client, app):

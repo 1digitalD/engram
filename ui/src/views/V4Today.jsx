@@ -6,7 +6,9 @@ import { v4API } from '../api/v4Client';
 import CardActions from '../components/CardActions';
 import MarkdownContent from '../components/MarkdownContent';
 import {
+  getTodayActionItems,
   getTodayAttentionCount,
+  getTodayDeadlinesAhead,
   getTodayDueNowEntities,
   getTodayFocusItems,
   getTodayOverdueEntities,
@@ -248,6 +250,15 @@ export default function V4Today() {
     }
   }
 
+  async function handleMarkDayReviewed() {
+    try {
+      await v4API.today.review();
+      await load();
+    } catch (err) {
+      setError(err.message || 'Failed to mark day reviewed');
+    }
+  }
+
   if (error) {
     return <main className={styles.today}><section className={styles.panel}><p>{error}</p></section></main>;
   }
@@ -258,12 +269,6 @@ export default function V4Today() {
   const dateLabel = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
   const overdue = today.overdue || [];
   const dueToday = today.due_today || [];
-  const overdueFollowUps = today.overdue_follow_ups || [];
-  const followUps = today.follow_ups || [];
-  const upcomingFollowUps = today.upcoming_follow_ups || [];
-  const blocked = today.blocked_tasks || [];
-  const waiting = today.waiting_tasks || [];
-  const unscheduledAttention = today.unscheduled_attention_tasks || [];
   const idleProjects = today.projects_without_open_tasks || [];
   const recentNotes = today.recent_notes || [];
   const delegationsQuiet = today.delegations_quiet || [];
@@ -273,6 +278,9 @@ export default function V4Today() {
   const overdueSummaryCount = getTodayOverdueEntities(today).length;
   const dueNowSummaryCount = getTodayDueNowEntities(today).length;
   const stuckSummaryCount = getTodayStuckEntities(today).length;
+  const actionItems = getTodayActionItems(today);
+  const deadlinesAhead = getTodayDeadlinesAhead(today);
+  const reviewedToday = !!today.reviewed_today;
 
   return (
     <main className={styles.today}>
@@ -288,6 +296,14 @@ export default function V4Today() {
           <span className={styles.summaryPill}>{dueNowSummaryCount} due or follow-up today</span>
           <span className={styles.summaryPill}>{stuckSummaryCount} stuck</span>
         </div>
+        <button
+          type="button"
+          className={styles.reviewButton}
+          onClick={handleMarkDayReviewed}
+          disabled={reviewedToday}
+        >
+          {reviewedToday ? 'Day reviewed' : 'Mark day reviewed'}
+        </button>
       </header>
 
       {focusNow.length > 0 && (
@@ -332,59 +348,27 @@ export default function V4Today() {
         accent="due"
         reason="due_today"
       />
-      <EntitySection
-        title="Overdue follow-ups"
-        items={overdueFollowUps}
-        onQuickStatus={handleQuickStatus}
-        onUpdateField={handleUpdateField}
-        onChanged={load}
-        fromState={fromState}
-        accent="overdue"
-        reason="overdue_follow_up"
-      />
-      <EntitySection
-        title="Follow up today"
-        items={followUps}
-        onQuickStatus={handleQuickStatus}
-        onUpdateField={handleUpdateField}
-        onChanged={load}
-        fromState={fromState}
-        reason="follow_up_today"
-      />
-      <EntitySection
-        title="Upcoming follow-ups (next 7 days)"
-        items={upcomingFollowUps}
-        onQuickStatus={handleQuickStatus}
-        onUpdateField={handleUpdateField}
-        onChanged={load}
-        fromState={fromState}
-      />
-      <EntitySection
-        title="Blocked"
-        items={blocked}
-        onQuickStatus={handleQuickStatus}
-        onUpdateField={handleUpdateField}
-        onChanged={load}
-        fromState={fromState}
-        reason="blocked"
-      />
-      <EntitySection
-        title="Waiting"
-        items={waiting}
-        onQuickStatus={handleQuickStatus}
-        onUpdateField={handleUpdateField}
-        onChanged={load}
-        fromState={fromState}
-        reason="waiting"
-      />
-      <EntitySection
-        title="Needs attention (no date set)"
-        items={unscheduledAttention}
-        onQuickStatus={handleQuickStatus}
-        onUpdateField={handleUpdateField}
-        onChanged={load}
-        fromState={fromState}
-      />
+      {actionItems.length > 0 && (
+        <section className={styles.panel}>
+          <header className={styles.panelHeader}>
+            <h2>Your actions</h2>
+            <span className={styles.count}>{actionItems.length}</span>
+          </header>
+          <ul className={styles.list}>
+            {actionItems.map(({ entity, reason }) => (
+              <EntityRow
+                key={`action-${entity.id}-${reason}`}
+                entity={entity}
+                onQuickStatus={handleQuickStatus}
+                onUpdateField={handleUpdateField}
+                onChanged={load}
+                fromState={fromState}
+                reason={reason}
+              />
+            ))}
+          </ul>
+        </section>
+      )}
       {delegationsQuiet.length > 0 && (
         <section className={`${styles.panel} ${styles.panel_overdue}`}>
           <header className={styles.panelHeader}>
@@ -397,6 +381,28 @@ export default function V4Today() {
             ))}
           </ul>
         </section>
+      )}
+
+      {deadlinesAhead.length > 0 && (
+        <details className={styles.collapsible}>
+          <summary className={styles.collapsibleSummary}>
+            Deadlines ahead · {deadlinesAhead.length} item{deadlinesAhead.length === 1 ? '' : 's'} this week
+          </summary>
+          <section className={styles.panel}>
+            <ul className={styles.list}>
+              {deadlinesAhead.map((entity) => (
+                <EntityRow
+                  key={`deadline-${entity.id}`}
+                  entity={entity}
+                  onQuickStatus={handleQuickStatus}
+                  onUpdateField={handleUpdateField}
+                  onChanged={load}
+                  fromState={fromState}
+                />
+              ))}
+            </ul>
+          </section>
+        </details>
       )}
 
       <EntitySection

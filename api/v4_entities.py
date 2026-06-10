@@ -297,6 +297,19 @@ def today():
         .limit(50)
         .all()
     )
+    upcoming_due_tasks = (
+        _entity_query()
+        .filter(
+            Entity.lifecycle == "active",
+            Entity.due_at.isnot(None),
+            Entity.due_at > end_of_today,
+            Entity.due_at <= end_of_week,
+            ~Entity.status.in_(DONE_TASK_STATUSES),
+        )
+        .order_by(Entity.due_at.asc())
+        .limit(50)
+        .all()
+    )
     blocked_tasks = (
         _entity_query()
         .filter(Entity.type == "task", Entity.lifecycle == "active", Entity.status == "blocked")
@@ -375,7 +388,7 @@ def today():
 
     all_tasks = (
         overdue + due_today + overdue_follow_ups + follow_ups + upcoming_follow_ups
-        + blocked_tasks + waiting_tasks + unscheduled_tasks
+        + upcoming_due_tasks + blocked_tasks + waiting_tasks + unscheduled_tasks
     )
     inherited_priorities = _inherited_task_priorities(all_tasks)
     staleness_by_id = _staleness_days_for(all_tasks, now)
@@ -397,15 +410,23 @@ def today():
     )
     unscheduled_attention = [item for item in unscheduled_attention if item["attention"]["score"] > 0][:20]
 
+    last_reviewed_at = _get_app_setting("last_reviewed_at")
+    reviewed_today = bool(
+        last_reviewed_at and _parse_datetime(last_reviewed_at) >= start_of_today
+    )
+
     return jsonify({
         "overdue": [with_priority(entity) for entity in overdue],
         "due_today": [with_priority(entity) for entity in due_today],
         "overdue_follow_ups": [with_priority(entity) for entity in overdue_follow_ups],
         "follow_ups": [with_priority(entity) for entity in follow_ups],
         "upcoming_follow_ups": [with_priority(entity) for entity in upcoming_follow_ups],
+        "upcoming_due_tasks": [with_priority(entity) for entity in upcoming_due_tasks],
         "blocked_tasks": [with_priority(entity) for entity in blocked_tasks],
         "waiting_tasks": [with_priority(entity) for entity in waiting_tasks],
         "unscheduled_attention_tasks": unscheduled_attention,
+        "last_reviewed_at": last_reviewed_at,
+        "reviewed_today": reviewed_today,
         "projects_without_open_tasks": [
             _entity_with_attention(entity, context=["project_without_open_tasks"])
             for entity in projects_without_open_tasks
@@ -415,6 +436,17 @@ def today():
         "pending_suggestions": [suggestion.to_dict() for suggestion in pending_suggestions],
         # Retained for any external callers; matches the new bucket structure semantically.
         "blocked_or_waiting_tasks": [with_priority(e) for e in (blocked_tasks + waiting_tasks)],
+    })
+
+
+@api_v4_bp.route("/today/review", methods=["POST"])
+def mark_today_reviewed():
+    now = datetime.now(timezone.utc)
+    start_of_today = datetime.combine(now.date(), time.min, tzinfo=timezone.utc)
+    last_reviewed_at = _set_app_setting("last_reviewed_at", now.isoformat())
+    return jsonify({
+        "last_reviewed_at": last_reviewed_at,
+        "reviewed_today": _parse_datetime(last_reviewed_at) >= start_of_today,
     })
 
 
@@ -2723,6 +2755,18 @@ def _apply_entity_update(note, entity, candidate, decision, relationship_type, c
 def _get_app_setting(key, default=None):
     setting = db.session.get(AppSetting, key)
     return setting.value if setting is not None else default
+
+
+def _set_app_setting(key, value):
+    setting = db.session.get(AppSetting, key)
+    if setting is None:
+        setting = AppSetting(key=key, value=value)
+        db.session.add(setting)
+    else:
+        setting.value = value
+        flag_modified(setting, "value")
+    db.session.commit()
+    return value
 
 
 def _owner_aliases():

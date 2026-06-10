@@ -74,7 +74,9 @@ export const v4API = {
   },
   reprocess: (entityId) => v4Request('POST', `/entities/${encodeURIComponent(entityId)}/reprocess`),
   search: (params = {}) => v4Request('GET', '/search', null, params),
-  today: () => v4Request('GET', '/today'),
+  today: Object.assign(() => v4Request('GET', '/today'), {
+    review: () => v4Request('POST', '/today/review'),
+  }),
   recent: (params = {}) => v4Request('GET', '/recent', null, params),
   inbox: (params = {}) => v4Request('GET', '/inbox', null, params),
   agentActivity: (params = {}) => v4Request('GET', '/agent-activity', null, params),

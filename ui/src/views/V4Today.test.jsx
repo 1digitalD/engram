@@ -46,6 +46,9 @@ describe('V4Today', () => {
         status: 'open',
         attention: { score: 43, level: 'medium', reasons: [{ key: 'staleness', label: 'no update in 14 days' }] },
       }],
+      upcoming_due_tasks: [{ id: 'ud1', type: 'task', title: 'Due later this week', status: 'open', due_at: '2026-06-02T17:00:00Z' }],
+      last_reviewed_at: null,
+      reviewed_today: false,
       projects_without_open_tasks: [{ id: 'p1', type: 'project', title: 'Needs next task', status: 'active' }],
       recent_notes: [
         { id: 'n1', type: 'note', title: 'Recent note', status: 'active' },
@@ -83,7 +86,10 @@ describe('V4Today', () => {
     expect(screen.getByText('high · blocked')).toBeInTheDocument();
     expect(screen.getByText('Waiting work')).toBeInTheDocument();
     expect(screen.getAllByText('Stale undated task').length).toBeGreaterThan(0);
-    expect(screen.getByText('Needs attention (no date set)')).toBeInTheDocument();
+    expect(screen.getByText('Your actions')).toBeInTheDocument();
+    expect(screen.getByText(/Deadlines ahead/)).toBeInTheDocument();
+    expect(screen.getByText('Due later this week')).toBeInTheDocument();
+    expect(screen.getByText('Mark day reviewed')).toBeInTheDocument();
     expect(screen.getByText('Needs next task')).toBeInTheDocument();
     expect(screen.getByText('Recent note')).toBeInTheDocument();
     expect(screen.getByText('Delegations needing a nudge')).toBeInTheDocument();

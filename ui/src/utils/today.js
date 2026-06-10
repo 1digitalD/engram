@@ -57,6 +57,36 @@ export function getTodayAttentionNotes(today) {
   );
 }
 
+export function getTodayActionItems(today) {
+  const seen = new Set();
+  const result = [];
+  const buckets = [
+    ['overdue_follow_up', today?.overdue_follow_ups || []],
+    ['follow_up_today', today?.follow_ups || []],
+    ['blocked', today?.blocked_tasks || []],
+    ['waiting', today?.waiting_tasks || []],
+    ['needs_attention', getTodayUnscheduledAttentionEntities(today)],
+  ];
+
+  for (const [reason, items] of buckets) {
+    for (const entity of items) {
+      const key = entityKey(entity);
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      result.push({ entity, reason });
+    }
+  }
+
+  return result;
+}
+
+export function getTodayDeadlinesAhead(today) {
+  return dedupeEntities([
+    ...(today?.upcoming_follow_ups || []),
+    ...(today?.upcoming_due_tasks || []),
+  ]);
+}
+
 export function getTodayAttentionCount(today) {
   return dedupeEntities([
     ...getTodayActionableEntities(today),

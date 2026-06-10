@@ -48,6 +48,24 @@
   text-transform: uppercase;
 }
 
+.reviewButton {
+  background: var(--surface);
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-full);
+  color: var(--text);
+  cursor: pointer;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  margin-top: var(--space-2);
+  padding: 6px 14px;
+}
+
+.reviewButton:disabled {
+  color: var(--text-muted);
+  cursor: default;
+  opacity: 0.7;
+}
+
 .panel {
   border: 1px solid var(--border-faint);
   border-radius: var(--radius-lg);
