@@ -234,6 +234,17 @@ Non-authoritative historical artifacts:
   - see `docs/iterations/SLICE_C4_BLOCKS_LINKS.md`
   - **Phase C deployed to prod (2026-06-10)**: pre-migration snapshot taken (`backups/engram_prod_pre_phasec_20260610_065610.dump`), `scripts/migrations/002_add_app_settings.sql` applied to prod Postgres (additive only, defaults apply with no rows present), `./scripts/engram-deploy.sh` run, `/api/v4/health` and `/api/v4/today` (including new `delegations_quiet`) smoke-tested OK
 
+## Phase D
+
+- Slice D1 (project priority, inherited by tasks) implementation status:
+  - `attention_for_entity` gains `inherited_priority`; effective priority is `own or inherited`, with `priority:<level>` reason labeled "(from project)" when inherited; function stays pure (no DB queries)
+  - new `_inherited_task_priorities(tasks)` (one batched query); `_entity_with_attention` threads `inherited_priority` through and adds `inherited_priority` to the entity dict when used
+  - `GET /api/v4/today` computes inherited priorities once across all task buckets and applies them via a `with_priority` closure
+  - Today UI shows a `~<priority>` pill ("Inherited from project") when an item has no own priority but an inherited one
+  - new read-only `scripts/list_project_priorities.py` lists active projects + priority for Dan's bulk-review (priority itself is already editable per-entity via the existing generic priority control, so no new UI control was needed)
+  - red-first tests (2 unit + 1 integration); full backend suite green: 213 passed (was 210); UI 43 passed, build green; live QA against prod confirms no regressions (no prod project has a priority set yet, so no `~<priority>` pill renders)
+  - see `docs/iterations/SLICE_D1_PROJECT_PRIORITY_INHERITANCE.md`; not yet deployed
+
 ## Validation Commands
 
 ```bash

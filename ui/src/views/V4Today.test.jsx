@@ -20,7 +20,10 @@ describe('V4Today', () => {
 
   it('renders today cockpit sections with detail links', async () => {
     v4API.today.mockResolvedValue({
-      overdue: [{ id: 'od1', type: 'task', title: 'Overdue task', status: 'open', due_at: '2026-05-25T17:00:00Z' }],
+      overdue: [
+        { id: 'od1', type: 'task', title: 'Overdue task', status: 'open', due_at: '2026-05-25T17:00:00Z' },
+        { id: 'od2', type: 'task', title: 'Overdue inherited priority task', status: 'open', due_at: '2026-05-25T17:00:00Z', inherited_priority: 'urgent' },
+      ],
       due_today: [{ id: 'dt1', type: 'task', title: 'Due today task', status: 'open', due_at: '2026-05-27T17:00:00Z' }],
       overdue_follow_ups: [
         { id: 'od1', type: 'task', title: 'Overdue task', status: 'open', due_at: '2026-05-25T17:00:00Z' },
@@ -57,7 +60,9 @@ describe('V4Today', () => {
     );
 
     expect((await screen.findAllByText('Overdue task')).length).toBeGreaterThan(0);
-    expect(screen.getByText('7 items need your attention today.')).toBeInTheDocument();
+    expect(screen.getAllByText('Overdue inherited priority task').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('~urgent').length).toBeGreaterThan(0);
+    expect(screen.getByText('8 items need your attention today.')).toBeInTheDocument();
     expect(screen.getByText('Focus now')).toBeInTheDocument();
     expect(screen.getAllByText('overdue').length).toBeGreaterThan(0);
     expect(screen.getAllByText('due today').length).toBeGreaterThan(0);

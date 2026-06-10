@@ -35,15 +35,21 @@ CONTEXT_WEIGHTS = {
 }
 
 
-def attention_for_entity(entity, *, pending_suggestion_count=0, context=None, now=None):
-    """Return derived attention metadata for an entity-like object."""
+def attention_for_entity(entity, *, pending_suggestion_count=0, context=None, now=None, inherited_priority=None):
+    """Return derived attention metadata for an entity-like object.
+
+    `inherited_priority` (e.g. a parent project's priority) is used only when
+    the entity has no `properties.priority` of its own.
+    """
     now = now or datetime.now(timezone.utc)
     reasons = []
 
     due_at = _datetime_value(entity, "due_at")
     follow_up_at = _datetime_value(entity, "follow_up_at")
     status = _value(entity, "status")
-    priority = ((_value(entity, "properties") or {}).get("priority") or "").lower()
+    own_priority = ((_value(entity, "properties") or {}).get("priority") or "").lower()
+    priority = own_priority or (inherited_priority or "").lower()
+    priority_inherited = not own_priority and bool(priority)
     intent = ((_value(entity, "ai") or {}).get("intent") or (_value(entity, "ai_meta") or {}).get("intent") or "").lower()
 
     if due_at:
@@ -57,7 +63,10 @@ def attention_for_entity(entity, *, pending_suggestion_count=0, context=None, no
 
     priority_weight = PRIORITY_WEIGHTS.get(priority, 0)
     if priority_weight:
-        reasons.append({"key": f"priority:{priority}", "label": f"{priority} priority", "weight": priority_weight})
+        label = f"{priority} priority"
+        if priority_inherited:
+            label += " (from project)"
+        reasons.append({"key": f"priority:{priority}", "label": label, "weight": priority_weight})
 
     intent_weight = INTENT_WEIGHTS.get(intent, 0)
     if intent_weight:

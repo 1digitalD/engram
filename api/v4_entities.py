@@ -354,14 +354,21 @@ def today():
         .all()
     )
 
+    inherited_priorities = _inherited_task_priorities(
+        overdue + due_today + overdue_follow_ups + follow_ups + upcoming_follow_ups + blocked_tasks + waiting_tasks
+    )
+
+    def with_priority(entity, **kwargs):
+        return _entity_with_attention(entity, inherited_priority=inherited_priorities.get(entity.id), **kwargs)
+
     return jsonify({
-        "overdue": [_entity_with_attention(entity) for entity in overdue],
-        "due_today": [_entity_with_attention(entity) for entity in due_today],
-        "overdue_follow_ups": [_entity_with_attention(entity) for entity in overdue_follow_ups],
-        "follow_ups": [_entity_with_attention(entity) for entity in follow_ups],
-        "upcoming_follow_ups": [_entity_with_attention(entity) for entity in upcoming_follow_ups],
-        "blocked_tasks": [_entity_with_attention(entity) for entity in blocked_tasks],
-        "waiting_tasks": [_entity_with_attention(entity) for entity in waiting_tasks],
+        "overdue": [with_priority(entity) for entity in overdue],
+        "due_today": [with_priority(entity) for entity in due_today],
+        "overdue_follow_ups": [with_priority(entity) for entity in overdue_follow_ups],
+        "follow_ups": [with_priority(entity) for entity in follow_ups],
+        "upcoming_follow_ups": [with_priority(entity) for entity in upcoming_follow_ups],
+        "blocked_tasks": [with_priority(entity) for entity in blocked_tasks],
+        "waiting_tasks": [with_priority(entity) for entity in waiting_tasks],
         "projects_without_open_tasks": [
             _entity_with_attention(entity, context=["project_without_open_tasks"])
             for entity in projects_without_open_tasks
@@ -370,7 +377,7 @@ def today():
         "delegations_quiet": delegations_quiet,
         "pending_suggestions": [suggestion.to_dict() for suggestion in pending_suggestions],
         # Retained for any external callers; matches the new bucket structure semantically.
-        "blocked_or_waiting_tasks": [_entity_with_attention(e) for e in (blocked_tasks + waiting_tasks)],
+        "blocked_or_waiting_tasks": [with_priority(e) for e in (blocked_tasks + waiting_tasks)],
     })
 
 
@@ -448,14 +455,42 @@ def inbox():
     })
 
 
-def _entity_with_attention(entity, *, pending_suggestion_count=0, context=None):
+def _entity_with_attention(entity, *, pending_suggestion_count=0, context=None, inherited_priority=None):
     data = entity.to_dict()
     data["attention"] = attention_for_entity(
         entity,
         pending_suggestion_count=pending_suggestion_count,
         context=context,
+        inherited_priority=inherited_priority,
     )
+    if inherited_priority and not (entity.properties or {}).get("priority"):
+        data["inherited_priority"] = inherited_priority
     return data
+
+
+def _inherited_task_priorities(tasks):
+    """Map task_id -> parent project's properties.priority, for tasks that
+    have no priority of their own and a 'parent' project link. Batched."""
+    candidates = [t for t in tasks if t.type == "task" and not (t.properties or {}).get("priority")]
+    if not candidates:
+        return {}
+    task_ids = [t.id for t in candidates]
+    rows = (
+        db.session.query(EntityLink.source_entity_id, Entity.properties)
+        .join(Entity, Entity.id == EntityLink.target_entity_id)
+        .filter(
+            EntityLink.source_entity_id.in_(task_ids),
+            EntityLink.relationship_type == "parent",
+            Entity.type == "project",
+        )
+        .all()
+    )
+    result = {}
+    for task_id, properties in rows:
+        priority = (properties or {}).get("priority")
+        if priority:
+            result[task_id] = priority
+    return result
 
 
 @api_v4_bp.route("/agent-activity", methods=["GET"])

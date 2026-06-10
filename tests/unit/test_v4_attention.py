@@ -26,6 +26,41 @@ def test_attention_scores_overdue_blocked_urgent_task():
     ]
 
 
+def test_attention_uses_inherited_priority_when_own_is_unset():
+    now = datetime(2026, 6, 7, tzinfo=timezone.utc)
+    entity = SimpleNamespace(
+        type="task",
+        status="open",
+        due_at=None,
+        follow_up_at=None,
+        properties={},
+        ai_meta={},
+    )
+
+    attention = attention_for_entity(entity, now=now, inherited_priority="high")
+
+    reason = next(r for r in attention["reasons"] if r["key"] == "priority:high")
+    assert reason["weight"] == 25
+    assert "from project" in reason["label"]
+
+
+def test_attention_prefers_own_priority_over_inherited():
+    now = datetime(2026, 6, 7, tzinfo=timezone.utc)
+    entity = SimpleNamespace(
+        type="task",
+        status="open",
+        due_at=None,
+        follow_up_at=None,
+        properties={"priority": "low"},
+        ai_meta={},
+    )
+
+    attention = attention_for_entity(entity, now=now, inherited_priority="urgent")
+
+    reason = next(r for r in attention["reasons"] if r["key"] == "priority:low")
+    assert "from project" not in reason["label"]
+
+
 def test_attention_scores_high_signal_note_intent():
     now = datetime(2026, 6, 7, tzinfo=timezone.utc)
     entity = SimpleNamespace(

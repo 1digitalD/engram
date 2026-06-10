@@ -82,6 +82,38 @@ def test_v4_today_returns_execution_sections(client, app):
     assert data["pending_suggestions"][0]["payload"]["title"] == "Suggested task"
 
 
+def test_v4_today_task_inherits_project_priority(client, app):
+    yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
+
+    project = _create_entity(client, "project", "Launch readiness", properties={"priority": "urgent"})
+    task_no_priority = _create_entity(client, "task", "Overdue without own priority", due_at=yesterday)
+    task_own_priority = _create_entity(
+        client, "task", "Overdue with own priority", due_at=yesterday, properties={"priority": "low"},
+    )
+    _link(client, task_no_priority["id"], project["id"], "parent")
+    _link(client, task_own_priority["id"], project["id"], "parent")
+
+    response = client.get("/api/v4/today")
+    assert response.status_code == 200
+    data = response.get_json()
+
+    by_id = {item["id"]: item for item in data["overdue"]}
+
+    inherited = by_id[task_no_priority["id"]]
+    assert inherited["inherited_priority"] == "urgent"
+    assert any(
+        reason["key"] == "priority:urgent" and "from project" in reason["label"]
+        for reason in inherited["attention"]["reasons"]
+    )
+
+    own = by_id[task_own_priority["id"]]
+    assert "inherited_priority" not in own
+    assert any(
+        reason["key"] == "priority:low" and "from project" not in reason["label"]
+        for reason in own["attention"]["reasons"]
+    )
+
+
 def test_v4_today_surfaces_quiet_delegations(client, app):
     yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
     far_past = (datetime.now(timezone.utc) - timedelta(days=10)).isoformat()

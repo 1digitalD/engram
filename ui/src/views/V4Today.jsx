@@ -140,9 +140,11 @@ function EntityRow({ entity, onQuickStatus, onUpdateField, onChanged, fromState,
         ) : (
           <span className={styles.statusPill}>{entity.status}</span>
         )}
-        {entity.properties?.priority && (
+        {entity.properties?.priority ? (
           <span className={styles.priorityPill}>!{entity.properties.priority}</span>
-        )}
+        ) : entity.inherited_priority ? (
+          <span className={styles.priorityPill} title="Inherited from project">~{entity.inherited_priority}</span>
+        ) : null}
         {attentionLabel && (
           <span className={styles.attentionPill}>{attentionLabel}</span>
         )}
