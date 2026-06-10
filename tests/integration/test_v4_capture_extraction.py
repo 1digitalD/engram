@@ -856,3 +856,150 @@ def test_capture_auto_created_task_links_to_source_note_projects(client, app):
         derived = note_sections["derived_tasks"]["items"]
         assert len(derived) == 1
         assert derived[0]["entity"]["id"] == task_id
+
+
+def test_capture_applies_progress_update_decisions_to_existing_entities(client, app):
+    project_response = client.post(
+        "/api/v4/entities",
+        json={"type": "project", "title": "Agent Platform", "content": "Project"},
+    )
+    person_response = client.post(
+        "/api/v4/entities",
+        json={"type": "person", "title": "Akash", "content": "Person"},
+    )
+    project_id = project_response.get_json()["data"]["id"]
+    person_id = person_response.get_json()["data"]["id"]
+
+    extraction = {
+        "entities": [
+            {
+                "type": "project",
+                "title": "Agent Platform",
+                "content": "Shipped the HITL piece",
+                "confidence": 0.9,
+                "evidence": "Shipped the HITL piece for Agent Platform",
+            },
+            {
+                "type": "person",
+                "title": "Akash",
+                "content": "Still waiting on infra",
+                "confidence": 0.9,
+                "evidence": "Akash is still waiting on infra",
+            },
+        ]
+    }
+    decisions = [
+        {
+            "action": "progress_update",
+            "target_id": project_id,
+            "update_text": "Shipped the HITL piece",
+            "confidence": 0.92,
+            "reason": "progress on Agent Platform",
+        },
+        {
+            "action": "progress_update",
+            "target_id": person_id,
+            "update_text": "Still waiting on infra",
+            "confidence": 0.9,
+            "reason": "status update for Akash",
+        },
+    ]
+
+    with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction), patch(
+        "services.v4_reconciliation.reconcile_candidates", return_value=decisions
+    ):
+        response = client.post("/api/v4/capture", json={"content": "Standup notes"})
+
+    assert response.status_code == 201
+    data = response.get_json()
+    assert data["suggestions"] == []
+
+    activity_changes = [c for c in data["applied_changes"] if c["type"] == "activity_update_added"]
+    assert {c["target_entity_id"] for c in activity_changes} == {project_id, person_id}
+
+    with app.app_context():
+        # No new project/task entities created.
+        assert Entity.query.filter_by(type="project").count() == 1
+        assert Entity.query.filter_by(type="person").count() == 1
+
+    project_updates = client.get(f"/api/v4/entities/{project_id}/activity_updates").get_json()["data"]
+    assert any(u["content"] == "Shipped the HITL piece" for u in project_updates)
+
+    person_updates = client.get(f"/api/v4/entities/{person_id}/activity_updates").get_json()["data"]
+    assert any(u["content"] == "Still waiting on infra" for u in person_updates)
+
+
+def test_capture_progress_update_with_hallucinated_target_is_skipped(client, app):
+    extraction = {
+        "entities": [
+            {
+                "type": "project",
+                "title": "Ghost Project",
+                "content": "Some progress",
+                "confidence": 0.9,
+                "evidence": "progress on Ghost Project",
+            },
+        ]
+    }
+    decisions = [
+        {
+            "action": "progress_update",
+            "target_id": "00000000-0000-0000-0000-000000000000",
+            "update_text": "Some progress",
+            "confidence": 0.9,
+            "reason": "progress update",
+        },
+    ]
+
+    with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction), patch(
+        "services.v4_reconciliation.reconcile_candidates", return_value=decisions
+    ):
+        response = client.post("/api/v4/capture", json={"content": "Standup notes"})
+
+    assert response.status_code == 201
+    data = response.get_json()
+    assert data["suggestions"] == []
+    assert all(c["type"] != "activity_update_added" for c in data["applied_changes"])
+
+    with app.app_context():
+        # No new project entity created from a hallucinated progress_update target.
+        assert Entity.query.filter_by(type="project").count() == 0
+
+
+def test_capture_progress_update_dedups_within_24h(client, app):
+    project_response = client.post(
+        "/api/v4/entities",
+        json={"type": "project", "title": "Agent Platform", "content": "Project"},
+    )
+    project_id = project_response.get_json()["data"]["id"]
+
+    extraction = {
+        "entities": [
+            {
+                "type": "project",
+                "title": "Agent Platform",
+                "content": "Shipped the HITL piece",
+                "confidence": 0.9,
+                "evidence": "Shipped the HITL piece for Agent Platform",
+            },
+        ]
+    }
+    decisions = [
+        {
+            "action": "progress_update",
+            "target_id": project_id,
+            "update_text": "Shipped the HITL piece",
+            "confidence": 0.92,
+            "reason": "progress on Agent Platform",
+        },
+    ]
+
+    with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction), patch(
+        "services.v4_reconciliation.reconcile_candidates", return_value=decisions
+    ):
+        client.post("/api/v4/capture", json={"content": "Standup notes 1"})
+        client.post("/api/v4/capture", json={"content": "Standup notes 2"})
+
+    updates = client.get(f"/api/v4/entities/{project_id}/activity_updates").get_json()["data"]
+    matching = [u for u in updates if u["content"] == "Shipped the HITL piece"]
+    assert len(matching) == 1

@@ -35,9 +35,15 @@ semantic similarity (0–1).
 
 For each candidate decide the correct action:
 
-  "new"    — No good existing match. A new entity should be created.
-  "update" — A clear match exists. Update the existing entity with new information.
-  "link"   — A clear match exists but no fields need changing. Just link to it.
+  "new"             — No good existing match. A new entity should be created.
+  "update"          — A clear match exists. Update the existing entity with new information.
+  "link"            — A clear match exists but no fields need changing. Just link to it.
+  "progress_update" — The candidate is a status/progress remark about an existing
+                       entity (e.g. a standup line like "shipped the HITL piece" or
+                       "still waiting on infra"), not new information that changes
+                       the entity's fields, and not a new entity. Use this instead
+                       of "update" or "new" when the note is just reporting on the
+                       state of something that already exists in the catalog.
 
 MATCHING RULES:
 - Score < 0.65 → very unlikely match; prefer "new" UNLESS the WORKSPACE CATALOG above
@@ -67,15 +73,22 @@ FOR "link" — include:
 FOR "new" — include:
   "relationship_type" : how the source note relates to the entity to be created
 
+FOR "progress_update" — include:
+  "target_id"  : id of the existing entity this update is about
+  "update_text": a concise (one sentence) summary of the status/progress, \
+                  written from the entity's point of view (e.g. "Shipped the \
+                  HITL piece", "Still waiting on infra")
+
 Return a JSON object with a "decisions" array — one entry per candidate, \
 in the same order as the input:
 
 {{
   "decisions": [
     {{
-      "action": "new" | "update" | "link",
+      "action": "new" | "update" | "link" | "progress_update",
       "target_id": null,
       "fields": {{}},
+      "update_text": null,
       "relationship_type": "related",
       "confidence": 0.0,
       "reason": "brief explanation"

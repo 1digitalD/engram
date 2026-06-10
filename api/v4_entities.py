@@ -792,21 +792,18 @@ def get_activity_updates(entity_id):
     return jsonify({"data": [note.to_dict() for note in notes]})
 
 
-@api_v4_bp.route("/entities/<entity_id>/activity_updates", methods=["POST"])
-def create_activity_update(entity_id):
-    target = db.session.get(Entity, entity_id)
-    if target is None:
-        return _error("entity not found", 404)
+def _create_activity_update_note(target, content, actor="user", confidence=None, evidence=None):
+    """Create (or reuse) an activity-update note linked to `target`.
 
-    data = request.get_json(silent=True) or {}
-    content = (data.get("content") or "").strip()
-    if not content:
-        return _error("content is required")
-
+    Returns (note_or_None, created_bool). Returns (existing, False) if an
+    identical update for this target was created within the last 24h.
+    Returns (None, False) if the target already has the maximum number of
+    activity updates.
+    """
     existing = (
         Entity.query.join(
             EntityLink,
-            (EntityLink.source_entity_id == Entity.id) & (EntityLink.target_entity_id == entity_id),
+            (EntityLink.source_entity_id == Entity.id) & (EntityLink.target_entity_id == target.id),
         )
         .filter(
             Entity.type == "note",
@@ -818,12 +815,12 @@ def create_activity_update(entity_id):
         .first()
     )
     if existing is not None:
-        return jsonify({"data": existing.to_dict(), "skipped": True, "reason": "duplicate within 24h"})
+        return existing, False
 
     count = (
         Entity.query.join(
             EntityLink,
-            (EntityLink.source_entity_id == Entity.id) & (EntityLink.target_entity_id == entity_id),
+            (EntityLink.source_entity_id == Entity.id) & (EntityLink.target_entity_id == target.id),
         )
         .filter(
             Entity.type == "note",
@@ -833,10 +830,7 @@ def create_activity_update(entity_id):
         .count()
     )
     if count >= MAX_ACTIVITY_UPDATES_PER_TARGET:
-        return _error(
-            f"maximum {MAX_ACTIVITY_UPDATES_PER_TARGET} activity updates per entity",
-            409,
-        )
+        return None, False
 
     note = Entity(
         type="note",
@@ -850,7 +844,7 @@ def create_activity_update(entity_id):
 
     link = EntityLink(
         source_entity_id=note.id,
-        target_entity_id=entity_id,
+        target_entity_id=target.id,
         relationship_type="activity_update",
         source="activity_update",
     )
@@ -870,8 +864,33 @@ def create_activity_update(entity_id):
         target,
         "activity_update_added",
         new_value={"note_id": note.id, "content_preview": content[:120]},
-        actor="user",
+        actor=actor,
+        confidence=confidence,
+        reason=evidence,
     )
+    return note, True
+
+
+@api_v4_bp.route("/entities/<entity_id>/activity_updates", methods=["POST"])
+def create_activity_update(entity_id):
+    target = db.session.get(Entity, entity_id)
+    if target is None:
+        return _error("entity not found", 404)
+
+    data = request.get_json(silent=True) or {}
+    content = (data.get("content") or "").strip()
+    if not content:
+        return _error("content is required")
+
+    note, created = _create_activity_update_note(target, content, actor="user")
+    if note is None:
+        return _error(
+            f"maximum {MAX_ACTIVITY_UPDATES_PER_TARGET} activity updates per entity",
+            409,
+        )
+    if not created:
+        return jsonify({"data": note.to_dict(), "skipped": True, "reason": "duplicate within 24h"})
+
     db.session.commit()
 
     return jsonify({"data": _load_entity(note.id).to_dict()}), 201
@@ -2023,6 +2042,33 @@ def _apply_reconciliation_decision(note, candidate, decision, applied_changes, s
         if target is None:
             # Match is gone or id was hallucinated — fall through to "new"
             action = "new"
+
+    if action == "progress_update":
+        target_id = decision.get("target_id")
+        target = db.session.get(Entity, target_id) if target_id else None
+        if target is None:
+            # No entity to attach the update to — nothing safe to do. Unlike
+            # "update"/"link", we don't fall through to "new": a progress
+            # note about an existing thing shouldn't spawn a fresh
+            # project/task just because the model hallucinated/lost the id.
+            return
+        update_text = _clean_text(decision.get("update_text")) or evidence
+        if not update_text:
+            return
+        au_note, created = _create_activity_update_note(
+            target, update_text, actor="agent:v4-capture", confidence=confidence, evidence=evidence
+        )
+        if au_note is None:
+            return
+        applied_changes.append({
+            "type": "activity_update_added",
+            "target_entity_id": target.id,
+            "note_id": au_note.id,
+            "content": update_text,
+            "confidence": confidence,
+            "created": created,
+        })
+        return
 
     if action == "update":
         if confidence >= AUTO_APPLY_CONFIDENCE:

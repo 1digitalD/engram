@@ -185,6 +185,14 @@ Non-authoritative historical artifacts:
   - focused frontend tests passed
   - full frontend tests and frontend build are the final validation step for this slice
 - Immediate next step: if validation passes, shift primary delivery focus from frontend structure to agentic/backend improvements, with only targeted UI follow-ups as bugs or validation findings demand.
+- Slice B1 (`progress_update` reconciliation action) implementation status:
+  - reconciler can return `action: "progress_update"` with `target_id` + `update_text`; `SYSTEM_PROMPT` documents it
+  - capture auto-applies these: creates an activity-update note linked to the target, writes an `EntityEvent`, and surfaces it in `GET /entities/<id>/activity_updates`
+  - `progress_update` decisions never become suggestions and never create new project/task entities; a hallucinated/missing `target_id` is skipped (not a fall-through to "new")
+  - factored `_create_activity_update_note` helper out of the `POST /entities/<id>/activity_updates` route so capture and the route share dedup/cap logic
+  - red-first integration tests added (`tests/integration/test_v4_capture_extraction.py`), full suite green: 192 passed (was 189)
+  - replay eval run 3x post-change: 17/27, 17/27, 16/27 — below the single Phase A baseline reading (19/27) but the wrong items are dominated by pre-existing umbrella-area/Hemant matching noise documented in `SLICE_B1_UMBRELLA_LINK_FILTER.md`, not by `progress_update`; see `docs/iterations/SLICE_B1_PROGRESS_UPDATE.md` for full analysis
+  - acceptance target "≥3 activity updates from one real standup note" verified at the mechanism level via integration tests; live model picked `progress_update` only 1-2x per 27-candidate eval run — follow-up prompt tuning needed to increase pickup rate
 
 ## Validation Commands
 

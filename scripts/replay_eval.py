@@ -70,13 +70,16 @@ def score_decision(label, decision, candidates):
     got_target_id = decision.get("target_id")
 
     if expected in ("update", "link"):
-        # Correct if the action matches AND a target was resolved
-        correct = got in (expected, "update", "link") and got_target_id is not None
+        # Correct if the action matches AND a target was resolved.
+        # "progress_update" also counts: it resolves to the same existing
+        # entity, just routed through the activity-update mechanism instead
+        # of a field update or bare link.
+        correct = got in (expected, "update", "link", "progress_update") and got_target_id is not None
     elif expected == "new":
         correct = got == "new"
     elif expected == "accept":
         # For accepted suggestions: any non-"new" decision with a target is correct
-        correct = got in ("update", "link") and got_target_id is not None
+        correct = got in ("update", "link", "progress_update") and got_target_id is not None
     else:
         correct = False
 
