@@ -1,7 +1,7 @@
 /* eslint-disable no-unused-vars */
 import React from 'react';
 import { useEffect, useState } from 'react';
-import { Archive, ChevronDown, ChevronRight, Plus, RefreshCw, Save, Trash2, X } from 'lucide-react';
+import { Archive, ArrowLeftRight, ChevronDown, ChevronRight, GitMerge, Plus, RefreshCw, Save, Trash2, X } from 'lucide-react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { v4API } from '../api/v4Client';
 import MarkdownContent from '../components/MarkdownContent';
@@ -126,6 +126,9 @@ function eventTitle(event) {
     suggestion_dismissed: 'Suggestion dismissed',
     activity_update_added: 'Activity update added',
     reverted: 'Reverted',
+    merged: 'Duplicate merged in',
+    merged_into: 'Merged into another entity',
+    type_converted: 'Type converted',
   };
   return labels[event.event_type] || humanizeToken(event.event_type);
 }
@@ -292,6 +295,7 @@ export default function V4EntityDetail({ type: routeType }) {
   const [reprocessing, setReprocessing] = useState(false);
   const [reprocessStatus, setReprocessStatus] = useState('');
   const [saveStatus, setSaveStatus] = useState('');
+  const [mergeOpen, setMergeOpen] = useState(false);
 
   function applyDetailResponse(response) {
     setDetail(response);
@@ -409,6 +413,35 @@ export default function V4EntityDetail({ type: routeType }) {
       navigateBack(collectionPathForType(entity.type));
     } catch (err) {
       setError(err.message || 'Failed to delete entity');
+    }
+  }
+
+  async function handleMerge(targetId, targetTitle) {
+    const confirmed = window.confirm(
+      `Merge "${entity.title || 'this entity'}" into "${targetTitle}"?\n\n`
+      + 'Links, tags and pending suggestions move to the surviving entity; '
+      + 'this one is retired as a duplicate.'
+    );
+    if (!confirmed) return;
+    setError('');
+    try {
+      await v4API.entities.merge(id, targetId);
+      setMergeOpen(false);
+      navigate(pathForEntity({ type: entity.type, id: targetId }));
+    } catch (err) {
+      setError(err.message || 'Failed to merge entity');
+    }
+  }
+
+  async function handleConvert() {
+    const targetType = entity.type === 'project' ? 'task' : 'project';
+    setError('');
+    try {
+      await v4API.entities.convert(id, targetType);
+      navigate(pathForEntity({ type: targetType, id }), { replace: true });
+      await loadDetail();
+    } catch (err) {
+      setError(err.message || 'Failed to convert entity');
     }
   }
 
@@ -565,6 +598,29 @@ export default function V4EntityDetail({ type: routeType }) {
                   />
                 </button>
               )}
+              {entity.type !== 'note' && (
+                <button
+                  className={`${styles.secondaryButton} ${styles.iconButton}`}
+                  type="button"
+                  onClick={() => setMergeOpen((open) => !open)}
+                  aria-label="Merge into another entity"
+                  aria-expanded={mergeOpen}
+                  title="Merge into…"
+                >
+                  <GitMerge size={16} strokeWidth={2} aria-hidden="true" />
+                </button>
+              )}
+              {(entity.type === 'project' || entity.type === 'task') && (
+                <button
+                  className={`${styles.secondaryButton} ${styles.iconButton}`}
+                  type="button"
+                  onClick={handleConvert}
+                  aria-label={`Convert to ${entity.type === 'project' ? 'task' : 'project'}`}
+                  title={`Convert to ${entity.type === 'project' ? 'task' : 'project'}`}
+                >
+                  <ArrowLeftRight size={16} strokeWidth={2} aria-hidden="true" />
+                </button>
+              )}
               <button
                 className={`${styles.secondaryButton} ${styles.iconButton}`}
                 type="button"
@@ -594,6 +650,13 @@ export default function V4EntityDetail({ type: routeType }) {
               </button>
             </div>
           </div>
+          {mergeOpen && (
+            <MergePanel
+              entity={entity}
+              onMerge={handleMerge}
+              onClose={() => setMergeOpen(false)}
+            />
+          )}
           <div className={styles.detailEditorColumn}>
             <div className={styles.statusPriorityRow}>
               <div className={`${styles.pillSelect} ${styles[`statusDot_${draft.status}`] || ''}`}>
@@ -2154,7 +2217,46 @@ function TypedAction({ config, currentId, onCreate, onLink }) {
   );
 }
 
-function LinkCombobox({ config, options, onPick }) {
+function MergePanel({ entity, onMerge, onClose }) {
+  const [options, setOptions] = useState([]);
+
+  useEffect(() => {
+    let active = true;
+    v4API.entities.list({ type: entity.type, lifecycle: 'active', limit: 200 })
+      .then((response) => {
+        if (active) setOptions((response.data || []).filter((option) => option.id !== entity.id));
+      })
+      .catch(() => {
+        if (active) setOptions([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [entity.type, entity.id]);
+
+  return (
+    <div className={styles.mergePanel}>
+      <p className={styles.mergeHint}>
+        Merge this {entity.type} into another {entity.type}. Links, tags and pending
+        suggestions move to the one you pick; this {entity.type} is retired as a duplicate
+        (recoverable from its history).
+      </p>
+      <LinkCombobox
+        config={{ key: 'merge-target', type: entity.type, title: 'merge target' }}
+        options={options}
+        onPick={(targetId) => {
+          const target = options.find((option) => option.id === targetId);
+          onMerge(targetId, target?.title || 'Untitled');
+        }}
+        placeholder={`Search for the ${entity.type} to keep…`}
+        ariaLabel="Search for the entity to merge into"
+      />
+      <button type="button" className={styles.secondaryButton} onClick={onClose}>Cancel</button>
+    </div>
+  );
+}
+
+function LinkCombobox({ config, options, onPick, placeholder, ariaLabel }) {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -2203,8 +2305,8 @@ function LinkCombobox({ config, options, onPick }) {
         onChange={(event) => { setQuery(event.target.value); setOpen(true); }}
         onFocus={() => setOpen(true)}
         onKeyDown={onKeyDown}
-        placeholder={`Search and link a ${config.type}…`}
-        aria-label={`Search and link ${config.title}`}
+        placeholder={placeholder || `Search and link a ${config.type}…`}
+        aria-label={ariaLabel || `Search and link ${config.title}`}
         aria-autocomplete="list"
         aria-expanded={open}
         aria-controls={`${config.key}-combobox-list`}

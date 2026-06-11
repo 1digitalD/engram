@@ -112,7 +112,8 @@ CREATE TABLE IF NOT EXISTS entity_events (
                     'relationship_added', 'relationship_updated', 'relationship_removed',
                     'tag_added', 'tag_removed', 'ai_processed', 'ai_updated', 'ai_summarized',
                     'suggestion_accepted', 'suggestion_dismissed', 'suggestion_expired',
-                    'review_marked_resolved', 'activity_update_added', 'reverted'
+                    'review_marked_resolved', 'activity_update_added', 'reverted',
+                    'merged', 'merged_into', 'type_converted'
                   )),
     actor       TEXT NOT NULL,
     old_value   JSONB,

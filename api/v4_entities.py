@@ -1038,6 +1038,214 @@ def delete_entity(entity_id):
     return jsonify({"data": _load_entity(entity.id).to_dict()})
 
 
+@api_v4_bp.route("/entities/<entity_id>/merge", methods=["POST"])
+def merge_entity(entity_id):
+    """Merge this entity (the duplicate) into another entity (the survivor).
+
+    The duplicate is tombstoned (lifecycle="deleted", properties.merged_into)
+    rather than removed: its events stay attached, and undo is a state flip.
+    Everything that referenced the duplicate is re-pointed at the survivor.
+    """
+    loser = _load_entity(entity_id)
+    if loser is None:
+        return _error("entity not found", 404)
+
+    data = request.get_json(silent=True) or {}
+    survivor_id = data.get("target_id")
+    if not survivor_id:
+        return _error("target_id is required")
+    if survivor_id == entity_id:
+        return _error("cannot merge an entity into itself")
+
+    survivor = _load_entity(survivor_id)
+    if survivor is None:
+        return _error("target entity not found", 404)
+    if loser.type != survivor.type:
+        return _error(f"cannot merge {loser.type} into {survivor.type}: types must match")
+    if loser.lifecycle == "deleted":
+        return _error("entity is already deleted or merged")
+    if survivor.lifecycle == "deleted":
+        return _error("target entity is deleted")
+
+    summary = _merge_entities(loser, survivor, actor="user")
+    db.session.commit()
+
+    return jsonify({"data": _load_entity(survivor.id).to_dict(), "merge": summary})
+
+
+def _merge_entities(loser, survivor, actor="user"):
+    """Re-point all references from loser to survivor and tombstone the loser.
+
+    Returns a summary dict of what moved. Caller commits.
+    """
+    loser_snapshot = loser.to_dict()
+    links_moved = 0
+    links_dropped = 0
+
+    # Re-point links in both directions. Links that would become self-links
+    # or duplicate an existing survivor link are dropped (the survivor
+    # relationship already exists or is meaningless).
+    for link in EntityLink.query.filter_by(source_entity_id=loser.id).all():
+        if link.target_entity_id == survivor.id or EntityLink.query.filter_by(
+            source_entity_id=survivor.id,
+            target_entity_id=link.target_entity_id,
+            relationship_type=link.relationship_type,
+        ).first():
+            db.session.delete(link)
+            links_dropped += 1
+        else:
+            link.source_entity_id = survivor.id
+            links_moved += 1
+    db.session.flush()
+    for link in EntityLink.query.filter_by(target_entity_id=loser.id).all():
+        if link.source_entity_id == survivor.id or EntityLink.query.filter_by(
+            source_entity_id=link.source_entity_id,
+            target_entity_id=survivor.id,
+            relationship_type=link.relationship_type,
+        ).first():
+            db.session.delete(link)
+            links_dropped += 1
+        else:
+            link.target_entity_id = survivor.id
+            links_moved += 1
+    db.session.flush()
+
+    # Tags: union onto the survivor.
+    survivor_tag_ids = {et.tag_id for et in EntityTag.query.filter_by(entity_id=survivor.id).all()}
+    tags_moved = 0
+    for entity_tag in EntityTag.query.filter_by(entity_id=loser.id).all():
+        tag_id = entity_tag.tag_id
+        db.session.delete(entity_tag)
+        if tag_id not in survivor_tag_ids:
+            db.session.add(EntityTag(entity_id=survivor.id, tag_id=tag_id))
+            tags_moved += 1
+    db.session.flush()
+
+    # Pending suggestions and jobs that reference the loser follow the survivor.
+    for suggestion in AiSuggestion.query.filter_by(status="pending").all():
+        changed = False
+        if suggestion.source_entity_id == loser.id:
+            suggestion.source_entity_id = survivor.id
+            changed = True
+        payload = dict(suggestion.payload or {})
+        for key in ("target_entity_id", "source_entity_id"):
+            if payload.get(key) == loser.id:
+                payload[key] = survivor.id
+                changed = True
+        if changed:
+            suggestion.payload = payload
+            flag_modified(suggestion, "payload")
+    for job in Job.query.filter_by(entity_id=loser.id, status="pending").all():
+        job.entity_id = survivor.id
+        payload = dict(job.payload or {})
+        if payload.get("entity_id") == loser.id:
+            payload["entity_id"] = survivor.id
+            job.payload = payload
+            flag_modified(job, "payload")
+
+    # Backfill scalar fields the survivor is missing — never overwrite.
+    fields_copied = []
+    for field in ("content", "due_at", "follow_up_at", "reference_url"):
+        if not getattr(survivor, field, None) and getattr(loser, field, None):
+            setattr(survivor, field, getattr(loser, field))
+            fields_copied.append(field)
+
+    # The loser must stop matching future captures: drop its chunks and
+    # tombstone it. All read paths already exclude lifecycle="deleted".
+    from models import EntityChunk
+    EntityChunk.query.filter_by(entity_id=loser.id).delete()
+    loser.lifecycle = "deleted"
+    properties = dict(loser.properties or {})
+    properties["merged_into"] = survivor.id
+    loser.properties = properties
+    flag_modified(loser, "properties")
+
+    survivor.updated_at = datetime.now(timezone.utc)
+
+    summary = {
+        "merged_from_id": loser.id,
+        "merged_into_id": survivor.id,
+        "links_moved": links_moved,
+        "links_dropped": links_dropped,
+        "tags_moved": tags_moved,
+        "fields_copied": fields_copied,
+    }
+    _write_event(
+        survivor,
+        "merged",
+        old_value={"merged_from": loser_snapshot},
+        new_value=summary,
+        actor=actor,
+        reason=f"merged duplicate '{loser_snapshot.get('title')}'",
+    )
+    _write_event(
+        loser,
+        "merged_into",
+        old_value={"lifecycle": loser_snapshot["lifecycle"]},
+        new_value={"lifecycle": "deleted", "merged_into": survivor.id},
+        actor=actor,
+    )
+    _queue_embed_job(survivor.id, "entity_merge")
+    return summary
+
+
+TYPE_CONVERSIONS = {("project", "task"), ("task", "project")}
+CONVERSION_STATUS_MAP = {
+    ("project", "task"): {"active": "open", "on_hold": "waiting", "completed": "done", "cancelled": "cancelled"},
+    ("task", "project"): {"open": "active", "in_progress": "active", "waiting": "on_hold", "blocked": "on_hold", "done": "completed", "cancelled": "cancelled"},
+}
+
+
+@api_v4_bp.route("/entities/<entity_id>/convert", methods=["POST"])
+def convert_entity(entity_id):
+    """Convert an entity between project and task (granularity repair)."""
+    entity = _load_entity(entity_id)
+    if entity is None:
+        return _error("entity not found", 404)
+    if entity.lifecycle == "deleted":
+        return _error("entity is deleted")
+
+    data = request.get_json(silent=True) or {}
+    new_type = data.get("type")
+    if (entity.type, new_type) not in TYPE_CONVERSIONS:
+        supported = ", ".join(sorted(f"{a}→{b}" for a, b in TYPE_CONVERSIONS))
+        return _error(f"unsupported conversion {entity.type}→{new_type} (supported: {supported})")
+
+    if entity.type == "project":
+        # A project with active children can't become a task — the children
+        # would dangle. Re-point them first.
+        child_count = (
+            EntityLink.query
+            .join(Entity, Entity.id == EntityLink.source_entity_id)
+            .filter(
+                EntityLink.target_entity_id == entity.id,
+                EntityLink.relationship_type == "parent",
+                Entity.lifecycle == "active",
+            )
+            .count()
+        )
+        if child_count:
+            return _error(
+                f"project has {child_count} active child entit{'y' if child_count == 1 else 'ies'}; "
+                "re-point or resolve them before converting to a task"
+            )
+
+    old_snapshot = {"type": entity.type, "status": entity.status}
+    entity.status = CONVERSION_STATUS_MAP[(entity.type, new_type)].get(entity.status, DEFAULT_STATUS[new_type])
+    entity.type = new_type
+    db.session.flush()
+    _write_event(
+        entity,
+        "type_converted",
+        old_value=old_snapshot,
+        new_value={"type": entity.type, "status": entity.status},
+    )
+    _queue_embed_job(entity.id, "type_convert")
+    db.session.commit()
+
+    return jsonify({"data": _load_entity(entity.id).to_dict()})
+
+
 @api_v4_bp.route("/entities/<entity_id>/events", methods=["GET"])
 def get_entity_events(entity_id):
     if db.session.get(Entity, entity_id) is None:

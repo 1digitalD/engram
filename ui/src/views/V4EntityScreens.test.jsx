@@ -20,6 +20,8 @@ vi.mock('../api/v4Client', () => ({
       events: vi.fn(),
       update: vi.fn(),
       delete: vi.fn(),
+      merge: vi.fn(),
+      convert: vi.fn(),
       captureChanges: vi.fn(),
     },
     events: {
@@ -1167,5 +1169,89 @@ describe('v4 entity screens', () => {
       target_entity_id: 'p1',
       relationship_type: 'parent',
     }));
+  });
+
+  it('merges a duplicate project into a chosen survivor from the detail header', async () => {
+    const detail = {
+      entity: {
+        id: 'p1',
+        type: 'project',
+        title: 'Plan agent platform roadmap',
+        content: '',
+        status: 'active',
+        created_at: '2026-05-20T09:00:00+00:00',
+        updated_at: '2026-05-20T10:00:00+00:00',
+        due_at: null,
+        follow_up_at: null,
+        reference_url: null,
+        properties: {},
+        tags: [],
+      },
+      sections: [],
+    };
+    v4API.entities.detail.mockResolvedValue(detail);
+    v4API.entities.list.mockResolvedValue({
+      data: [
+        { id: 'p1', type: 'project', title: 'Plan agent platform roadmap', status: 'active', lifecycle: 'active' },
+        { id: 'p2', type: 'project', title: 'Define Agent Platform roadmap', status: 'active', lifecycle: 'active' },
+      ],
+    });
+    v4API.entities.merge.mockResolvedValue({ data: { id: 'p2' }, merge: {} });
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+
+    render(
+      <MemoryRouter initialEntries={['/projects/p1']}>
+        <Routes>
+          <Route path="/projects/:id" element={<V4EntityDetail type="project" />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Merge into another entity' }));
+
+    const combobox = await screen.findByLabelText('Search for the entity to merge into');
+    fireEvent.focus(combobox);
+    fireEvent.change(combobox, { target: { value: 'Define' } });
+    const option = await screen.findByRole('option', { name: /Define Agent Platform roadmap/i });
+    fireEvent.mouseDown(option);
+
+    await waitFor(() => expect(v4API.entities.merge).toHaveBeenCalledWith('p1', 'p2'));
+    expect(confirmSpy).toHaveBeenCalled();
+    confirmSpy.mockRestore();
+  });
+
+  it('converts a project to a task from the detail header', async () => {
+    const detail = {
+      entity: {
+        id: 'p1',
+        type: 'project',
+        title: 'Agent Platform leadership deck',
+        content: '',
+        status: 'active',
+        created_at: '2026-05-20T09:00:00+00:00',
+        updated_at: '2026-05-20T10:00:00+00:00',
+        due_at: null,
+        follow_up_at: null,
+        reference_url: null,
+        properties: {},
+        tags: [],
+      },
+      sections: [],
+    };
+    v4API.entities.detail.mockResolvedValue(detail);
+    v4API.entities.convert.mockResolvedValue({ data: { id: 'p1', type: 'task' } });
+
+    render(
+      <MemoryRouter initialEntries={['/projects/p1']}>
+        <Routes>
+          <Route path="/projects/:id" element={<V4EntityDetail type="project" />} />
+          <Route path="/tasks/:id" element={<V4EntityDetail type="task" />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Convert to task' }));
+
+    await waitFor(() => expect(v4API.entities.convert).toHaveBeenCalledWith('p1', 'task'));
   });
 });

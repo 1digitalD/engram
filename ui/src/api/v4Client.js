@@ -49,6 +49,8 @@ export const v4API = {
     detail: getEntityDetail,
     update: updateEntity,
     delete: deleteEntity,
+    merge: (id, targetId) => v4Request('POST', `/entities/${encodeURIComponent(id)}/merge`, { target_id: targetId }),
+    convert: (id, type) => v4Request('POST', `/entities/${encodeURIComponent(id)}/convert`, { type }),
     events: (id) => v4Request('GET', `/entities/${encodeURIComponent(id)}/events`),
     canonical: (id) => v4Request('GET', `/entities/${encodeURIComponent(id)}/canonical`),
     captureChanges: (id) => v4Request('GET', `/entities/${encodeURIComponent(id)}/capture-changes`),
