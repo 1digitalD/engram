@@ -15,7 +15,9 @@
   border: 1px solid var(--border-faint);
   border-radius: var(--radius-lg);
   background: color-mix(in oklch, var(--surface) 96%, transparent);
-  box-shadow: var(--shadow-sm);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  box-shadow: var(--glass-edge), var(--shadow-sm);
   padding: var(--space-3);
 }
 
