@@ -1,5 +1,5 @@
 import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import App from './App';
 import { v4API } from './api/v4Client';
@@ -116,5 +116,61 @@ describe('App shell', () => {
     expect(await screen.findByText('project list')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Save note/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /New task/i })).not.toBeInTheDocument();
+  });
+
+  describe('theme switcher', () => {
+    beforeEach(() => {
+      localStorage.removeItem('engram-theme');
+    });
+
+    afterEach(() => {
+      delete document.documentElement.dataset.theme;
+      localStorage.removeItem('engram-theme');
+    });
+
+    function mockShellData() {
+      v4API.inbox.mockResolvedValue({ needs_review: [] });
+      v4API.entities.list.mockResolvedValue({ meta: { total: 0 }, data: [] });
+      v4API.today.mockResolvedValue({});
+      v4API.suggestions.list.mockResolvedValue({ meta: { total: 0 }, data: [] });
+      v4API.summary.mockResolvedValue({ inbox_count: 0, today_count: 0, suggestions_count: 0 });
+    }
+
+    it('switches theme from the sidebar and persists only on explicit choice', async () => {
+      mockShellData();
+
+      render(
+        <MemoryRouter initialEntries={['/']}>
+          <App />
+        </MemoryRouter>,
+      );
+
+      expect(screen.getByRole('group', { name: 'Theme' })).toBeInTheDocument();
+      expect(document.documentElement.dataset.theme).toBe('light');
+      expect(localStorage.getItem('engram-theme')).toBeNull();
+
+      fireEvent.click(screen.getByRole('button', { name: /Glass theme/i }));
+      expect(document.documentElement.dataset.theme).toBe('glass');
+      expect(localStorage.getItem('engram-theme')).toBe('glass');
+      expect(screen.getByRole('button', { name: /Glass theme/i })).toHaveAttribute('aria-pressed', 'true');
+
+      fireEvent.click(screen.getByRole('button', { name: /Frost theme/i }));
+      expect(document.documentElement.dataset.theme).toBe('frost');
+      expect(localStorage.getItem('engram-theme')).toBe('frost');
+    });
+
+    it('restores the saved theme on load', async () => {
+      mockShellData();
+      localStorage.setItem('engram-theme', 'dark');
+
+      render(
+        <MemoryRouter initialEntries={['/']}>
+          <App />
+        </MemoryRouter>,
+      );
+
+      expect(document.documentElement.dataset.theme).toBe('dark');
+      expect(screen.getByRole('button', { name: /Dark theme/i })).toHaveAttribute('aria-pressed', 'true');
+    });
   });
 });

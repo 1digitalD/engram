@@ -6,7 +6,10 @@ import {
   FilePlus2,
   House,
   Inbox,
+  Moon,
   Plus,
+  Snowflake,
+  Sparkles,
   Sun,
   Search,
   FileText,
@@ -42,6 +45,61 @@ const libraryItems = [
   ['/people', 'People', Users],
   ['/resources', 'Resources', Link2],
 ];
+
+const themeOptions = [
+  ['light', 'Light', Sun],
+  ['dark', 'Dark', Moon],
+  ['glass', 'Glass', Sparkles],
+  ['frost', 'Frost', Snowflake],
+];
+
+function getInitialTheme() {
+  try {
+    const saved = localStorage.getItem('engram-theme');
+    if (themeOptions.some(([value]) => value === saved)) return saved;
+  } catch { /* localStorage unavailable */ }
+  if (typeof window !== 'undefined'
+    && typeof window.matchMedia === 'function'
+    && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+    return 'dark';
+  }
+  return 'light';
+}
+
+function ThemeSwitcher() {
+  const [theme, setTheme] = useState(getInitialTheme);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+  }, [theme]);
+
+  // Persist only on explicit choice so OS-preference users keep following
+  // prefers-color-scheme until they pick a theme themselves.
+  function chooseTheme(value) {
+    setTheme(value);
+    try {
+      localStorage.setItem('engram-theme', value);
+    } catch { /* localStorage unavailable */ }
+  }
+
+  return (
+    <div className={styles.themeSwitcher} role="group" aria-label="Theme">
+      {themeOptions.map(([value, label, Icon]) => (
+        <button
+          key={value}
+          type="button"
+          aria-pressed={theme === value}
+          title={`${label} theme`}
+          aria-label={`${label} theme`}
+          className={`${styles.themeOption} ${theme === value ? styles.themeOptionActive : ''}`}
+          onClick={() => chooseTheme(value)}
+        >
+          <Icon size={14} strokeWidth={2} aria-hidden="true" />
+        </button>
+      ))}
+    </div>
+  );
+}
 
 function useSidebarCounts(refreshKey) {
   const [counts, setCounts] = useState({ inbox: null, today: null });
@@ -262,6 +320,7 @@ export default function App() {
             </div>
           </div>
         </nav>
+        <ThemeSwitcher />
       </aside>
       <div className={styles.mainColumn}>
         {showQuickActions ? <QuickActionBar /> : null}
