@@ -61,7 +61,7 @@ def test_v4_today_returns_execution_sections(client, app):
     yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
     today = datetime.now(timezone.utc).isoformat()
     overdue_followup_task = _create_entity(client, "task", "Overdue follow-up", follow_up_at=yesterday)
-    today_followup_note = _create_entity(client, "note", "Today note", follow_up_at=today)
+    today_followup_task = _create_entity(client, "task", "Today follow-up", follow_up_at=today)
     upcoming_followup_task = _create_entity(
         client, "task", "Upcoming follow-up",
         follow_up_at=(datetime.now(timezone.utc) + timedelta(days=3)).isoformat(),
@@ -94,7 +94,7 @@ def test_v4_today_returns_execution_sections(client, app):
     assert response.status_code == 200
     data = response.get_json()
     assert {item["id"] for item in data["overdue_follow_ups"]} == {overdue_followup_task["id"]}
-    assert {item["id"] for item in data["follow_ups"]} == {today_followup_note["id"]}
+    assert {item["id"] for item in data["follow_ups"]} == {today_followup_task["id"]}
     assert {item["id"] for item in data["upcoming_follow_ups"]} == {upcoming_followup_task["id"]}
     # done_with_followup should NOT appear in either follow-up bucket (status filter).
     assert done_with_followup["id"] not in {i["id"] for i in data["overdue_follow_ups"]}
@@ -109,7 +109,7 @@ def test_v4_today_returns_execution_sections(client, app):
     assert {item["id"] for item in data["blocked_or_waiting_tasks"]} == {waiting_task["id"], blocked_task["id"]}
     assert [item["id"] for item in data["projects_without_open_tasks"]] == [project_without_tasks["id"]]
     assert data["projects_without_open_tasks"][0]["attention"]["reasons"][0]["key"] == "context:project_without_open_tasks"
-    assert [item["id"] for item in data["recent_notes"]] == [recent_note["id"], today_followup_note["id"]]
+    assert [item["id"] for item in data["recent_notes"]] == [recent_note["id"]]
     assert data["pending_suggestions"][0]["payload"]["title"] == "Suggested task"
 
 

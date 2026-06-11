@@ -265,6 +265,29 @@ def format_activity_update(payload):
         return f"Activity update skipped: {payload.get('reason', 'duplicate')}"
     if not note:
         return "Activity update failed."
+
+    lines = []
     preview = (note.get("content") or "")[:200]
-    suffix = "…" if len(note.get("content") or "") > 200 else ""
-    return f"Activity update appended: {preview}{suffix}"
+    suffix = "\u2026" if len(note.get("content") or "") > 200 else ""
+    lines.append(f"Activity update appended: {preview}{suffix}")
+
+    extracted = payload.get("extracted") or {}
+    follow_up = extracted.get("follow_up_at")
+    auto_set = extracted.get("follow_up_auto_set")
+    if follow_up:
+        lines.append(f"Follow-up set to: {follow_up} (extracted from update)")
+    elif auto_set:
+        lines.append("Follow-up auto-set to 2 business days from now")
+
+    tasks = extracted.get("tasks") or []
+    if tasks:
+        auto_created = [t for t in tasks if t.get("auto_created")]
+        suggested = [t for t in tasks if not t.get("auto_created")]
+        if auto_created:
+            names = ", ".join(t.get("title", "") for t in auto_created)
+            lines.append(f"Auto-created {len(auto_created)} task(s): {names}")
+        if suggested:
+            names = ", ".join(t.get("title", "") for t in suggested)
+            lines.append(f"Queued {len(suggested)} task suggestion(s) for review: {names}")
+
+    return "\n".join(lines)

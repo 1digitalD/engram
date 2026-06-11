@@ -14,6 +14,7 @@ from utils import get_openai_client
 logger = logging.getLogger(__name__)
 
 EXTRACTION_MODEL = os.getenv("OPENAI_EXTRACTION_MODEL", "gpt-4o")
+ACTIVITY_UPDATE_EXTRACTION_MODEL = os.getenv("OPENAI_ACTIVITY_UPDATE_MODEL", "gpt-4o-mini")
 ALLOWED_ENTITY_TYPES = {"task", "project", "area", "person", "resource"}
 ALLOWED_RELATIONSHIP_TYPES = {"parent", "related", "derived_from", "mentions", "assigned_to", "references", "blocks"}
 EXISTING_ENTITY_LIMIT = 10
@@ -365,3 +366,97 @@ def _intent(value):
     if normalized in {"update", "task_signal", "follow_up", "blocker", "delegation", "reference", "junk", "note"}:
         return normalized
     return None
+
+
+# ── Lightweight activity-update extraction ────────────────────────────────────
+
+ACTIVITY_UPDATE_SYSTEM_PROMPT = """You are a lightweight extraction engine for activity/progress updates on tasks and projects. Your ONLY job is to extract two things:
+
+1. FOLLOW-UP DATES: Any explicit date, day, or time frame when the next follow-up or check-in should happen.
+   Examples: "review next Friday" → next Friday's date, "circle back in 3 days" → 3 days from now,
+   "follow up June 15" → 2026-06-15, "check in 2 weeks" → 2 weeks from now.
+   Return as ISO 8601 date string (YYYY-MM-DD). Use today's date as context for relative dates.
+   Return null if no follow-up date is mentioned.
+
+2. NEW TASKS: Any new actionable items mentioned in the update that are NOT the same as the update itself.
+   Examples: "Need to update the docs too" → task, "Priya will handle the deployment" → task assigned to Priya.
+   Each task should have a title (concise, starts with verb, ≤10 words), optional content, optional due date,
+   optional assignee name. Return empty list if no new tasks are mentioned.
+
+Return JSON only. No prose, no markdown fences.
+
+Schema:
+{
+  "follow_up_at": "YYYY-MM-DD" or null,
+  "tasks": [{
+    "title": "concise task title",
+    "content": "optional detail",
+    "due_at": "YYYY-MM-DD" or null,
+    "assigned_to": "person name" or null,
+    "confidence": 0.0
+  }]
+}"""
+
+
+def extract_dates_and_tasks_from_update(content, today_iso=None):
+    """Lightweight extraction for activity-update content.
+
+    Returns {"follow_up_at": "YYYY-MM-DD"|None, "tasks": [...]}.
+    Uses a cheaper/faster model than the full capture extraction.
+    """
+    if not content or not content.strip():
+        return {"follow_up_at": None, "tasks": []}
+
+    try:
+        from flask import current_app
+        if current_app.config.get("TESTING") and os.getenv("ENGRAM_ALLOW_TEST_AI") != "1":
+            return {"follow_up_at": None, "tasks": []}
+    except RuntimeError:
+        pass
+
+    if not os.getenv("OPENAI_API_KEY"):
+        return {"follow_up_at": None, "tasks": []}
+
+    from datetime import date
+    today = today_iso or date.today().isoformat()
+
+    user_prompt = f"Today is {today}.\n\nUpdate content:\n{content[:4000]}"
+
+    try:
+        response = get_openai_client().chat.completions.create(
+            model=ACTIVITY_UPDATE_EXTRACTION_MODEL,
+            temperature=0,
+            response_format={"type": "json_object"},
+            messages=[
+                {"role": "system", "content": ACTIVITY_UPDATE_SYSTEM_PROMPT},
+                {"role": "user", "content": user_prompt},
+            ],
+        )
+        raw = response.choices[0].message.content or "{}"
+        result = json.loads(raw)
+    except Exception as exc:
+        logger.warning("activity-update extraction failed: %s", exc)
+        return {"follow_up_at": None, "tasks": []}
+
+    return {
+        "follow_up_at": _date(result.get("follow_up_at")),
+        "tasks": _normalize_activity_tasks(result.get("tasks") or []),
+    }
+
+
+def _normalize_activity_tasks(items):
+    tasks = []
+    for item in (_list(items)):
+        if not isinstance(item, dict):
+            continue
+        title = _text(item.get("title"))
+        if not title:
+            continue
+        tasks.append({
+            "title": title[:160],
+            "content": _text(item.get("content")),
+            "due_at": _date(item.get("due_at")),
+            "assigned_to": _text(item.get("assigned_to")),
+            "confidence": _confidence(item.get("confidence")),
+        })
+    return tasks

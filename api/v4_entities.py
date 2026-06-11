@@ -225,6 +225,7 @@ def search():
 
 DONE_TASK_STATUSES = {"done", "completed", "cancelled"}
 OPEN_TASK_STATUSES = {"open", "in_progress", "waiting", "blocked"}
+FOLLOW_UP_ENTITY_TYPES = {"task", "project"}
 
 # Phase F (proactive monitoring): an active project with no activity update,
 # event, or field change in this many days is "stale"; at the longer
@@ -246,6 +247,7 @@ def _build_today_payload(now):
         _entity_query()
         .filter(
             Entity.lifecycle == "active",
+            Entity.type.in_(FOLLOW_UP_ENTITY_TYPES),
             Entity.due_at.isnot(None),
             Entity.due_at < start_of_today,
             ~Entity.status.in_(DONE_TASK_STATUSES),
@@ -258,6 +260,7 @@ def _build_today_payload(now):
         _entity_query()
         .filter(
             Entity.lifecycle == "active",
+            Entity.type.in_(FOLLOW_UP_ENTITY_TYPES),
             Entity.due_at.isnot(None),
             Entity.due_at >= start_of_today,
             Entity.due_at <= end_of_today,
@@ -271,6 +274,7 @@ def _build_today_payload(now):
         _entity_query()
         .filter(
             Entity.lifecycle == "active",
+            Entity.type.in_(FOLLOW_UP_ENTITY_TYPES),
             Entity.follow_up_at.isnot(None),
             Entity.follow_up_at < start_of_today,
             ~Entity.status.in_(DONE_TASK_STATUSES),
@@ -283,6 +287,7 @@ def _build_today_payload(now):
         _entity_query()
         .filter(
             Entity.lifecycle == "active",
+            Entity.type.in_(FOLLOW_UP_ENTITY_TYPES),
             Entity.follow_up_at.isnot(None),
             Entity.follow_up_at >= start_of_today,
             Entity.follow_up_at <= end_of_today,
@@ -297,6 +302,7 @@ def _build_today_payload(now):
         _entity_query()
         .filter(
             Entity.lifecycle == "active",
+            Entity.type.in_(FOLLOW_UP_ENTITY_TYPES),
             Entity.follow_up_at.isnot(None),
             Entity.follow_up_at > end_of_today,
             Entity.follow_up_at <= end_of_week,
@@ -310,6 +316,7 @@ def _build_today_payload(now):
         _entity_query()
         .filter(
             Entity.lifecycle == "active",
+            Entity.type.in_(FOLLOW_UP_ENTITY_TYPES),
             Entity.due_at.isnot(None),
             Entity.due_at > end_of_today,
             Entity.due_at <= end_of_week,
@@ -1294,6 +1301,9 @@ def create_activity_update(entity_id):
     if not content:
         return _error("content is required")
 
+    # Snapshot follow_up_at before note creation: _refresh_delegation_cadence
+    # may set it for delegated tasks inside _create_activity_update_note.
+    follow_up_before = target.follow_up_at
     note, created = _create_activity_update_note(target, content, actor="user")
     if note is None:
         return _error(
@@ -1303,9 +1313,128 @@ def create_activity_update(entity_id):
     if not created:
         return jsonify({"data": note.to_dict(), "skipped": True, "reason": "duplicate within 24h"})
 
+    # Lightweight extraction: scan for dates and new tasks (no full capture cycle).
+    from services.v4_extraction import extract_dates_and_tasks_from_update
+
+    extraction = extract_dates_and_tasks_from_update(content)
+    extracted_tasks = []
+    suggestions = []
+
+    # ── Follow-up date ──────────────────────────────────────────────────
+    explicit_follow_up = extraction.get("follow_up_at")
+    delegation_updated = target.follow_up_at is not None and target.follow_up_at != follow_up_before
+
+    if explicit_follow_up:
+        old_follow_up = target.follow_up_at
+        target.follow_up_at = _parse_iso_date(explicit_follow_up)
+        _write_event(
+            target,
+            "ai_updated",
+            old_value={"follow_up_at": old_follow_up.isoformat() if old_follow_up else None},
+            new_value={"follow_up_at": target.follow_up_at.isoformat()},
+            actor="agent:activity-update",
+            reason="extracted from activity update",
+            source_note_id=note.id,
+        )
+    elif target.type == "task" and not delegation_updated:
+        # No explicit date found, and delegation cadence didn't set one.
+        # Auto-set follow-up to 2 business days from now for tasks.
+        old_follow_up = target.follow_up_at
+        target.follow_up_at = _add_working_days(datetime.now(timezone.utc), 2)
+        _write_event(
+            target,
+            "ai_updated",
+            old_value={"follow_up_at": old_follow_up.isoformat() if old_follow_up else None},
+            new_value={"follow_up_at": target.follow_up_at.isoformat()},
+            actor="agent:activity-update",
+            reason="auto-set 2 business day follow-up",
+            source_note_id=note.id,
+        )
+
+    # ── New tasks from update content ────────────────────────────────────
+    for task_candidate in extraction.get("tasks") or []:
+        confidence = task_candidate.get("confidence", 0.0)
+        if confidence >= AUTO_APPLY_CONFIDENCE:
+            new_task = _auto_create_entity(
+                "task",
+                task_candidate.get("title"),
+                content=task_candidate.get("content"),
+                due_at=task_candidate.get("due_at"),
+            )
+            if new_task:
+                # Link the new task to the target entity (derived_from).
+                _create_entity_link(
+                    new_task, target, "derived_from",
+                    confidence=confidence,
+                    evidence=task_candidate.get("title"),
+                    source="activity_update",
+                )
+                # Handle assignee if specified.
+                assignee_name = task_candidate.get("assigned_to")
+                if assignee_name:
+                    _apply_assignee(
+                        note, new_task, assignee_name,
+                        confidence=confidence,
+                        evidence=f"assigned in activity update: {assignee_name}",
+                        source="activity_update",
+                        actor="agent:activity-update",
+                    )
+                _write_event(
+                    new_task,
+                    "created",
+                    new_value=new_task.to_dict(),
+                    actor="agent:activity-update",
+                    confidence=confidence,
+                    reason="extracted from activity update",
+                    source_note_id=note.id,
+                )
+                _queue_embed_job(new_task.id, "activity_update_task")
+                extracted_tasks.append({
+                    "entity_id": new_task.id,
+                    "title": new_task.title,
+                    "confidence": confidence,
+                    "auto_created": True,
+                })
+        else:
+            # Lower confidence: create a suggestion for the user to review.
+            suggestion = _create_suggestion(
+                note,
+                suggestion_type="create_task",
+                operation_type="create_new_entity",
+                payload={
+                    "type": "task",
+                    "title": task_candidate.get("title"),
+                    "content": task_candidate.get("content"),
+                    "due_at": task_candidate.get("due_at"),
+                    "assigned_to": task_candidate.get("assigned_to"),
+                    "evidence": task_candidate.get("title"),
+                    "target_entity_id": target.id,
+                    "relationship_type": "derived_from",
+                },
+                confidence=confidence,
+                reason=f"extracted from activity update: {task_candidate.get('title', '')[:80]}",
+            )
+            if suggestion:
+                suggestions.append(suggestion.to_dict())
+                extracted_tasks.append({
+                    "title": task_candidate.get("title"),
+                    "confidence": confidence,
+                    "auto_created": False,
+                    "suggestion_id": suggestion.id,
+                })
+
     db.session.commit()
 
-    return jsonify({"data": _load_entity(note.id).to_dict()}), 201
+    return jsonify({
+        "data": _load_entity(note.id).to_dict(),
+        "target": _load_entity(target.id).to_dict(),
+        "extracted": {
+            "follow_up_at": explicit_follow_up,
+            "follow_up_auto_set": explicit_follow_up is None and target.type == "task",
+            "tasks": extracted_tasks,
+        },
+        "suggestions": suggestions,
+    }), 201
 
 
 @api_v4_bp.route("/suggestions", methods=["GET"])
