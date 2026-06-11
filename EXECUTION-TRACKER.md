@@ -352,6 +352,14 @@ Non-authoritative historical artifacts:
     "reviewed_today":false,"stale_projects_count":0,"suggestions_count":0,
     "today_count":40}`); `/api/v4/today` confirmed `new_since_yesterday_count`,
     `stale_projects`, `suggested_archival` present
+  - **North-star metrics re-run (2026-06-10)**: suggestion accept rate
+    15% -> 22.6% (7/31 accepted/dismissed); agent share of state-changes
+    ~30% -> 13.8% (25/181, expected per deferred agent-autonomy backlog);
+    open tasks invisible to any surface ~60 -> 54. No regressions. See
+    `docs/iterations/PHASE_F_NORTH_STAR_METRICS.md`.
+
+**V4 World Model plan (Phases A-F) complete.** Remaining backlog is all in
+"Explicitly deferred" in `docs/V4_WORLD_MODEL_PLAN.md`.
 
 ## Validation Commands
 
