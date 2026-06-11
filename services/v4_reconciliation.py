@@ -54,6 +54,16 @@ MATCHING RULES:
   (e.g. "Deals agent family support" = "GTM agent family support").
 - Same resource = same document, tool, URL, or artifact.
 - Always check the WORKSPACE CATALOG before deciding "new" for a project or area.
+- Creating a duplicate is a WORSE error than linking imperfectly. When an existing match
+  OF THE SAME TYPE is plausible (similarity ≥ 0.7, or — for projects and areas — a catalog
+  title covering the same initiative), prefer "update", "link", or "progress_update" over "new".
+- A candidate of type "project" that is really a deliverable, milestone, or sub-goal of an
+  existing project (a deck, doc, one-pager, plan, review, meeting) is NOT a new
+  project — match it to the existing project ("update"/"link"/"progress_update").
+- The previous two rules do NOT demote "task" candidates: a task describing a new action
+  is "new" even when it obviously belongs to an existing project (the system attaches it
+  to the project separately). Only choose "link"/"update" for a task when an existing TASK
+  in its match list is the same action item.
 
 FOR "update" — include:
   "target_id"         : id of the matching entity
@@ -139,8 +149,21 @@ def reconcile_candidates(candidates):
     default = {"action": "new", "target_id": None, "fields": {}, "relationship_type": None, "confidence": 0.0, "reason": ""}
     while len(decisions) < len(candidates):
         decisions.append(dict(default))
+    decisions = decisions[:len(candidates)]
 
-    return decisions[:len(candidates)]
+    # Attach the strongest similarity match to each decision so the apply
+    # layer can refuse to auto-create when a plausible near-duplicate exists,
+    # even if the model voted "new" with high confidence.
+    for item, decision in zip(enriched, decisions):
+        if not isinstance(decision, dict):
+            continue
+        matches = item.get("matches") or []
+        top = matches[0] if matches else None
+        decision["top_match_score"] = top["score"] if top else 0.0
+        decision["top_match_id"] = top["id"] if top else None
+        decision["top_match_title"] = top["title"] if top else None
+
+    return decisions
 
 
 # ── Batch enrichment ──────────────────────────────────────────────────────────

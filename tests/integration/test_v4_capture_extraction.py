@@ -240,6 +240,49 @@ def test_capture_suggests_low_confidence_entity(client, app):
         assert AiSuggestion.query.filter_by(suggestion_type="create_task").count() == 1
 
 
+def test_capture_near_duplicate_task_routes_to_suggestion(client, app):
+    """A high-confidence "new" task with a strong similarity match is suggested,
+    not auto-created — duplicates are worse than an extra review item."""
+    extraction = {
+        "entities": [
+            {
+                "type": "task",
+                "title": "Ship the rollout plan",
+                "confidence": 0.95,
+                "evidence": "ship the rollout plan",
+            }
+        ]
+    }
+    decisions = [
+        {
+            "action": "new",
+            "target_id": None,
+            "fields": {},
+            "relationship_type": "derived_from",
+            "confidence": 0.95,
+            "reason": "model voted new despite near-match",
+            "top_match_score": 0.82,
+            "top_match_id": "existing-task-id",
+            "top_match_title": "Ship rollout plan",
+        }
+    ]
+
+    with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction), \
+         patch("services.v4_reconciliation.reconcile_candidates", return_value=decisions):
+        response = client.post("/api/v4/capture", json={"content": "Ship the rollout plan"})
+
+    assert response.status_code == 201
+    data = response.get_json()
+    assert len(data["suggestions"]) == 1
+    assert data["suggestions"][0]["suggestion_type"] == "create_task"
+
+    with app.app_context():
+        assert Entity.query.filter_by(type="task").count() == 0
+        suggestion = AiSuggestion.query.filter_by(suggestion_type="create_task").one()
+        assert suggestion.payload["near_match"]["title"] == "Ship rollout plan"
+        assert suggestion.payload["near_match"]["score"] == 0.82
+
+
 def test_capture_uses_reconciliation_confidence_for_auto_apply_gate(client, app):
     extraction = {
         "entities": [
@@ -281,8 +324,9 @@ def test_capture_uses_reconciliation_confidence_for_auto_apply_gate(client, app)
         assert AiSuggestion.query.filter_by(suggestion_type="create_task").count() == 1
 
 
-def test_capture_auto_creates_high_confidence_link_candidate(client, app):
-    """When a link candidate references a non-existent entity at high confidence, auto-create and link it."""
+def test_capture_suggests_high_confidence_project_link_candidate(client, app):
+    """Project creation is never auto-applied: even a high-confidence link candidate
+    referencing a non-existent project becomes a create_project suggestion."""
     extraction = {
         "links": [
             {
@@ -300,12 +344,13 @@ def test_capture_auto_creates_high_confidence_link_candidate(client, app):
 
     assert response.status_code == 201
     data = response.get_json()
-    assert data["suggestions"] == []
-    assert any(c["type"] == "entity_created" and c["entity_type"] == "project" for c in data["applied_changes"])
-    assert any(c["type"] == "relationship_added" for c in data["applied_changes"])
+    assert len(data["suggestions"]) == 1
+    assert data["suggestions"][0]["suggestion_type"] == "create_project"
+    assert not any(c["type"] == "entity_created" for c in data["applied_changes"])
 
     with app.app_context():
-        assert Entity.query.filter_by(type="project", title="Memory Lookup").count() == 1
+        assert Entity.query.filter_by(type="project", title="Memory Lookup").count() == 0
+        assert AiSuggestion.query.filter_by(suggestion_type="create_project").count() == 1
 
 
 def test_capture_suggests_low_confidence_missing_link(client, app):

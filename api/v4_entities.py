@@ -74,6 +74,11 @@ DEFAULT_DELEGATION_CADENCE_DAYS = 3
 AUTO_APPLY_CONFIDENCE = 0.8
 AUTO_CREATE_ENTITY_CONFIDENCE = 0.9
 RISKY_ENTITY_CREATION_TYPES = {"task", "project", "area", "resource", "person"}
+# Types that must never be auto-created from capture — always reviewed.
+SUGGEST_ONLY_CREATION_TYPES = {"project", "area"}
+# Reconciliation similarity at or above which a "new" decision is treated as
+# a potential duplicate and routed to the review queue instead of auto-created.
+NEAR_DUPLICATE_SCORE = 0.75
 CAPTURE_INTENTS = {"update", "task_signal", "follow_up", "blocker", "delegation", "reference", "junk", "note"}
 INBOX_INTENT_PRIORITY = {
     "blocker": 0,
@@ -2793,7 +2798,8 @@ def _apply_reconciliation_decision(note, candidate, decision, applied_changes, s
     if not title or not entity_type:
         return
     content = _candidate_value(candidate, "content")
-    if _can_auto_create_entity(entity_type, confidence):
+    top_match_score = decision.get("top_match_score") or 0.0
+    if _can_auto_create_entity(entity_type, confidence, top_match_score):
         entity = _auto_create_entity(
             entity_type=entity_type,
             title=title,
@@ -2852,6 +2858,11 @@ def _apply_reconciliation_decision(note, candidate, decision, applied_changes, s
                 "source_entity_id": note.id,
                 "evidence": evidence,
                 "relationship_type": relationship_type,
+                "near_match": {
+                    "entity_id": decision.get("top_match_id"),
+                    "title": decision.get("top_match_title"),
+                    "score": top_match_score,
+                } if decision.get("top_match_id") else None,
             },
             reason=decision.get("reason"),
         )
@@ -3568,8 +3579,18 @@ def _recently_resolved_duplicate(fingerprint, confidence):
     return next_confidence <= previous_confidence + 0.05
 
 
-def _can_auto_create_entity(entity_type, confidence):
-    return entity_type in RISKY_ENTITY_CREATION_TYPES and confidence >= AUTO_CREATE_ENTITY_CONFIDENCE
+def _can_auto_create_entity(entity_type, confidence, top_match_score=0.0):
+    if entity_type not in RISKY_ENTITY_CREATION_TYPES:
+        return False
+    # Projects and areas are low-volume and expensive to dedupe after the
+    # fact — creation always goes through the review queue.
+    if entity_type in SUGGEST_ONLY_CREATION_TYPES:
+        return False
+    # A plausible near-duplicate exists: route to review instead of creating
+    # a sibling, regardless of how confident the model is that this is "new".
+    if (top_match_score or 0.0) >= NEAR_DUPLICATE_SCORE:
+        return False
+    return confidence >= AUTO_CREATE_ENTITY_CONFIDENCE
 
 
 def _reconciliation_confidence(candidate, decision):

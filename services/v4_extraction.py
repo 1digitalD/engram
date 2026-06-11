@@ -17,7 +17,7 @@ EXTRACTION_MODEL = os.getenv("OPENAI_EXTRACTION_MODEL", "gpt-4o")
 ACTIVITY_UPDATE_EXTRACTION_MODEL = os.getenv("OPENAI_ACTIVITY_UPDATE_MODEL", "gpt-4o-mini")
 ALLOWED_ENTITY_TYPES = {"task", "project", "area", "person", "resource"}
 ALLOWED_RELATIONSHIP_TYPES = {"parent", "related", "derived_from", "mentions", "assigned_to", "references", "blocks"}
-EXISTING_ENTITY_LIMIT = 10
+EXISTING_ENTITY_LIMIT = 50
 
 SYSTEM_PROMPT_TEMPLATE = """You are an extraction engine for a personal knowledge workspace. \
 Analyze the note below and return JSON with metadata, link candidates, and entity creation candidates.
@@ -65,7 +65,11 @@ ENTITY TYPES — use exactly these strings:
   "task"     — See dedicated TASKS rule above. Be aggressive: missing a task is a worse error than \
 emitting a duplicate (reconciliation handles dedup).
   "project"  — A named multi-step initiative with a defined outcome. Signals: named goals, \
-campaigns, products, deliverables, anything with multiple tasks beneath it.
+campaigns, products, anything with multiple tasks beneath it. Do NOT emit a new project for \
+a deliverable, milestone, or sub-effort of an existing project (a deck, doc, one-pager, plan, \
+review, or meeting belonging to a project in EXISTING_ENTITIES) — emit that as a task and \
+link it to the existing project instead. When a note discusses an EXISTING_ENTITIES project \
+from a new angle (roadmap, governance, status, planning), that is the SAME project, not a new one.
   "area"     — An ongoing responsibility or life/work domain with no end date. Signals: \
 "health", "finance", "work", "home", recurring themes without a completion state.
   "person"   — A named individual. Signals: proper names, @mentions, roles with a clear \
