@@ -1,6 +1,6 @@
 /* =============================================
    ENGRAM — Design Tokens + Global Styles
-   Light mode default, dark mode via [data-theme="dark"] on <html>
+   Light mode default; dark and glass via [data-theme="dark"|"glass"] on <html>
    ============================================= */
 
 /* ── Light Mode (default) ──────────────────── */
@@ -100,10 +100,19 @@
   --topbar-h:  44px;
   --content-max:  720px;
   --content-wide: 1200px;
+
+  /* Theme effects (glass overrides these) */
+  --blur: none;
+  --bg-image: none;
+  --glass-edge: 0 0 #0000;
+  /* Opaque surface for overlays (modals) that must stay readable on glass themes */
+  --surface-solid: oklch(100% 0.006 88);
 }
 
 /* ── Dark Mode ─────────────────────────────── */
 [data-theme="dark"] {
+  color-scheme: dark;
+  --surface-solid: oklch(14.5% 0.016 272);
   --bg:          oklch(11%   0.016 272);
   --surface:     oklch(14.5% 0.016 272);
   --surface2:    oklch(18%   0.016 272);
@@ -146,6 +155,136 @@
   --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.7);
 }
 
+/* ── Glass Mode ────────────────────────────── */
+[data-theme="glass"] {
+  color-scheme: dark;
+
+  --bg: oklch(17% 0.03 278);
+  --bg-image:
+    radial-gradient(900px 600px at 80% -5%, oklch(55% 0.20 285 / 0.65), transparent 60%),
+    radial-gradient(800px 600px at -5% 105%, oklch(52% 0.18 340 / 0.55), transparent 58%),
+    radial-gradient(700px 500px at 55% 45%, oklch(48% 0.14 200 / 0.45), transparent 62%),
+    radial-gradient(500px 400px at 30% 15%, oklch(50% 0.16 250 / 0.40), transparent 65%);
+
+  --surface:     oklch(100% 0 0 / 0.07);
+  --surface2:    oklch(100% 0 0 / 0.11);
+  --surface3:    oklch(100% 0 0 / 0.16);
+  --hover:       oklch(100% 0 0 / 0.20);
+
+  --border:       oklch(100% 0 0 / 0.16);
+  --border-faint: oklch(100% 0 0 / 0.09);
+  --border-focus: oklch(68% 0.13 278);
+
+  --text:           oklch(96% 0.008 272);
+  --text-secondary: oklch(79% 0.015 272);
+  --text-muted:     oklch(62% 0.018 272);
+
+  --accent:       oklch(62% 0.15 278);
+  --accent-dim:   oklch(68% 0.14 278 / 0.20);
+  --accent-hover: oklch(68% 0.15 278);
+
+  --green:  oklch(72% 0.14 155);
+  --yellow: oklch(80% 0.14  82);
+  --red:    oklch(66% 0.18  22);
+  --pink:   oklch(72% 0.14 340);
+
+  --bucket-inbox:     oklch(62% 0.15 278);
+  --bucket-projects:  oklch(72% 0.14 155);
+  --bucket-areas:     oklch(72% 0.14 340);
+  --bucket-resources: oklch(80% 0.14  82);
+  --bucket-archives:  oklch(62% 0.018 272);
+
+  --entity-note:      oklch(62% 0.018 272);
+  --entity-task:      oklch(80% 0.14  82);
+  --entity-project:   oklch(62% 0.15 278);
+  --entity-area:      oklch(72% 0.14 340);
+  --entity-person:    oklch(72% 0.14 155);
+  --entity-resource:  oklch(62% 0.018 272);
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.55);
+  --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.65);
+
+  --blur: blur(22px) saturate(170%);
+  --glass-edge: inset 0 1px 0 oklch(100% 0 0 / 0.20), inset 0 0 0 1px oklch(100% 0 0 / 0.06);
+  --surface-solid: oklch(23% 0.025 278);
+}
+
+/* ── Frost Mode (light steel + frosted glass) ── */
+[data-theme="frost"] {
+  color-scheme: light;
+
+  --bg: oklch(93% 0.014 240);
+  --bg-image:
+    radial-gradient(900px 600px at 80% -5%, oklch(74% 0.10 245 / 0.75), transparent 60%),
+    radial-gradient(800px 600px at -5% 105%, oklch(77% 0.09 210 / 0.65), transparent 58%),
+    radial-gradient(700px 500px at 55% 45%, oklch(82% 0.06 265 / 0.50), transparent 62%),
+    radial-gradient(450px 350px at 30% 12%, oklch(78% 0.08 230 / 0.45), transparent 65%);
+
+  --surface:     oklch(100% 0 0 / 0.50);
+  --surface2:    oklch(100% 0 0 / 0.62);
+  --surface3:    oklch(100% 0 0 / 0.76);
+  --hover:       oklch(100% 0 0 / 0.88);
+
+  --border:       oklch(45% 0.03 240 / 0.22);
+  --border-faint: oklch(45% 0.03 240 / 0.12);
+  --border-focus: oklch(48% 0.12 250);
+
+  --text:           oklch(24% 0.025 250);
+  --text-secondary: oklch(40% 0.025 250);
+  --text-muted:     oklch(56% 0.022 250);
+
+  --accent:       oklch(48% 0.12 250);
+  --accent-dim:   oklch(48% 0.12 250 / 0.14);
+  --accent-hover: oklch(42% 0.12 250);
+
+  --green:  oklch(42% 0.13 165);
+  --yellow: oklch(50% 0.13  85);
+  --red:    oklch(48% 0.17  25);
+  --pink:   oklch(48% 0.13 335);
+
+  --bucket-inbox:     oklch(48% 0.12 250);
+  --bucket-projects:  oklch(42% 0.13 165);
+  --bucket-areas:     oklch(48% 0.13 335);
+  --bucket-resources: oklch(50% 0.13  85);
+  --bucket-archives:  oklch(56% 0.022 250);
+
+  --entity-note:      oklch(56% 0.022 250);
+  --entity-task:      oklch(50% 0.13  85);
+  --entity-project:   oklch(48% 0.12 250);
+  --entity-area:      oklch(48% 0.13 335);
+  --entity-person:    oklch(42% 0.13 165);
+  --entity-resource:  oklch(56% 0.022 250);
+
+  --shadow-sm: 0 1px 2px oklch(30% 0.03 250 / 0.08);
+  --shadow-md: 0 4px 14px oklch(30% 0.03 250 / 0.10);
+  --shadow-lg: 0 8px 32px oklch(30% 0.03 250 / 0.14);
+  --shadow-xl: 0 16px 48px oklch(30% 0.03 250 / 0.18);
+
+  --blur: blur(22px) saturate(150%);
+  --glass-edge: inset 0 1px 0 oklch(100% 0 0 / 0.90), inset 0 0 0 1px oklch(100% 0 0 / 0.40);
+  --surface-solid: oklch(97% 0.006 240);
+}
+
+/* Glass themes lean on backdrop blur for legibility; without support, fall back
+   to mostly-opaque surfaces so text stays readable over the gradient. */
+@supports not (backdrop-filter: blur(1px)) {
+  [data-theme="glass"] {
+    --surface:  oklch(24% 0.025 278 / 0.92);
+    --surface2: oklch(28% 0.025 278 / 0.94);
+    --surface3: oklch(32% 0.025 278 / 0.96);
+    --hover:    oklch(36% 0.025 278 / 0.96);
+  }
+
+  [data-theme="frost"] {
+    --surface:  oklch(100% 0 0 / 0.88);
+    --surface2: oklch(100% 0 0 / 0.92);
+    --surface3: oklch(100% 0 0 / 0.96);
+    --hover:    oklch(100% 0 0 / 0.98);
+  }
+}
+
 /* ── Reset ─────────────────────────────────── */
 *, *::before, *::after {
   box-sizing: border-box;
@@ -164,7 +303,8 @@ html {
 
 body {
   font-family: var(--font-sans);
-  background: var(--bg);
+  background: var(--bg-image), var(--bg);
+  background-attachment: fixed;
   color: var(--text);
   line-height: var(--base-line-height);
   overflow: hidden;
