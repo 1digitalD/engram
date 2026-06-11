@@ -19,14 +19,16 @@
   border: 1px solid var(--border-faint);
   border-radius: var(--radius-lg);
   background: var(--surface);
-  box-shadow: var(--shadow-sm);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  box-shadow: var(--glass-edge), var(--shadow-sm);
   padding: var(--space-3);
 }
 
 .headerPanel {
   background: linear-gradient(180deg, var(--surface), color-mix(in oklch, var(--surface2) 50%, var(--surface)));
   border-color: var(--border);
-  box-shadow: 0 1px 0 color-mix(in oklch, black 4%, transparent), var(--shadow-sm);
+  box-shadow: var(--glass-edge), 0 1px 0 color-mix(in oklch, black 4%, transparent), var(--shadow-sm);
   padding: var(--space-4);
 }
 
@@ -34,13 +36,17 @@
   background:
     linear-gradient(180deg, color-mix(in oklch, var(--surface2) 18%, var(--surface)), var(--surface));
   border-color: color-mix(in oklch, oklch(72% 0.03 82) 18%, var(--border-faint));
+  /* No backdrop-filter here: it would become the containing block for the
+     position:fixed ActionModal rendered inside, clipping it to the panel. */
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   transition: border-color var(--duration-fast) var(--ease-out),
               box-shadow var(--duration-fast) var(--ease-out);
 }
 
 .segmentPanel:hover {
   border-color: var(--border);
-  box-shadow: 0 4px 14px -10px color-mix(in oklch, black 30%, transparent);
+  box-shadow: var(--glass-edge), 0 4px 14px -10px color-mix(in oklch, black 30%, transparent);
 }
 
 .headerPanel,
@@ -297,7 +303,9 @@
   background:
     radial-gradient(circle at top right, color-mix(in oklch, var(--accent) 10%, transparent), transparent 42%),
     linear-gradient(180deg, color-mix(in oklch, var(--surface2) 55%, var(--surface)), var(--surface));
-  box-shadow: var(--shadow-sm);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  box-shadow: var(--glass-edge), var(--shadow-sm);
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
@@ -318,7 +326,9 @@
   border-radius: var(--radius-lg);
   background:
     linear-gradient(180deg, color-mix(in oklch, var(--surface2) 35%, var(--surface)), var(--surface));
-  box-shadow: var(--shadow-sm);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  box-shadow: var(--glass-edge), var(--shadow-sm);
   display: flex;
   flex-direction: column;
   flex: 2 1 380px;
@@ -1819,7 +1829,7 @@
 }
 
 .modalDialog {
-  background: var(--surface);
+  background: var(--surface-solid);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   box-shadow: 0 16px 40px -12px color-mix(in oklch, black 35%, transparent);

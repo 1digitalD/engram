@@ -76,6 +76,9 @@
   background: var(--surface);
   border: 1px solid var(--border-faint);
   border-radius: var(--radius-md);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  box-shadow: var(--glass-edge);
   display: grid;
   gap: 4px;
   min-height: 78px;
@@ -150,6 +153,9 @@
   background: var(--surface);
   border: 1px solid var(--border-faint);
   border-radius: var(--radius-md);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  box-shadow: var(--glass-edge);
   display: grid;
   gap: 10px;
   grid-template-columns: minmax(0, 1fr) minmax(152px, auto);
