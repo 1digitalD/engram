@@ -54,4 +54,5 @@ Full UI suite green: 44 passed (unchanged count). Build green.
 - [x] `/api/v4/summary` returns `new_since_yesterday_count`.
 - [x] Today UI surfaces the count as a pill in the summary strip when > 0.
 - [x] Suite + UI green; build green.
-- [ ] Phase F deployed (snapshot → `engram-deploy.sh` → smoke test) — pending.
+- [x] Phase F deployed (snapshot → `engram-deploy.sh` → smoke test) — done
+      2026-06-10, see EXECUTION-TRACKER.md for evidence.

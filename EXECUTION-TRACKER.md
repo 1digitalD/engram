@@ -344,8 +344,14 @@ Non-authoritative historical artifacts:
     suite green: 228 passed (was 228, +1 new); UI 44 passed (unchanged count);
     build green
   - see `docs/iterations/SLICE_F2_SINCE_YESTERDAY_DIFF.md`
-  - not yet deployed — Phase F deploy (snapshot -> `engram-deploy.sh` ->
-    smoke test) pending
+  - **Phase F deployed to prod (2026-06-10)**: pre-deploy snapshot taken
+    (`backups/engram_prod_pre_phasef_20260610_222745.dump`, no new migration
+    needed — additive read-only fields only), `./scripts/engram-deploy.sh`
+    run, `/api/v4/health` and `/api/v4/summary` smoke-tested OK
+    (`{"inbox_count":0,"last_reviewed_at":null,"new_since_yesterday_count":0,
+    "reviewed_today":false,"stale_projects_count":0,"suggestions_count":0,
+    "today_count":40}`); `/api/v4/today` confirmed `new_since_yesterday_count`,
+    `stale_projects`, `suggested_archival` present
 
 ## Validation Commands
 
