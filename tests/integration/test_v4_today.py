@@ -345,6 +345,55 @@ def test_v4_today_surfaces_stale_and_archival_projects(client, app):
     assert summary["stale_projects_count"] == len(stale_ids) + len(archival_ids)
 
 
+def test_v4_today_surfaces_new_since_yesterday_count(client, app):
+    yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
+
+    new_task = _create_entity(client, "task", "Newly overdue task", due_at=yesterday)
+    old_task = _create_entity(client, "task", "Old overdue task", due_at=yesterday)
+
+    with app.app_context():
+        from sqlalchemy import update
+        db.session.execute(
+            update(Entity)
+            .where(Entity.id == old_task["id"])
+            .values(created_at=datetime.now(timezone.utc) - timedelta(days=3))
+        )
+        db.session.commit()
+        db.session.expire_all()
+
+    response = client.get("/api/v4/today")
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["new_since_yesterday_count"] == 1
+
+    overdue_ids = {item["id"] for item in data["overdue"]}
+    assert new_task["id"] in overdue_ids
+    assert old_task["id"] in overdue_ids
+
+    summary_response = client.get("/api/v4/summary")
+    assert summary_response.status_code == 200
+    summary = summary_response.get_json()
+    assert summary["new_since_yesterday_count"] == 1
+
+    # After marking the day reviewed, only items created since the review count.
+    review_response = client.post("/api/v4/today/review")
+    assert review_response.status_code == 200
+
+    response = client.get("/api/v4/today")
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["new_since_yesterday_count"] == 0
+
+    newer_task = _create_entity(client, "task", "Even newer overdue task", due_at=yesterday)
+
+    response = client.get("/api/v4/today")
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["new_since_yesterday_count"] == 1
+    new_ids = {item["id"] for item in data["overdue"] if item["id"] == newer_task["id"]}
+    assert newer_task["id"] in new_ids
+
+
 def test_v4_person_detail_includes_current_load_with_last_heard(client, app):
     akash = _create_entity(client, "person", "Akash")
     open_task = _create_entity(client, "task", "Design GTM trigger doc", status="open")

@@ -67,6 +67,7 @@ describe('V4Today', () => {
       suggested_archival: [
         { id: 'sa1', type: 'project', title: 'Long-forgotten project', status: 'active', stale_days: 42 },
       ],
+      new_since_yesterday_count: 3,
     });
 
     render(
@@ -103,6 +104,7 @@ describe('V4Today', () => {
     expect(screen.getByText('Long-forgotten project')).toBeInTheDocument();
     expect(screen.getByText('no activity in 42 days')).toBeInTheDocument();
     expect(screen.getByText('consider archiving')).toBeInTheDocument();
+    expect(screen.getByText('3 new since yesterday')).toBeInTheDocument();
     expect(screen.getByText('Recent note')).toBeInTheDocument();
     expect(screen.getByText('Delegations needing a nudge')).toBeInTheDocument();
     expect(screen.getByText('Design GTM trigger doc')).toBeInTheDocument();

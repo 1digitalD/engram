@@ -300,6 +300,7 @@ export default function V4Today() {
   const actionItems = getTodayActionItems(today);
   const deadlinesAhead = getTodayDeadlinesAhead(today);
   const reviewedToday = !!today.reviewed_today;
+  const newSinceYesterday = today.new_since_yesterday_count || 0;
 
   return (
     <main className={styles.today}>
@@ -314,6 +315,11 @@ export default function V4Today() {
           <span className={styles.summaryPill}>{overdueSummaryCount} overdue</span>
           <span className={styles.summaryPill}>{dueNowSummaryCount} due or follow-up today</span>
           <span className={styles.summaryPill}>{stuckSummaryCount} stuck</span>
+          {newSinceYesterday > 0 && (
+            <span className={styles.summaryPill}>
+              {newSinceYesterday} new since yesterday
+            </span>
+          )}
         </div>
         <button
           type="button"

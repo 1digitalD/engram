@@ -55,14 +55,15 @@ IMPACT_WEIGHT_CAP = 24
 HIGH_SIGNAL_NOTE_INTENTS = {"blocker", "follow_up", "delegation"}
 
 
-def today_attention_count(today_payload):
-    """Count of distinct entities needing attention today.
+def today_attention_items(today_payload):
+    """Distinct entities needing attention today, deduped by id.
 
     Pure port of `getTodayAttentionCount` (`ui/src/utils/today.js`): dedupes
     by entity id across the actionable, stuck, high-signal-note, and
     unscheduled-attention buckets of a `/today` payload.
     """
     seen = set()
+    items = []
     buckets = (
         (today_payload.get("overdue") or [])
         + (today_payload.get("due_today") or [])
@@ -76,14 +77,18 @@ def today_attention_count(today_payload):
         ]
         + (today_payload.get("unscheduled_attention_tasks") or [])
     )
-    count = 0
     for item in buckets:
         key = item.get("id")
         if not key or key in seen:
             continue
         seen.add(key)
-        count += 1
-    return count
+        items.append(item)
+    return items
+
+
+def today_attention_count(today_payload):
+    """Count of distinct entities needing attention today."""
+    return len(today_attention_items(today_payload))
 
 
 def attention_for_entity(

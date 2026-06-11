@@ -329,6 +329,24 @@ Non-authoritative historical artifacts:
   - see `docs/iterations/SLICE_F1_STALE_PROJECTS.md`
   - not deployed — Phase F deploys after F2 (per plan)
 
+- Slice F2 (since-yesterday diff) implementation status:
+  - `services/v4_attention.py`: extracted `today_attention_items(...)` (the
+    deduped actionable-set list) so both `today_attention_count` and the new
+    diff logic share it
+  - `_build_today_payload`: computes `since_cutoff` = `now - 24h`, or
+    `last_reviewed_at` if more recent; `GET /api/v4/today` and
+    `GET /api/v4/summary` gain `new_since_yesterday_count` = entities in
+    today's actionable set with `created_at >= since_cutoff`
+  - Today UI: summary strip gains a "{n} new since yesterday" pill when > 0
+  - red-first test: 1 new integration test
+    (`test_v4_today_surfaces_new_since_yesterday_count`, covering the 24h
+    window, the post-review reset, and a new item after review); full backend
+    suite green: 228 passed (was 228, +1 new); UI 44 passed (unchanged count);
+    build green
+  - see `docs/iterations/SLICE_F2_SINCE_YESTERDAY_DIFF.md`
+  - not yet deployed — Phase F deploy (snapshot -> `engram-deploy.sh` ->
+    smoke test) pending
+
 ## Validation Commands
 
 ```bash

@@ -12,7 +12,7 @@ from sqlalchemy.orm import selectinload
 from api import api_v4_bp
 from extensions import db
 from models import AiSuggestion, AppSetting, Entity, EntityEvent, EntityLink, EntityTag, Job, Tag, _iso
-from services.v4_attention import attention_for_entity, today_attention_count
+from services.v4_attention import attention_for_entity, today_attention_count, today_attention_items
 
 STATUS_BY_TYPE = {
     "note": ["active", "processed", "archived"],
@@ -444,7 +444,7 @@ def _build_today_payload(now):
         last_reviewed_at and _parse_datetime(last_reviewed_at) >= start_of_today
     )
 
-    return {
+    payload = {
         "overdue": [with_priority(entity) for entity in overdue],
         "due_today": [with_priority(entity) for entity in due_today],
         "overdue_follow_ups": [with_priority(entity) for entity in overdue_follow_ups],
@@ -468,6 +468,24 @@ def _build_today_payload(now):
         # Retained for any external callers; matches the new bucket structure semantically.
         "blocked_or_waiting_tasks": [with_priority(e) for e in (blocked_tasks + waiting_tasks)],
     }
+
+    # Phase F (proactive monitoring): "N new items since yesterday" — items in
+    # today's actionable set created within the last 24h, or since the last
+    # day-review if that was more recent (so re-checking shortly after a
+    # review doesn't re-surface the same items as "new").
+    since_cutoff = now - timedelta(hours=24)
+    if last_reviewed_at:
+        reviewed_dt = _parse_datetime(last_reviewed_at)
+        if reviewed_dt > since_cutoff:
+            since_cutoff = reviewed_dt
+    new_since_yesterday_count = sum(
+        1
+        for item in today_attention_items(payload)
+        if item.get("created_at") and _parse_datetime(item["created_at"]) >= since_cutoff
+    )
+    payload["new_since_yesterday_count"] = new_since_yesterday_count
+
+    return payload
 
 
 @api_v4_bp.route("/today/review", methods=["POST"])
@@ -523,6 +541,7 @@ def summary():
         "stale_projects_count": (
             len(today_payload["stale_projects"]) + len(today_payload["suggested_archival"])
         ),
+        "new_since_yesterday_count": today_payload["new_since_yesterday_count"],
     })
 
 
