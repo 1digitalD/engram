@@ -149,3 +149,155 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* ── Daily brief ── */
+
+.briefPanel {
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  box-shadow: var(--glass-edge), var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+}
+
+.briefHeader {
+  align-items: flex-start;
+  display: flex;
+  gap: var(--space-2);
+  justify-content: space-between;
+}
+
+.briefHeader h1 {
+  font-size: var(--text-lg);
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  line-height: 1.35;
+  margin: 0;
+  max-width: 64ch;
+}
+
+.refreshButton {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  justify-content: center;
+  min-height: 30px;
+  min-width: 30px;
+  padding: 4px;
+}
+
+.refreshButton:hover { color: var(--accent); }
+
+.briefEmpty {
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.briefList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.briefItem {
+  align-items: baseline;
+  border-radius: var(--radius-md);
+  display: flex;
+  gap: 10px;
+  padding: 8px 10px;
+}
+
+.briefItem:hover { background: var(--hover); }
+
+.urgencyDot {
+  border-radius: 50%;
+  flex: 0 0 auto;
+  height: 9px;
+  width: 9px;
+  align-self: center;
+}
+
+.urgencyHigh { background: oklch(62% 0.21 25); }
+.urgencyMedium { background: oklch(75% 0.15 80); }
+.urgencyLow { background: oklch(70% 0.1 160); }
+
+.briefItemBody {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.briefItemTitle {
+  color: var(--text);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.briefItemTitle:hover { color: var(--accent); }
+
+.briefWhy {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+
+.briefType {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.briefMeta {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  margin: 0;
+}
+
+/* ── Trust strip ── */
+
+.trustStrip {
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+}
+
+.trustCard {
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 14px;
+  text-decoration: none;
+}
+
+.trustCard strong {
+  font-size: var(--text-lg);
+  font-weight: 700;
+}
+
+.trustCard span {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.error {
+  color: oklch(55% 0.2 25);
+  margin: 0;
+}

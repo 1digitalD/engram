@@ -81,6 +81,10 @@ export const v4API = {
     review: () => v4Request('POST', '/today/review'),
   }),
   summary: () => v4Request('GET', '/summary'),
+  brief: (params = {}) => v4Request('GET', '/brief', null, params),
+  metrics: {
+    trust: (params = {}) => v4Request('GET', '/metrics/trust', null, params),
+  },
   recent: (params = {}) => v4Request('GET', '/recent', null, params),
   inbox: (params = {}) => v4Request('GET', '/inbox', null, params),
   agentActivity: (params = {}) => v4Request('GET', '/agent-activity', null, params),
