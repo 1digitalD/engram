@@ -1845,9 +1845,16 @@ function InlineTextField({ value, onChange, onCommit, placeholder, ariaLabel, cl
     if (editing && inputRef.current) {
       initialRef.current = value;
       inputRef.current.focus();
-      inputRef.current.select?.();
+      // Caret at the end — selecting the whole value on entry made every
+      // click feel destructive, and re-running on value changes selected
+      // the text after each keystroke.
+      const length = inputRef.current.value?.length ?? 0;
+      inputRef.current.setSelectionRange?.(length, length);
     }
-  }, [editing, value]);
+    // `value` deliberately omitted: this must run only when entering edit
+    // mode, not on every keystroke.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing]);
 
   function commit() {
     setEditing(false);

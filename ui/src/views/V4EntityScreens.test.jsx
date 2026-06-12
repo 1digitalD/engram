@@ -1220,6 +1220,51 @@ describe('v4 entity screens', () => {
     confirmSpy.mockRestore();
   });
 
+  it('inline title edit keeps typed value and Escape restores the original', async () => {
+    const detail = {
+      entity: {
+        id: 't1',
+        type: 'task',
+        title: 'Original title',
+        content: '',
+        status: 'open',
+        created_at: '2026-05-20T09:00:00+00:00',
+        updated_at: '2026-05-20T10:00:00+00:00',
+        due_at: null,
+        follow_up_at: null,
+        reference_url: null,
+        properties: {},
+        tags: [],
+      },
+      sections: [],
+    };
+    v4API.entities.detail.mockResolvedValue(detail);
+
+    render(
+      <MemoryRouter initialEntries={['/tasks/t1']}>
+        <Routes>
+          <Route path="/tasks/:id" element={<V4EntityDetail type="task" />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    // Enter edit mode on the title
+    fireEvent.click(await screen.findByRole('button', { name: 'Title' }));
+    const input = await screen.findByLabelText('Title');
+
+    // Simulate two successive edits — with the old [editing, value] effect
+    // deps, initialRef was clobbered after each keystroke, so Escape only
+    // undid the last keystroke instead of restoring the original.
+    fireEvent.change(input, { target: { value: 'Changed once' } });
+    fireEvent.change(input, { target: { value: 'Changed twice' } });
+    expect(input.value).toBe('Changed twice');
+
+    fireEvent.keyDown(input, { key: 'Escape' });
+
+    // Back to display mode showing the ORIGINAL title.
+    expect(await screen.findByRole('button', { name: 'Title' })).toHaveTextContent('Original title');
+  });
+
   it('converts a project to a task from the detail header', async () => {
     const detail = {
       entity: {
