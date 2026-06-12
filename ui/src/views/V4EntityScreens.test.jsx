@@ -1299,4 +1299,53 @@ describe('v4 entity screens', () => {
 
     await waitFor(() => expect(v4API.entities.convert).toHaveBeenCalledWith('p1', 'task'));
   });
+
+  it('renders task detail when sections contain entity-less items (activity updates)', async () => {
+    // Regression: activity_updates section items carry no entity ref; they
+    // previously fell into the generic relationship renderer and crashed
+    // the whole detail page (blank screen).
+    v4API.entities.detail.mockResolvedValue({
+      entity: {
+        id: 't1',
+        type: 'task',
+        title: 'Explore P3 automation',
+        content: 'Owner: Ola.',
+        status: 'open',
+        created_at: '2026-06-01T09:00:00+00:00',
+        updated_at: '2026-06-11T10:00:00+00:00',
+        due_at: null,
+        follow_up_at: null,
+        reference_url: null,
+        properties: {},
+        tags: [],
+      },
+      sections: [
+        {
+          key: 'activity_updates',
+          title: 'Activity',
+          items: [
+            { id: 'n9', title: 'Update: Explore P3 automation (2026-06-11)', content: 'Ola tried this.', updated_at: '2026-06-11T10:00:00+00:00' },
+          ],
+        },
+        {
+          key: 'some_future_section',
+          title: 'Future',
+          items: [{ id: 'x1', title: 'No entity here' }],
+        },
+      ],
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/tasks/t1']}>
+        <Routes>
+          <Route path="/tasks/:id" element={<V4EntityDetail type="task" />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    // The page renders (no blank-screen crash) and entity-less sections are
+    // excluded from Additional Links.
+    expect(await screen.findByText('Explore P3 automation')).toBeInTheDocument();
+    expect(screen.queryByText('Additional Links')).not.toBeInTheDocument();
+  });
 });

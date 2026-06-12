@@ -550,7 +550,14 @@ export default function V4EntityDetail({ type: routeType }) {
   const showDueDate = entity.type !== 'note';
   const configs = actionConfigs[entity.type] || [];
   const usedSectionKeys = new Set(configs.flatMap((config) => config.sectionKeys || []));
-  const additionalSections = detail.sections.filter((section) => !usedSectionKeys.has(section.key) && section.items.length > 0);
+  // activity_updates is rendered by the dedicated activity panel and its
+  // items carry no entity ref — it must never fall into the generic
+  // relationship renderer.
+  const additionalSections = detail.sections.filter((section) => (
+    !usedSectionKeys.has(section.key)
+    && section.key !== 'activity_updates'
+    && (section.items || []).some((item) => item.entity)
+  ));
   const currentTags = (entity.tags || []).map((tag) => tag.name);
   const entityPriority = entity.properties?.priority || '';
   const isDirty = (
@@ -1704,7 +1711,9 @@ function RelationshipSegment({
   onRemove,
   onQuickStatus,
 }) {
-  const items = sections.flatMap((section) => section.items);
+  // Items without an entity ref (e.g. activity-update rows) can't be
+  // rendered as relationships — skip them instead of crashing the page.
+  const items = sections.flatMap((section) => section.items || []).filter((item) => item.entity);
   const [actionOpen, setActionOpen] = useState(false);
   const canCollapse = items.length > 0;
   const [expanded, setExpanded] = useState(items.length > 0);
