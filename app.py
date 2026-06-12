@@ -68,6 +68,7 @@ def create_app(config_name=None):
 
     # Register v4 background job handlers.
     from services import embeddings  # noqa: F401
+    from services import v4_hygiene  # noqa: F401  (registers the hygiene job handler)
 
     # Start job worker on boot (non-blocking background thread)
     # Skip in testing mode to avoid background DB connections
@@ -78,6 +79,8 @@ def create_app(config_name=None):
                 from services.job_worker import start_worker
                 start_worker(app)
                 logger.info("Job worker started")
+                from services.v4_hygiene import ensure_hygiene_scheduled
+                ensure_hygiene_scheduled(app)
             except Exception as e:
                 logger.warning("Job worker failed to start: %s", e)
 
