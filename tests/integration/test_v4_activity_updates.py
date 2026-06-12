@@ -221,3 +221,20 @@ def test_activity_update_nonexistent_target_returns_404(client):
 def test_get_activity_updates_nonexistent_target_returns_404(client):
     response = client.get("/api/v4/entities/nonexistent-id/activity_updates")
     assert response.status_code == 404
+
+def test_activity_note_detail_links_back_to_target(client, app):
+    """An activity-update note's detail page surfaces the entity it updates."""
+    project = _create_entity(client, "project", "Build v4")
+    note = client.post(
+        f"/api/v4/entities/{project['id']}/activity_updates",
+        json={"content": "Shipped the first slice."},
+    ).get_json()["data"]
+
+    detail = client.get(f"/api/v4/entities/{note['id']}/detail").get_json()
+    sections = {s["key"]: s for s in detail["sections"]}
+    assert "update_on" in sections
+    items = sections["update_on"]["items"]
+    assert len(items) == 1
+    assert items[0]["entity"]["id"] == project["id"]
+    assert items[0]["entity"]["title"] == "Build v4"
+    assert items[0]["relationship"]["relationship_type"] == "activity_update"

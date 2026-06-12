@@ -2664,6 +2664,10 @@ def _area_detail_sections(entity, links, related_entities):
 
 def _note_detail_sections(entity, links, related_entities):
     return [
+        # For activity-update notes: the task/project/area this note is an
+        # update on. Standard {entity, relationship} item shape so the UI can
+        # navigate from the update back to its target.
+        _section("update_on", "Update on", _link_items(entity, links, related_entities, "outgoing", {"activity_update"}, {"task", "project", "area"})),
         _section("projects", "Projects", _link_items(entity, links, related_entities, "outgoing", {"related", "mentions"}, {"project"})),
         _section("areas", "Areas", _link_items(entity, links, related_entities, "outgoing", {"related", "mentions"}, {"area"})),
         _section("people_mentioned", "People Mentioned", _link_items(entity, links, related_entities, "outgoing", {"mentions"}, {"person"})),
