@@ -170,6 +170,13 @@
   text-decoration: none;
 }
 
+.titleRow {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+}
+
 .rowLink strong {
   color: var(--text);
   font-size: var(--text-sm);

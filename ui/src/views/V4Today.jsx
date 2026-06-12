@@ -146,13 +146,15 @@ function EntityRow({ entity, onQuickStatus, onUpdateField, onChanged, fromState,
     <li className={`${styles.row} cardActionsParent`}>
       <CardActions entity={entity} onChanged={onChanged} />
       <Link to={entityPath(entity)} state={fromState} className={styles.rowLink}>
-        <strong>{entity.title || 'Untitled'}</strong>
+        <span className={styles.titleRow}>
+          <TypeGlyph type={entity.type} />
+          <strong>{entity.title || 'Untitled'}</strong>
+        </span>
         {entity.content && (
           <MarkdownContent content={entity.content} compact />
         )}
       </Link>
       <div className={styles.metaRow}>
-        <TypeGlyph type={entity.type} />
         {isTask ? (
           <select
             className={styles.statusPillSelect}
@@ -207,13 +209,15 @@ function DelegationQuietRow({ entity, fromState }) {
   return (
     <li className={styles.row}>
       <Link to={entityPath(entity)} state={fromState} className={styles.rowLink}>
-        <strong>{entity.title || 'Untitled'}</strong>
+        <span className={styles.titleRow}>
+          <TypeGlyph type={entity.type} />
+          <strong>{entity.title || 'Untitled'}</strong>
+        </span>
         {entity.last_update && (
           <MarkdownContent content={entity.last_update} compact />
         )}
       </Link>
       <div className={styles.metaRow}>
-        <TypeGlyph type={entity.type} />
         <span className={styles.reasonPill}>
           {entity.days_silent} day{entity.days_silent === 1 ? '' : 's'} silent
         </span>
