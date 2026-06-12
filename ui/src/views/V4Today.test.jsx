@@ -110,6 +110,8 @@ describe('V4Today', () => {
     expect(screen.getByText('Design GTM trigger doc')).toBeInTheDocument();
     expect(screen.getByText('10 days silent')).toBeInTheDocument();
     expect(screen.getAllByRole('link', { name: /Overdue task/i })[0]).toHaveAttribute('href', '/tasks/od1');
+    // Entity type is a glyph (aria-labelled icon), not a full-name pill.
+    expect(screen.getAllByRole('img', { name: 'task' }).length).toBeGreaterThan(0);
     expect(v4API.today).toHaveBeenCalled();
   });
 });

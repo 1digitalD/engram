@@ -2,6 +2,7 @@
 import React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { BookOpen, Compass, FileText, FolderKanban, SquareCheck, User } from 'lucide-react';
 import { v4API } from '../api/v4Client';
 import CardActions from '../components/CardActions';
 import MarkdownContent from '../components/MarkdownContent';
@@ -114,9 +115,33 @@ function formatAttention(entity) {
   return topReason ? `${attention.level} · ${topReason}` : attention.level;
 }
 
+const TYPE_GLYPHS = {
+  task: SquareCheck,
+  project: FolderKanban,
+  note: FileText,
+  person: User,
+  area: Compass,
+  resource: BookOpen,
+};
+
+function TypeGlyph({ type }) {
+  const Icon = TYPE_GLYPHS[type] || FileText;
+  return (
+    <span className={styles.typeGlyph} role="img" aria-label={type} title={type}>
+      <Icon size={13} strokeWidth={2.2} aria-hidden="true" />
+    </span>
+  );
+}
+
 function EntityRow({ entity, onQuickStatus, onUpdateField, onChanged, fromState, reason }) {
   const isTask = entity.type === 'task';
   const attentionLabel = formatAttention(entity);
+  const priorityPill = entity.properties?.priority
+    ? <span className={styles.priorityPill}>!{entity.properties.priority}</span>
+    : entity.inherited_priority
+      ? <span className={styles.priorityPill} title="Inherited from project">~{entity.inherited_priority}</span>
+      : null;
+  const hasFocusRow = (entity.projects || []).length > 0 || reason || priorityPill || attentionLabel;
   return (
     <li className={`${styles.row} cardActionsParent`}>
       <CardActions entity={entity} onChanged={onChanged} />
@@ -127,18 +152,7 @@ function EntityRow({ entity, onQuickStatus, onUpdateField, onChanged, fromState,
         )}
       </Link>
       <div className={styles.metaRow}>
-        <span className={styles.typePill}>{entity.type}</span>
-        {(entity.projects || []).map((project) => (
-          <Link
-            key={project.id}
-            to={`/projects/${project.id}`}
-            className={styles.projectChip}
-            title={`Project: ${project.title}`}
-          >
-            ▣ {project.title}
-          </Link>
-        ))}
-        {reason ? <span className={styles.reasonPill}>{reasonLabel(reason)}</span> : null}
+        <TypeGlyph type={entity.type} />
         {isTask ? (
           <select
             className={styles.statusPillSelect}
@@ -153,14 +167,6 @@ function EntityRow({ entity, onQuickStatus, onUpdateField, onChanged, fromState,
         ) : (
           <span className={styles.statusPill}>{entity.status}</span>
         )}
-        {entity.properties?.priority ? (
-          <span className={styles.priorityPill}>!{entity.properties.priority}</span>
-        ) : entity.inherited_priority ? (
-          <span className={styles.priorityPill} title="Inherited from project">~{entity.inherited_priority}</span>
-        ) : null}
-        {attentionLabel && (
-          <span className={styles.attentionPill}>{attentionLabel}</span>
-        )}
         <InlineDateChip
           value={entity.due_at}
           label="Due"
@@ -174,6 +180,25 @@ function EntityRow({ entity, onQuickStatus, onUpdateField, onChanged, fromState,
           onSave={(val) => onUpdateField(entity.id, { follow_up_at: val })}
         />
       </div>
+      {hasFocusRow && (
+        <div className={styles.metaRow}>
+          {(entity.projects || []).map((project) => (
+            <Link
+              key={project.id}
+              to={`/projects/${project.id}`}
+              className={styles.projectChip}
+              title={`Project: ${project.title}`}
+            >
+              ▣ {project.title}
+            </Link>
+          ))}
+          {reason ? <span className={styles.reasonPill}>{reasonLabel(reason)}</span> : null}
+          {priorityPill}
+          {attentionLabel && (
+            <span className={styles.attentionPill}>{attentionLabel}</span>
+          )}
+        </div>
+      )}
     </li>
   );
 }
@@ -188,7 +213,7 @@ function DelegationQuietRow({ entity, fromState }) {
         )}
       </Link>
       <div className={styles.metaRow}>
-        <span className={styles.typePill}>{entity.type}</span>
+        <TypeGlyph type={entity.type} />
         <span className={styles.reasonPill}>
           {entity.days_silent} day{entity.days_silent === 1 ? '' : 's'} silent
         </span>

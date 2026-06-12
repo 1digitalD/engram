@@ -387,3 +387,16 @@
 .projectChip:hover {
   color: var(--accent);
 }
+
+.typeGlyph {
+  align-items: center;
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-full);
+  background: color-mix(in oklch, var(--surface) 60%, var(--surface2));
+  color: var(--text-muted);
+  display: inline-flex;
+  height: 20px;
+  justify-content: center;
+  width: 20px;
+  flex: 0 0 auto;
+}
