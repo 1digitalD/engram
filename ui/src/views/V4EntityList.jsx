@@ -533,6 +533,21 @@ export default function V4EntityList({ type }) {
                       <span>{entity.task_counts.open}</span> open / {entity.task_counts.total} total
                     </span>
                   )}
+                  {type === 'task' && (entity.projects || []).length > 0 && (
+                    <span className={styles.cardTagRow}>
+                      {entity.projects.map((project) => (
+                        <Link
+                          key={project.id}
+                          to={`/projects/${project.id}`}
+                          className={styles.projectChip}
+                          title={`Project: ${project.title}`}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          ▣ {project.title}
+                        </Link>
+                      ))}
+                    </span>
+                  )}
                 </li>
               );
             })}

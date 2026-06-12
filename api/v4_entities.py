@@ -184,6 +184,7 @@ def list_entities():
 
     rows = query.order_by(Entity.updated_at.desc(), Entity.created_at.desc()).limit(limit).all()
     _attach_project_task_counts(rows)
+    _attach_task_projects(rows)
     return jsonify({"data": [row.to_dict() for row in rows]})
 
 
@@ -434,6 +435,7 @@ def _build_today_payload(now):
     inherited_priorities = _inherited_task_priorities(all_tasks)
     staleness_by_id = _staleness_days_for(all_tasks, now)
     impact_by_id = _blocking_impact_counts(all_tasks)
+    _attach_task_projects(all_tasks)
 
     def with_priority(entity, **kwargs):
         return _entity_with_attention(
@@ -2553,6 +2555,33 @@ def _attach_project_task_counts(entities):
     for entity in entities:
         if entity.type == "project":
             entity._task_counts = counts_by_project.get(entity.id, {"open": 0, "total": 0})
+
+
+def _attach_task_projects(entities):
+    """Attach parent project refs to task rows so cards can show which
+    initiative a task belongs to without an extra fetch."""
+    task_ids = [entity.id for entity in entities if entity.type == "task"]
+    if not task_ids:
+        return
+
+    projects_by_task = {}
+    rows = (
+        db.session.query(EntityLink.source_entity_id, Entity.id, Entity.title)
+        .join(Entity, Entity.id == EntityLink.target_entity_id)
+        .filter(
+            EntityLink.relationship_type == "parent",
+            EntityLink.source_entity_id.in_(task_ids),
+            Entity.type == "project",
+            Entity.lifecycle == "active",
+        )
+        .all()
+    )
+    for task_id, project_id, project_title in rows:
+        projects_by_task.setdefault(task_id, []).append({"id": project_id, "title": project_title})
+
+    for entity in entities:
+        if entity.type == "task":
+            entity._projects = projects_by_task.get(entity.id, [])
 
 
 def _replace_tags(entity, tag_names):

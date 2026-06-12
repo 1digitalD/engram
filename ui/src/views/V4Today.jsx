@@ -128,6 +128,16 @@ function EntityRow({ entity, onQuickStatus, onUpdateField, onChanged, fromState,
       </Link>
       <div className={styles.metaRow}>
         <span className={styles.typePill}>{entity.type}</span>
+        {(entity.projects || []).map((project) => (
+          <Link
+            key={project.id}
+            to={`/projects/${project.id}`}
+            className={styles.projectChip}
+            title={`Project: ${project.title}`}
+          >
+            ▣ {project.title}
+          </Link>
+        ))}
         {reason ? <span className={styles.reasonPill}>{reasonLabel(reason)}</span> : null}
         {isTask ? (
           <select

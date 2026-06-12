@@ -370,3 +370,20 @@
     padding: var(--space-3);
   }
 }
+
+.projectChip {
+  background: color-mix(in oklch, var(--accent) 10%, var(--surface));
+  border: 1px solid color-mix(in oklch, var(--accent) 26%, var(--border-faint));
+  border-radius: 4px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  padding: 1px 6px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.projectChip:hover {
+  color: var(--accent);
+}
