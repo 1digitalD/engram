@@ -158,6 +158,18 @@ def capture():
     }), 201
 
 
+@api_v4_bp.route("/brief", methods=["GET"])
+def daily_brief():
+    """Ranked daily brief: what deserves attention today, with reasons."""
+    from services.v4_brief import get_brief
+
+    force = request.args.get("force") in ("1", "true")
+    brief, from_cache = get_brief(force=force)
+    if brief is None:
+        return jsonify({"brief": None, "from_cache": False, "reason": "generation unavailable"})
+    return jsonify({"brief": brief, "from_cache": from_cache})
+
+
 @api_v4_bp.route("/metrics/trust", methods=["GET"])
 def trust_metrics():
     """Aggregate how much the agent's work is being accepted vs corrected.
