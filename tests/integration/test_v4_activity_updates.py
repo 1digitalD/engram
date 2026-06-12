@@ -25,7 +25,10 @@ def test_create_activity_update(client, app):
     assert data["type"] == "note"
     assert data["source"] == "activity_update"
     assert data["content"] == "Started the migration today."
-    assert data["title"] == "Started the migration today."
+    # Title is deterministic: target + date, not the truncated first sentence.
+    from datetime import datetime, timezone
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    assert data["title"] == f"Update: Build v4 ({today})"
 
 
 def test_create_activity_update_writes_event(client, app):

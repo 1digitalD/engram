@@ -1431,7 +1431,7 @@ def _create_activity_update_note(target, content, actor="user", confidence=None,
 
     note = Entity(
         type="note",
-        title=_title_from_content(content),
+        title=_activity_update_title(target),
         content=content,
         status="active",
         source="activity_update",
@@ -2660,6 +2660,18 @@ def _error(message, status=400):
 def _title_from_content(content):
     first_line = content.splitlines()[0].strip()
     return first_line[:80] if first_line else "Untitled note"
+
+
+def _activity_update_title(target):
+    """Deterministic title for an activity-update note.
+
+    An update's identity is its target plus when it happened; a truncated
+    first sentence ("There was no update on this during the week. Will ch…")
+    is unreadable in note lists.
+    """
+    target_title = (target.title or "Untitled").strip()
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    return f"Update: {target_title[:130]} ({today})"
 
 
 def _run_basic_capture_extraction(note, mode):
