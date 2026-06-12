@@ -1750,3 +1750,20 @@ def test_activity_update_refreshes_delegation_follow_up_at(client, app):
         expected = _add_working_days(before, _delegation_cadence_days())
         assert abs((task.follow_up_at - expected).total_seconds()) < 60
         assert EntityEvent.query.filter_by(entity_id=task_id, event_type="ai_updated").count() >= 1
+
+
+def test_extraction_prompt_includes_recent_context_excluding_current_note(client, app):
+    """The extraction system prompt carries recent notes for situational
+    awareness, but never the note being processed."""
+    from services.v4_extraction import _build_system_prompt
+
+    older = client.post("/api/v4/capture", json={"content": "GTM agent trigger still flaky after retry fix"}).get_json()["source_note"]
+    current = client.post("/api/v4/capture", json={"content": "same issue as yesterday, still flaky"}).get_json()["source_note"]
+
+    with app.app_context():
+        prompt = _build_system_prompt(exclude_note_id=current["id"])
+
+    assert "RECENT_CONTEXT" in prompt
+    assert "GTM agent trigger still flaky" in prompt
+    assert "same issue as yesterday" not in prompt
+    assert "Do NOT extract" in prompt

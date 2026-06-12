@@ -205,9 +205,75 @@ def _format_existing_entities_block(existing):
     )
 
 
-def _build_system_prompt():
+RECENT_CONTEXT_NOTE_LIMIT = 4
+RECENT_CONTEXT_EXCERPT_CHARS = 350
+
+
+def _recent_context_notes(exclude_note_id=None, limit=RECENT_CONTEXT_NOTE_LIMIT):
+    """Most recent notes (including activity updates) for situational context.
+
+    Captured notes reference each other ("still waiting on the same thing",
+    "no update on this"); without the recent thread the extractor can't
+    resolve those references or tell new work from already-known work.
+    """
+    try:
+        from models import Entity
+    except Exception:
+        return []
+
+    try:
+        query = Entity.query.filter(
+            Entity.type == "note",
+            Entity.lifecycle == "active",
+        )
+        if exclude_note_id:
+            query = query.filter(Entity.id != exclude_note_id)
+        rows = (
+            query.order_by(Entity.created_at.desc())
+            .limit(limit)
+            .all()
+        )
+    except Exception as exc:
+        logger.warning("failed to fetch recent context notes: %s", exc)
+        return []
+
+    out = []
+    for note in rows:
+        out.append({
+            "title": note.title or "Untitled",
+            "date": note.created_at.date().isoformat() if note.created_at else "",
+            "excerpt": (note.content or "")[:RECENT_CONTEXT_EXCERPT_CHARS],
+        })
+    return out
+
+
+def _format_recent_context_block(notes):
+    if not notes:
+        return ""
+    lines = []
+    for note in notes:
+        lines.append(f"- [{note['date']}] {note['title']}: {note['excerpt']}")
+    return (
+        "\n\nRECENT_CONTEXT (the user's most recent notes, newest first — situational "
+        "awareness ONLY):\n"
+        "Use these to resolve references in the new note (\"this\", \"same issue\", "
+        "\"still waiting\"), to recognize ongoing threads, and to choose canonical "
+        "titles consistent with how the work was previously described. Do NOT extract "
+        "entities, tasks, or links that appear only in RECENT_CONTEXT — extract solely "
+        "from the new note below.\n"
+        + "\n".join(lines)
+        + "\n"
+    )
+
+
+def _build_system_prompt(exclude_note_id=None):
     existing = _recent_existing_entities()
-    return SYSTEM_PROMPT_TEMPLATE + _format_existing_entities_block(existing)
+    context_notes = _recent_context_notes(exclude_note_id=exclude_note_id)
+    return (
+        SYSTEM_PROMPT_TEMPLATE
+        + _format_existing_entities_block(existing)
+        + _format_recent_context_block(context_notes)
+    )
 
 
 def normalize_candidates(payload: dict) -> dict:
@@ -219,7 +285,7 @@ def normalize_candidates(payload: dict) -> dict:
     return _normalize_payload(payload)
 
 
-def extract_capture_candidates(content, mode="auto"):
+def extract_capture_candidates(content, mode="auto", exclude_note_id=None):
     """Return extraction candidates for a captured note.
 
     The function deliberately returns candidates only. Capture reconciliation
@@ -243,7 +309,7 @@ def extract_capture_candidates(content, mode="auto"):
         temperature=0,
         response_format={"type": "json_object"},
         messages=[
-            {"role": "system", "content": _build_system_prompt()},
+            {"role": "system", "content": _build_system_prompt(exclude_note_id=exclude_note_id)},
             {"role": "user", "content": content[:12000]},
         ],
     )

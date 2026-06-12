@@ -2919,7 +2919,7 @@ def _activity_update_title(target):
 def _run_basic_capture_extraction(note, mode):
     from services.v4_extraction import extract_capture_candidates
 
-    return extract_capture_candidates(note.content or "", mode=mode)
+    return extract_capture_candidates(note.content or "", mode=mode, exclude_note_id=note.id)
 
 
 def _reconcile_capture_candidates(note, extraction):
