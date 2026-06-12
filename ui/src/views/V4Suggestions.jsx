@@ -117,8 +117,9 @@ function NoteReviewCard({ note, loadedSuggestionCount, onReprocess, onResolve, o
   );
 }
 
-function SuggestionCard({ suggestion, onAccept, onDismiss, onUpdate, onReprocess, busy }) {
+function SuggestionCard({ suggestion, onAccept, onDismiss, onUpdate, onReprocess, onResolveToExisting, busy }) {
   const isCreate = suggestion.operation_type === 'create_entity';
+  const nearMatch = isCreate ? suggestion.payload?.near_match : null;
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({
     title: suggestion.payload?.title || '',
@@ -218,6 +219,23 @@ function SuggestionCard({ suggestion, onAccept, onDismiss, onUpdate, onReprocess
               <span className={styles.sourceNote}>from · {suggestion.source_note_title}</span>
             )}
             {suggestion.reason && <p>{suggestion.reason}</p>}
+            {nearMatch?.entity_id && (
+              <div className={styles.nearMatchRow}>
+                <span className={styles.nearMatchLabel}>
+                  Looks like existing: <strong>{nearMatch.title || 'Untitled'}</strong>
+                  {typeof nearMatch.score === 'number' ? ` (${Math.round(nearMatch.score * 100)}% similar)` : ''}
+                </span>
+                <button
+                  type="button"
+                  className={styles.nearMatchButton}
+                  onClick={() => onResolveToExisting(suggestion.id)}
+                  disabled={busy}
+                  title={`Don't create — link the note to "${nearMatch.title}" instead`}
+                >
+                  Use existing
+                </button>
+              </div>
+            )}
           </div>
           <div className={styles.actions}>
             {isCreate && (
@@ -333,6 +351,20 @@ export default function V4Suggestions() {
       await loadSuggestions({ clearReconcileMessage: false });
     } catch (err) {
       setError(err.message || 'Failed to accept suggestion');
+    } finally {
+      setBusyId('');
+    }
+  }
+
+  async function handleResolveToExisting(id) {
+    if (busyId) return;
+    setBusyId(id);
+    setError('');
+    try {
+      await v4API.suggestions.resolveToExisting(id);
+      await loadSuggestions({ clearReconcileMessage: false });
+    } catch (err) {
+      setError(err.message || 'Failed to resolve to existing entity');
     } finally {
       setBusyId('');
     }
@@ -616,6 +648,7 @@ export default function V4Suggestions() {
                             onDismiss={handleDismiss}
                             onUpdate={handleUpdate}
                             onReprocess={handleReprocess}
+                            onResolveToExisting={handleResolveToExisting}
                             busy={!!busyId}
                           />
                         ))}

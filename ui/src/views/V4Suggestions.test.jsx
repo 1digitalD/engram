@@ -417,3 +417,47 @@ describe('V4Suggestions', () => {
     expect(screen.queryByText('Looks fine')).not.toBeInTheDocument();
   });
 });
+
+describe('near-match resolution', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    v4API.inbox.mockResolvedValue({ needs_review: [], recent: [] });
+  });
+
+  it('offers "Use existing" on suggestions with a near match and resolves through the API', async () => {
+    v4API.suggestions.list.mockResolvedValue({
+      data: [
+        {
+          id: 's9',
+          suggestion_type: 'create_project',
+          operation_type: 'create_entity',
+          source_entity_id: 'n1',
+          source_note_title: 'Roadmap note',
+          payload: {
+            type: 'project',
+            title: 'Plan agent platform roadmap',
+            near_match: { entity_id: 'p1', title: 'Define Agent Platform roadmap', score: 0.82 },
+          },
+          confidence: 0.9,
+          created_at: '2026-06-11T09:00:00+00:00',
+        },
+      ],
+    });
+    v4API.entities.get.mockResolvedValue({ data: { id: 'n1', title: 'Roadmap note', type: 'note' } });
+    v4API.suggestions.resolveToExisting = vi.fn().mockResolvedValue({ suggestion: { id: 's9', status: 'accepted' } });
+
+    render(
+      <MemoryRouter>
+        <V4Suggestions />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText(/Define Agent Platform roadmap/)).toBeInTheDocument();
+    expect(screen.getByText(/82% similar/)).toBeInTheDocument();
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Use existing' }));
+
+    await waitFor(() => expect(v4API.suggestions.resolveToExisting).toHaveBeenCalledWith('s9'));
+  });
+});

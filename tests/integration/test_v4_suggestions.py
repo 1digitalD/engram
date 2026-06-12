@@ -690,3 +690,69 @@ def test_accept_update_entity_rejects_invalid_datetime_without_mutation(client, 
         assert task.follow_up_at is None
         assert EntityLink.query.count() == 0
         assert db.session.get(AiSuggestion, suggestion_id).status == "pending"
+
+
+def test_resolve_suggestion_to_existing_links_instead_of_creating(client, app):
+    """The 'this already exists' review action: link source note to the
+    near-match instead of creating a duplicate entity."""
+    from extensions import db
+    from models import AiSuggestion, Entity, EntityLink
+
+    existing = client.post(
+        "/api/v4/entities", json={"type": "project", "title": "Define Agent Platform roadmap"}
+    ).get_json()["data"]
+    note = client.post(
+        "/api/v4/capture", json={"content": "roadmap planning thoughts"}
+    ).get_json()["source_note"]
+
+    with app.app_context():
+        suggestion = AiSuggestion(
+            source_entity_id=note["id"],
+            suggestion_type="create_project",
+            operation_type="create_entity",
+            payload={
+                "type": "project",
+                "title": "Plan agent platform roadmap",
+                "relationship_type": "related",
+                "near_match": {"entity_id": existing["id"], "title": existing["title"], "score": 0.82},
+            },
+            confidence=0.9,
+        )
+        db.session.add(suggestion)
+        db.session.commit()
+        suggestion_id = suggestion.id
+
+    response = client.post(f"/api/v4/suggestions/{suggestion_id}/resolve-to-existing", json={})
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["suggestion"]["status"] == "accepted"
+    assert body["suggestion"]["payload"]["resolved_to_existing_id"] == existing["id"]
+    assert body["linked_entity"]["id"] == existing["id"]
+    assert body["relationship"] is not None
+
+    with app.app_context():
+        # No duplicate project was created
+        assert Entity.query.filter_by(type="project").count() == 1
+        assert EntityLink.query.filter_by(
+            source_entity_id=note["id"], target_entity_id=existing["id"]
+        ).count() == 1
+
+
+def test_resolve_to_existing_requires_near_match_or_target(client, app):
+    from extensions import db
+    from models import AiSuggestion
+
+    note = client.post("/api/v4/capture", json={"content": "note"}).get_json()["source_note"]
+    with app.app_context():
+        suggestion = AiSuggestion(
+            source_entity_id=note["id"],
+            suggestion_type="create_task",
+            operation_type="create_entity",
+            payload={"type": "task", "title": "Some task"},
+        )
+        db.session.add(suggestion)
+        db.session.commit()
+        suggestion_id = suggestion.id
+
+    response = client.post(f"/api/v4/suggestions/{suggestion_id}/resolve-to-existing", json={})
+    assert response.status_code == 400

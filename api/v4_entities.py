@@ -2055,6 +2055,89 @@ def _accept_update_entity_suggestion(suggestion):
     })
 
 
+@api_v4_bp.route("/suggestions/<suggestion_id>/resolve-to-existing", methods=["POST"])
+def resolve_suggestion_to_existing(suggestion_id):
+    """Resolve a create-entity suggestion by linking to an existing entity.
+
+    The third review action besides accept/dismiss: "this already exists".
+    Instead of creating the proposed entity, the source note is linked to
+    the existing match (defaulting to the near_match the reconciler found)
+    and the suggestion is resolved.
+    """
+    suggestion = db.session.get(AiSuggestion, suggestion_id)
+    if suggestion is None:
+        return _error("suggestion not found", 404)
+    if suggestion.status != "pending":
+        return _error("suggestion is not pending", 409)
+    if suggestion.operation_type != "create_entity":
+        return _error("only create-entity suggestions can be resolved to an existing entity", 400)
+
+    payload = suggestion.payload or {}
+    body = request.get_json(silent=True) or {}
+    target_id = body.get("target_id") or (payload.get("near_match") or {}).get("entity_id")
+    if not target_id:
+        return _error("target_id is required (no near_match on this suggestion)")
+
+    target = db.session.get(Entity, target_id)
+    if target is None or target.lifecycle == "deleted":
+        return _error("target entity not found", 404)
+
+    source_note = db.session.get(Entity, suggestion.source_entity_id)
+    if source_note is None:
+        return _error("source note not found", 404)
+    if target.id == source_note.id:
+        return _error("cannot resolve a suggestion to its own source note")
+
+    relationship_type = payload.get("relationship_type") or _default_relationship_type(target.type)
+    if relationship_type not in RELATIONSHIP_TYPES:
+        relationship_type = _default_relationship_type(target.type)
+
+    link_source, link_target = _candidate_link_endpoints(source_note, target, relationship_type)
+    link = _create_entity_link(
+        link_source,
+        link_target,
+        relationship_type,
+        suggestion.confidence,
+        payload.get("evidence") or suggestion.reason,
+        source="ai_review",
+    )
+    if link is not None:
+        _write_event(
+            source_note,
+            "relationship_added",
+            new_value=link.to_dict(),
+            actor="agent:v4-review",
+            confidence=suggestion.confidence,
+            reason=suggestion.reason,
+        )
+
+    suggestion.status = "accepted"
+    suggestion.resolved_at = datetime.utcnow()
+    new_payload = dict(payload)
+    new_payload["resolved_to_existing_id"] = target.id
+    suggestion.payload = new_payload
+    flag_modified(suggestion, "payload")
+    _write_event(
+        source_note,
+        "suggestion_accepted",
+        new_value={
+            "suggestion_id": suggestion.id,
+            "resolved_to_existing_id": target.id,
+            "relationship_id": link.id if link is not None else None,
+        },
+        actor="agent:v4-review",
+        confidence=suggestion.confidence,
+        reason=f"resolved to existing {target.type} '{target.title}'",
+    )
+    db.session.commit()
+
+    return jsonify({
+        "suggestion": suggestion.to_dict(),
+        "linked_entity": _load_entity(target.id).to_dict(),
+        "relationship": link.to_dict() if link is not None else None,
+    })
+
+
 @api_v4_bp.route("/suggestions/<suggestion_id>/dismiss", methods=["POST"])
 def dismiss_suggestion(suggestion_id):
     suggestion = db.session.get(AiSuggestion, suggestion_id)
