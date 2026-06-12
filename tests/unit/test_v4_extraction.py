@@ -95,3 +95,34 @@ def test_extraction_calls_openai_and_normalizes_candidates(monkeypatch):
         "confidence": 0.7,
         "evidence": None,
     }]
+
+
+def test_normalization_unescapes_html_entities():
+    from services.v4_extraction import normalize_candidates
+
+    result = normalize_candidates({
+        "title": "Resourcing &amp; Team Health",
+        "entities": [{
+            "type": "project",
+            "title": "R&amp;D &quot;north star&quot; planning",
+            "confidence": 0.9,
+            "evidence": "teams said they were &quot;blocked&quot;",
+        }],
+        "tags": [{"name": "q3&amp;q4", "confidence": 0.8}],
+    })
+
+    assert result["title"] == "Resourcing & Team Health"
+    assert result["entities"][0]["title"] == 'R&D "north star" planning'
+    assert result["entities"][0]["evidence"] == 'teams said they were "blocked"'
+    assert result["tags"][0]["name"] == "q3&q4"
+
+
+def test_normalization_leaves_plain_ampersands_alone():
+    from services.v4_extraction import normalize_candidates
+
+    result = normalize_candidates({
+        "title": "Q&A session prep",
+        "entities": [],
+        "tags": [],
+    })
+    assert result["title"] == "Q&A session prep"

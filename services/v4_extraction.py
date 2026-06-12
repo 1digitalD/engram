@@ -351,6 +351,15 @@ def _text(value):
     if value is None:
         return None
     cleaned = str(value).strip()
+    if not cleaned:
+        return None
+    # Source notes (meeting transcripts, web captures) sometimes arrive
+    # HTML-escaped and the model echoes the escapes back ("R&amp;D",
+    # "&quot;blocked&quot;"). Stored titles must be plain text or both
+    # display and title matching degrade.
+    if "&" in cleaned:
+        import html
+        cleaned = html.unescape(cleaned)
     return cleaned or None
 
 
