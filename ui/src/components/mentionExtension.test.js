@@ -2,7 +2,6 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { Editor } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import { Markdown } from '@tiptap/markdown';
-import Link from '@tiptap/extension-link';
 import { v4API } from '../api/v4Client';
 import { createMentionExtension } from './mentionExtension';
 
@@ -16,9 +15,8 @@ function makeEditor(extra = []) {
   return new Editor({
     element,
     extensions: [
-      StarterKit,
+      StarterKit.configure({ link: { openOnClick: false, autolink: false } }),
       Markdown.configure({ html: false }),
-      Link.configure({ openOnClick: false, autolink: false }),
       ...extra,
     ],
     content: '',

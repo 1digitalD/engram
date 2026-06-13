@@ -1,4 +1,5 @@
 import { Extension } from '@tiptap/core';
+import { PluginKey } from '@tiptap/pm/state';
 import Suggestion from '@tiptap/suggestion';
 import { ReactRenderer } from '@tiptap/react';
 import { v4API } from '../api/v4Client';
@@ -94,6 +95,7 @@ export function createMentionExtension({ name, char, types }) {
       return [
         Suggestion({
           editor: this.editor,
+          pluginKey: new PluginKey(`suggestion-${this.name}`),
           ...this.options.suggestion,
         }),
       ];

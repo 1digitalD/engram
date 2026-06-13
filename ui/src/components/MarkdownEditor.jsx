@@ -3,7 +3,6 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { Markdown } from '@tiptap/markdown';
 import Placeholder from '@tiptap/extension-placeholder';
-import Link from '@tiptap/extension-link';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
 import { createMentionExtension } from './mentionExtension';
@@ -19,10 +18,9 @@ export default function MarkdownEditor({
   onBlur,
 }) {
   const extensions = useMemo(() => [
-    StarterKit,
+    StarterKit.configure({ link: { openOnClick: false, autolink: false } }),
     Markdown.configure({ html: false, transformPastedText: true }),
     Placeholder.configure({ placeholder: placeholder || 'Write something…' }),
-    Link.configure({ openOnClick: false, autolink: false }),
     TaskList,
     TaskItem.configure({ nested: true }),
     createMentionExtension({ name: 'personMention', char: '@', types: ['person'] }),
