@@ -208,7 +208,7 @@
   --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.65);
 
   --blur: blur(22px) saturate(170%);
-  --blur-strong: blur(36px) saturate(180%);
+  --blur-strong: blur(48px) saturate(190%);
   --glass-edge: inset 0 1px 0 oklch(100% 0 0 / 0.20), inset 0 0 0 1px oklch(100% 0 0 / 0.06);
   --surface-solid: oklch(23% 0.025 278);
 }
@@ -265,7 +265,7 @@
   --shadow-xl: 0 16px 48px oklch(30% 0.03 250 / 0.18);
 
   --blur: blur(22px) saturate(150%);
-  --blur-strong: blur(36px) saturate(160%);
+  --blur-strong: blur(48px) saturate(170%);
   --glass-edge: inset 0 1px 0 oklch(100% 0 0 / 0.90), inset 0 0 0 1px oklch(100% 0 0 / 0.40);
   --surface-solid: oklch(97% 0.006 240);
 }

@@ -1,5 +1,5 @@
 .menu {
-  background: var(--surface);
+  background: var(--surface3);
   backdrop-filter: var(--blur-strong);
   -webkit-backdrop-filter: var(--blur-strong);
   border: 1px solid var(--border);
