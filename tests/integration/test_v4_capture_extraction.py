@@ -3,6 +3,7 @@
 import os
 from unittest.mock import patch
 
+from extensions import db
 from models import AiSuggestion, Entity, EntityEvent, EntityLink
 
 
@@ -324,9 +325,10 @@ def test_capture_uses_reconciliation_confidence_for_auto_apply_gate(client, app)
         assert AiSuggestion.query.filter_by(suggestion_type="create_task").count() == 1
 
 
-def test_capture_suggests_high_confidence_project_link_candidate(client, app):
-    """Project creation is never auto-applied: even a high-confidence link candidate
-    referencing a non-existent project becomes a create_project suggestion."""
+def test_capture_drops_new_project_link_candidate_with_no_near_match(client, app):
+    """Project creation is never auto-applied, and a "new project" decision with
+    no plausible existing match is dropped silently rather than queued as a
+    create_project suggestion (these have a 0% historical acceptance rate)."""
     extraction = {
         "links": [
             {
@@ -344,17 +346,68 @@ def test_capture_suggests_high_confidence_project_link_candidate(client, app):
 
     assert response.status_code == 201
     data = response.get_json()
-    assert len(data["suggestions"]) == 1
-    assert data["suggestions"][0]["suggestion_type"] == "create_project"
+    assert data["suggestions"] == []
     assert not any(c["type"] == "entity_created" for c in data["applied_changes"])
 
     with app.app_context():
         assert Entity.query.filter_by(type="project", title="Memory Lookup").count() == 0
-        assert AiSuggestion.query.filter_by(suggestion_type="create_project").count() == 1
+        assert AiSuggestion.query.filter_by(suggestion_type="create_project").count() == 0
 
 
-def test_capture_suggests_low_confidence_missing_link(client, app):
-    """When a link candidate references a non-existent entity at low confidence, suggest don't create."""
+def test_capture_redirects_new_project_to_link_existing_when_near_match(client, app):
+    """A "new project" decision with a plausible near-duplicate existing project
+    becomes a link_existing suggestion instead of a create_project suggestion."""
+    existing = Entity(type="project", title="Memory Lookup v2", lifecycle="active", status="active")
+    with app.app_context():
+        db.session.add(existing)
+        db.session.commit()
+        existing_id = existing.id
+
+    extraction = {
+        "links": [
+            {
+                "target_type": "project",
+                "title": "Memory Lookup",
+                "relationship_type": "related",
+                "confidence": 0.92,
+                "evidence": "Memory Lookup rollout note",
+            }
+        ]
+    }
+    decisions = [
+        {
+            "action": "new",
+            "target_id": None,
+            "fields": {},
+            "relationship_type": "related",
+            "confidence": 0.92,
+            "reason": "looks new",
+            "top_match_score": 0.81,
+            "top_match_id": existing_id,
+            "top_match_title": "Memory Lookup v2",
+        }
+    ]
+
+    with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction), patch(
+        "services.v4_reconciliation.reconcile_candidates",
+        return_value=decisions,
+    ):
+        response = client.post("/api/v4/capture", json={"content": "Ask Henry about Memory Lookup"})
+
+    assert response.status_code == 201
+    data = response.get_json()
+    assert len(data["suggestions"]) == 1
+    assert data["suggestions"][0]["suggestion_type"] == "link_existing"
+    assert data["suggestions"][0]["payload"]["target_entity_id"] == existing_id
+
+    with app.app_context():
+        assert Entity.query.filter_by(type="project", title="Memory Lookup").count() == 0
+        assert AiSuggestion.query.filter_by(suggestion_type="create_project").count() == 0
+
+
+def test_capture_drops_low_confidence_missing_project_link(client, app):
+    """When a link candidate references a non-existent project at low confidence
+    with no near match, nothing is queued (no create_project suggestion)."""
     extraction = {
         "links": [
             {
@@ -372,8 +425,7 @@ def test_capture_suggests_low_confidence_missing_link(client, app):
 
     assert response.status_code == 201
     data = response.get_json()
-    assert len(data["suggestions"]) == 1
-    assert data["suggestions"][0]["suggestion_type"] == "create_project"
+    assert data["suggestions"] == []
 
     with app.app_context():
         assert Entity.query.filter_by(type="project").count() == 0

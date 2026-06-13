@@ -3303,6 +3303,39 @@ def _apply_reconciliation_decision(note, candidate, decision, applied_changes, s
         )
         if entity_type == "task":
             _link_task_to_note_projects(note, entity, confidence, evidence, applied_changes)
+    elif entity_type in SUGGEST_ONLY_CREATION_TYPES:
+        # Projects/areas proposed as "new" from a capture have never been a
+        # useful suggestion in practice (0% acceptance) — they're almost
+        # always either an existing project described slightly differently,
+        # or a topic mentioned in passing within a multi-topic note (standup
+        # digest, meeting transcript). If there's a plausible existing match,
+        # offer that as a link suggestion instead; otherwise drop it silently
+        # rather than adding to the review queue.
+        top_match_id = decision.get("top_match_id")
+        if top_match_id and top_match_score >= NEAR_DUPLICATE_SCORE:
+            target = db.session.get(Entity, top_match_id)
+            if target is not None:
+                _append_capture_suggestion(
+                    note,
+                    candidate,
+                    action="link",
+                    entity_type=target.type,
+                    relationship_type=relationship_type,
+                    confidence=confidence,
+                    evidence=evidence,
+                    suggestions=suggestions,
+                    suggestion_type="link_existing",
+                    operation_type="link_existing",
+                    payload={
+                        "source_entity_id": note.id,
+                        "target_entity_id": target.id,
+                        "target_type": target.type,
+                        "title": target.title,
+                        "relationship_type": relationship_type,
+                        "evidence": evidence,
+                    },
+                    reason=decision.get("reason"),
+                )
     else:
         _append_capture_suggestion(
             note,
