@@ -77,6 +77,7 @@ export const v4API = {
   },
   reprocess: (entityId) => v4Request('POST', `/entities/${encodeURIComponent(entityId)}/reprocess`),
   search: (params = {}) => v4Request('GET', '/search', null, params),
+  mentions: (params = {}) => v4Request('GET', '/entities/mentions', null, params),
   today: Object.assign(() => v4Request('GET', '/today'), {
     review: () => v4Request('POST', '/today/review'),
   }),

@@ -1,10 +1,12 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { Markdown } from '@tiptap/markdown';
 import Placeholder from '@tiptap/extension-placeholder';
+import Link from '@tiptap/extension-link';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
+import { createMentionExtension } from './mentionExtension';
 import styles from './MarkdownEditor.module.css';
 
 export default function MarkdownEditor({
@@ -16,14 +18,20 @@ export default function MarkdownEditor({
   className,
   onBlur,
 }) {
+  const extensions = useMemo(() => [
+    StarterKit,
+    Markdown.configure({ html: false, transformPastedText: true }),
+    Placeholder.configure({ placeholder: placeholder || 'Write something…' }),
+    Link.configure({ openOnClick: false, autolink: false }),
+    TaskList,
+    TaskItem.configure({ nested: true }),
+    createMentionExtension({ name: 'personMention', char: '@', types: ['person'] }),
+    createMentionExtension({ name: 'entityMention', char: '[[' }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], []);
+
   const editor = useEditor({
-    extensions: [
-      StarterKit,
-      Markdown.configure({ html: false, transformPastedText: true }),
-      Placeholder.configure({ placeholder: placeholder || 'Write something…' }),
-      TaskList,
-      TaskItem.configure({ nested: true }),
-    ],
+    extensions,
     content: value,
     contentType: 'markdown',
     autofocus: autoFocus,

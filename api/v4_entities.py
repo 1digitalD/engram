@@ -3,6 +3,7 @@
 from datetime import datetime, time, timezone, timedelta
 import hashlib
 import json
+import re
 
 from flask import jsonify, request
 from sqlalchemy import func, or_
@@ -139,6 +140,7 @@ def capture():
     applied_changes = []
     suggestions = []
     warnings = []
+    applied_changes.extend(_apply_explicit_mentions(note, content))
     try:
         result = _run_basic_capture_extraction(note, data.get("mode") or "auto")
         extraction_changes, extraction_suggestions = _reconcile_capture_candidates(note, result or {})
@@ -316,6 +318,40 @@ def list_entities():
     _attach_project_task_counts(rows)
     _attach_task_projects(rows)
     return jsonify({"data": [row.to_dict() for row in rows]})
+
+
+# Path segment used for each entity type, e.g. /tasks/<id>, /people/<id>.
+ENTITY_TYPE_PLURAL = {t: ("people" if t == "person" else f"{t}s") for t in ENTITY_TYPES}
+ENTITY_TYPE_BY_PLURAL = {plural: t for t, plural in ENTITY_TYPE_PLURAL.items()}
+
+MENTION_TYPES_PER_GROUP = 5
+
+
+@api_v4_bp.route("/entities/mentions", methods=["GET"])
+def entity_mentions():
+    """Lightweight, fast lookup for inline @-mention / [[link]] pickers.
+
+    Returns active entities grouped by type, title-matching `q` (or most
+    recently updated if `q` is empty), so the editor can show a live list
+    while the user is still typing.
+    """
+    q = (request.args.get("q") or "").strip()
+    limit_per_type = max(1, min(request.args.get("limit", MENTION_TYPES_PER_GROUP, type=int), 20))
+    types_param = request.args.get("types")
+    types = [t for t in (types_param.split(",") if types_param else ENTITY_TYPES) if t in ENTITY_TYPES]
+
+    results = {}
+    for entity_type in types:
+        query = Entity.query.filter(Entity.type == entity_type, Entity.lifecycle == "active")
+        if q:
+            query = query.filter(Entity.title.ilike(f"%{q}%"))
+        rows = query.order_by(Entity.updated_at.desc()).limit(limit_per_type).all()
+        if rows:
+            results[entity_type] = [
+                {"id": row.id, "type": row.type, "title": row.title, "path": f"/{ENTITY_TYPE_PLURAL[row.type]}/{row.id}"}
+                for row in rows
+            ]
+    return jsonify({"query": q, "results": results})
 
 
 @api_v4_bp.route("/search", methods=["GET"])
@@ -1658,6 +1694,8 @@ def create_activity_update(entity_id):
     if not created:
         return jsonify({"data": note.to_dict(), "skipped": True, "reason": "duplicate within 24h"})
 
+    applied_mentions = _apply_explicit_mentions(note, content)
+
     # Lightweight extraction: scan for dates and new tasks (no full capture cycle).
     from services.v4_extraction import extract_dates_and_tasks_from_update
 
@@ -1778,6 +1816,7 @@ def create_activity_update(entity_id):
             "follow_up_auto_set": explicit_follow_up is None and target.type == "task",
             "tasks": extracted_tasks,
         },
+        "applied_mentions": applied_mentions,
         "suggestions": suggestions,
     }), 201
 
@@ -3740,6 +3779,56 @@ def _creates_blocks_cycle(source_entity_id, target_entity_id):
         ]
         frontier.extend(next_ids)
     return False
+
+
+# Matches markdown links produced by the inline @/[[ mention picker, e.g.
+# "[Ship the feature](/tasks/3e6c...-...)". Capturing the plural type segment
+# lets us resolve straight back to an entity without any LLM involvement.
+EXPLICIT_MENTION_PATTERN = re.compile(
+    r"\[[^\]\n]+\]\(/(?P<plural>[a-z]+)/(?P<id>[0-9a-fA-F-]{36})\)"
+)
+
+
+def _apply_explicit_mentions(note, content):
+    """Create direct `mentions` links for entities picked via the inline
+    @/[[ picker while typing `content`.
+
+    These references are explicit user choices, so they bypass extraction
+    and reconciliation entirely — confidence 1.0, no review needed.
+    """
+    if not content:
+        return []
+    applied = []
+    seen_ids = set()
+    for match in EXPLICIT_MENTION_PATTERN.finditer(content):
+        entity_type = ENTITY_TYPE_BY_PLURAL.get(match.group("plural"))
+        if entity_type is None:
+            continue
+        target_id = match.group("id")
+        if target_id == note.id or target_id in seen_ids:
+            continue
+        target = db.session.get(Entity, target_id)
+        if target is None or target.type != entity_type or target.lifecycle == "deleted":
+            continue
+        seen_ids.add(target_id)
+        link = _create_entity_link(note, target, "mentions", 1.0, "explicit mention", source="user")
+        if link is not None:
+            _write_event(
+                target,
+                "relationship_added",
+                new_value=link.to_dict(),
+                actor="user",
+                reason="explicit mention",
+                source_note_id=note.id,
+            )
+            applied.append({
+                "type": "relationship_added",
+                "source_entity_id": note.id,
+                "target_entity_id": target.id,
+                "relationship_type": "mentions",
+                "confidence": 1.0,
+            })
+    return applied
 
 
 def _create_entity_link(source_entity, target_entity, relationship_type, confidence, evidence, source="ai"):
