@@ -71,6 +71,7 @@ def today_attention_items(today_payload):
         + (today_payload.get("follow_ups") or [])
         + (today_payload.get("blocked_tasks") or [])
         + (today_payload.get("waiting_tasks") or [])
+        + [item.get("entity") for item in (today_payload.get("dependency_interventions") or []) if item.get("entity")]
         + [
             note for note in (today_payload.get("recent_notes") or [])
             if (note.get("ai") or {}).get("intent") in HIGH_SIGNAL_NOTE_INTENTS

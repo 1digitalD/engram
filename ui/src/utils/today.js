@@ -91,6 +91,7 @@ export function getTodayAttentionCount(today) {
   return dedupeEntities([
     ...getTodayActionableEntities(today),
     ...getTodayStuckEntities(today),
+    ...((today?.dependency_interventions || []).map((item) => item.entity).filter(Boolean)),
     ...getTodayAttentionNotes(today),
     ...getTodayUnscheduledAttentionEntities(today),
   ]).length;

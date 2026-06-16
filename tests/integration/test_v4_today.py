@@ -57,6 +57,35 @@ def test_v4_summary_matches_today_and_inbox_counts(client, app):
     assert summary["reviewed_today"] == today_data["reviewed_today"]
 
 
+def test_v4_summary_includes_coordination_radar(client, app):
+    akash = _create_entity(client, "person", "Akash")
+    person_task = _create_entity(client, "task", "Review dashboard draft", status="blocked")
+    _link(client, person_task["id"], akash["id"], "assigned_to")
+
+    project = _create_entity(client, "project", "Launch readiness")
+    project_task = _create_entity(
+        client,
+        "task",
+        "Send rollout update",
+        status="open",
+        due_at=(datetime.now(timezone.utc) - timedelta(days=1)).isoformat(),
+    )
+    _link(client, project_task["id"], project["id"], "parent")
+
+    response = client.get("/api/v4/summary")
+    assert response.status_code == 200
+    summary = response.get_json()
+
+    radar = summary["coordination_radar"]
+    assert radar["people"][0]["entity_id"] == akash["id"]
+    assert radar["people"][0]["headline"] == "Focus the next 1:1 on 1 stuck task."
+    assert radar["people"][0]["counts"]["stuck_tasks"] == 1
+
+    assert radar["projects"][0]["entity_id"] == project["id"]
+    assert radar["projects"][0]["headline"] == "Focus this project on 1 overdue task."
+    assert radar["projects"][0]["counts"]["overdue_tasks"] == 1
+
+
 def test_v4_today_returns_execution_sections(client, app):
     yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
     today = datetime.now(timezone.utc).isoformat()
@@ -111,6 +140,35 @@ def test_v4_today_returns_execution_sections(client, app):
     assert data["projects_without_open_tasks"][0]["attention"]["reasons"][0]["key"] == "context:project_without_open_tasks"
     assert [item["id"] for item in data["recent_notes"]] == [recent_note["id"]]
     assert data["pending_suggestions"][0]["payload"]["title"] == "Suggested task"
+
+
+def test_v4_today_includes_dependency_interventions(client, app):
+    blocked_task = _create_entity(client, "task", "Prep rollout decision", status="blocked")
+    blocking_task = _create_entity(client, "task", "Finalize launch checklist", status="open")
+    impacted_task = _create_entity(client, "task", "Publish rollout update", status="open")
+    external_blocker = _create_entity(client, "task", "Security approval", status="open")
+
+    _link(client, external_blocker["id"], blocked_task["id"], "blocks")
+    _link(client, blocking_task["id"], impacted_task["id"], "blocks")
+
+    response = client.get("/api/v4/today")
+    assert response.status_code == 200
+    data = response.get_json()
+
+    interventions = data["dependency_interventions"]
+    kinds = [item["kind"] for item in interventions]
+    assert kinds[:2] == ["blocked_by", "blocking"]
+
+    blocked_item = next(item for item in interventions if item["kind"] == "blocked_by")
+    assert blocked_item["entity"]["id"] == blocked_task["id"]
+    assert blocked_item["blocker"]["id"] == external_blocker["id"]
+    assert blocked_item["label"] == "Blocked by Security approval"
+
+    blocking_item = next(
+        item for item in interventions
+        if item["kind"] == "blocking" and item["entity"]["id"] == blocking_task["id"]
+    )
+    assert blocking_item["label"] == "Blocking 1 open task"
 
 
 def test_v4_today_task_inherits_project_priority(client, app):
@@ -419,6 +477,265 @@ def test_v4_person_detail_includes_current_load_with_last_heard(client, app):
     open_item = next(item for item in data["current_load"] if item["task"]["id"] == open_task["id"])
     assert open_item["last_heard_at"] is not None
     assert "first draft" in open_item["last_heard_preview"]
+
+
+def test_v4_person_detail_includes_runtime_pulse_for_one_on_one_prep(client, app):
+    akash = _create_entity(client, "person", "Akash")
+    blocked_task = _create_entity(client, "task", "Resolve launch blocker", status="blocked")
+    overdue_task = _create_entity(
+        client,
+        "task",
+        "Send rollout update",
+        status="open",
+        follow_up_at=(datetime.now(timezone.utc) - timedelta(days=2)).isoformat(),
+    )
+    quiet_task = _create_entity(client, "task", "Review dashboard draft", status="open")
+    fresh_task = _create_entity(client, "task", "Ship ops note", status="open")
+
+    for task in (blocked_task, overdue_task, quiet_task, fresh_task):
+        _link(client, task["id"], akash["id"], "assigned_to")
+
+    response = client.post(
+        f"/api/v4/entities/{blocked_task['id']}/activity_updates",
+        json={"content": "Waiting on design sign-off from the platform team"},
+    )
+    assert response.status_code == 201
+
+    response = client.post(
+        f"/api/v4/entities/{fresh_task['id']}/activity_updates",
+        json={"content": "Shared the latest draft this morning"},
+    )
+    assert response.status_code == 201
+
+    with app.app_context():
+        from sqlalchemy import update
+
+        db.session.execute(
+            update(Entity)
+            .where(Entity.id == quiet_task["id"])
+            .values(created_at=datetime.now(timezone.utc) - timedelta(days=9))
+        )
+        db.session.commit()
+
+    response = client.get(f"/api/v4/entities/{akash['id']}/detail")
+    assert response.status_code == 200
+    data = response.get_json()
+
+    pulse = data["pulse"]
+    assert pulse["summary"] == {
+        "open_tasks": 4,
+        "stuck_tasks": 1,
+        "overdue_follow_ups": 1,
+        "quiet_tasks": 1,
+    }
+
+    focus_items = pulse["focus_items"]
+    assert [item["kind"] for item in focus_items[:3]] == ["stuck", "overdue_follow_up", "quiet"]
+
+    blocked_item = next(item for item in focus_items if item["entity"]["id"] == blocked_task["id"])
+    assert blocked_item["label"] == "Blocked"
+    assert "design sign-off" in blocked_item["last_heard_preview"]
+
+    overdue_item = next(item for item in focus_items if item["entity"]["id"] == overdue_task["id"])
+    assert overdue_item["label"].startswith("Follow-up overdue by ")
+
+    quiet_item = next(item for item in focus_items if item["entity"]["id"] == quiet_task["id"])
+    assert quiet_item["label"] == "No update in 9 days"
+    assert quiet_item["last_heard_at"] is None
+
+
+def test_v4_person_detail_includes_runtime_meeting_prep(client, app):
+    akash = _create_entity(client, "person", "Akash")
+    blocked_task = _create_entity(client, "task", "Resolve launch blocker", status="blocked")
+    quiet_task = _create_entity(client, "task", "Review dashboard draft", status="open")
+    fresh_task = _create_entity(client, "task", "Ship ops note", status="in_progress")
+    one_on_one_note = _create_entity(client, "note", "Akash 1:1 notes", content="Discuss launch blockers and support path")
+
+    for task in (blocked_task, quiet_task, fresh_task):
+        _link(client, task["id"], akash["id"], "assigned_to")
+    _link(client, one_on_one_note["id"], akash["id"], "mentions")
+
+    response = client.post(
+        f"/api/v4/entities/{blocked_task['id']}/activity_updates",
+        json={"content": "Waiting on platform sign-off before launch"},
+    )
+    assert response.status_code == 201
+
+    response = client.post(
+        f"/api/v4/entities/{fresh_task['id']}/activity_updates",
+        json={"content": "Shared the updated draft with design this morning"},
+    )
+    assert response.status_code == 201
+
+    with app.app_context():
+        from sqlalchemy import update
+
+        db.session.execute(
+            update(Entity)
+            .where(Entity.id == quiet_task["id"])
+            .values(created_at=datetime.now(timezone.utc) - timedelta(days=8))
+        )
+        db.session.commit()
+
+    response = client.get(f"/api/v4/entities/{akash['id']}/detail")
+    assert response.status_code == 200
+    data = response.get_json()
+
+    prep = data["meeting_prep"]
+    assert prep["counts"] == {"agenda_items": 3, "recent_notes": 1}
+    assert prep["headline"] == "Go in with 3 agenda topics and 1 recent note."
+
+    agenda_kinds = [item["kind"] for item in prep["agenda_items"]]
+    assert agenda_kinds == ["stuck", "quiet", "recent_progress"]
+
+    stuck_item = prep["agenda_items"][0]
+    assert stuck_item["title"] == "Unblock Resolve launch blocker"
+    assert "platform sign-off" in stuck_item["reason"]
+
+    progress_item = next(item for item in prep["agenda_items"] if item["kind"] == "recent_progress")
+    assert progress_item["title"] == "Acknowledge progress on Ship ops note"
+    assert "updated draft" in progress_item["reason"]
+
+    recent_note = prep["recent_notes"][0]
+    assert recent_note["id"] == one_on_one_note["id"]
+    assert recent_note["title"] == "Akash 1:1 notes"
+    assert "Discuss launch blockers" in recent_note["preview"]
+
+
+def test_v4_person_detail_includes_runtime_dependency_watch(client, app):
+    akash = _create_entity(client, "person", "Akash")
+    blocked_task = _create_entity(client, "task", "Prep rollout decision", status="blocked")
+    blocking_task = _create_entity(client, "task", "Finalize launch checklist", status="open")
+    impacted_task = _create_entity(client, "task", "Publish rollout update", status="open")
+    external_blocker = _create_entity(client, "task", "Security approval", status="open")
+
+    for task in (blocked_task, blocking_task, impacted_task):
+        _link(client, task["id"], akash["id"], "assigned_to")
+
+    _link(client, external_blocker["id"], blocked_task["id"], "blocks")
+    _link(client, blocking_task["id"], impacted_task["id"], "blocks")
+
+    response = client.get(f"/api/v4/entities/{akash['id']}/detail")
+    assert response.status_code == 200
+    data = response.get_json()
+
+    watch = data["dependency_watch"]
+    assert watch["summary"] == {
+        "blocked_tasks": 1,
+        "external_blockers": 1,
+        "blocking_tasks": 1,
+    }
+    assert watch["headline"] == "Watch 1 blocked task, 1 external dependency, and 1 task blocking others."
+
+    focus_kinds = [item["kind"] for item in watch["focus_items"]]
+    assert focus_kinds[:2] == ["external_blocker", "blocking"]
+
+    blocked_item = next(item for item in watch["focus_items"] if item["kind"] == "external_blocker")
+    assert blocked_item["entity"]["id"] == blocked_task["id"]
+    assert blocked_item["blocker"]["id"] == external_blocker["id"]
+
+    blocking_item = next(item for item in watch["focus_items"] if item["kind"] == "blocking")
+    assert blocking_item["entity"]["id"] == blocking_task["id"]
+
+
+def test_v4_project_detail_includes_runtime_project_pulse(client, app):
+    project = _create_entity(client, "project", "Launch readiness")
+    blocked_task = _create_entity(client, "task", "Resolve launch blocker", status="blocked")
+    overdue_task = _create_entity(
+        client,
+        "task",
+        "Send rollout update",
+        status="open",
+        due_at=(datetime.now(timezone.utc) - timedelta(days=1)).isoformat(),
+    )
+    quiet_task = _create_entity(client, "task", "Review dashboard draft", status="open")
+    fresh_task = _create_entity(client, "task", "Ship ops note", status="in_progress")
+
+    for task in (blocked_task, overdue_task, quiet_task, fresh_task):
+        _link(client, task["id"], project["id"], "parent")
+
+    response = client.post(
+        f"/api/v4/entities/{blocked_task['id']}/activity_updates",
+        json={"content": "Waiting on platform sign-off before launch"},
+    )
+    assert response.status_code == 201
+
+    response = client.post(
+        f"/api/v4/entities/{fresh_task['id']}/activity_updates",
+        json={"content": "Shared the updated draft with design this morning"},
+    )
+    assert response.status_code == 201
+
+    with app.app_context():
+        from sqlalchemy import update
+
+        db.session.execute(
+            update(Entity)
+            .where(Entity.id == quiet_task["id"])
+            .values(created_at=datetime.now(timezone.utc) - timedelta(days=8))
+        )
+        db.session.commit()
+
+    response = client.get(f"/api/v4/entities/{project['id']}/detail")
+    assert response.status_code == 200
+    data = response.get_json()
+
+    pulse = data["project_pulse"]
+    assert pulse["summary"] == {
+        "open_tasks": 4,
+        "stuck_tasks": 1,
+        "overdue_tasks": 1,
+        "quiet_tasks": 1,
+    }
+    assert pulse["headline"] == "Focus this project on 1 stuck task, 1 overdue task, and 1 quiet task."
+
+    focus_kinds = [item["kind"] for item in pulse["focus_items"]]
+    assert focus_kinds[:3] == ["stuck", "overdue", "quiet"]
+
+    blocked_item = next(item for item in pulse["focus_items"] if item["entity"]["id"] == blocked_task["id"])
+    assert blocked_item["label"] == "Blocked"
+    assert "platform sign-off" in blocked_item["last_heard_preview"]
+
+    overdue_item = next(item for item in pulse["focus_items"] if item["entity"]["id"] == overdue_task["id"])
+    assert overdue_item["label"].startswith("Overdue by ")
+
+
+def test_v4_project_detail_includes_runtime_dependency_watch(client, app):
+    project = _create_entity(client, "project", "Launch readiness")
+    blocked_task = _create_entity(client, "task", "Prep rollout decision", status="blocked")
+    blocking_task = _create_entity(client, "task", "Finalize launch checklist", status="open")
+    impacted_task = _create_entity(client, "task", "Publish rollout update", status="open")
+    external_blocker = _create_entity(client, "task", "Security approval", status="open")
+
+    for task in (blocked_task, blocking_task, impacted_task):
+        _link(client, task["id"], project["id"], "parent")
+
+    _link(client, external_blocker["id"], blocked_task["id"], "blocks")
+    _link(client, blocking_task["id"], impacted_task["id"], "blocks")
+
+    response = client.get(f"/api/v4/entities/{project['id']}/detail")
+    assert response.status_code == 200
+    data = response.get_json()
+
+    watch = data["dependency_watch"]
+    assert watch["summary"] == {
+        "blocked_tasks": 1,
+        "external_blockers": 1,
+        "blocking_tasks": 1,
+    }
+    assert watch["headline"] == "Watch 1 blocked task, 1 external dependency, and 1 task blocking others."
+
+    focus_kinds = [item["kind"] for item in watch["focus_items"]]
+    assert focus_kinds[:2] == ["external_blocker", "blocking"]
+
+    blocked_item = next(item for item in watch["focus_items"] if item["kind"] == "external_blocker")
+    assert blocked_item["entity"]["id"] == blocked_task["id"]
+    assert blocked_item["blocker"]["id"] == external_blocker["id"]
+    assert blocked_item["label"] == "Blocked by Security approval"
+
+    blocking_item = next(item for item in watch["focus_items"] if item["kind"] == "blocking")
+    assert blocking_item["entity"]["id"] == blocking_task["id"]
+    assert blocking_item["label"] == "Blocking 1 open task"
 
 
 def test_v4_inbox_separates_needs_review_from_recent(client, app):

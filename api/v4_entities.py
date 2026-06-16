@@ -404,6 +404,7 @@ FOLLOW_UP_ENTITY_TYPES = {"task", "project"}
 # threshold, archival is suggested (never applied automatically).
 STALE_PROJECT_DAYS = 14
 ARCHIVAL_SUGGESTION_DAYS = 30
+PERSON_PULSE_QUIET_DAYS = 7
 
 
 @api_v4_bp.route("/today", methods=["GET"])
@@ -555,6 +556,7 @@ def _build_today_payload(now):
     )
 
     delegations_quiet = _delegations_quiet(now)
+    dependency_interventions = _today_dependency_interventions(now)
 
     active_projects = (
         _entity_query()
@@ -642,6 +644,7 @@ def _build_today_payload(now):
         ],
         "recent_notes": [_entity_with_attention(entity) for entity in recent_notes],
         "delegations_quiet": delegations_quiet,
+        "dependency_interventions": dependency_interventions,
         "stale_projects": stale_projects,
         "suggested_archival": suggested_archival,
         "pending_suggestions": [suggestion.to_dict() for suggestion in pending_suggestions],
@@ -722,6 +725,7 @@ def summary():
             len(today_payload["stale_projects"]) + len(today_payload["suggested_archival"])
         ),
         "new_since_yesterday_count": today_payload["new_since_yesterday_count"],
+        "coordination_radar": _coordination_radar(now),
     })
 
 
@@ -1095,7 +1099,18 @@ def get_entity_detail(entity_id):
         return _error("entity not found", 404)
     detail = {"entity": entity.to_dict(), "sections": _relationship_detail_sections(entity)}
     if entity.type == "person":
-        detail["current_load"] = _person_current_load(entity)
+        tasks = _person_open_tasks(entity)
+        latest_update = _latest_activity_updates([task.id for task in tasks])
+        pulse = _person_pulse(tasks, latest_update)
+        detail["current_load"] = _person_current_load(tasks, latest_update)
+        detail["pulse"] = pulse
+        detail["dependency_watch"] = _task_dependency_watch(tasks, latest_update)
+        detail["meeting_prep"] = _person_meeting_prep(entity, tasks, latest_update, pulse)
+    if entity.type == "project":
+        tasks = _project_open_tasks(entity)
+        latest_update = _latest_activity_updates([task.id for task in tasks])
+        detail["project_pulse"] = _project_pulse(tasks, latest_update)
+        detail["dependency_watch"] = _task_dependency_watch(tasks, latest_update)
     return jsonify(detail)
 
 
@@ -3609,9 +3624,24 @@ def _latest_activity_updates(entity_ids):
     return latest
 
 
-def _person_current_load(person):
-    """Open tasks assigned to `person`, each with last-activity-update info."""
-    tasks = (
+def _ensure_utc(value):
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value
+
+
+def _days_since(reference, now):
+    reference = _ensure_utc(reference)
+    if reference is None:
+        return None
+    return max(0, (now - reference).days)
+
+
+def _person_open_tasks(person):
+    """Open tasks assigned to `person`."""
+    return (
         _entity_query()
         .join(EntityLink, (EntityLink.source_entity_id == Entity.id) & (EntityLink.relationship_type == "assigned_to"))
         .filter(
@@ -3624,10 +3654,30 @@ def _person_current_load(person):
         .limit(50)
         .all()
     )
+
+
+def _project_open_tasks(project):
+    """Open tasks parent-linked to `project`."""
+    return (
+        _entity_query()
+        .join(EntityLink, (EntityLink.source_entity_id == Entity.id) & (EntityLink.relationship_type == "parent"))
+        .filter(
+            Entity.type == "task",
+            Entity.lifecycle == "active",
+            Entity.status.in_(OPEN_TASK_STATUSES),
+            EntityLink.target_entity_id == project.id,
+        )
+        .order_by(Entity.due_at.asc().nullslast(), Entity.follow_up_at.asc().nullslast(), Entity.updated_at.desc())
+        .limit(50)
+        .all()
+    )
+
+
+def _person_current_load(tasks, latest_update):
+    """Open tasks assigned to a person, each with last-activity-update info."""
     if not tasks:
         return []
 
-    latest_update = _latest_activity_updates([task.id for task in tasks])
     results = []
     for task in tasks:
         last = latest_update.get(task.id)
@@ -3638,6 +3688,546 @@ def _person_current_load(person):
             "last_heard_preview": last_content[:160] if last_content else None,
         })
     return results
+
+
+def _person_pulse(tasks, latest_update, now=None):
+    """Transient 1:1 prep signal for a person's current work."""
+    now = now or datetime.now(timezone.utc)
+    summary = {
+        "open_tasks": len(tasks),
+        "stuck_tasks": 0,
+        "overdue_follow_ups": 0,
+        "quiet_tasks": 0,
+    }
+    focus_items = []
+
+    for task in tasks:
+        last_created, last_content = latest_update.get(task.id, (None, None))
+        last_heard_preview = last_content[:160] if last_content else None
+        is_stuck = task.status in {"blocked", "waiting"}
+        follow_up_at = _ensure_utc(task.follow_up_at)
+        overdue_days = max(1, (now.date() - follow_up_at.date()).days) if follow_up_at and follow_up_at < now else 0
+        quiet_days = _days_since(last_created or task.created_at, now) or 0
+        is_quiet = quiet_days >= PERSON_PULSE_QUIET_DAYS
+
+        if is_stuck:
+            summary["stuck_tasks"] += 1
+        if overdue_days:
+            summary["overdue_follow_ups"] += 1
+        if is_quiet:
+            summary["quiet_tasks"] += 1
+
+        if is_stuck:
+            focus = {
+                "kind": "stuck",
+                "label": "Blocked" if task.status == "blocked" else "Waiting",
+            }
+            rank = (0, 0)
+        elif overdue_days:
+            focus = {
+                "kind": "overdue_follow_up",
+                "label": f"Follow-up overdue by {overdue_days} day{'s' if overdue_days != 1 else ''}",
+            }
+            rank = (1, -overdue_days)
+        elif is_quiet:
+            focus = {
+                "kind": "quiet",
+                "label": f"No update in {quiet_days} day{'s' if quiet_days != 1 else ''}",
+            }
+            rank = (2, -quiet_days)
+        else:
+            continue
+
+        focus_items.append((rank, {
+            **focus,
+            "entity": _entity_with_attention(task),
+            "last_heard_at": _iso(last_created),
+            "last_heard_preview": last_heard_preview,
+        }))
+
+    focus_items.sort(key=lambda item: item[0])
+    return {
+        "headline": _person_pulse_headline(summary),
+        "summary": summary,
+        "focus_items": [item for _, item in focus_items[:5]],
+    }
+
+
+def _person_pulse_headline(summary):
+    parts = []
+    if summary["stuck_tasks"]:
+        parts.append(f"{summary['stuck_tasks']} stuck task{'s' if summary['stuck_tasks'] != 1 else ''}")
+    if summary["overdue_follow_ups"]:
+        parts.append(
+            f"{summary['overdue_follow_ups']} overdue follow-up"
+            f"{'s' if summary['overdue_follow_ups'] != 1 else ''}"
+        )
+    if summary["quiet_tasks"]:
+        parts.append(f"{summary['quiet_tasks']} quiet task{'s' if summary['quiet_tasks'] != 1 else ''}")
+    if not parts:
+        return "No obvious follow-up risk right now."
+    if len(parts) == 1:
+        joined = parts[0]
+    elif len(parts) == 2:
+        joined = f"{parts[0]} and {parts[1]}"
+    else:
+        joined = f"{', '.join(parts[:-1])}, and {parts[-1]}"
+    return f"Focus the next 1:1 on {joined}."
+
+
+def _person_recent_notes(person):
+    """Recent non-activity notes that mention `person`."""
+    notes = (
+        _entity_query()
+        .join(EntityLink, (EntityLink.source_entity_id == Entity.id) & (EntityLink.relationship_type == "mentions"))
+        .filter(
+            Entity.type == "note",
+            Entity.lifecycle == "active",
+            Entity.source != "activity_update",
+            EntityLink.target_entity_id == person.id,
+        )
+        .order_by(Entity.updated_at.desc(), Entity.created_at.desc())
+        .limit(3)
+        .all()
+    )
+    return [
+        {
+            "id": note.id,
+            "type": note.type,
+            "title": note.title,
+            "updated_at": _iso(note.updated_at),
+            "preview": (note.content or "")[:160] or None,
+        }
+        for note in notes
+    ]
+
+
+def _person_meeting_prep(person, tasks, latest_update, pulse, now=None):
+    """Transient meeting-prep artifact for a person's detail page."""
+    now = now or datetime.now(timezone.utc)
+    agenda_items = []
+
+    for item in pulse.get("focus_items", []):
+        if item["kind"] == "stuck":
+            title = f"Unblock {item['entity']['title']}"
+        elif item["kind"] == "overdue_follow_up":
+            title = f"Confirm next step for {item['entity']['title']}"
+        elif item["kind"] == "quiet":
+            title = f"Ask for status on {item['entity']['title']}"
+        else:
+            title = item["entity"]["title"]
+        reason = item["label"]
+        if item.get("last_heard_preview"):
+            reason += f". Last heard: {item['last_heard_preview']}"
+        agenda_items.append({
+            "kind": item["kind"],
+            "title": title,
+            "reason": reason,
+            "entity": item["entity"],
+        })
+
+    focused_ids = {item["entity"]["id"] for item in agenda_items}
+    progress_candidates = []
+    for task in tasks:
+        if task.id in focused_ids:
+            continue
+        last_created, last_content = latest_update.get(task.id, (None, None))
+        if last_created is None:
+            continue
+        if _days_since(last_created, now) is None or _days_since(last_created, now) > 7:
+            continue
+        progress_candidates.append({
+            "kind": "recent_progress",
+            "title": f"Acknowledge progress on {task.title}",
+            "reason": (last_content or "")[:160] or "Recent update shared",
+            "entity": _entity_with_attention(task),
+            "_sort": _ensure_utc(last_created),
+        })
+
+    progress_candidates.sort(key=lambda item: item["_sort"], reverse=True)
+    for item in progress_candidates[: max(0, 4 - len(agenda_items))]:
+        item.pop("_sort", None)
+        agenda_items.append(item)
+
+    recent_notes = _person_recent_notes(person)
+    return {
+        "headline": _meeting_prep_headline(len(agenda_items), len(recent_notes)),
+        "counts": {
+            "agenda_items": len(agenda_items),
+            "recent_notes": len(recent_notes),
+        },
+        "agenda_items": agenda_items[:4],
+        "recent_notes": recent_notes,
+    }
+
+
+def _meeting_prep_headline(agenda_count, note_count):
+    agenda_label = f"{agenda_count} agenda topic{'s' if agenda_count != 1 else ''}"
+    note_label = f"{note_count} recent note{'s' if note_count != 1 else ''}"
+    return f"Go in with {agenda_label} and {note_label}."
+
+
+def _coordination_radar(now=None):
+    now = now or datetime.now(timezone.utc)
+    return {
+        "people": _coordination_radar_people(now),
+        "projects": _coordination_radar_projects(now),
+    }
+
+
+def _coordination_radar_people(now):
+    rows = (
+        db.session.query(EntityLink.target_entity_id, Entity)
+        .join(Entity, Entity.id == EntityLink.source_entity_id)
+        .filter(
+            EntityLink.relationship_type == "assigned_to",
+            Entity.type == "task",
+            Entity.lifecycle == "active",
+            Entity.status.in_(OPEN_TASK_STATUSES),
+        )
+        .order_by(
+            EntityLink.target_entity_id,
+            Entity.follow_up_at.asc().nullslast(),
+            Entity.updated_at.desc(),
+        )
+        .all()
+    )
+    if not rows:
+        return []
+
+    tasks_by_person_id = {}
+    task_ids = []
+    for person_id, task in rows:
+        tasks_by_person_id.setdefault(person_id, []).append(task)
+        task_ids.append(task.id)
+
+    people = (
+        _entity_query()
+        .filter(
+            Entity.type == "person",
+            Entity.lifecycle == "active",
+            Entity.status == "active",
+            Entity.id.in_(list(tasks_by_person_id)),
+        )
+        .all()
+    )
+    people_by_id = {person.id: person for person in people}
+    latest_update = _latest_activity_updates(task_ids)
+
+    radar_items = []
+    for person_id, tasks in tasks_by_person_id.items():
+        person = people_by_id.get(person_id)
+        if person is None:
+            continue
+        pulse = _person_pulse(tasks[:50], latest_update, now=now)
+        counts = pulse["summary"]
+        if not (counts["stuck_tasks"] or counts["overdue_follow_ups"] or counts["quiet_tasks"]):
+            continue
+        radar_items.append({
+            "entity_id": person.id,
+            "entity_type": "person",
+            "title": person.title,
+            "headline": pulse["headline"],
+            "counts": counts,
+            "_rank": (
+                counts["stuck_tasks"],
+                counts["overdue_follow_ups"],
+                counts["quiet_tasks"],
+                counts["open_tasks"],
+            ),
+        })
+
+    radar_items.sort(key=lambda item: item["_rank"], reverse=True)
+    for item in radar_items:
+        item.pop("_rank", None)
+    return radar_items[:3]
+
+
+def _today_dependency_interventions(now):
+    tasks = (
+        _entity_query()
+        .filter(
+            Entity.type == "task",
+            Entity.lifecycle == "active",
+            Entity.status.in_(OPEN_TASK_STATUSES),
+        )
+        .order_by(Entity.updated_at.desc())
+        .limit(200)
+        .all()
+    )
+    latest_update = _latest_activity_updates([task.id for task in tasks])
+    watch = _task_dependency_watch(tasks, latest_update, limit=10)
+    return watch["focus_items"]
+
+
+def _coordination_radar_projects(now):
+    rows = (
+        db.session.query(EntityLink.target_entity_id, Entity)
+        .join(Entity, Entity.id == EntityLink.source_entity_id)
+        .filter(
+            EntityLink.relationship_type == "parent",
+            Entity.type == "task",
+            Entity.lifecycle == "active",
+            Entity.status.in_(OPEN_TASK_STATUSES),
+        )
+        .order_by(
+            EntityLink.target_entity_id,
+            Entity.due_at.asc().nullslast(),
+            Entity.follow_up_at.asc().nullslast(),
+            Entity.updated_at.desc(),
+        )
+        .all()
+    )
+    if not rows:
+        return []
+
+    tasks_by_project_id = {}
+    task_ids = []
+    for project_id, task in rows:
+        tasks_by_project_id.setdefault(project_id, []).append(task)
+        task_ids.append(task.id)
+
+    projects = (
+        _entity_query()
+        .filter(
+            Entity.type == "project",
+            Entity.lifecycle == "active",
+            Entity.status == "active",
+            Entity.id.in_(list(tasks_by_project_id)),
+        )
+        .all()
+    )
+    projects_by_id = {project.id: project for project in projects}
+    latest_update = _latest_activity_updates(task_ids)
+
+    radar_items = []
+    for project_id, tasks in tasks_by_project_id.items():
+        project = projects_by_id.get(project_id)
+        if project is None:
+            continue
+        pulse = _project_pulse(tasks[:50], latest_update, now=now)
+        counts = pulse["summary"]
+        if not (counts["stuck_tasks"] or counts["overdue_tasks"] or counts["quiet_tasks"]):
+            continue
+        radar_items.append({
+            "entity_id": project.id,
+            "entity_type": "project",
+            "title": project.title,
+            "headline": pulse["headline"],
+            "counts": counts,
+            "_rank": (
+                counts["stuck_tasks"],
+                counts["overdue_tasks"],
+                counts["quiet_tasks"],
+                counts["open_tasks"],
+            ),
+        })
+
+    radar_items.sort(key=lambda item: item["_rank"], reverse=True)
+    for item in radar_items:
+        item.pop("_rank", None)
+    return radar_items[:3]
+
+
+def _project_pulse(tasks, latest_update, now=None):
+    """Transient project pulse derived from open project tasks."""
+    now = now or datetime.now(timezone.utc)
+    summary = {
+        "open_tasks": len(tasks),
+        "stuck_tasks": 0,
+        "overdue_tasks": 0,
+        "quiet_tasks": 0,
+    }
+    focus_items = []
+
+    for task in tasks:
+        last_created, last_content = latest_update.get(task.id, (None, None))
+        last_heard_preview = last_content[:160] if last_content else None
+        is_stuck = task.status in {"blocked", "waiting"}
+        due_refs = [dt for dt in (_ensure_utc(task.due_at), _ensure_utc(task.follow_up_at)) if dt is not None]
+        overdue_at = min(due_refs) if due_refs else None
+        overdue_days = max(1, (now.date() - overdue_at.date()).days) if overdue_at and overdue_at < now else 0
+        quiet_days = _days_since(last_created or task.created_at, now) or 0
+        is_quiet = quiet_days >= PERSON_PULSE_QUIET_DAYS
+
+        if is_stuck:
+            summary["stuck_tasks"] += 1
+        if overdue_days:
+            summary["overdue_tasks"] += 1
+        if is_quiet:
+            summary["quiet_tasks"] += 1
+
+        if is_stuck:
+            focus = {"kind": "stuck", "label": "Blocked" if task.status == "blocked" else "Waiting"}
+            rank = (0, 0)
+        elif overdue_days:
+            focus = {
+                "kind": "overdue",
+                "label": f"Overdue by {overdue_days} day{'s' if overdue_days != 1 else ''}",
+            }
+            rank = (1, -overdue_days)
+        elif is_quiet:
+            focus = {
+                "kind": "quiet",
+                "label": f"No update in {quiet_days} day{'s' if quiet_days != 1 else ''}",
+            }
+            rank = (2, -quiet_days)
+        else:
+            continue
+
+        focus_items.append((rank, {
+            **focus,
+            "entity": _entity_with_attention(task),
+            "last_heard_at": _iso(last_created),
+            "last_heard_preview": last_heard_preview,
+        }))
+
+    focus_items.sort(key=lambda item: item[0])
+    return {
+        "headline": _project_pulse_headline(summary),
+        "summary": summary,
+        "focus_items": [item for _, item in focus_items[:5]],
+    }
+
+
+def _task_dependency_watch(tasks, latest_update, limit=5):
+    task_ids = [task.id for task in tasks]
+    if not task_ids:
+        return {
+            "headline": "No active blockers or dependency chains right now.",
+            "summary": {"blocked_tasks": 0, "external_blockers": 0, "blocking_tasks": 0},
+            "focus_items": [],
+        }
+
+    task_id_set = set(task_ids)
+    blocked_rows = (
+        db.session.query(EntityLink.target_entity_id, Entity)
+        .join(Entity, Entity.id == EntityLink.source_entity_id)
+        .filter(
+            EntityLink.relationship_type == "blocks",
+            EntityLink.target_entity_id.in_(task_ids),
+            Entity.lifecycle == "active",
+            ~Entity.status.in_(DONE_TASK_STATUSES),
+        )
+        .order_by(EntityLink.target_entity_id, Entity.updated_at.desc())
+        .all()
+    )
+    blocking_rows = (
+        db.session.query(EntityLink.source_entity_id, Entity)
+        .join(Entity, Entity.id == EntityLink.target_entity_id)
+        .filter(
+            EntityLink.relationship_type == "blocks",
+            EntityLink.source_entity_id.in_(task_ids),
+            Entity.lifecycle == "active",
+            ~Entity.status.in_(DONE_TASK_STATUSES),
+        )
+        .order_by(EntityLink.source_entity_id, Entity.updated_at.desc())
+        .all()
+    )
+
+    tasks_by_id = {task.id: task for task in tasks}
+    blocking_counts = _blocking_impact_counts(tasks)
+    blocked_task_ids = set()
+    external_blockers = 0
+    focus_items = []
+
+    for target_id, blocker in blocked_rows:
+        task = tasks_by_id.get(target_id)
+        if task is None:
+            continue
+        if task.status not in {"blocked", "waiting"}:
+            continue
+        blocked_task_ids.add(target_id)
+        last_created, last_content = latest_update.get(target_id, (None, None))
+        is_external = blocker.id not in task_id_set
+        if is_external:
+            external_blockers += 1
+        focus_items.append((
+            (0 if is_external else 1, 0),
+            {
+                "kind": "external_blocker" if is_external else "blocked_by",
+                "label": f"Blocked by {blocker.title or 'Untitled task'}",
+                "entity": _entity_with_attention(task),
+                "blocker": _entity_with_attention(blocker),
+                "last_heard_at": _iso(last_created),
+                "last_heard_preview": last_content[:160] if last_content else None,
+            },
+        ))
+
+    first_blocked_target = {}
+    for source_id, target in blocking_rows:
+        first_blocked_target.setdefault(source_id, target)
+
+    for source_id, count in blocking_counts.items():
+        task = tasks_by_id.get(source_id)
+        if task is None or count <= 0:
+            continue
+        focus_items.append((
+            (2, -count),
+            {
+                "kind": "blocking",
+                "label": f"Blocking {count} open task{'s' if count != 1 else ''}",
+                "entity": _entity_with_attention(task),
+                "blocked_count": count,
+                "blocked_preview": first_blocked_target.get(source_id).title if first_blocked_target.get(source_id) else None,
+            },
+        ))
+
+    focus_items.sort(key=lambda item: item[0])
+    summary = {
+        "blocked_tasks": len(blocked_task_ids),
+        "external_blockers": external_blockers,
+        "blocking_tasks": len([count for count in blocking_counts.values() if count > 0]),
+    }
+    return {
+        "headline": _project_dependency_watch_headline(summary),
+        "summary": summary,
+        "focus_items": [item for _, item in focus_items[:limit]],
+    }
+
+
+def _project_dependency_watch_headline(summary):
+    parts = []
+    if summary["blocked_tasks"]:
+        parts.append(f"{summary['blocked_tasks']} blocked task{'s' if summary['blocked_tasks'] != 1 else ''}")
+    if summary["external_blockers"]:
+        parts.append(
+            f"{summary['external_blockers']} external dependenc"
+            f"{'ies' if summary['external_blockers'] != 1 else 'y'}"
+        )
+    if summary["blocking_tasks"]:
+        parts.append(
+            f"{summary['blocking_tasks']} task"
+            f"{'s' if summary['blocking_tasks'] != 1 else ''} blocking others"
+        )
+    if not parts:
+        return "No active blockers or dependency chains right now."
+    if len(parts) == 1:
+        joined = parts[0]
+    elif len(parts) == 2:
+        joined = f"{parts[0]} and {parts[1]}"
+    else:
+        joined = f"{', '.join(parts[:-1])}, and {parts[-1]}"
+    return f"Watch {joined}."
+
+
+def _project_pulse_headline(summary):
+    parts = []
+    if summary["stuck_tasks"]:
+        parts.append(f"{summary['stuck_tasks']} stuck task{'s' if summary['stuck_tasks'] != 1 else ''}")
+    if summary["overdue_tasks"]:
+        parts.append(f"{summary['overdue_tasks']} overdue task{'s' if summary['overdue_tasks'] != 1 else ''}")
+    if summary["quiet_tasks"]:
+        parts.append(f"{summary['quiet_tasks']} quiet task{'s' if summary['quiet_tasks'] != 1 else ''}")
+    if not parts:
+        return "No obvious delivery risk right now."
+    if len(parts) == 1:
+        joined = parts[0]
+    elif len(parts) == 2:
+        joined = f"{parts[0]} and {parts[1]}"
+    else:
+        joined = f"{', '.join(parts[:-1])}, and {parts[-1]}"
+    return f"Focus this project on {joined}."
 
 
 def _delegations_quiet(now):

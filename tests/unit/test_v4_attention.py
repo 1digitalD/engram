@@ -13,6 +13,10 @@ def test_today_attention_count_dedupes_across_buckets():
         "follow_ups": [],
         "blocked_tasks": [{"id": "blocked-1"}],
         "waiting_tasks": [{"id": "waiting-1"}],
+        "dependency_interventions": [
+            {"entity": shared},
+            {"entity": {"id": "blocker-1"}},
+        ],
         "recent_notes": [
             {"id": "note-1", "ai": {"intent": "blocker"}},
             {"id": "note-2", "ai": {"intent": "fyi"}},
@@ -21,8 +25,9 @@ def test_today_attention_count_dedupes_across_buckets():
     }
 
     # shared-1 (deduped), due-1, blocked-1, waiting-1, note-1 (high-signal),
-    # unscheduled-1 = 6. note-2 ("fyi" intent) is not high-signal.
-    assert today_attention_count(payload) == 6
+    # blocker-1 (from dependency interventions), unscheduled-1 = 7.
+    # note-2 ("fyi" intent) is not high-signal.
+    assert today_attention_count(payload) == 7
 
 
 def test_today_attention_count_handles_missing_buckets():

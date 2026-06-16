@@ -873,6 +873,8 @@ function ProjectWorkspacePanel({ detail }) {
   const people = sectionItems(detail, 'people');
   const resources = sectionItems(detail, 'resources');
   const areaLinks = sectionItems(detail, 'area');
+  const projectPulse = detail?.project_pulse || { headline: '', summary: {}, focus_items: [] };
+  const dependencyWatch = detail?.dependency_watch || { headline: '', summary: {}, focus_items: [] };
   const nextTask = openTasks.find((item) => ['open', 'in_progress'].includes(item.entity.status)) || openTasks[0] || null;
   const blockedOpenTasks = openTasks.filter((item) => ['blocked', 'waiting'].includes(item.entity.status));
   const allOpenTasksBlocked = openTasks.length > 0 && blockedOpenTasks.length === openTasks.length;
@@ -919,6 +921,41 @@ function ProjectWorkspacePanel({ detail }) {
     >
       <div className={styles.workspaceGrid}>
         <section className={styles.workspaceCard}>
+          <h3>Project pulse</h3>
+          <p className={styles.mutedMeta}>{projectPulse.headline || 'No obvious delivery risk right now.'}</p>
+          <div className={styles.workspaceCoverage}>
+            <span className={styles.metaStaticChip}>{projectPulse.summary?.open_tasks || 0} open tasks</span>
+            <span className={styles.metaStaticChip}>{projectPulse.summary?.stuck_tasks || 0} stuck</span>
+            <span className={styles.metaStaticChip}>{projectPulse.summary?.overdue_tasks || 0} overdue</span>
+            <span className={styles.metaStaticChip}>{projectPulse.summary?.quiet_tasks || 0} quiet</span>
+          </div>
+          {projectPulse.focus_items?.length > 0 ? (
+            <ul className={styles.eventList}>
+              {projectPulse.focus_items.map((item) => (
+                <li key={`${item.kind}-${item.entity.id}`} className={styles.eventItem}>
+                  <Link to={pathForEntity(item.entity)} className={styles.workspaceLinkCard}>
+                    <strong>{item.entity.title || 'Untitled task'}</strong>
+                    <span className={styles.metaRow}>
+                      <span className={styles.statusPill}>{item.entity.status}</span>
+                      {item.entity.properties?.priority ? <span className={styles.priorityPill}>Priority {item.entity.properties.priority}</span> : null}
+                    </span>
+                  </Link>
+                  <p className={styles.mutedMeta}>
+                    {item.label}
+                    {item.last_heard_at ? ` · Last heard ${formatDateTime(item.last_heard_at)}` : ''}
+                  </p>
+                  {item.last_heard_preview ? <p className={styles.mutedMeta}>{item.last_heard_preview}</p> : null}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className={styles.muted}>No obvious delivery risk right now.</p>
+          )}
+        </section>
+
+        <DependencyWatchCard watch={dependencyWatch} />
+
+        <section className={styles.workspaceCard}>
           <h3>Next step</h3>
           {nextTask ? (
             <Link to={pathForEntity(nextTask.entity)} className={styles.workspaceLinkCard}>
@@ -957,6 +994,47 @@ function ProjectWorkspacePanel({ detail }) {
         </section>
       </div>
     </CollapsibleSection>
+  );
+}
+
+function DependencyWatchCard({ watch }) {
+  const dependencyWatch = watch || { headline: '', summary: {}, focus_items: [] };
+
+  return (
+    <section className={styles.workspaceCard}>
+      <h3>Dependency watch</h3>
+      <p className={styles.mutedMeta}>{dependencyWatch.headline || 'No active blockers or dependency chains right now.'}</p>
+      <div className={styles.workspaceCoverage}>
+        <span className={styles.metaStaticChip}>{dependencyWatch.summary?.blocked_tasks || 0} blocked</span>
+        <span className={styles.metaStaticChip}>{dependencyWatch.summary?.external_blockers || 0} external</span>
+        <span className={styles.metaStaticChip}>{dependencyWatch.summary?.blocking_tasks || 0} blocking others</span>
+      </div>
+      {dependencyWatch.focus_items?.length > 0 ? (
+        <ul className={styles.eventList}>
+          {dependencyWatch.focus_items.map((item) => (
+            <li key={`${item.kind}-${item.entity.id}-${item.blocker?.id || item.blocked_count || '0'}`} className={styles.eventItem}>
+              <Link to={pathForEntity(item.entity)} className={styles.workspaceLinkCard}>
+                <strong>{item.entity.title || 'Untitled task'}</strong>
+                <span className={styles.metaRow}>
+                  <span className={styles.statusPill}>{item.entity.status}</span>
+                </span>
+              </Link>
+              <p className={styles.mutedMeta}>{item.label}</p>
+              {item.blocker ? (
+                <Link to={pathForEntity(item.blocker)} className={styles.workspaceLinkCard}>
+                  <strong>{item.blocker.title || 'Untitled task'}</strong>
+                  <span className={styles.mutedMeta}>Open blocker</span>
+                </Link>
+              ) : null}
+              {item.blocked_preview ? <p className={styles.mutedMeta}>First impacted: {item.blocked_preview}</p> : null}
+              {item.last_heard_preview ? <p className={styles.mutedMeta}>{item.last_heard_preview}</p> : null}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className={styles.muted}>No active blockers or dependency chains right now.</p>
+      )}
+    </section>
   );
 }
 
@@ -1192,6 +1270,10 @@ function PersonWorkspacePanel({ entity, detail }) {
   const resources = sectionItems(detail, 'resources');
   const relatedPeople = sectionItems(detail, 'related_people');
   const currentLoad = detail?.current_load || [];
+  const pulse = detail?.pulse || { headline: '', summary: {}, focus_items: [] };
+  const pulseSummary = pulse.summary || {};
+  const dependencyWatch = detail?.dependency_watch || { headline: '', summary: {}, focus_items: [] };
+  const meetingPrep = detail?.meeting_prep || { headline: '', counts: {}, agenda_items: [], recent_notes: [] };
 
   const openAssignedTasks = assignedTasks.filter((item) => ['open', 'in_progress', 'waiting', 'blocked'].includes(item.entity.status));
   const blockedAssignedTasks = openAssignedTasks.filter((item) => ['waiting', 'blocked'].includes(item.entity.status));
@@ -1234,6 +1316,81 @@ function PersonWorkspacePanel({ entity, detail }) {
     >
       <div className={styles.workspaceGrid}>
         <section className={styles.workspaceCard}>
+          <h3>1:1 pulse</h3>
+          <p className={styles.mutedMeta}>{pulse.headline || 'No obvious follow-up risk right now.'}</p>
+          <div className={styles.workspaceCoverage}>
+            <span className={styles.metaStaticChip}>{pulseSummary.open_tasks || 0} open tasks</span>
+            <span className={styles.metaStaticChip}>{pulseSummary.stuck_tasks || 0} stuck</span>
+            <span className={styles.metaStaticChip}>{pulseSummary.overdue_follow_ups || 0} overdue follow-ups</span>
+            <span className={styles.metaStaticChip}>{pulseSummary.quiet_tasks || 0} quiet</span>
+          </div>
+          {pulse.focus_items?.length > 0 ? (
+            <ul className={styles.eventList}>
+              {pulse.focus_items.map((item) => (
+                <li key={`${item.kind}-${item.entity.id}`} className={styles.eventItem}>
+                  <Link to={pathForEntity(item.entity)} className={styles.workspaceLinkCard}>
+                    <strong>{item.entity.title || 'Untitled task'}</strong>
+                    <span className={styles.metaRow}>
+                      <span className={styles.statusPill}>{item.entity.status}</span>
+                      {item.entity.properties?.priority ? <span className={styles.priorityPill}>Priority {item.entity.properties.priority}</span> : null}
+                    </span>
+                  </Link>
+                  <p className={styles.mutedMeta}>
+                    {item.label}
+                    {item.last_heard_at ? ` · Last heard ${formatDateTime(item.last_heard_at)}` : ''}
+                  </p>
+                  {item.last_heard_preview ? <p className={styles.mutedMeta}>{item.last_heard_preview}</p> : null}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className={styles.muted}>No obvious follow-up risk right now.</p>
+          )}
+        </section>
+
+        <section className={styles.workspaceCard}>
+          <h3>Meeting prep</h3>
+          <p className={styles.mutedMeta}>{meetingPrep.headline || 'No prep notes yet.'}</p>
+          <div className={styles.workspaceCoverage}>
+            <span className={styles.metaStaticChip}>{meetingPrep.counts?.agenda_items || 0} agenda topics</span>
+            <span className={styles.metaStaticChip}>{meetingPrep.counts?.recent_notes || 0} recent notes</span>
+          </div>
+          {meetingPrep.agenda_items?.length > 0 ? (
+            <ul className={styles.eventList}>
+              {meetingPrep.agenda_items.map((item) => (
+                <li key={`${item.kind}-${item.entity.id}`} className={styles.eventItem}>
+                  <Link to={pathForEntity(item.entity)} className={styles.workspaceLinkCard}>
+                    <strong>{item.title}</strong>
+                    <span className={styles.metaRow}>
+                      <span className={styles.statusPill}>{item.entity.status}</span>
+                      {item.entity.properties?.priority ? <span className={styles.priorityPill}>Priority {item.entity.properties.priority}</span> : null}
+                    </span>
+                  </Link>
+                  <p className={styles.mutedMeta}>{item.reason}</p>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className={styles.muted}>No agenda topics surfaced yet.</p>
+          )}
+          {meetingPrep.recent_notes?.length > 0 ? (
+            <ul className={styles.eventList}>
+              {meetingPrep.recent_notes.map((note) => (
+                <li key={note.id} className={styles.eventItem}>
+                  <Link to={pathForEntity(note)} className={styles.workspaceLinkCard}>
+                    <strong>{note.title || 'Untitled note'}</strong>
+                  </Link>
+                  <p className={styles.mutedMeta}>
+                    {note.updated_at ? `Updated ${formatDateTime(note.updated_at)}` : 'Recent note'}
+                    {note.preview ? ` — ${note.preview}` : ''}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </section>
+
+        <section className={styles.workspaceCard}>
           <h3>Current load</h3>
           {currentLoad.length > 0 ? (
             <ul className={styles.eventList}>
@@ -1258,6 +1415,8 @@ function PersonWorkspacePanel({ entity, detail }) {
             <p className={styles.muted}>No open assigned task is linked right now.</p>
           )}
         </section>
+
+        <DependencyWatchCard watch={dependencyWatch} />
 
         <section className={styles.workspaceCard}>
           <h3>Coverage</h3>

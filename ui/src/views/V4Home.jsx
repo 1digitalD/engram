@@ -94,6 +94,41 @@ function TrustStrip({ trust }) {
   );
 }
 
+function CoordinationRadar({ radar }) {
+  const people = radar?.people || [];
+  const projects = radar?.projects || [];
+  if (people.length === 0 && projects.length === 0) return null;
+
+  return (
+    <section className={styles.radarPanel} aria-label="Coordination radar">
+      <div>
+        <p className={styles.eyebrow}>Active focus</p>
+        <h2 className={styles.radarTitle}>Coordination radar</h2>
+      </div>
+      <div className={styles.radarGrid}>
+        {people.map((item) => (
+          <article key={`${item.entity_type}:${item.entity_id}`} className={styles.radarCard}>
+            <span className={styles.radarLabel}>1:1</span>
+            <Link to={entityPath(item)} className={styles.radarLink}>
+              {item.title || 'Untitled'}
+            </Link>
+            <p className={styles.radarHeadline}>{item.headline}</p>
+          </article>
+        ))}
+        {projects.map((item) => (
+          <article key={`${item.entity_type}:${item.entity_id}`} className={styles.radarCard}>
+            <span className={styles.radarLabel}>Project</span>
+            <Link to={entityPath(item)} className={styles.radarLink}>
+              {item.title || 'Untitled'}
+            </Link>
+            <p className={styles.radarHeadline}>{item.headline}</p>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export default function V4Home() {
   const [brief, setBrief] = useState(null);
   const [trust, setTrust] = useState(null);
@@ -131,6 +166,7 @@ export default function V4Home() {
       {error && <p className={styles.error}>{error}</p>}
       <BriefPanel brief={brief} refreshing={refreshing} onRefresh={() => load({ force: true })} />
       <TrustStrip trust={trust} />
+      <CoordinationRadar radar={summary?.coordination_radar} />
       {summary && (
         <div className={styles.shortcutGrid}>
           <Link to="/inbox" className={styles.shortcutCard}>

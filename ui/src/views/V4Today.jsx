@@ -229,6 +229,38 @@ function DelegationQuietRow({ entity, fromState }) {
   );
 }
 
+function DependencyInterventionRow({ item, fromState }) {
+  const entity = item.entity;
+  if (!entity) return null;
+
+  return (
+    <li className={styles.row}>
+      <Link to={entityPath(entity)} state={fromState} className={styles.rowLink}>
+        <span className={styles.titleRow}>
+          <TypeGlyph type={entity.type} />
+          <strong>{entity.title || 'Untitled'}</strong>
+        </span>
+      </Link>
+      <div className={styles.metaRow}>
+        <span className={styles.statusPill}>{entity.status}</span>
+        <span className={styles.reasonPill}>{item.label}</span>
+      </div>
+      {item.blocker ? (
+        <div className={styles.metaRow}>
+          <Link to={entityPath(item.blocker)} state={fromState} className={styles.projectChip}>
+            ▣ {item.blocker.title}
+          </Link>
+        </div>
+      ) : item.blocked_preview ? (
+        <p className={styles.mutedMeta}>First impacted: {item.blocked_preview}</p>
+      ) : null}
+      {item.last_heard_preview ? (
+        <p className={styles.mutedMeta}>{item.last_heard_preview}</p>
+      ) : null}
+    </li>
+  );
+}
+
 function StaleProjectRow({ entity, fromState, archival }) {
   return (
     <li className={styles.row}>
@@ -330,6 +362,7 @@ export default function V4Today() {
   const suggestedArchival = today.suggested_archival || [];
   const recentNotes = today.recent_notes || [];
   const delegationsQuiet = today.delegations_quiet || [];
+  const dependencyInterventions = today.dependency_interventions || [];
 
   const totalActionable = getTodayAttentionCount(today);
   const focusNow = getTodayFocusItems(today, 6);
@@ -442,6 +475,23 @@ export default function V4Today() {
           <ul className={styles.list}>
             {delegationsQuiet.map((entity) => (
               <DelegationQuietRow key={entity.id} entity={entity} fromState={fromState} />
+            ))}
+          </ul>
+        </section>
+      )}
+      {dependencyInterventions.length > 0 && (
+        <section className={`${styles.panel} ${styles.panel_focus}`}>
+          <header className={styles.panelHeader}>
+            <h2>Dependency interventions</h2>
+            <span className={styles.count}>{dependencyInterventions.length}</span>
+          </header>
+          <ul className={styles.list}>
+            {dependencyInterventions.map((item) => (
+              <DependencyInterventionRow
+                key={`${item.kind}-${item.entity?.id || 'unknown'}-${item.blocker?.id || item.blocked_count || '0'}`}
+                item={item}
+                fromState={fromState}
+              />
             ))}
           </ul>
         </section>

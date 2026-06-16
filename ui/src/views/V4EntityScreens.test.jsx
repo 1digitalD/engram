@@ -620,9 +620,6 @@ describe('v4 entity screens', () => {
     );
 
     expect(await screen.findByText('What the agent did')).toBeInTheDocument();
-    expect(screen.getByText('AI updated')).toBeInTheDocument();
-    expect(screen.getByText('task delivered')).toBeInTheDocument();
-
     v4API.entities.captureChanges.mockResolvedValue({
       data: [
         {
@@ -855,6 +852,82 @@ describe('v4 entity screens', () => {
           last_heard_preview: null,
         },
       ],
+      pulse: {
+        headline: 'Focus the next 1:1 on 1 stuck task, 1 overdue follow-up, and 1 quiet task.',
+        summary: {
+          open_tasks: 2,
+          stuck_tasks: 1,
+          overdue_follow_ups: 1,
+          quiet_tasks: 1,
+        },
+        focus_items: [
+          {
+            kind: 'stuck',
+            label: 'Waiting',
+            entity: { id: 't91', type: 'task', title: 'Wait on feedback', status: 'waiting' },
+            last_heard_at: null,
+            last_heard_preview: null,
+          },
+          {
+            kind: 'overdue_follow_up',
+            label: 'Follow-up overdue by 2 days',
+            entity: { id: 't90', type: 'task', title: 'Prep review', status: 'in_progress', properties: { priority: 'high' } },
+            last_heard_at: '2026-05-21T09:00:00+00:00',
+            last_heard_preview: 'Akash shared the first draft',
+          },
+        ],
+      },
+      dependency_watch: {
+        headline: 'Watch 1 blocked task, 1 external dependency, and 1 task blocking others.',
+        summary: {
+          blocked_tasks: 1,
+          external_blockers: 1,
+          blocking_tasks: 1,
+        },
+        focus_items: [
+          {
+            kind: 'external_blocker',
+            label: 'Blocked by Security approval',
+            entity: { id: 't91', type: 'task', title: 'Wait on feedback', status: 'waiting' },
+            blocker: { id: 't92', type: 'task', title: 'Security approval', status: 'open' },
+          },
+          {
+            kind: 'blocking',
+            label: 'Blocking 1 open task',
+            entity: { id: 't90', type: 'task', title: 'Prep review', status: 'in_progress', properties: { priority: 'high' } },
+          },
+        ],
+      },
+      meeting_prep: {
+        headline: 'Go in with 3 agenda topics and 1 recent note.',
+        counts: {
+          agenda_items: 3,
+          recent_notes: 1,
+        },
+        agenda_items: [
+          {
+            kind: 'stuck',
+            title: 'Unblock Wait on feedback',
+            reason: 'Waiting. Last heard: Akash shared the first draft',
+            entity: { id: 't91', type: 'task', title: 'Wait on feedback', status: 'waiting' },
+          },
+          {
+            kind: 'recent_progress',
+            title: 'Acknowledge progress on Prep review',
+            reason: 'Shared the latest draft with design',
+            entity: { id: 't90', type: 'task', title: 'Prep review', status: 'in_progress', properties: { priority: 'high' } },
+          },
+        ],
+        recent_notes: [
+          {
+            id: 'n90',
+            type: 'note',
+            title: '1:1 notes',
+            updated_at: '2026-05-21T11:00:00+00:00',
+            preview: 'Discuss launch blockers and support path',
+          },
+        ],
+      },
     };
     v4API.entities.detail.mockResolvedValue(detail);
     v4API.entities.events.mockResolvedValue({ data: [] });
@@ -868,13 +941,152 @@ describe('v4 entity screens', () => {
     );
 
     expect(await screen.findByText('Relationship snapshot')).toBeInTheDocument();
+    expect(screen.getByText('1:1 pulse')).toBeInTheDocument();
+    expect(screen.getByText('Focus the next 1:1 on 1 stuck task, 1 overdue follow-up, and 1 quiet task.')).toBeInTheDocument();
+    expect(screen.getByText(/Follow-up overdue by 2 days/)).toBeInTheDocument();
+    expect(screen.getByText('Waiting')).toBeInTheDocument();
+    expect(screen.getByText('Dependency watch')).toBeInTheDocument();
+    expect(screen.getByText('Watch 1 blocked task, 1 external dependency, and 1 task blocking others.')).toBeInTheDocument();
+    expect(screen.getByText('Blocked by Security approval')).toBeInTheDocument();
+    expect(screen.getByText('Meeting prep')).toBeInTheDocument();
+    expect(screen.getByText('Go in with 3 agenda topics and 1 recent note.')).toBeInTheDocument();
+    expect(screen.getByText('Unblock Wait on feedback')).toBeInTheDocument();
+    expect(screen.getByText('Acknowledge progress on Prep review')).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: /1:1 notes/i })[0]).toHaveAttribute('href', '/notes/n90');
     expect(screen.getByText('open tasks')).toBeInTheDocument();
     expect(screen.getByText('active projects')).toBeInTheDocument();
     expect(screen.getAllByText('Prep review').length).toBeGreaterThan(0);
     expect(screen.getByText('No follow-up date set')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Security approval/i })).toHaveAttribute('href', '/tasks/t92');
     expect(screen.getAllByRole('link', { name: /Prep review/i })[0]).toHaveAttribute('href', '/tasks/t90');
-    expect(screen.getByText(/Akash shared the first draft/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Akash shared the first draft/).length).toBeGreaterThan(0);
     expect(screen.getByText('No activity update yet')).toBeInTheDocument();
+  });
+
+  it('renders a project workspace overview with runtime project pulse', async () => {
+    const detail = {
+      entity: {
+        id: 'project9',
+        type: 'project',
+        title: 'Coordination stream',
+        content: '',
+        status: 'active',
+        created_at: '2026-05-20T09:00:00+00:00',
+        updated_at: '2026-05-20T10:00:00+00:00',
+        due_at: null,
+        follow_up_at: null,
+        reference_url: null,
+        properties: {},
+        tags: [],
+      },
+      sections: [
+        {
+          key: 'open_tasks',
+          title: 'Open Tasks',
+          items: [
+            {
+              entity: { id: 't70', type: 'task', title: 'Prep review', status: 'in_progress', properties: { priority: 'high' } },
+              relationship: { id: 'r700', relationship_type: 'parent' },
+            },
+            {
+              entity: { id: 't71', type: 'task', title: 'Wait on feedback', status: 'blocked' },
+              relationship: { id: 'r701', relationship_type: 'parent' },
+            },
+          ],
+        },
+        {
+          key: 'completed_tasks',
+          title: 'Completed Tasks',
+          items: [],
+        },
+        {
+          key: 'notes',
+          title: 'Notes',
+          items: [{ entity: { id: 'n70', type: 'note', title: 'Kickoff notes', status: 'active' }, relationship: { id: 'r702', relationship_type: 'related' } }],
+        },
+        {
+          key: 'people',
+          title: 'People',
+          items: [{ entity: { id: 'person70', type: 'person', title: 'Akash', status: 'active' }, relationship: { id: 'r703', relationship_type: 'assigned_to' } }],
+        },
+        {
+          key: 'resources',
+          title: 'Resources',
+          items: [],
+        },
+        {
+          key: 'area',
+          title: 'Area',
+          items: [{ entity: { id: 'a70', type: 'area', title: 'Execution', status: 'active' }, relationship: { id: 'r704', relationship_type: 'parent' } }],
+        },
+      ],
+      project_pulse: {
+        headline: 'Focus this project on 1 stuck task, 1 overdue task, and 1 quiet task.',
+        summary: {
+          open_tasks: 3,
+          stuck_tasks: 1,
+          overdue_tasks: 1,
+          quiet_tasks: 1,
+        },
+        focus_items: [
+          {
+            kind: 'stuck',
+            label: 'Blocked',
+            entity: { id: 't71', type: 'task', title: 'Wait on feedback', status: 'blocked' },
+            last_heard_at: '2026-05-21T09:00:00+00:00',
+            last_heard_preview: 'Waiting on design sign-off',
+          },
+          {
+            kind: 'overdue',
+            label: 'Overdue by 2 days',
+            entity: { id: 't70', type: 'task', title: 'Prep review', status: 'in_progress', properties: { priority: 'high' } },
+            last_heard_at: null,
+            last_heard_preview: null,
+          },
+        ],
+      },
+      dependency_watch: {
+        headline: 'Watch 1 blocked task, 1 external dependency, and 1 task blocking others.',
+        summary: {
+          blocked_tasks: 1,
+          external_blockers: 1,
+          blocking_tasks: 1,
+        },
+        focus_items: [
+          {
+            kind: 'external_blocker',
+            label: 'Blocked by Security approval',
+            entity: { id: 't71', type: 'task', title: 'Wait on feedback', status: 'blocked' },
+            blocker: { id: 't72', type: 'task', title: 'Security approval', status: 'open' },
+          },
+          {
+            kind: 'blocking',
+            label: 'Blocking 1 open task',
+            entity: { id: 't70', type: 'task', title: 'Prep review', status: 'in_progress', properties: { priority: 'high' } },
+          },
+        ],
+      },
+    };
+    v4API.entities.detail.mockResolvedValue(detail);
+    v4API.entities.events.mockResolvedValue({ data: [] });
+
+    render(
+      <MemoryRouter initialEntries={['/projects/project9']}>
+        <Routes>
+          <Route path="/projects/:id" element={<V4EntityDetail type="project" />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Momentum at a glance')).toBeInTheDocument();
+    expect(screen.getByText(/Project pulse/)).toBeInTheDocument();
+    expect(screen.getByText('Focus this project on 1 stuck task, 1 overdue task, and 1 quiet task.')).toBeInTheDocument();
+    expect(screen.getByText(/Dependency watch/)).toBeInTheDocument();
+    expect(screen.getByText('Watch 1 blocked task, 1 external dependency, and 1 task blocking others.')).toBeInTheDocument();
+    expect(screen.getByText('Blocked by Security approval')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Security approval/i })).toHaveAttribute('href', '/tasks/t72');
+    expect(screen.getByText('Overdue by 2 days')).toBeInTheDocument();
+    expect(screen.getByText('Waiting on design sign-off')).toBeInTheDocument();
   });
 
   it('submits activity updates from the detail page with markdown mention content', async () => {

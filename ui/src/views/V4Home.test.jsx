@@ -51,7 +51,32 @@ const BRIEF = {
 describe('V4Home', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    v4API.summary.mockResolvedValue({ inbox_count: 1, today_count: 4, reviewed_today: false, stale_projects_count: 2 });
+    v4API.summary.mockResolvedValue({
+      inbox_count: 1,
+      today_count: 4,
+      reviewed_today: false,
+      stale_projects_count: 2,
+      coordination_radar: {
+        people: [
+          {
+            entity_id: 'person1',
+            entity_type: 'person',
+            title: 'Akash',
+            headline: 'Focus the next 1:1 on 1 stuck task.',
+            counts: { open_tasks: 2, stuck_tasks: 1, overdue_follow_ups: 0, quiet_tasks: 0 },
+          },
+        ],
+        projects: [
+          {
+            entity_id: 'project1',
+            entity_type: 'project',
+            title: 'Launch readiness',
+            headline: 'Focus this project on 1 overdue task.',
+            counts: { open_tasks: 3, stuck_tasks: 0, overdue_tasks: 1, quiet_tasks: 0 },
+          },
+        ],
+      },
+    });
     v4API.brief.mockResolvedValue({ brief: BRIEF, from_cache: true });
     v4API.metrics.trust.mockResolvedValue(TRUST);
   });
@@ -82,6 +107,20 @@ describe('V4Home', () => {
     expect(screen.getByText(/suggestions accepted/)).toBeInTheDocument();
     expect(screen.getByText('25%')).toBeInTheDocument();
     expect(screen.getByText('12%')).toBeInTheDocument();
+  });
+
+  it('renders a coordination radar from /summary', async () => {
+    render(
+      <MemoryRouter>
+        <V4Home />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Coordination radar')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Akash' })).toHaveAttribute('href', '/people/person1');
+    expect(screen.getByText('Focus the next 1:1 on 1 stuck task.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Launch readiness' })).toHaveAttribute('href', '/projects/project1');
+    expect(screen.getByText('Focus this project on 1 overdue task.')).toBeInTheDocument();
   });
 
   it('forces a brief regeneration from the refresh button', async () => {

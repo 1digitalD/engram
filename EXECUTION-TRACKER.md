@@ -2,7 +2,7 @@
 
 This file is the fresh-agent handoff for the current v4 baseline. Use it to reconstruct context quickly without reading stale task logs first.
 
-Last updated: 2026-06-07
+Last updated: 2026-06-16
 Branch: `main`
 Runtime baseline: `/api/v4` only, fresh Postgres + pgvector schema, write-enabled MCP aligned with the active API.
 
@@ -360,6 +360,24 @@ Non-authoritative historical artifacts:
 
 **V4 World Model plan (Phases A-F) complete.** Remaining backlog is all in
 "Explicitly deferred" in `docs/V4_WORLD_MODEL_PLAN.md`.
+
+## Post-plan proactive runtime slices
+
+- Runtime coordination/dependency visibility (2026-06-16) implementation status:
+  - `GET /api/v4/summary` now returns `coordination_radar`, a runtime-only
+    top-of-home artifact derived from existing person/project task state and
+    activity-update recency; Home renders a new "Coordination radar" panel
+  - `GET /api/v4/entities/<id>/detail` now returns `dependency_watch` for
+    both `person` and `project` entities, surfacing blocked work, blockers,
+    and tasks blocking downstream work without persisting new inference state
+  - `GET /api/v4/today` now returns `dependency_interventions`, giving Today a
+    cross-cutting intervention lane for blocker/dependency work; shared
+    backend/frontend Today-count logic now includes these intervention
+    entities so counts stay aligned with the screen
+  - red-first tests added across integration/unit/UI coverage; full backend
+    integration suite green: 168 passed; full UI suite green: 59 passed;
+    frontend build green
+  - no schema changes or migrations required
 
 ## Validation Commands
 

@@ -38,6 +38,21 @@ describe('V4Today', () => {
         status: 'blocked',
         attention: { score: 56, level: 'high', reasons: [{ key: 'status:blocked', label: 'blocked' }] },
       }],
+      dependency_interventions: [
+        {
+          kind: 'blocked_by',
+          label: 'Blocked by Security approval',
+          entity: { id: 'b1', type: 'task', title: 'Blocked work', status: 'blocked' },
+          blocker: { id: 'tdep1', type: 'task', title: 'Security approval', status: 'open' },
+        },
+        {
+          kind: 'blocking',
+          label: 'Blocking 1 open task',
+          entity: { id: 'b2', type: 'task', title: 'Blocking workstream', status: 'open' },
+          blocked_count: 1,
+          blocked_preview: 'Launch checklist',
+        },
+      ],
       waiting_tasks: [{ id: 'w1', type: 'task', title: 'Waiting work', status: 'waiting' }],
       unscheduled_attention_tasks: [{
         id: 'ua1',
@@ -79,7 +94,7 @@ describe('V4Today', () => {
     expect((await screen.findAllByText('Overdue task')).length).toBeGreaterThan(0);
     expect(screen.getAllByText('Overdue inherited priority task').length).toBeGreaterThan(0);
     expect(screen.getAllByText('~urgent').length).toBeGreaterThan(0);
-    expect(screen.getByText('9 items need your attention today.')).toBeInTheDocument();
+    expect(screen.getByText('10 items need your attention today.')).toBeInTheDocument();
     expect(screen.getByText('Focus now')).toBeInTheDocument();
     expect(screen.getAllByText('overdue').length).toBeGreaterThan(0);
     expect(screen.getAllByText('due today').length).toBeGreaterThan(0);
@@ -89,8 +104,12 @@ describe('V4Today', () => {
     expect(screen.getAllByText('Captured blocker note').length).toBeGreaterThan(0);
     expect(screen.getAllByText('captured blocker').length).toBeGreaterThan(0);
     expect(screen.getByText('Upcoming followup')).toBeInTheDocument();
-    expect(screen.getByText('Blocked work')).toBeInTheDocument();
+    expect(screen.getAllByText('Blocked work').length).toBeGreaterThan(0);
     expect(screen.getByText('high · blocked')).toBeInTheDocument();
+    expect(screen.getByText('Dependency interventions')).toBeInTheDocument();
+    expect(screen.getByText('Blocked by Security approval')).toBeInTheDocument();
+    expect(screen.getByText('Blocking workstream')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Security approval/i })).toHaveAttribute('href', '/tasks/tdep1');
     expect(screen.getByText('Waiting work')).toBeInTheDocument();
     expect(screen.getAllByText('Stale undated task').length).toBeGreaterThan(0);
     expect(screen.getByText('Your actions')).toBeInTheDocument();
