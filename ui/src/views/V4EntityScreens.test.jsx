@@ -821,6 +821,10 @@ describe('v4 entity screens', () => {
               entity: { id: 't91', type: 'task', title: 'Wait on feedback', status: 'waiting' },
               relationship: { id: 'r901', relationship_type: 'assigned_to' },
             },
+            {
+              entity: { id: 't93', type: 'task', title: 'Prepare brief', status: 'open' },
+              relationship: { id: 'r904', relationship_type: 'assigned_to' },
+            },
           ],
         },
         {
@@ -851,11 +855,16 @@ describe('v4 entity screens', () => {
           last_heard_at: null,
           last_heard_preview: null,
         },
+        {
+          task: { id: 't93', type: 'task', title: 'Prepare brief', status: 'open' },
+          last_heard_at: null,
+          last_heard_preview: null,
+        },
       ],
       pulse: {
         headline: 'Focus the next 1:1 on 1 stuck task, 1 overdue follow-up, and 1 quiet task.',
         summary: {
-          open_tasks: 2,
+          open_tasks: 3,
           stuck_tasks: 1,
           overdue_follow_ups: 1,
           quiet_tasks: 1,
@@ -917,6 +926,12 @@ describe('v4 entity screens', () => {
             reason: 'Shared the latest draft with design',
             entity: { id: 't90', type: 'task', title: 'Prep review', status: 'in_progress', properties: { priority: 'high' } },
           },
+          {
+            kind: 'prep',
+            title: 'Review project alignment with Coordination stream',
+            reason: 'Confirm scope and sequencing for the next milestone',
+            entity: { id: 'p90', type: 'project', title: 'Coordination stream', status: 'active' },
+          },
         ],
         recent_notes: [
           {
@@ -950,16 +965,16 @@ describe('v4 entity screens', () => {
     expect(screen.getByText('Blocked by Security approval')).toBeInTheDocument();
     expect(screen.getByText('Meeting prep')).toBeInTheDocument();
     expect(screen.getByText('Go in with 3 agenda topics and 1 recent note.')).toBeInTheDocument();
-    expect(screen.getByText('Unblock Wait on feedback')).toBeInTheDocument();
-    expect(screen.getByText('Acknowledge progress on Prep review')).toBeInTheDocument();
+    expect(screen.queryByText('Unblock Wait on feedback')).not.toBeInTheDocument();
+    expect(screen.queryByText('Acknowledge progress on Prep review')).not.toBeInTheDocument();
+    expect(screen.getByText('Review project alignment with Coordination stream')).toBeInTheDocument();
     expect(screen.getAllByRole('link', { name: /1:1 notes/i })[0]).toHaveAttribute('href', '/notes/n90');
     expect(screen.getByText('open tasks')).toBeInTheDocument();
     expect(screen.getByText('active projects')).toBeInTheDocument();
     expect(screen.getAllByText('Prep review').length).toBeGreaterThan(0);
     expect(screen.getByText('No follow-up date set')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Security approval/i })).toHaveAttribute('href', '/tasks/t92');
-    expect(screen.getAllByRole('link', { name: /Prep review/i })[0]).toHaveAttribute('href', '/tasks/t90');
-    expect(screen.getAllByText(/Akash shared the first draft/).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('link', { name: /Prepare brief/i })[0]).toHaveAttribute('href', '/tasks/t93');
     expect(screen.getByText('No activity update yet')).toBeInTheDocument();
   });
 
@@ -1087,6 +1102,7 @@ describe('v4 entity screens', () => {
     expect(screen.getByRole('link', { name: /Security approval/i })).toHaveAttribute('href', '/tasks/t72');
     expect(screen.getByText('Overdue by 2 days')).toBeInTheDocument();
     expect(screen.getByText('Waiting on design sign-off')).toBeInTheDocument();
+    expect(screen.queryByText('Next step')).not.toBeInTheDocument();
   });
 
   it('submits activity updates from the detail page with markdown mention content', async () => {
@@ -1292,6 +1308,7 @@ describe('v4 entity screens', () => {
     expect(within(historyPanel).queryByText(/^Updated$/)).not.toBeInTheDocument();
     expect(screen.getByText('open tasks')).toBeInTheDocument();
     expect(screen.getAllByRole('link', { name: /Ship rollout memo/i })[0]).toHaveAttribute('href', '/tasks/t1');
+    expect(screen.getByText('Next step')).toBeInTheDocument();
     expect(screen.getByText('No review date set')).toBeInTheDocument();
     expect(screen.getByText('No project notes linked')).toBeInTheDocument();
     expect(screen.getAllByText('No area linked').length).toBeGreaterThan(0);

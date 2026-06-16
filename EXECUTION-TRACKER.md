@@ -378,6 +378,19 @@ Non-authoritative historical artifacts:
     integration suite green: 168 passed; full UI suite green: 59 passed;
     frontend build green
   - no schema changes or migrations required
+- Detail page dedupe cleanup (2026-06-16) implementation status:
+  - entity detail workspace cards now avoid repeating the same task rows across
+    `project` and `person` summary surfaces; relationship segments remain the
+    authoritative full/edit lists
+  - `project` detail now suppresses "Next step" when that task is already
+    surfaced in `Project pulse` or `Dependency watch`
+  - `person` detail now dedupes `Meeting prep` and `Current load` against
+    `1:1 pulse` and `Dependency watch`, reducing repeated task rows without
+    removing the full Assigned Tasks segment
+  - repeated AI summary copy was removed from the inspection panel, and
+    `Dependency watch` no longer repeats its empty-state message
+  - focused backend validation green: 20 passed; full UI suite green: 59
+    passed; frontend build green
 
 ## Validation Commands
 
