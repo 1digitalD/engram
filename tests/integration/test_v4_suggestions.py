@@ -222,6 +222,46 @@ def test_accept_create_task_suggestion_applies_assigned_to_person_link(client, a
         assert "suggestion_accept_create" in reasons
 
 
+def test_accept_create_new_entity_suggestion_from_activity_update_links_to_target_entity(client, app):
+    project = client.post("/api/v4/entities", json={"type": "project", "title": "Launch plan"}).get_json()["data"]
+    activity_update = client.post(
+        f"/api/v4/entities/{project['id']}/activity_updates",
+        json={"content": "Need a follow-up task for launch QA."},
+    ).get_json()["data"]
+
+    suggestion_id = _create_suggestion(
+        app,
+        activity_update["id"],
+        "create_task",
+        {
+            "type": "task",
+            "title": "Follow up on launch QA",
+            "content": "Confirm launch QA checklist is complete",
+            "target_entity_id": project["id"],
+            "relationship_type": "derived_from",
+            "evidence": "follow-up task for launch QA",
+        },
+        operation_type="create_new_entity",
+    )
+
+    response = client.post(f"/api/v4/suggestions/{suggestion_id}/accept")
+
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["suggestion"]["status"] == "accepted"
+    assert data["created_entity"]["type"] == "task"
+    assert data["relationship"]["source_entity_id"] == data["created_entity"]["id"]
+    assert data["relationship"]["target_entity_id"] == project["id"]
+    assert data["relationship"]["relationship_type"] == "derived_from"
+
+    with app.app_context():
+        EntityLink.query.filter_by(
+            source_entity_id=data["created_entity"]["id"],
+            target_entity_id=project["id"],
+            relationship_type="derived_from",
+        ).one()
+
+
 def test_accept_link_existing_suggestion_creates_entity_link(client, app):
     note_id = _create_note(app)
     with app.app_context():

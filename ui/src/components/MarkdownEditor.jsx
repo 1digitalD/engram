@@ -12,6 +12,7 @@ export default function MarkdownEditor({
   value = '',
   onChange,
   placeholder,
+  ariaLabel,
   minRows = 4,
   autoFocus = false,
   className,
@@ -42,6 +43,7 @@ export default function MarkdownEditor({
     editorProps: {
       attributes: {
         class: styles.prosemirror,
+        'aria-label': ariaLabel,
         style: `--min-rows: ${minRows}`,
       },
     },

@@ -11,6 +11,10 @@ import styles from './V4Suggestions.module.css';
 
 const ENTITY_TYPES = ['task', 'project', 'area', 'resource', 'person'];
 
+function isCreateSuggestion(operationType) {
+  return operationType === 'create_entity' || operationType === 'create_new_entity';
+}
+
 function formatDateTime(value) {
   if (!value) return '';
   const date = new Date(value);
@@ -118,7 +122,7 @@ function NoteReviewCard({ note, loadedSuggestionCount, onReprocess, onResolve, o
 }
 
 function SuggestionCard({ suggestion, onAccept, onDismiss, onUpdate, onReprocess, onResolveToExisting, busy }) {
-  const isCreate = suggestion.operation_type === 'create_entity';
+  const isCreate = isCreateSuggestion(suggestion.operation_type);
   const nearMatch = isCreate ? suggestion.payload?.near_match : null;
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({

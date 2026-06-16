@@ -11,6 +11,17 @@ vi.mock('../components/MarkdownContent', () => ({
   default: ({ content }) => content || null,
 }));
 
+vi.mock('../components/MarkdownEditor', () => ({
+  default: ({ value = '', onChange, placeholder, ariaLabel }) => (
+    <textarea
+      aria-label={ariaLabel || placeholder || 'Markdown'}
+      value={value}
+      placeholder={placeholder}
+      onChange={(event) => onChange?.(event.target.value)}
+    />
+  ),
+}));
+
 vi.mock('../api/v4Client', () => ({
   v4API: {
     entities: {
@@ -864,6 +875,66 @@ describe('v4 entity screens', () => {
     expect(screen.getAllByRole('link', { name: /Prep review/i })[0]).toHaveAttribute('href', '/tasks/t90');
     expect(screen.getByText(/Akash shared the first draft/)).toBeInTheDocument();
     expect(screen.getByText('No activity update yet')).toBeInTheDocument();
+  });
+
+  it('submits activity updates from the detail page with markdown mention content', async () => {
+    v4API.entities.detail.mockResolvedValue({
+      entity: {
+        id: 'p1',
+        type: 'project',
+        title: 'Memory Lookup',
+        content: '',
+        status: 'active',
+        created_at: '2026-05-20T09:00:00+00:00',
+        updated_at: '2026-05-20T10:00:00+00:00',
+        due_at: null,
+        follow_up_at: null,
+        reference_url: null,
+        properties: {},
+        tags: [],
+      },
+      sections: [],
+    });
+    v4API.activityUpdates.list
+      .mockResolvedValueOnce({ data: [] })
+      .mockResolvedValueOnce({
+        data: [{
+          id: 'n1',
+          type: 'note',
+          content: 'Worked with [Priya](/people/person1) on rollout.',
+          updated_at: '2026-05-20T11:00:00+00:00',
+        }],
+      });
+    v4API.activityUpdates.create.mockResolvedValue({
+      data: {
+        id: 'n1',
+        type: 'note',
+        content: 'Worked with [Priya](/people/person1) on rollout.',
+        updated_at: '2026-05-20T11:00:00+00:00',
+      },
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/projects/p1']}>
+        <Routes>
+          <Route path="/projects/:id" element={<V4EntityDetail type="project" />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Memory Lookup')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Activity update'), {
+      target: { value: 'Worked with [Priya](/people/person1) on rollout.' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Add update/i }));
+
+    await waitFor(() => {
+      expect(v4API.activityUpdates.create).toHaveBeenCalledWith(
+        'p1',
+        'Worked with [Priya](/people/person1) on rollout.',
+      );
+    });
   });
 
   it('renders a resource workspace overview from existing detail sections', async () => {

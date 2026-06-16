@@ -1581,13 +1581,12 @@ function ActivityUpdatesSection({ entityId, className = '' }) {
       meta={<span className={styles.countPill}>{updates.length}</span>}
     >
       <form onSubmit={handleSubmit} className={styles.activityUpdateForm}>
-        <textarea
+        <MarkdownEditor
           value={draft}
-          onChange={(event) => setDraft(event.target.value)}
+          onChange={setDraft}
           placeholder="Add an activity update…"
-          aria-label="Activity update"
-          rows={2}
-          disabled={submitting}
+          ariaLabel="Activity update"
+          minRows={2}
         />
         <button
           className={styles.primaryButton}
@@ -1606,7 +1605,7 @@ function ActivityUpdatesSection({ entityId, className = '' }) {
         <ul className={styles.activityUpdatesList}>
           {updates.map((note) => (
             <li key={note.id} className={styles.activityUpdateItem}>
-              <p className={styles.activityUpdateContent}>{note.content}</p>
+              <MarkdownContent className={styles.activityUpdateContent} content={note.content} />
               <span className={styles.activityUpdateMeta}>
                 {formatDateTime(note.updated_at)}
               </span>

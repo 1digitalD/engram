@@ -1867,7 +1867,7 @@ def update_suggestion(suggestion_id):
         return _error("suggestion not found", 404)
     if suggestion.status != "pending":
         return _error("suggestion is not pending", 409)
-    if suggestion.operation_type != "create_entity":
+    if not _is_create_suggestion_operation(suggestion.operation_type):
         return _error("only create_entity suggestions can be edited")
 
     data = request.get_json(silent=True) or {}
@@ -1900,7 +1900,7 @@ def accept_suggestion(suggestion_id):
         return _accept_link_existing_suggestion(suggestion)
     if suggestion.operation_type == "update_entity":
         return _accept_update_entity_suggestion(suggestion)
-    if suggestion.operation_type != "create_entity":
+    if not _is_create_suggestion_operation(suggestion.operation_type):
         return _error(f"unsupported suggestion operation: {suggestion.operation_type}")
 
     payload = suggestion.payload or {}
@@ -1948,7 +1948,7 @@ def accept_suggestion(suggestion_id):
     _write_event(entity, "created", new_value=entity.to_dict(), actor="agent:v4-review")
     _queue_embed_job(entity.id, "suggestion_accept_create")
 
-    link_source, link_target, relationship_type = _accepted_suggestion_link(source_note, entity)
+    link_source, link_target, relationship_type = _accepted_suggestion_link(source_note, entity, payload)
     link = _create_entity_link(
         link_source,
         link_target,
@@ -2238,7 +2238,7 @@ def resolve_suggestion_to_existing(suggestion_id):
         return _error("suggestion not found", 404)
     if suggestion.status != "pending":
         return _error("suggestion is not pending", 409)
-    if suggestion.operation_type != "create_entity":
+    if not _is_create_suggestion_operation(suggestion.operation_type):
         return _error("only create-entity suggestions can be resolved to an existing entity", 400)
 
     payload = suggestion.payload or {}
@@ -3885,7 +3885,18 @@ def _default_relationship_type(entity_type):
     return "related"
 
 
-def _accepted_suggestion_link(source_note, entity):
+def _is_create_suggestion_operation(operation_type):
+    return operation_type in {"create_entity", "create_new_entity"}
+
+
+def _accepted_suggestion_link(source_note, entity, payload=None):
+    payload = payload or {}
+    target_entity_id = payload.get("target_entity_id")
+    relationship_type = payload.get("relationship_type")
+    if target_entity_id and relationship_type == "derived_from" and entity.type == "task":
+        target = db.session.get(Entity, target_entity_id)
+        if target is not None and target.lifecycle != "deleted" and target.id != entity.id:
+            return entity, target, relationship_type
     if entity.type == "task":
         return entity, source_note, "derived_from"
     if entity.type == "person":
@@ -4053,7 +4064,7 @@ def _expire_stale_suggestion_if_needed(suggestion):
             return _expire_suggestion(suggestion, source_note, "suggestion no longer changes the target")
         return None
 
-    if suggestion.operation_type == "create_entity":
+    if _is_create_suggestion_operation(suggestion.operation_type):
         entity_type = payload.get("type")
         title = _clean_text(payload.get("title"))
         if not entity_type or not title:
@@ -4118,7 +4129,7 @@ def _suggestion_fingerprint(suggestion_type, operation_type, payload):
 
 
 def _normalized_suggestion_payload(operation_type, payload):
-    if operation_type == "create_entity":
+    if _is_create_suggestion_operation(operation_type):
         return {
             "type": _clean_text(payload.get("type")),
             "title": _clean_text(payload.get("title")),
@@ -4127,6 +4138,7 @@ def _normalized_suggestion_payload(operation_type, payload):
             "follow_up_at": _clean_text(payload.get("follow_up_at")),
             "assigned_to": _clean_text(payload.get("assigned_to")),
             "relationship_type": _clean_text(payload.get("relationship_type")),
+            "target_entity_id": _clean_text(payload.get("target_entity_id")),
         }
     if operation_type == "update_entity":
         fields = payload.get("fields") or {}
