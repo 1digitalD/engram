@@ -124,7 +124,7 @@ describe('v4 entity screens', () => {
     expect(await screen.findByRole('link', { name: /Captured note/i })).toHaveAttribute('href', '/notes/n1');
   });
 
-  it('renders area entities on the area list', async () => {
+  it('renders areas in a denser card grid with projects, tasks, and notes chips', async () => {
     let resolveList;
     v4API.entities.list.mockReturnValue(new Promise((resolve) => {
       resolveList = resolve;
@@ -149,12 +149,49 @@ describe('v4 entity screens', () => {
           updated_at: '2026-05-20T10:00:00+00:00',
           properties: {},
           tags: [],
+          linked_counts: { notes: 4, tasks: 6, projects: 2 },
         },
       ],
     });
 
-    expect(await screen.findByRole('link', { name: /Agent Memory/i })).toHaveAttribute('href', '/areas/a1');
+    const link = await screen.findByRole('link', { name: /Agent Memory/i });
+    expect(link).toHaveAttribute('href', '/areas/a1');
+    expect(screen.getByText('2 projects')).toBeInTheDocument();
+    expect(screen.getByText('6 tasks')).toBeInTheDocument();
+    expect(screen.getByText('4 notes')).toBeInTheDocument();
+    expect(link.closest('ul')?.className).toMatch(/compactCards/);
     expect(v4API.entities.list).toHaveBeenCalledWith({ type: 'area', limit: 100, lifecycle: 'active' });
+  });
+
+  it('renders people in a denser card grid with notes, tasks, and projects chips', async () => {
+    v4API.entities.list.mockResolvedValue({
+      data: [
+        {
+          id: 'p1',
+          type: 'person',
+          title: 'Akash',
+          status: 'active',
+          created_at: '2026-05-20T09:00:00+00:00',
+          updated_at: '2026-05-21T10:00:00+00:00',
+          properties: {},
+          tags: [],
+          linked_counts: { notes: 3, tasks: 5, projects: 2 },
+        },
+      ],
+    });
+
+    render(
+      <MemoryRouter>
+        <V4EntityList type="person" />
+      </MemoryRouter>,
+    );
+
+    const link = await screen.findByRole('link', { name: /Akash/i });
+    expect(link).toHaveAttribute('href', '/people/p1');
+    expect(screen.getByText('5 tasks')).toBeInTheDocument();
+    expect(screen.getByText('2 projects')).toBeInTheDocument();
+    expect(screen.getByText('3 notes')).toBeInTheDocument();
+    expect(link.closest('ul')?.className).toMatch(/compactCards/);
   });
 
   it('filters entity lists through status chips', async () => {

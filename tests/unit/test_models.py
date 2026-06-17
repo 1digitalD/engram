@@ -230,6 +230,7 @@ def test_entity_canonical_dto_shape_has_no_legacy_fields():
         "relationship_counts": {"incoming": 2, "outgoing": 5},
         "task_counts": {"open": 0, "total": 0},
         "projects": [],
+        "linked_counts": {},
         "created_at": "2026-05-18T12:00:00+00:00",
         "updated_at": "2026-05-18T12:05:00+00:00",
     }

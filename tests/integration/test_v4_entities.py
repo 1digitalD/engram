@@ -104,6 +104,144 @@ def test_get_and_list_entities(client):
     assert [row["id"] for row in list_response.get_json()["data"]] == [created["id"]]
 
 
+def test_list_people_includes_note_task_project_link_counts(client, app):
+    person = client.post(
+        "/api/v4/entities",
+        json={"type": "person", "title": "Akash"},
+    ).get_json()["data"]
+    note = client.post(
+        "/api/v4/entities",
+        json={"type": "note", "title": "Akash sync note"},
+    ).get_json()["data"]
+    note_wrong_direction = client.post(
+        "/api/v4/entities",
+        json={"type": "note", "title": "Akash related note"},
+    ).get_json()["data"]
+    task = client.post(
+        "/api/v4/entities",
+        json={"type": "task", "title": "Follow up with Akash"},
+    ).get_json()["data"]
+    task_wrong_direction = client.post(
+        "/api/v4/entities",
+        json={"type": "task", "title": "Akash shadow task"},
+    ).get_json()["data"]
+    project = client.post(
+        "/api/v4/entities",
+        json={"type": "project", "title": "Platform coordination"},
+    ).get_json()["data"]
+    outgoing_project = client.post(
+        "/api/v4/entities",
+        json={"type": "project", "title": "People systems"},
+    ).get_json()["data"]
+
+    for source_id, relationship_type in (
+        (note["id"], "mentions"),
+        (task["id"], "assigned_to"),
+        (project["id"], "assigned_to"),
+    ):
+        response = client.post(
+            f"/api/v4/entities/{source_id}/relationships",
+            json={"target_entity_id": person["id"], "relationship_type": relationship_type},
+        )
+        assert response.status_code == 201
+
+    response = client.post(
+        f"/api/v4/entities/{person['id']}/relationships",
+        json={"target_entity_id": note_wrong_direction["id"], "relationship_type": "related"},
+    )
+    assert response.status_code == 201
+    response = client.post(
+        f"/api/v4/entities/{person['id']}/relationships",
+        json={"target_entity_id": task_wrong_direction["id"], "relationship_type": "related"},
+    )
+    assert response.status_code == 201
+    response = client.post(
+        f"/api/v4/entities/{person['id']}/relationships",
+        json={"target_entity_id": outgoing_project["id"], "relationship_type": "related"},
+    )
+    assert response.status_code == 201
+
+    list_response = client.get("/api/v4/entities?type=person")
+
+    assert list_response.status_code == 200
+    row = list_response.get_json()["data"][0]
+    assert row["id"] == person["id"]
+    assert row["linked_counts"] == {
+        "notes": 1,
+        "tasks": 1,
+        "projects": 2,
+    }
+
+
+def test_list_areas_includes_note_task_project_link_counts(client, app):
+    area = client.post(
+        "/api/v4/entities",
+        json={"type": "area", "title": "Execution"},
+    ).get_json()["data"]
+    note = client.post(
+        "/api/v4/entities",
+        json={"type": "note", "title": "Execution note"},
+    ).get_json()["data"]
+    outgoing_note = client.post(
+        "/api/v4/entities",
+        json={"type": "note", "title": "Execution retrospective"},
+    ).get_json()["data"]
+    task = client.post(
+        "/api/v4/entities",
+        json={"type": "task", "title": "Execution task"},
+    ).get_json()["data"]
+    outgoing_task = client.post(
+        "/api/v4/entities",
+        json={"type": "task", "title": "Execution follow-up"},
+    ).get_json()["data"]
+    project = client.post(
+        "/api/v4/entities",
+        json={"type": "project", "title": "Execution project"},
+    ).get_json()["data"]
+    outgoing_project = client.post(
+        "/api/v4/entities",
+        json={"type": "project", "title": "Execution orbit"},
+    ).get_json()["data"]
+
+    for source_id, relationship_type in (
+        (note["id"], "mentions"),
+        (task["id"], "parent"),
+        (project["id"], "parent"),
+    ):
+        response = client.post(
+            f"/api/v4/entities/{source_id}/relationships",
+            json={"target_entity_id": area["id"], "relationship_type": relationship_type},
+        )
+        assert response.status_code == 201
+
+    response = client.post(
+        f"/api/v4/entities/{area['id']}/relationships",
+        json={"target_entity_id": outgoing_note["id"], "relationship_type": "related"},
+    )
+    assert response.status_code == 201
+    response = client.post(
+        f"/api/v4/entities/{area['id']}/relationships",
+        json={"target_entity_id": outgoing_task["id"], "relationship_type": "related"},
+    )
+    assert response.status_code == 201
+    response = client.post(
+        f"/api/v4/entities/{area['id']}/relationships",
+        json={"target_entity_id": outgoing_project["id"], "relationship_type": "related"},
+    )
+    assert response.status_code == 201
+
+    list_response = client.get("/api/v4/entities?type=area")
+
+    assert list_response.status_code == 200
+    row = list_response.get_json()["data"][0]
+    assert row["id"] == area["id"]
+    assert row["linked_counts"] == {
+        "notes": 2,
+        "tasks": 1,
+        "projects": 1,
+    }
+
+
 def test_update_entity_fields_tags_and_event(client):
     created = client.post(
         "/api/v4/entities",

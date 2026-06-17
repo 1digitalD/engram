@@ -91,6 +91,10 @@ function formatShortDate(value) {
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+function linkedCountLabel(value, singular, plural = `${singular}s`) {
+  return `${value} ${value === 1 ? singular : plural}`;
+}
+
 function sortEntities(entities, sortField, sortDir) {
   const field = SORT_FIELDS.find((f) => f.value === sortField) || SORT_FIELDS[0];
   const sign = sortDir === 'asc' ? 1 : -1;
@@ -240,6 +244,7 @@ export default function V4EntityList({ type }) {
 
   const activeFilterCount = [statusFilter.length > 0, priorityFilter, lifecycleFilter !== 'active'].filter(Boolean).length;
   const primaryActionLabel = open ? `Close new ${type}` : `New ${type}`;
+  const isCompactList = type === 'person' || type === 'area';
 
   async function handleCreate(event) {
     event.preventDefault();
@@ -479,21 +484,34 @@ export default function V4EntityList({ type }) {
               : `No ${pluralTitle[type].toLowerCase()} match the current filters.`}
           </p>
         ) : (
-          <ul className={styles.cards}>
+          <ul className={`${styles.cards} ${isCompactList ? styles.compactCards : ''}`}>
             {visibleEntities.map((entity) => {
               const created = formatShortDate(entity.created_at);
+              const updated = formatShortDate(entity.updated_at);
               const due = formatShortDate(entity.due_at);
               const isOverdue = entity.due_at && new Date(entity.due_at).getTime() < Date.now()
                 && entity.status !== 'done' && entity.status !== 'completed' && entity.status !== 'cancelled';
+              const linkedCounts = entity.linked_counts || {};
+              const compactChips = type === 'area'
+                ? [
+                    { key: 'projects', label: linkedCountLabel(linkedCounts.projects || 0, 'project') },
+                    { key: 'tasks', label: linkedCountLabel(linkedCounts.tasks || 0, 'task') },
+                    { key: 'notes', label: linkedCountLabel(linkedCounts.notes || 0, 'note') },
+                  ]
+                : [
+                    { key: 'tasks', label: linkedCountLabel(linkedCounts.tasks || 0, 'task') },
+                    { key: 'projects', label: linkedCountLabel(linkedCounts.projects || 0, 'project') },
+                    { key: 'notes', label: linkedCountLabel(linkedCounts.notes || 0, 'note') },
+                  ];
               return (
-                <li key={entity.id} className="cardActionsParent">
+                <li key={entity.id} className={`cardActionsParent ${isCompactList ? styles.compactCard : ''}`}>
                   <CardActions
                     entity={entity}
                     onChanged={() => setEntities((cur) => cur.filter((e) => e.id !== entity.id))}
                   />
                   <Link to={detailPath(entity)} state={fromState}>
                     <strong>{entity.title || 'Untitled'}</strong>
-                    {entity.content && (
+                    {!isCompactList && entity.content && (
                       <MarkdownContent content={entity.content} compact />
                     )}
                     <span className={styles.metaRow}>
@@ -506,12 +524,24 @@ export default function V4EntityList({ type }) {
                           Due {due}
                         </span>
                       )}
-                      {created && (
+                      {!isCompactList && created && (
                         <span className={styles.mutedMeta} title={`Created ${created}`}>
                           Created {created}
                         </span>
                       )}
+                      {isCompactList && updated && (
+                        <span className={styles.mutedMeta} title={`Updated ${updated}`}>
+                          Updated {updated}
+                        </span>
+                      )}
                     </span>
+                    {isCompactList && (
+                      <span className={styles.countRow}>
+                        {compactChips.map((chip) => (
+                          <span key={chip.key} className={styles.countChip}>{chip.label}</span>
+                        ))}
+                      </span>
+                    )}
                   </Link>
                   {(entity.tags || []).length > 0 && (
                     <span className={styles.cardTagRow}>

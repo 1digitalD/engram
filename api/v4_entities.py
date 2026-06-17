@@ -93,6 +93,18 @@ INBOX_INTENT_PRIORITY = {
 }
 INTENT_SUGGESTION_CONFIDENCE_FLOOR = 0.9
 SUGGESTION_DUPLICATE_MEMORY_DAYS = 14
+COMPACT_LINK_COUNT_RULES = {
+    "person": {
+        "notes": ("incoming", {"mentions"}, {"note"}),
+        "tasks": ("incoming", {"assigned_to"}, {"task"}),
+        "projects": ("both", {"assigned_to", "mentions", "related"}, {"project"}),
+    },
+    "area": {
+        "notes": ("both", {"related", "mentions"}, {"note"}),
+        "tasks": ("incoming", {"parent", "related"}, {"task"}),
+        "projects": ("incoming", {"parent", "related"}, {"project"}),
+    },
+}
 
 
 @api_v4_bp.route("/health", methods=["GET"])
@@ -317,6 +329,7 @@ def list_entities():
     rows = query.order_by(Entity.updated_at.desc(), Entity.created_at.desc()).limit(limit).all()
     _attach_project_task_counts(rows)
     _attach_task_projects(rows)
+    _attach_compact_link_counts(rows)
     return jsonify({"data": [row.to_dict() for row in rows]})
 
 
@@ -2892,6 +2905,45 @@ def _attach_task_projects(entities):
     for entity in entities:
         if entity.type == "task":
             entity._projects = projects_by_task.get(entity.id, [])
+
+
+def _attach_compact_link_counts(entities):
+    """Attach lightweight note/task/project link counts to compact list rows."""
+    compact_entities = [entity for entity in entities if entity.type in COMPACT_LINK_COUNT_RULES]
+    if not compact_entities:
+        return
+
+    related_ids = set()
+    links_by_entity_id = {}
+    for entity in compact_entities:
+        links = [*entity.incoming_links, *entity.outgoing_links]
+        links_by_entity_id[entity.id] = links
+        for link in links:
+            related_ids.add(link.source_entity_id if link.target_entity_id == entity.id else link.target_entity_id)
+
+    related_entities = {}
+    if related_ids:
+        related_entities = {
+            related.id: related
+            for related in Entity.query.filter(
+                Entity.id.in_(related_ids),
+                Entity.lifecycle != "deleted",
+            ).all()
+        }
+
+    for entity in compact_entities:
+        counts = {"notes": 0, "tasks": 0, "projects": 0}
+        for bucket, (direction, relationship_types, related_types) in COMPACT_LINK_COUNT_RULES[entity.type].items():
+            items = _link_items(
+                entity,
+                links_by_entity_id[entity.id],
+                related_entities,
+                direction,
+                relationship_types,
+                related_types,
+            )
+            counts[bucket] = len({item["entity"]["id"] for item in items})
+        entity._linked_counts = counts
 
 
 def _replace_tags(entity, tag_names):

@@ -1490,6 +1490,12 @@
   margin-top: 0;
 }
 
+.compactCards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 8px;
+}
+
 .linkedArea {
   display: grid;
   gap: 6px;
@@ -1525,6 +1531,14 @@
   justify-content: space-between;
   gap: var(--space-1);
   padding: 6px 8px;
+}
+
+.compactCard {
+  min-height: 0;
+}
+
+.compactCard > a {
+  gap: 6px;
 }
 
 .cards a {
@@ -1576,6 +1590,28 @@
   color: var(--text-muted);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
+}
+
+.countRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.countChip {
+  align-items: center;
+  background: color-mix(in oklch, var(--surface2) 54%, var(--surface));
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-full);
+  color: var(--text-secondary);
+  display: inline-flex;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  gap: 4px;
+  min-height: 20px;
+  padding: 2px 7px;
+  white-space: nowrap;
 }
 
 .dueOverdue {
@@ -2039,6 +2075,10 @@
   }
 
   .cards li {
+    grid-template-columns: 1fr;
+  }
+
+  .compactCards {
     grid-template-columns: 1fr;
   }
 
