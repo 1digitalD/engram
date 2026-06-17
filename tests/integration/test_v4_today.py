@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm.attributes import flag_modified
 
 from extensions import db
-from models import AiSuggestion, Entity
+from models import AiSuggestion, AppSetting, Entity
 
 
 def _create_entity(client, entity_type, title, **extra):
@@ -84,6 +84,30 @@ def test_v4_summary_includes_coordination_radar(client, app):
     assert radar["projects"][0]["entity_id"] == project["id"]
     assert radar["projects"][0]["headline"] == "Focus this project on 1 overdue task."
     assert radar["projects"][0]["counts"]["overdue_tasks"] == 1
+
+
+def test_v4_summary_coordination_radar_excludes_owner_person(client, app):
+    danish = _create_entity(client, "person", "Danish")
+    akash = _create_entity(client, "person", "Akash")
+    owner_task = _create_entity(client, "task", "Review roadmap draft", status="blocked")
+    delegated_task = _create_entity(client, "task", "Follow up on launch notes", status="blocked")
+    _link(client, owner_task["id"], danish["id"], "assigned_to")
+    _link(client, delegated_task["id"], akash["id"], "assigned_to")
+
+    with app.app_context():
+        setting = db.session.get(AppSetting, "owner_person_id")
+        if setting is None:
+            setting = AppSetting(key="owner_person_id", value=danish["id"])
+            db.session.add(setting)
+        else:
+            setting.value = danish["id"]
+        db.session.commit()
+
+    response = client.get("/api/v4/summary")
+    assert response.status_code == 200
+    radar = response.get_json()["coordination_radar"]
+
+    assert [item["entity_id"] for item in radar["people"]] == [akash["id"]]
 
 
 def test_v4_today_returns_execution_sections(client, app):
@@ -343,9 +367,37 @@ def test_v4_today_does_not_surface_delegations_to_owner(client, app):
     owner_task = _create_entity(client, "task", "Owner's own task", follow_up_at=far_past)
     _link(client, owner_task["id"], dan["id"], "assigned_to")
 
+    with app.app_context():
+        setting = db.session.get(AppSetting, "owner_person_id")
+        if setting is not None:
+            setting.value = None
+            db.session.commit()
+
     response = client.get("/api/v4/today")
     assert response.status_code == 200
     data = response.get_json()
+    assert owner_task["id"] not in {item["id"] for item in data["delegations_quiet"]}
+
+
+def test_v4_today_does_not_surface_delegations_to_explicit_owner_person(client, app):
+    danish = _create_entity(client, "person", "Danish")
+    follow_up_at = (datetime.now(timezone.utc) - timedelta(days=4)).isoformat()
+    owner_task = _create_entity(client, "task", "Owner's explicit person task", follow_up_at=follow_up_at)
+    _link(client, owner_task["id"], danish["id"], "assigned_to")
+
+    with app.app_context():
+        setting = db.session.get(AppSetting, "owner_person_id")
+        if setting is None:
+            setting = AppSetting(key="owner_person_id", value=danish["id"])
+            db.session.add(setting)
+        else:
+            setting.value = danish["id"]
+        db.session.commit()
+
+    response = client.get("/api/v4/today")
+    assert response.status_code == 200
+    data = response.get_json()
+
     assert owner_task["id"] not in {item["id"] for item in data["delegations_quiet"]}
 
 

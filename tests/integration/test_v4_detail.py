@@ -1,5 +1,8 @@
 """Cycle 9 tests for v4 relationship-aware detail payloads."""
 
+from extensions import db
+from models import AppSetting
+
 
 def _create_entity(client, entity_type, title, status=None):
     payload = {
@@ -109,3 +112,39 @@ def test_note_detail_has_projects_areas_people_tasks_resources_sections(client):
     assert [item["entity"]["id"] for item in sections["people_mentioned"]["items"]] == [person_id]
     assert [item["entity"]["id"] for item in sections["derived_tasks"]["items"]] == [task_id]
     assert [item["entity"]["id"] for item in sections["referenced_resources"]["items"]] == [resource_id]
+
+
+def test_person_detail_exposes_owner_identity_and_owner_endpoint(client, app):
+    person_id = _create_entity(client, "person", "Danish")
+
+    detail_response = client.get(f"/api/v4/entities/{person_id}/detail")
+    assert detail_response.status_code == 200
+    assert detail_response.get_json()["entity"]["is_owner"] is False
+
+    mark_response = client.post(f"/api/v4/entities/{person_id}/owner")
+    assert mark_response.status_code == 200
+    assert mark_response.get_json()["data"] == {
+        "owner_person_id": person_id,
+        "is_owner": True,
+    }
+
+    with app.app_context():
+        setting = db.session.get(AppSetting, "owner_person_id")
+        assert setting is not None
+        assert setting.value == person_id
+
+    detail_response = client.get(f"/api/v4/entities/{person_id}/detail")
+    assert detail_response.status_code == 200
+    assert detail_response.get_json()["entity"]["is_owner"] is True
+
+    clear_response = client.delete(f"/api/v4/entities/{person_id}/owner")
+    assert clear_response.status_code == 200
+    assert clear_response.get_json()["data"] == {
+        "owner_person_id": None,
+        "is_owner": False,
+    }
+
+    with app.app_context():
+        setting = db.session.get(AppSetting, "owner_person_id")
+        assert setting is not None
+        assert setting.value is None

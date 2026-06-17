@@ -903,8 +903,24 @@ def test_capture_auto_created_task_links_to_source_note_projects(client, app):
             }
         ],
     }
+    decisions = [
+        {
+            "action": "link",
+            "target_id": project["id"],
+            "relationship_type": "related",
+            "reason": "Matches the existing project already named in the note.",
+        },
+        {
+            "action": "new",
+            "relationship_type": "derived_from",
+            "reason": "This is a concrete follow-up task extracted from the note.",
+        },
+    ]
 
-    with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction):
+    with (
+        patch("services.v4_extraction.extract_capture_candidates", return_value=extraction),
+        patch("services.v4_reconciliation.reconcile_candidates", return_value=decisions),
+    ):
         response = client.post(
             "/api/v4/capture",
             json={"content": "Follow up on Memory Lookup rollout"},

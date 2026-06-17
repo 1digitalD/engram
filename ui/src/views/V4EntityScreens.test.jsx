@@ -34,6 +34,8 @@ vi.mock('../api/v4Client', () => ({
       merge: vi.fn(),
       convert: vi.fn(),
       captureChanges: vi.fn(),
+      setOwner: vi.fn(),
+      clearOwner: vi.fn(),
     },
     events: {
       revert: vi.fn(),
@@ -60,6 +62,8 @@ describe('v4 entity screens', () => {
     v4API.entities.list.mockResolvedValue({ data: [] });
     v4API.entities.events.mockResolvedValue({ data: [] });
     v4API.entities.captureChanges.mockResolvedValue({ data: [] });
+    v4API.entities.setOwner.mockResolvedValue({ data: { owner_person_id: 'person-me', is_owner: true } });
+    v4API.entities.clearOwner.mockResolvedValue({ data: { owner_person_id: null, is_owner: false } });
     v4API.activityUpdates.list.mockResolvedValue({ data: [] });
     v4API.suggestions.list.mockResolvedValue({ data: [] });
   });
@@ -637,7 +641,7 @@ describe('v4 entity screens', () => {
       ],
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Revert' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Revert' }));
     await waitFor(() => expect(v4API.events.revert).toHaveBeenCalledWith('ev1'));
     expect(await screen.findByText('Reverted')).toBeInTheDocument();
   });
@@ -800,6 +804,7 @@ describe('v4 entity screens', () => {
         title: 'Gonick',
         content: '',
         status: 'active',
+        is_owner: false,
         created_at: '2026-05-20T09:00:00+00:00',
         updated_at: '2026-05-20T10:00:00+00:00',
         due_at: null,
@@ -976,6 +981,60 @@ describe('v4 entity screens', () => {
     expect(screen.getByRole('link', { name: /Security approval/i })).toHaveAttribute('href', '/tasks/t92');
     expect(screen.getAllByRole('link', { name: /Prepare brief/i })[0]).toHaveAttribute('href', '/tasks/t93');
     expect(screen.getByText('No activity update yet')).toBeInTheDocument();
+  });
+
+  it('lets a person detail be marked as me and cleared again', async () => {
+    const detail = {
+      entity: {
+        id: 'person-me',
+        type: 'person',
+        title: 'Danish',
+        content: '',
+        status: 'active',
+        is_owner: false,
+        created_at: '2026-05-20T09:00:00+00:00',
+        updated_at: '2026-05-20T10:00:00+00:00',
+        due_at: null,
+        follow_up_at: null,
+        reference_url: null,
+        properties: {},
+        tags: [],
+      },
+      sections: [],
+      current_load: [],
+      pulse: { headline: '', summary: {}, focus_items: [] },
+      dependency_watch: { headline: '', summary: {}, focus_items: [] },
+      meeting_prep: { headline: '', counts: {}, agenda_items: [], recent_notes: [] },
+    };
+    v4API.entities.detail
+      .mockResolvedValueOnce(detail)
+      .mockResolvedValueOnce({
+        ...detail,
+        entity: { ...detail.entity, is_owner: true },
+      })
+      .mockResolvedValueOnce({
+        ...detail,
+        entity: { ...detail.entity, is_owner: false },
+      });
+    v4API.entities.events.mockResolvedValue({ data: [] });
+
+    render(
+      <MemoryRouter initialEntries={['/people/person-me']}>
+        <Routes>
+          <Route path="/people/:id" element={<V4EntityDetail type="person" />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('button', { name: 'Mark as me' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Mark as me' }));
+    await waitFor(() => expect(v4API.entities.setOwner).toHaveBeenCalledWith('person-me'));
+    expect(await screen.findByRole('button', { name: 'Clear me' })).toBeInTheDocument();
+    expect(screen.getByText('This is you')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear me' }));
+    await waitFor(() => expect(v4API.entities.clearOwner).toHaveBeenCalledWith('person-me'));
+    expect(await screen.findByRole('button', { name: 'Mark as me' })).toBeInTheDocument();
   });
 
   it('renders a project workspace overview with runtime project pulse', async () => {

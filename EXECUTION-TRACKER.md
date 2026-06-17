@@ -2,7 +2,7 @@
 
 This file is the fresh-agent handoff for the current v4 baseline. Use it to reconstruct context quickly without reading stale task logs first.
 
-Last updated: 2026-06-16
+Last updated: 2026-06-17
 Branch: `main`
 Runtime baseline: `/api/v4` only, fresh Postgres + pgvector schema, write-enabled MCP aligned with the active API.
 
@@ -391,6 +391,48 @@ Non-authoritative historical artifacts:
     `Dependency watch` no longer repeats its empty-state message
   - focused backend validation green: 20 passed; full UI suite green: 59
     passed; frontend build green
+- Explicit owner identity (2026-06-17) implementation status:
+  - `app_settings.owner_person_id` is now the source of truth for "me" when
+    configured; old alias matching remains as fallback only when no explicit
+    owner person is set
+  - new `POST /api/v4/entities/<id>/owner` and `DELETE /api/v4/entities/<id>/owner`
+    endpoints allow a `person` entity to be marked/cleared as the owner;
+    person detail now returns `entity.is_owner`
+  - person detail UI now exposes `Mark as me` / `Clear me` and shows `This is you`
+  - coordination and delegation surfaces now honor explicit owner identity:
+    `coordination_radar.people` excludes the owner person and
+    `delegations_quiet` ignores delegations assigned to the owner person
+  - focused backend validation green: 26 passed; full backend integration
+    suite green: 171 passed; full UI suite green: 60 passed; frontend build green
+- Runtime-only brief + coordination-aware snapshot (2026-06-17) implementation status:
+  - `brief` no longer persists to `app_settings.daily_brief`; it now uses a
+    small in-process TTL cache only, keeping the artifact runtime-oriented
+  - when model generation is unavailable but the workspace has signal,
+    `/api/v4/brief` now falls back to a deterministic runtime brief assembled
+    from overdue work, dependency interventions, quiet delegations,
+    unscheduled attention, stale projects, and coordination radar
+  - the model-backed brief snapshot now includes compact `today` and
+    `coordination_radar` sections, so newer proactive runtime signals can
+    influence the Home brief
+  - added red-first integration coverage for the runtime cache path, no-DB
+    persistence guarantee, heuristic fallback, and enriched snapshot shape;
+    also hardened a flaky UI revert test uncovered in the full-suite rerun
+  - focused backend validation green: 5 passed; full backend integration suite
+    green: 173 passed; full UI suite green: 60 passed; frontend build green
+  - see `docs/iterations/SLICE_POSTPLAN_RUNTIME_BRIEF.md`
+- Final validation cleanup (2026-06-17) implementation status:
+  - removed the remaining React `act(...)` warnings from `App.test.jsx` by
+    waiting for the shell to settle before asserting theme state
+  - replaced lingering `Query.get()` test usage with `db.session.get(...)`,
+    removing the SQLAlchemy legacy warnings from the touched integration specs
+  - hardened `test_capture_auto_created_task_links_to_source_note_projects`
+    by mocking reconciliation decisions directly, removing a live-model
+    dependency from the integration suite
+  - split the frontend build into manual chunks (`vendor-react`,
+    `vendor-icons`, `vendor`, plus the app bundle) so the prior Vite
+    oversize-chunk warning no longer fires
+  - final full validation green: backend `pytest -q` 273 passed; frontend
+    `npm test` 60 passed; frontend build passed
 
 ## Validation Commands
 

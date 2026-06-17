@@ -1097,7 +1097,10 @@ def get_entity_detail(entity_id):
     entity = _load_entity(entity_id)
     if entity is None:
         return _error("entity not found", 404)
-    detail = {"entity": entity.to_dict(), "sections": _relationship_detail_sections(entity)}
+    entity_data = entity.to_dict()
+    if entity.type == "person":
+        entity_data["is_owner"] = _is_owner(entity.title, entity.id)
+    detail = {"entity": entity_data, "sections": _relationship_detail_sections(entity)}
     if entity.type == "person":
         tasks = _person_open_tasks(entity)
         latest_update = _latest_activity_updates([task.id for task in tasks])
@@ -1112,6 +1115,42 @@ def get_entity_detail(entity_id):
         detail["project_pulse"] = _project_pulse(tasks, latest_update)
         detail["dependency_watch"] = _task_dependency_watch(tasks, latest_update)
     return jsonify(detail)
+
+
+@api_v4_bp.route("/entities/<entity_id>/owner", methods=["POST"])
+def set_owner_person(entity_id):
+    entity = _load_entity(entity_id)
+    if entity is None:
+        return _error("entity not found", 404)
+    if entity.type != "person":
+        return _error("owner identity must reference a person")
+
+    previous_owner_id = _owner_person_id()
+    previous_owner = db.session.get(Entity, previous_owner_id) if previous_owner_id else None
+    setting = _app_setting_row("owner_person_id")
+    setting.value = entity.id
+    flag_modified(setting, "value")
+    _record_owner_identity_change(previous_owner, entity)
+    db.session.commit()
+    return jsonify({"data": {"owner_person_id": entity.id, "is_owner": True}})
+
+
+@api_v4_bp.route("/entities/<entity_id>/owner", methods=["DELETE"])
+def clear_owner_person(entity_id):
+    entity = _load_entity(entity_id)
+    if entity is None:
+        return _error("entity not found", 404)
+    if entity.type != "person":
+        return _error("owner identity must reference a person")
+
+    previous_owner_id = _owner_person_id()
+    previous_owner = db.session.get(Entity, previous_owner_id) if previous_owner_id else None
+    setting = _app_setting_row("owner_person_id")
+    setting.value = None
+    flag_modified(setting, "value")
+    _record_owner_identity_change(previous_owner, None)
+    db.session.commit()
+    return jsonify({"data": {"owner_person_id": None, "is_owner": False}})
 
 
 @api_v4_bp.route("/entities/<entity_id>", methods=["PATCH"])
@@ -1670,7 +1709,7 @@ def _refresh_delegation_cadence(target, source_note_id=None, actor="user"):
     if assignee_link is None:
         return
     person = db.session.get(Entity, assignee_link.target_entity_id)
-    if person is None or _is_owner(person.title):
+    if person is None or _is_owner(person.title, person.id):
         return
     old_follow_up = target.follow_up_at
     cadence_days = _delegation_cadence_days(person.id)
@@ -3561,16 +3600,25 @@ def _get_app_setting(key, default=None):
     return setting.value if setting is not None else default
 
 
-def _set_app_setting(key, value):
+def _app_setting_row(key):
     setting = db.session.get(AppSetting, key)
     if setting is None:
-        setting = AppSetting(key=key, value=value)
+        setting = AppSetting(key=key, value=None)
         db.session.add(setting)
-    else:
-        setting.value = value
-        flag_modified(setting, "value")
+    return setting
+
+
+def _set_app_setting(key, value):
+    setting = _app_setting_row(key)
+    setting.value = value
+    flag_modified(setting, "value")
     db.session.commit()
     return value
+
+
+def _owner_person_id():
+    owner_person_id = _clean_text(_get_app_setting("owner_person_id"))
+    return owner_person_id
 
 
 def _owner_aliases():
@@ -3578,11 +3626,35 @@ def _owner_aliases():
     return {str(a).strip().lower() for a in aliases}
 
 
-def _is_owner(name):
+def _is_owner(name, person_id=None):
+    owner_person_id = _owner_person_id()
+    if owner_person_id is not None:
+        return person_id == owner_person_id
     cleaned = _clean_text(name)
     if cleaned is None:
         return False
     return cleaned.lower() in _owner_aliases()
+
+
+def _record_owner_identity_change(previous_owner, next_owner, actor="user"):
+    if previous_owner is not None and previous_owner.id != (next_owner.id if next_owner is not None else None):
+        _write_event(
+            previous_owner,
+            "updated",
+            old_value={"is_owner": True},
+            new_value={"is_owner": False},
+            actor=actor,
+            reason="owner identity updated",
+        )
+    if next_owner is not None and next_owner.id != (previous_owner.id if previous_owner is not None else None):
+        _write_event(
+            next_owner,
+            "updated",
+            old_value={"is_owner": False},
+            new_value={"is_owner": True},
+            actor=actor,
+            reason="owner identity updated",
+        )
 
 
 def _delegation_cadence_days(person_id=None):
@@ -3876,6 +3948,7 @@ def _coordination_radar(now=None):
 
 
 def _coordination_radar_people(now):
+    owner_person_id = _owner_person_id()
     rows = (
         db.session.query(EntityLink.target_entity_id, Entity)
         .join(Entity, Entity.id == EntityLink.source_entity_id)
@@ -3916,8 +3989,12 @@ def _coordination_radar_people(now):
 
     radar_items = []
     for person_id, tasks in tasks_by_person_id.items():
+        if owner_person_id is not None and person_id == owner_person_id:
+            continue
         person = people_by_id.get(person_id)
         if person is None:
+            continue
+        if owner_person_id is None and _is_owner(person.title, person.id):
             continue
         pulse = _person_pulse(tasks[:50], latest_update, now=now)
         counts = pulse["summary"]
@@ -4236,7 +4313,8 @@ def _delegations_quiet(now):
     from sqlalchemy.orm import aliased
 
     PersonEntity = aliased(Entity)
-    owner_aliases = _owner_aliases()
+    owner_person_id = _owner_person_id()
+    owner_aliases = _owner_aliases() if owner_person_id is None else set()
 
     tasks = (
         _entity_query()
@@ -4249,12 +4327,13 @@ def _delegations_quiet(now):
             Entity.follow_up_at.isnot(None),
             Entity.follow_up_at < now,
             PersonEntity.type == "person",
-            ~func.lower(PersonEntity.title).in_(owner_aliases),
         )
-        .order_by(Entity.follow_up_at.asc())
-        .limit(50)
-        .all()
     )
+    if owner_person_id is not None:
+        tasks = tasks.filter(PersonEntity.id != owner_person_id)
+    elif owner_aliases:
+        tasks = tasks.filter(~func.lower(PersonEntity.title).in_(owner_aliases))
+    tasks = tasks.order_by(Entity.follow_up_at.asc()).limit(50).all()
     if not tasks:
         return []
 
@@ -4871,7 +4950,7 @@ def _apply_assignee(note, entity, assigned_to, confidence, evidence, source, act
             confidence=confidence,
             reason=evidence,
         )
-        if entity.type == "task" and entity.follow_up_at is None and not _is_owner(assignee_name):
+        if entity.type == "task" and entity.follow_up_at is None and not _is_owner(assignee_name, person.id):
             cadence_days = _delegation_cadence_days(person.id)
             entity.follow_up_at = _add_working_days(datetime.now(timezone.utc), cadence_days)
             _write_event(

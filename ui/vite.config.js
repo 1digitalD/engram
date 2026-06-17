@@ -21,6 +21,27 @@ export default defineConfig({
   build: {
     outDir: '../static',
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return null;
+          if (id.includes('/react/') || id.includes('/react-dom/') || id.includes('/react-router')) {
+            return 'vendor-react';
+          }
+          if (id.includes('/react-markdown/')
+            || id.includes('/remark-')
+            || id.includes('/rehype-')
+            || id.includes('/unified/')
+            || id.includes('/micromark/')) {
+            return 'vendor-markdown';
+          }
+          if (id.includes('/lucide-react/')) {
+            return 'vendor-icons';
+          }
+          return 'vendor';
+        },
+      },
+    },
   },
   test: {
     globals: true,

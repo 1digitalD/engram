@@ -145,6 +145,7 @@ describe('App shell', () => {
         </MemoryRouter>,
       );
 
+      expect(await screen.findByText('Home view')).toBeInTheDocument();
       expect(screen.getByRole('group', { name: 'Theme' })).toBeInTheDocument();
       expect(document.documentElement.dataset.theme).toBe('light');
       expect(localStorage.getItem('engram-theme')).toBeNull();
@@ -169,6 +170,7 @@ describe('App shell', () => {
         </MemoryRouter>,
       );
 
+      expect(await screen.findByText('Home view')).toBeInTheDocument();
       expect(document.documentElement.dataset.theme).toBe('dark');
       expect(screen.getByRole('button', { name: /Dark theme/i })).toHaveAttribute('aria-pressed', 'true');
     });

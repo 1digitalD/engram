@@ -546,6 +546,21 @@ export default function V4EntityDetail({ type: routeType }) {
     }
   }
 
+  async function handleOwnerToggle() {
+    if (!detail?.entity || detail.entity.type !== 'person') return;
+    setError('');
+    try {
+      if (detail.entity.is_owner) {
+        await v4API.entities.clearOwner(id);
+      } else {
+        await v4API.entities.setOwner(id);
+      }
+      await loadDetail();
+    } catch (err) {
+      setError(err.message || 'Failed to update owner identity');
+    }
+  }
+
   if (!detail) {
     return (
       <main className={styles.screen}>
@@ -597,8 +612,20 @@ export default function V4EntityDetail({ type: routeType }) {
                 {backLabel(backTarget, entity.type)}
               </button>
               <p className={styles.eyebrow}>Engram v4 {entityType}</p>
+              {entity.type === 'person' && entity.is_owner ? (
+                <span className={`${styles.metaStaticChip} ${styles.readOnlyChip}`}>This is you</span>
+              ) : null}
             </div>
             <div className={styles.headerActions}>
+              {entity.type === 'person' && (
+                <button
+                  className={styles.secondaryButton}
+                  type="button"
+                  onClick={handleOwnerToggle}
+                >
+                  {entity.is_owner ? 'Clear me' : 'Mark as me'}
+                </button>
+              )}
               {entity.type === 'note' && (
                 <button
                   className={`${styles.secondaryButton} ${styles.iconButton}`}

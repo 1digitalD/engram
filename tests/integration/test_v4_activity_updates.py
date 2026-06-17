@@ -3,6 +3,7 @@
 from datetime import datetime, timedelta, timezone
 
 import pytest
+from extensions import db
 from models import Entity, EntityEvent, EntityLink
 
 
@@ -72,7 +73,7 @@ def test_create_activity_update_touches_updated_at(client, app):
     project = _create_entity(client, "project", "Alpha")
 
     with app.app_context():
-        entity = Entity.query.get(project["id"])
+        entity = db.session.get(Entity, project["id"])
         old_updated = entity.updated_at
 
     import time
@@ -85,7 +86,7 @@ def test_create_activity_update_touches_updated_at(client, app):
     assert response.status_code == 201
 
     with app.app_context():
-        entity = Entity.query.get(project["id"])
+        entity = db.session.get(Entity, project["id"])
         assert entity.updated_at > old_updated
 
 
@@ -179,7 +180,7 @@ def test_archive_target_cascades_to_incoming_activity_updates(client, app):
     assert response.status_code == 200
 
     with app.app_context():
-        note = Entity.query.get(note_id)
+        note = db.session.get(Entity, note_id)
         assert note.lifecycle == "archived"
 
 
@@ -197,7 +198,7 @@ def test_delete_target_removes_incoming_activity_updates(client, app):
     assert response.status_code == 200
 
     with app.app_context():
-        note = Entity.query.get(note_id)
+        note = db.session.get(Entity, note_id)
         assert note is None
 
 
