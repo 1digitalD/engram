@@ -28,6 +28,15 @@ const STATUS_BY_TYPE = {
 
 const PRIORITY_OPTIONS = ['urgent', 'high', 'medium', 'low'];
 const SIMPLE_ARCHIVE_TYPES = new Set(['note', 'area', 'person', 'resource']);
+const TASK_GROUP_OPTIONS = [
+  { value: 'none', label: 'None' },
+  { value: 'status', label: 'Status' },
+  { value: 'priority', label: 'Priority' },
+  { value: 'due', label: 'Due' },
+  { value: 'project', label: 'Project' },
+  { value: 'area', label: 'Area' },
+  { value: 'person', label: 'Assignee' },
+];
 
 const SORT_FIELDS = [
   { value: 'updated', label: 'Updated', getter: (e) => e.updated_at, type: 'date', defaultDir: 'desc' },
@@ -95,6 +104,86 @@ function linkedCountLabel(value, singular, plural = `${singular}s`) {
   return `${value} ${value === 1 ? singular : plural}`;
 }
 
+function startOfDay(value) {
+  const d = new Date(value);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function taskGroupDescriptors(entity, groupBy, now = new Date()) {
+  if (groupBy === 'status') {
+    return [{ key: `status:${entity.status || 'unknown'}`, label: formatFilterLabel(entity.status || 'unknown'), order: STATUS_BY_TYPE.task.indexOf(entity.status) }];
+  }
+  if (groupBy === 'priority') {
+    const priority = entity.properties?.priority || '';
+    return [{
+      key: `priority:${priority || 'none'}`,
+      label: priority ? `Priority ${priority}` : 'No priority',
+      order: priority ? PRIORITY_OPTIONS.indexOf(priority) : PRIORITY_OPTIONS.length,
+    }];
+  }
+  if (groupBy === 'due') {
+    if (!entity.due_at) return [{ key: 'due:none', label: 'No due date', order: 4 }];
+    const due = new Date(entity.due_at);
+    if (Number.isNaN(due.getTime())) return [{ key: 'due:none', label: 'No due date', order: 4 }];
+    const today = startOfDay(now);
+    const dueDay = startOfDay(due);
+    const msPerDay = 24 * 60 * 60 * 1000;
+    const dayDelta = Math.round((dueDay.getTime() - today.getTime()) / msPerDay);
+    if (dayDelta < 0) return [{ key: 'due:overdue', label: 'Overdue', order: 0 }];
+    if (dayDelta === 0) return [{ key: 'due:today', label: 'Due today', order: 1 }];
+    if (dayDelta <= 7) return [{ key: 'due:soon', label: 'Due this week', order: 2 }];
+    return [{ key: 'due:later', label: 'Due later', order: 3 }];
+  }
+  if (groupBy === 'project') {
+    const projects = [...(entity.projects || [])].sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }));
+    if (projects.length === 0) return [{ key: 'project:none', label: 'No project', order: Number.MAX_SAFE_INTEGER }];
+    return projects.map((project, index) => ({
+      key: `project:${project.id}`,
+      label: project.title,
+      order: index,
+    }));
+  }
+  if (groupBy === 'area') {
+    const areas = [...(entity.areas || [])].sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }));
+    if (areas.length === 0) return [{ key: 'area:none', label: 'No area', order: Number.MAX_SAFE_INTEGER }];
+    return areas.map((area, index) => ({
+      key: `area:${area.id}`,
+      label: area.title,
+      order: index,
+    }));
+  }
+  if (groupBy === 'person') {
+    const people = [...(entity.people || [])].sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }));
+    if (people.length === 0) return [{ key: 'person:none', label: 'Unassigned', order: Number.MAX_SAFE_INTEGER }];
+    return people.map((person, index) => ({
+      key: `person:${person.id}`,
+      label: person.title,
+      order: index,
+    }));
+  }
+  return [{ key: 'all', label: '', order: 0 }];
+}
+
+function groupTasks(entities, groupBy) {
+  if (groupBy === 'none') return [];
+  const groups = new Map();
+  const metadata = new Map();
+  entities.forEach((entity) => {
+    taskGroupDescriptors(entity, groupBy).forEach((descriptor) => {
+      if (!groups.has(descriptor.key)) groups.set(descriptor.key, []);
+      groups.get(descriptor.key).push(entity);
+      if (!metadata.has(descriptor.key)) metadata.set(descriptor.key, descriptor);
+    });
+  });
+  return [...groups.entries()]
+    .map(([key, items]) => ({ key, label: metadata.get(key)?.label || key, order: metadata.get(key)?.order ?? 0, items }))
+    .sort((a, b) => {
+      if (a.order !== b.order) return a.order - b.order;
+      return a.label.localeCompare(b.label, undefined, { sensitivity: 'base' });
+    });
+}
+
 function sortEntities(entities, sortField, sortDir) {
   const field = SORT_FIELDS.find((f) => f.value === sortField) || SORT_FIELDS[0];
   const sign = sortDir === 'asc' ? 1 : -1;
@@ -137,6 +226,7 @@ export default function V4EntityList({ type }) {
   const [statusFilter, setStatusFilter] = useState(_init?.statusFilter ?? []);
   const [priorityFilter, setPriorityFilter] = useState(_init?.priorityFilter ?? '');
   const [lifecycleFilter, setLifecycleFilter] = useState(parseLifetime(_init?.lifecycleFilter));
+  const [groupBy, setGroupBy] = useState(type === 'task' ? (_init?.groupBy ?? 'none') : 'none');
   const [loadedStateType, setLoadedStateType] = useState(type);
 
   useEffect(() => {
@@ -146,6 +236,7 @@ export default function V4EntityList({ type }) {
     setStatusFilter(next?.statusFilter ?? []);
     setPriorityFilter(next?.priorityFilter ?? '');
     setLifecycleFilter(parseLifetime(next?.lifecycleFilter));
+    setGroupBy(type === 'task' ? (next?.groupBy ?? 'none') : 'none');
     setLoadedStateType(type);
   }, [type]);
 
@@ -175,8 +266,10 @@ export default function V4EntityList({ type }) {
   // Persist sort/filter state on every change.
   useEffect(() => {
     if (loadedStateType !== type) return;
-    persistListState(type, { sortField, sortDir, statusFilter, priorityFilter, lifecycleFilter });
-  }, [type, loadedStateType, sortField, sortDir, statusFilter, priorityFilter, lifecycleFilter]);
+    persistListState(type, {
+      sortField, sortDir, statusFilter, priorityFilter, lifecycleFilter, groupBy,
+    });
+  }, [type, loadedStateType, sortField, sortDir, statusFilter, priorityFilter, lifecycleFilter, groupBy]);
 
   const statusOptions = STATUS_BY_TYPE[type] || [];
   const showsLifecycleControl = !SIMPLE_ARCHIVE_TYPES.has(type);
@@ -192,6 +285,10 @@ export default function V4EntityList({ type }) {
     }
     return sortEntities(list, sortField, sortDir);
   }, [entities, statusFilter, priorityFilter, sortField, sortDir]);
+  const taskGroups = useMemo(
+    () => (type === 'task' ? groupTasks(visibleEntities, groupBy) : []),
+    [type, visibleEntities, groupBy],
+  );
 
   function toggleSortDir() {
     setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
@@ -245,6 +342,133 @@ export default function V4EntityList({ type }) {
   const activeFilterCount = [statusFilter.length > 0, priorityFilter, lifecycleFilter !== 'active'].filter(Boolean).length;
   const primaryActionLabel = open ? `Close new ${type}` : `New ${type}`;
   const isCompactList = type === 'person' || type === 'area';
+
+  function renderEntityCard(entity) {
+    const created = formatShortDate(entity.created_at);
+    const updated = formatShortDate(entity.updated_at);
+    const due = formatShortDate(entity.due_at);
+    const isOverdue = entity.due_at && new Date(entity.due_at).getTime() < Date.now()
+      && entity.status !== 'done' && entity.status !== 'completed' && entity.status !== 'cancelled';
+    const linkedCounts = entity.linked_counts || {};
+    const compactChips = type === 'area'
+      ? [
+          { key: 'projects', label: linkedCountLabel(linkedCounts.projects || 0, 'project') },
+          { key: 'tasks', label: linkedCountLabel(linkedCounts.tasks || 0, 'task') },
+          { key: 'notes', label: linkedCountLabel(linkedCounts.notes || 0, 'note') },
+        ]
+      : [
+          { key: 'tasks', label: linkedCountLabel(linkedCounts.tasks || 0, 'task') },
+          { key: 'projects', label: linkedCountLabel(linkedCounts.projects || 0, 'project') },
+          { key: 'notes', label: linkedCountLabel(linkedCounts.notes || 0, 'note') },
+        ];
+    return (
+      <li key={entity.id} className={`cardActionsParent ${isCompactList ? styles.compactCard : ''}`}>
+        <CardActions
+          entity={entity}
+          onChanged={() => setEntities((cur) => cur.filter((e) => e.id !== entity.id))}
+        />
+        <Link to={detailPath(entity)} state={fromState}>
+          <strong>{entity.title || 'Untitled'}</strong>
+          {!isCompactList && entity.content && (
+            <MarkdownContent content={entity.content} compact />
+          )}
+          <span className={styles.metaRow}>
+            <span className={styles.statusPill}>{entity.status}</span>
+            {entity.properties?.priority && (
+              <span className={styles.priorityPill}>Priority {entity.properties.priority}</span>
+            )}
+            {due && (
+              <span className={`${styles.mutedMeta} ${isOverdue ? styles.dueOverdue : ''}`} title={`Due ${due}`}>
+                Due {due}
+              </span>
+            )}
+            {!isCompactList && created && (
+              <span className={styles.mutedMeta} title={`Created ${created}`}>
+                Created {created}
+              </span>
+            )}
+            {isCompactList && updated && (
+              <span className={styles.mutedMeta} title={`Updated ${updated}`}>
+                Updated {updated}
+              </span>
+            )}
+          </span>
+          {isCompactList && (
+            <span className={styles.countRow}>
+              {compactChips.map((chip) => (
+                <span key={chip.key} className={styles.countChip}>{chip.label}</span>
+              ))}
+            </span>
+          )}
+        </Link>
+        {(entity.tags || []).length > 0 && (
+          <span className={styles.cardTagRow}>
+            {entity.tags.map((tag) => (
+              <Link
+                key={tag.id || tag.name}
+                to={`/search?tag=${encodeURIComponent(tag.name)}`}
+                className={styles.cardTagChip}
+                title={`Find all items tagged #${tag.name}`}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {tag.name}
+              </Link>
+            ))}
+          </span>
+        )}
+        {type === 'project' && entity.task_counts && (
+          <span className={styles.taskCountBadge}>
+            <span>{entity.task_counts.open}</span> open / {entity.task_counts.total} total
+          </span>
+        )}
+        {type === 'task' && (entity.projects || []).length > 0 && (
+          <span className={styles.cardTagRow}>
+            {entity.projects.map((project) => (
+              <Link
+                key={project.id}
+                to={`/projects/${project.id}`}
+                className={styles.projectChip}
+                title={`Project: ${project.title}`}
+                onClick={(e) => e.stopPropagation()}
+              >
+                ▣ {project.title}
+              </Link>
+            ))}
+          </span>
+        )}
+        {type === 'task' && (entity.areas || []).length > 0 && (
+          <span className={styles.cardTagRow}>
+            {entity.areas.map((area) => (
+              <Link
+                key={area.id}
+                to={`/areas/${area.id}`}
+                className={styles.projectChip}
+                title={`Area: ${area.title}`}
+                onClick={(e) => e.stopPropagation()}
+              >
+                ◫ {area.title}
+              </Link>
+            ))}
+          </span>
+        )}
+        {type === 'task' && (entity.people || []).length > 0 && (
+          <span className={styles.cardTagRow}>
+            {entity.people.map((person) => (
+              <Link
+                key={person.id}
+                to={`/people/${person.id}`}
+                className={styles.projectChip}
+                title={`Assignee: ${person.title}`}
+                onClick={(e) => e.stopPropagation()}
+              >
+                @ {person.title}
+              </Link>
+            ))}
+          </span>
+        )}
+      </li>
+    );
+  }
 
   async function handleCreate(event) {
     event.preventDefault();
@@ -367,6 +591,20 @@ export default function V4EntityList({ type }) {
                   </select>
                 </label>
               )}
+              {type === 'task' && (
+                <label className={styles.filterControl}>
+                  <span className={styles.controlLabel}>Group</span>
+                  <select
+                    value={groupBy}
+                    onChange={(event) => setGroupBy(event.target.value)}
+                    aria-label="Group tasks by"
+                  >
+                    {TASK_GROUP_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
               {showsLifecycleControl && (
                 <label className={styles.filterControl}>
                   <span className={styles.controlLabel}>Lifecycle</span>
@@ -484,104 +722,25 @@ export default function V4EntityList({ type }) {
               : `No ${pluralTitle[type].toLowerCase()} match the current filters.`}
           </p>
         ) : (
-          <ul className={`${styles.cards} ${isCompactList ? styles.compactCards : ''}`}>
-            {visibleEntities.map((entity) => {
-              const created = formatShortDate(entity.created_at);
-              const updated = formatShortDate(entity.updated_at);
-              const due = formatShortDate(entity.due_at);
-              const isOverdue = entity.due_at && new Date(entity.due_at).getTime() < Date.now()
-                && entity.status !== 'done' && entity.status !== 'completed' && entity.status !== 'cancelled';
-              const linkedCounts = entity.linked_counts || {};
-              const compactChips = type === 'area'
-                ? [
-                    { key: 'projects', label: linkedCountLabel(linkedCounts.projects || 0, 'project') },
-                    { key: 'tasks', label: linkedCountLabel(linkedCounts.tasks || 0, 'task') },
-                    { key: 'notes', label: linkedCountLabel(linkedCounts.notes || 0, 'note') },
-                  ]
-                : [
-                    { key: 'tasks', label: linkedCountLabel(linkedCounts.tasks || 0, 'task') },
-                    { key: 'projects', label: linkedCountLabel(linkedCounts.projects || 0, 'project') },
-                    { key: 'notes', label: linkedCountLabel(linkedCounts.notes || 0, 'note') },
-                  ];
-              return (
-                <li key={entity.id} className={`cardActionsParent ${isCompactList ? styles.compactCard : ''}`}>
-                  <CardActions
-                    entity={entity}
-                    onChanged={() => setEntities((cur) => cur.filter((e) => e.id !== entity.id))}
-                  />
-                  <Link to={detailPath(entity)} state={fromState}>
-                    <strong>{entity.title || 'Untitled'}</strong>
-                    {!isCompactList && entity.content && (
-                      <MarkdownContent content={entity.content} compact />
-                    )}
-                    <span className={styles.metaRow}>
-                      <span className={styles.statusPill}>{entity.status}</span>
-                      {entity.properties?.priority && (
-                        <span className={styles.priorityPill}>Priority {entity.properties.priority}</span>
-                      )}
-                      {due && (
-                        <span className={`${styles.mutedMeta} ${isOverdue ? styles.dueOverdue : ''}`} title={`Due ${due}`}>
-                          Due {due}
-                        </span>
-                      )}
-                      {!isCompactList && created && (
-                        <span className={styles.mutedMeta} title={`Created ${created}`}>
-                          Created {created}
-                        </span>
-                      )}
-                      {isCompactList && updated && (
-                        <span className={styles.mutedMeta} title={`Updated ${updated}`}>
-                          Updated {updated}
-                        </span>
-                      )}
-                    </span>
-                    {isCompactList && (
-                      <span className={styles.countRow}>
-                        {compactChips.map((chip) => (
-                          <span key={chip.key} className={styles.countChip}>{chip.label}</span>
-                        ))}
-                      </span>
-                    )}
-                  </Link>
-                  {(entity.tags || []).length > 0 && (
-                    <span className={styles.cardTagRow}>
-                      {entity.tags.map((tag) => (
-                        <Link
-                          key={tag.id || tag.name}
-                          to={`/search?tag=${encodeURIComponent(tag.name)}`}
-                          className={styles.cardTagChip}
-                          title={`Find all items tagged #${tag.name}`}
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {tag.name}
-                        </Link>
-                      ))}
-                    </span>
-                  )}
-                  {type === 'project' && entity.task_counts && (
-                    <span className={styles.taskCountBadge}>
-                      <span>{entity.task_counts.open}</span> open / {entity.task_counts.total} total
-                    </span>
-                  )}
-                  {type === 'task' && (entity.projects || []).length > 0 && (
-                    <span className={styles.cardTagRow}>
-                      {entity.projects.map((project) => (
-                        <Link
-                          key={project.id}
-                          to={`/projects/${project.id}`}
-                          className={styles.projectChip}
-                          title={`Project: ${project.title}`}
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          ▣ {project.title}
-                        </Link>
-                      ))}
-                    </span>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
+          type === 'task' && groupBy !== 'none' ? (
+            <div className={styles.groupedList}>
+              {taskGroups.map((group) => (
+                <section key={group.key} className={styles.groupSection}>
+                  <div className={styles.groupHeader}>
+                    <h2>{group.label}</h2>
+                    <span className={styles.countPill}>{group.items.length}</span>
+                  </div>
+                  <ul className={styles.cards}>
+                    {group.items.map((entity) => renderEntityCard(entity))}
+                  </ul>
+                </section>
+              ))}
+            </div>
+          ) : (
+            <ul className={`${styles.cards} ${isCompactList ? styles.compactCards : ''}`}>
+              {visibleEntities.map((entity) => renderEntityCard(entity))}
+            </ul>
+          )
         )}
       </section>
     </main>

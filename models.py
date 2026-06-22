@@ -354,6 +354,8 @@ class Entity(BaseModel):
             "relationship_counts": relationship_counts,
             "task_counts": getattr(self, "_task_counts", None) or {"open": 0, "total": 0},
             "projects": getattr(self, "_projects", None) or [],
+            "areas": getattr(self, "_areas", None) or [],
+            "people": getattr(self, "_people", None) or [],
             "linked_counts": getattr(self, "_linked_counts", None) or {},
             "created_at": _iso(self.created_at),
             "updated_at": _iso(self.updated_at),

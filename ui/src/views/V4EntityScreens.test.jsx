@@ -94,6 +94,53 @@ describe('v4 entity screens', () => {
     expect(await screen.findByRole('link', { name: /Follow up/i })).toHaveAttribute('href', '/tasks/t1');
   });
 
+  it('groups tasks by project from task row context', async () => {
+    v4API.entities.list.mockResolvedValue({
+      data: [
+        {
+          id: 't1',
+          type: 'task',
+          title: 'Ship rollout',
+          status: 'open',
+          created_at: '2026-05-20T09:00:00+00:00',
+          updated_at: '2026-05-20T10:00:00+00:00',
+          properties: {},
+          tags: [],
+          projects: [{ id: 'p1', title: 'Agent Memory' }],
+          areas: [{ id: 'a1', title: 'Execution' }],
+          people: [{ id: 'person1', title: 'Priya' }],
+        },
+        {
+          id: 't2',
+          type: 'task',
+          title: 'Tighten evals',
+          status: 'open',
+          created_at: '2026-05-20T09:00:00+00:00',
+          updated_at: '2026-05-20T11:00:00+00:00',
+          properties: {},
+          tags: [],
+          projects: [],
+          areas: [],
+          people: [],
+        },
+      ],
+    });
+
+    render(
+      <MemoryRouter>
+        <V4EntityList type="task" />
+      </MemoryRouter>,
+    );
+
+    await screen.findByRole('link', { name: /Ship rollout/i });
+    fireEvent.change(screen.getByLabelText('Group tasks by'), { target: { value: 'project' } });
+
+    expect(screen.getByRole('heading', { name: /Agent Memory/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /No project/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Ship rollout/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Tighten evals/i })).toBeInTheDocument();
+  });
+
   it('creates a note from content-first input through capture', async () => {
     v4API.entities.list.mockResolvedValue({ data: [] });
     v4API.capture.mockResolvedValue({

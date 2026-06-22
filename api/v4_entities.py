@@ -328,7 +328,7 @@ def list_entities():
 
     rows = query.order_by(Entity.updated_at.desc(), Entity.created_at.desc()).limit(limit).all()
     _attach_project_task_counts(rows)
-    _attach_task_projects(rows)
+    _attach_task_context(rows)
     _attach_compact_link_counts(rows)
     return jsonify({"data": [row.to_dict() for row in rows]})
 
@@ -616,7 +616,7 @@ def _build_today_payload(now):
     inherited_priorities = _inherited_task_priorities(all_tasks)
     staleness_by_id = _staleness_days_for(all_tasks, now)
     impact_by_id = _blocking_impact_counts(all_tasks)
-    _attach_task_projects(all_tasks)
+    _attach_task_context(all_tasks)
 
     def with_priority(entity, **kwargs):
         return _entity_with_attention(
@@ -2880,31 +2880,55 @@ def _attach_project_task_counts(entities):
             entity._task_counts = counts_by_project.get(entity.id, {"open": 0, "total": 0})
 
 
-def _attach_task_projects(entities):
-    """Attach parent project refs to task rows so cards can show which
-    initiative a task belongs to without an extra fetch."""
+def _attach_task_context(entities):
+    """Attach parent project/area refs and assignee refs to task rows."""
     task_ids = [entity.id for entity in entities if entity.type == "task"]
     if not task_ids:
         return
 
-    projects_by_task = {}
-    rows = (
-        db.session.query(EntityLink.source_entity_id, Entity.id, Entity.title)
+    task_context = {
+        task_id: {"projects": [], "areas": [], "people": []}
+        for task_id in task_ids
+    }
+    parent_rows = (
+        db.session.query(EntityLink.source_entity_id, Entity.id, Entity.title, Entity.type)
         .join(Entity, Entity.id == EntityLink.target_entity_id)
         .filter(
             EntityLink.relationship_type == "parent",
             EntityLink.source_entity_id.in_(task_ids),
-            Entity.type == "project",
+            Entity.type.in_(("project", "area")),
             Entity.lifecycle == "active",
         )
         .all()
     )
-    for task_id, project_id, project_title in rows:
-        projects_by_task.setdefault(task_id, []).append({"id": project_id, "title": project_title})
+    for task_id, target_id, target_title, target_type in parent_rows:
+        bucket = task_context.setdefault(task_id, {"projects": [], "areas": [], "people": []})
+        if target_type == "project":
+            bucket["projects"].append({"id": target_id, "title": target_title})
+        elif target_type == "area":
+            bucket["areas"].append({"id": target_id, "title": target_title})
+
+    assignee_rows = (
+        db.session.query(EntityLink.source_entity_id, Entity.id, Entity.title)
+        .join(Entity, Entity.id == EntityLink.target_entity_id)
+        .filter(
+            EntityLink.relationship_type == "assigned_to",
+            EntityLink.source_entity_id.in_(task_ids),
+            Entity.type == "person",
+            Entity.lifecycle == "active",
+        )
+        .all()
+    )
+    for task_id, person_id, person_title in assignee_rows:
+        bucket = task_context.setdefault(task_id, {"projects": [], "areas": [], "people": []})
+        bucket["people"].append({"id": person_id, "title": person_title})
 
     for entity in entities:
         if entity.type == "task":
-            entity._projects = projects_by_task.get(entity.id, [])
+            context = task_context.get(entity.id, {"projects": [], "areas": [], "people": []})
+            entity._projects = context["projects"]
+            entity._areas = context["areas"]
+            entity._people = context["people"]
 
 
 def _attach_compact_link_counts(entities):

@@ -1496,6 +1496,31 @@
   gap: 8px;
 }
 
+.groupedList {
+  display: grid;
+  gap: 16px;
+}
+
+.groupSection {
+  display: grid;
+  gap: 8px;
+}
+
+.groupHeader {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.groupHeader h2 {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .linkedArea {
   display: grid;
   gap: 6px;

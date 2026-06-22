@@ -470,12 +470,14 @@ def test_project_updated_at_advances_when_child_task_is_updated(client, app):
     )
 
 
-def test_task_rows_carry_parent_projects(client, app):
-    """Task list/today rows include parent project refs for card chips."""
+def test_task_rows_carry_parent_context_entities(client, app):
+    """Task list rows include parent project/area refs and assignee refs."""
     from extensions import db
     from models import EntityLink
 
     project = client.post("/api/v4/entities", json={"type": "project", "title": "Memory Lookup"}).get_json()["data"]
+    area = client.post("/api/v4/entities", json={"type": "area", "title": "Execution"}).get_json()["data"]
+    person = client.post("/api/v4/entities", json={"type": "person", "title": "Priya"}).get_json()["data"]
     task = client.post("/api/v4/entities", json={"type": "task", "title": "Ship rollout"}).get_json()["data"]
     with app.app_context():
         db.session.add(EntityLink(
@@ -483,12 +485,26 @@ def test_task_rows_carry_parent_projects(client, app):
             target_entity_id=project["id"],
             relationship_type="parent",
         ))
+        db.session.add(EntityLink(
+            source_entity_id=task["id"],
+            target_entity_id=area["id"],
+            relationship_type="parent",
+        ))
+        db.session.add(EntityLink(
+            source_entity_id=task["id"],
+            target_entity_id=person["id"],
+            relationship_type="assigned_to",
+        ))
         db.session.commit()
 
     rows = client.get("/api/v4/entities?type=task").get_json()["data"]
     row = next(r for r in rows if r["id"] == task["id"])
     assert row["projects"] == [{"id": project["id"], "title": "Memory Lookup"}]
+    assert row["areas"] == [{"id": area["id"], "title": "Execution"}]
+    assert row["people"] == [{"id": person["id"], "title": "Priya"}]
 
     # Projects themselves don't get the field populated
     project_rows = client.get("/api/v4/entities?type=project").get_json()["data"]
     assert all(r["projects"] == [] for r in project_rows)
+    assert all(r["areas"] == [] for r in project_rows)
+    assert all(r["people"] == [] for r in project_rows)
