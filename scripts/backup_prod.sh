@@ -13,8 +13,46 @@ DB_URL="${DATABASE_URL:-postgresql://engram:engram@localhost:5432/engram}"
 TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
 OUT="$BACKUP_DIR/engram_${TIMESTAMP}.sql"
 
+resolve_pg_binary() {
+  local name="$1"
+  local candidate
+  local -a candidates=(
+    "$(command -v "$name" 2>/dev/null || true)"
+    "/opt/homebrew/opt/libpq/bin/$name"
+    "/usr/local/opt/libpq/bin/$name"
+    "/opt/homebrew/bin/$name"
+    "/usr/local/bin/$name"
+    "/Applications/Postgres.app/Contents/Versions/latest/bin/$name"
+  )
+
+  shopt -s nullglob
+  for candidate in /opt/homebrew/Cellar/libpq/*/bin/"$name" /usr/local/Cellar/libpq/*/bin/"$name"; do
+    candidates+=("$candidate")
+  done
+  for candidate in /opt/homebrew/Cellar/postgresql@*/*/bin/"$name" /usr/local/Cellar/postgresql@*/*/bin/"$name"; do
+    candidates+=("$candidate")
+  done
+  shopt -u nullglob
+
+  for candidate in "${candidates[@]}"; do
+    if [[ -n "$candidate" && -x "$candidate" ]] && "$candidate" --version >/dev/null 2>&1; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+PG_DUMP_BIN="$(resolve_pg_binary pg_dump || true)"
+if [[ -z "$PG_DUMP_BIN" ]]; then
+  echo "[backup] ERROR: could not find a working pg_dump binary."
+  echo "[backup] Install libpq/Postgres CLI tools or add pg_dump to PATH."
+  exit 1
+fi
+
 echo "[backup] Dumping $DB_URL → $OUT"
-pg_dump "$DB_URL" > "$OUT"
+"$PG_DUMP_BIN" "$DB_URL" > "$OUT"
 
 SIZE=$(wc -c < "$OUT")
 if [[ "$SIZE" -lt 1024 ]]; then
@@ -24,4 +62,5 @@ if [[ "$SIZE" -lt 1024 ]]; then
 fi
 
 echo "[backup] OK: ${SIZE} bytes written to $OUT"
+echo "[backup] Using pg_dump at: $PG_DUMP_BIN"
 echo "[backup] To restore: psql <target-db-url> < $OUT"

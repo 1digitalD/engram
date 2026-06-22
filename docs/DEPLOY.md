@@ -28,11 +28,17 @@ plutil -lint ~/Library/LaunchAgents/com.engram.api.plist
 
 The deploy script:
 
-1. Builds the React frontend with Vite.
-2. Stops any running launchd-managed Engram API.
-3. Starts the API via the checked-in LaunchAgent.
-4. Verifies `http://127.0.0.1:5001/api/v4/health`.
-5. Prints the local and Tailscale endpoints.
+1. Creates a production backup via `scripts/backup_prod.sh`.
+2. Builds the React frontend with Vite.
+3. Stops any running launchd-managed Engram API.
+4. Starts the API via the checked-in LaunchAgent.
+5. Verifies `http://127.0.0.1:5001/api/v4/health`.
+6. Prints the local and Tailscale endpoints.
+
+`scripts/backup_prod.sh` auto-discovers a working `pg_dump` binary from `PATH`,
+Homebrew `libpq`, or common Postgres app installs. `scripts/engram-deploy.sh`
+writes its log to `~/Library/Logs/engram-deploy.log` by default, and falls back
+to `~/Library/Logs/engram-deploy-$USER.log` if the requested path is not writable.
 
 ## LaunchAgent
 
@@ -75,7 +81,7 @@ Logs:
 
 ```bash
 tail -f /tmp/engram-api.log
-tail -f /tmp/engram-deploy.log
+tail -f ~/Library/Logs/engram-deploy.log
 ```
 
 Port ownership:
