@@ -5,7 +5,7 @@ import hashlib
 import json
 import re
 
-from flask import jsonify, request
+from flask import current_app, jsonify, request
 from sqlalchemy import func, or_
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.orm import selectinload
@@ -13,6 +13,7 @@ from sqlalchemy.orm import selectinload
 from api import api_v4_bp
 from extensions import db
 from models import AiSuggestion, AppSetting, Entity, EntityEvent, EntityLink, EntityTag, Job, Tag, _iso
+from services import runtime_health
 from services.v4_attention import attention_for_entity, today_attention_count, today_attention_items
 
 STATUS_BY_TYPE = {
@@ -109,8 +110,12 @@ COMPACT_LINK_COUNT_RULES = {
 
 @api_v4_bp.route("/health", methods=["GET"])
 def health():
-    db.session.execute(db.text("SELECT 1"))
-    return jsonify({"status": "ok", "api": "v4"})
+    database_ready, database_reason = runtime_health.probe_database_connection()
+    current_app.config["DATABASE_READY"] = database_ready
+    current_app.config["DATABASE_UNAVAILABLE_REASON"] = database_reason
+    if not database_ready:
+        return jsonify(runtime_health.backend_unavailable_payload(database_reason)), 503
+    return jsonify({"status": "ok", "api": "v4", "database": "ok"})
 
 
 @api_v4_bp.route("/capture", methods=["POST"])

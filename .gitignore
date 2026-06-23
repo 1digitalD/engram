@@ -28,5 +28,6 @@ logs/
 static/assets/
 static/index.html
 .claude/
+.codloop/
 .v2-overhaul-backup/
 backups/

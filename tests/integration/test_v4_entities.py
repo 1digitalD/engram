@@ -2,8 +2,10 @@
 
 from datetime import datetime, timezone
 
+from app import create_app
 from extensions import db
 from models import Entity, EntityEvent, Job, Tag
+from services import runtime_health
 
 
 FORBIDDEN_DTO_FIELDS = {
@@ -25,6 +27,53 @@ def test_v4_health(client):
 
     assert response.status_code == 200
     assert response.get_json()["status"] == "ok"
+
+
+def test_v4_health_reports_backend_unavailable_when_db_probe_fails(client, monkeypatch):
+    monkeypatch.setattr(
+        runtime_health,
+        "probe_database_connection",
+        lambda: (False, "psycopg2.OperationalError: connection refused"),
+    )
+
+    response = client.get("/api/v4/health")
+
+    assert response.status_code == 503
+    body = response.get_json()
+    assert body["status"] == "error"
+    assert body["dependency"] == "postgres"
+    assert body["message"] == "Engram backend unavailable"
+    assert "connection refused" in body["reason"]
+
+
+def test_app_health_reports_backend_unavailable_when_db_probe_fails(client, monkeypatch):
+    monkeypatch.setattr(
+        runtime_health,
+        "probe_database_connection",
+        lambda: (False, "psycopg2.OperationalError: connection refused"),
+    )
+
+    response = client.get("/health")
+
+    assert response.status_code == 503
+    body = response.get_json()
+    assert body["status"] == "error"
+    assert body["dependency"] == "postgres"
+    assert body["message"] == "Engram backend unavailable"
+    assert body["db"] == "error"
+
+
+def test_create_app_marks_backend_unavailable_when_db_probe_fails(monkeypatch):
+    monkeypatch.setattr(
+        runtime_health,
+        "probe_database_connection",
+        lambda: (False, "database unavailable for startup"),
+    )
+
+    app = create_app("testing")
+
+    assert app.config["DATABASE_READY"] is False
+    assert app.config["DATABASE_UNAVAILABLE_REASON"] == "database unavailable for startup"
 
 
 def test_create_all_v4_entity_types(client):

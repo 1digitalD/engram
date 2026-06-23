@@ -25,7 +25,7 @@
         <key>FLASK_ENV</key>
         <string>production</string>
         <key>DATABASE_URL</key>
-        <string>postgresql://engram:engram@localhost:5432/engram</string>
+        <string>postgresql://engram:engram@127.0.0.1:5432/engram</string>
     </dict>
 </dict>
 </plist>

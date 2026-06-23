@@ -7,9 +7,11 @@ from pathlib import Path
 import click
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
+from sqlalchemy.exc import OperationalError
 
 from config import config
 from extensions import db
+from services import runtime_health
 
 logging.basicConfig(
     level=logging.INFO,
@@ -51,6 +53,13 @@ def _is_flask_run_command():
     return Path(sys.argv[0]).name == "flask" and "run" in sys.argv
 
 
+def _refresh_database_readiness(app):
+    database_ready, database_reason = runtime_health.probe_database_connection()
+    app.config["DATABASE_READY"] = database_ready
+    app.config["DATABASE_UNAVAILABLE_REASON"] = database_reason
+    return database_ready, database_reason
+
+
 def create_app(config_name=None):
     if config_name is None:
         config_name = os.getenv("FLASK_ENV", "development")
@@ -61,6 +70,12 @@ def create_app(config_name=None):
 
     # Init DB
     db.init_app(app)
+    with app.app_context():
+        database_ready, database_reason = _refresh_database_readiness(app)
+    if database_ready:
+        logger.info("Startup DB probe succeeded")
+    else:
+        logger.error("Startup DB probe failed: %s", database_reason)
 
     # v4 clean cutover: only the canonical v4 API is registered at runtime.
     from api import api_v4_bp
@@ -73,7 +88,7 @@ def create_app(config_name=None):
     # Start job worker on boot (non-blocking background thread)
     # Skip in testing mode to avoid background DB connections
     is_testing = app.config.get("TESTING", False)
-    if not is_testing and (Path(sys.argv[0]).name != "flask" or _is_flask_run_command()):
+    if database_ready and not is_testing and (Path(sys.argv[0]).name != "flask" or _is_flask_run_command()):
         def _start_worker():
             try:
                 from services.job_worker import start_worker
@@ -143,12 +158,22 @@ def create_app(config_name=None):
 
     @app.route("/health")
     def health():
+        database_ready, database_reason = _refresh_database_readiness(app)
+
         status = {"db": "ok", "ai": "unknown", "vec": "unknown"}
-        try:
-            db.session.execute(db.text("SELECT 1"))
-        except Exception as e:
+        if not database_ready:
             status["db"] = "error"
-            logger.error("Health check DB probe failed: %s", e)
+            logger.error("Health check DB probe failed: %s", database_reason)
+            return jsonify({
+                **status,
+                "status": "error",
+                "api": "v4",
+                "dependency": "postgres",
+                "message": "Engram backend unavailable",
+                "reason": database_reason,
+            }), 503
+
+        status["db"] = "ok"
 
         try:
             db.session.execute(db.text("SELECT * FROM entity_chunks LIMIT 1"))
@@ -164,6 +189,20 @@ def create_app(config_name=None):
 
         return jsonify(status)
 
+    @app.before_request
+    def block_api_when_backend_unavailable():
+        if request.path == "/api/v4/health":
+            return None
+        if request.path.startswith("/api/") and not app.config.get("DATABASE_READY", True):
+            database_ready, _database_reason = _refresh_database_readiness(app)
+            if database_ready:
+                return None
+            return jsonify(
+                runtime_health.backend_unavailable_payload(
+                    app.config.get("DATABASE_UNAVAILABLE_REASON")
+                )
+            ), 503
+
     # ── React SPA ─────────────────────────────────────────────────────────────
     # Serve static assets directly; fall through to index.html for SPA routes.
 
@@ -174,6 +213,13 @@ def create_app(config_name=None):
         static_file = _os.path.join(app.static_folder or "static", path)
         if path and _os.path.isfile(static_file):
             return send_from_directory(app.static_folder or "static", path)
+        if not app.config.get("DATABASE_READY", True):
+            database_ready, _database_reason = _refresh_database_readiness(app)
+            if database_ready:
+                return send_from_directory(app.static_folder or "static", "index.html")
+            return runtime_health.backend_unavailable_html(
+                app.config.get("DATABASE_UNAVAILABLE_REASON")
+            ), 503
         return send_from_directory(app.static_folder or "static", "index.html")
 
     # ── Error Handlers ────────────────────────────────────────────────────────
@@ -190,6 +236,21 @@ def create_app(config_name=None):
         if request.path.startswith("/api/"):
             return jsonify({"error": "internal server error"}), 500
         return send_from_directory("static", "index.html"), 500
+
+    @app.errorhandler(OperationalError)
+    def operational_error(e):
+        logger.error("Database operation failed: %s", e)
+        app.config["DATABASE_READY"] = False
+        app.config["DATABASE_UNAVAILABLE_REASON"] = str(e)
+        if request.path.startswith("/api/"):
+            return jsonify(
+                runtime_health.backend_unavailable_payload(
+                    app.config.get("DATABASE_UNAVAILABLE_REASON") or str(e)
+                )
+            ), 503
+        return runtime_health.backend_unavailable_html(
+            app.config.get("DATABASE_UNAVAILABLE_REASON") or str(e)
+        ), 503
 
     return app
 

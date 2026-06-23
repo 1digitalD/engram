@@ -1,0 +1,12 @@
+primaryExecutor: opencode
+fallbackExecutors:
+  - cursor
+  - codex
+  - claude
+platform: openclaw
+allowExecutorFallback: true
+requireHumanForDependencies: true
+publication:
+  branchPrefix: loopsmith
+  pushEnabled: false
+  prEnabled: false
