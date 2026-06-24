@@ -3439,6 +3439,12 @@ def _apply_reconciliation_decision(note, candidate, decision, applied_changes, s
         return
     content = _candidate_value(candidate, "content")
     top_match_score = decision.get("top_match_score") or 0.0
+    if (
+        entity_type == "task"
+        and confidence < AUTO_CREATE_ENTITY_CONFIDENCE
+        and _task_candidate_looks_tentative(candidate)
+    ):
+        return
     if _can_auto_create_entity(entity_type, confidence, top_match_score):
         entity = _auto_create_entity(
             entity_type=entity_type,
@@ -4781,7 +4787,40 @@ def _should_emit_capture_suggestion(note, candidate, action, entity_type, relati
         and confidence < INTENT_SUGGESTION_CONFIDENCE_FLOOR
     ):
         return False
+    if (
+        entity_type == "task"
+        and action == "new"
+        and confidence < AUTO_CREATE_ENTITY_CONFIDENCE
+        and _task_candidate_looks_tentative(candidate)
+    ):
+        return False
     return True
+
+
+def _task_candidate_looks_tentative(candidate):
+    """Return True for obviously tentative task phrasing that should stay out of review.
+
+    We still allow concrete low-confidence tasks like "Follow up with Henry" or
+    "Review the rollout doc" to surface for review, but we suppress hedged
+    wording that usually represents musing rather than an actionable task.
+    """
+    title = (_candidate_value(candidate, "title") or "").casefold()
+    if not title:
+        return False
+
+    tentative_prefixes = (
+        "maybe ",
+        "possibly ",
+        "perhaps ",
+        "might ",
+        "could ",
+        "consider ",
+        "think about ",
+        "look into ",
+        "we should maybe ",
+        "let's maybe ",
+    )
+    return title.startswith(tentative_prefixes)
 
 
 def _expire_stale_suggestion_if_needed(suggestion):

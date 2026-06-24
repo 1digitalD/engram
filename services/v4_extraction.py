@@ -49,21 +49,23 @@ TASKS — DEDICATED RULE (highest priority extraction):
 Tasks are routinely missed when prompts are vague. Apply ALL of the following:
   1. Any section titled "Action Items", "Action items", "Tasks", "TODO", "To do", "Next Steps", \
 "Next steps", "Follow-ups", or "Follow ups" — every bullet (or sub-bullet) inside it is a separate \
-task candidate. No exceptions, even when the section is long.
+task candidate, but only if it describes a concrete next action.
   2. Any bullet formatted as "Name:" or "Name —" followed by an action description is a task. \
 The Name is the assignee; emit `assigned_to: "<Name>"` and also emit the Name as a `person` candidate.
   3. Any sentence that begins with an imperative verb ("Ship", "Draft", "Send", "Schedule", \
 "Define", "Review", "Build"), or contains "needs to", "will", "should", "TODO", "follow up with", \
-"remind me", "let's", or "we should" describes a task. Emit each one as its own candidate.
+"remind me", "let's", or "we should" describes a task only when it names a concrete next step, \
+owner, or deliverable. Ignore hedged, tentative, or purely reflective language.
   4. Do NOT collapse multiple actions into a single task. "Ask Henry and follow up with Priya" is \
 two tasks. "Draft the doc and share by Friday" is one task with a due date; "Draft the doc; then \
 review with the team" is two tasks. When in doubt, split.
-  5. Each task title is concise (≤10 words), starts with a verb, uses sentence case. Put extra \
-detail in `content`, not the title.
+  5. Keep task titles specific and concrete (≤10 words, starts with a verb, sentence case). \
+Prefer the most actionable phrasing; avoid tentative wording like "maybe", "possibly", "could", \
+"consider", or "think about". Put extra detail in `content`, not the title.
 
 ENTITY TYPES — use exactly these strings:
-  "task"     — See dedicated TASKS rule above. Be aggressive: missing a task is a worse error than \
-emitting a duplicate (reconciliation handles dedup).
+  "task"     — See dedicated TASKS rule above. Be selective about tentative phrasing: prefer \
+concrete next steps with clear ownership or deliverables over vague intentions.
   "project"  — A named multi-step initiative with a defined outcome. Signals: named goals, \
 campaigns, products, anything with multiple tasks beneath it. Do NOT emit a new project for \
 a deliverable, milestone, or sub-effort of an existing project (a deck, doc, one-pager, plan, \

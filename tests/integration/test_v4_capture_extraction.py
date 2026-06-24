@@ -216,7 +216,7 @@ def test_capture_suggests_entity_below_auto_create_threshold(client, app):
         assert AiSuggestion.query.filter_by(suggestion_type="create_person").count() == 1
 
 
-def test_capture_suggests_low_confidence_entity(client, app):
+def test_capture_suppresses_tentative_low_value_task(client, app):
     extraction = {
         "entities": [
             {
@@ -233,12 +233,11 @@ def test_capture_suggests_low_confidence_entity(client, app):
 
     assert response.status_code == 201
     data = response.get_json()
-    assert len(data["suggestions"]) == 1
-    assert data["suggestions"][0]["suggestion_type"] == "create_task"
+    assert data["suggestions"] == []
 
     with app.app_context():
         assert Entity.query.filter_by(type="task").count() == 0
-        assert AiSuggestion.query.filter_by(suggestion_type="create_task").count() == 1
+        assert AiSuggestion.query.filter_by(suggestion_type="create_task").count() == 0
 
 
 def test_capture_near_duplicate_task_routes_to_suggestion(client, app):

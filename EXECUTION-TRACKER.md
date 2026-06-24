@@ -358,6 +358,16 @@ Non-authoritative historical artifacts:
     open tasks invisible to any surface ~60 -> 54. No regressions. See
     `docs/iterations/PHASE_F_NORTH_STAR_METRICS.md`.
 
+- Post-plan follow-up: low-value tentative task suppression
+  - extractor prompt now prefers concrete, owner-bearing tasks and avoids
+    hedged wording like "maybe", "possibly", and "think about"
+  - capture now suppresses obviously tentative low-confidence task candidates
+    before they can hit the review queue
+  - capture extraction integration suite green: 45 passed
+  - full backend suite currently surfaces three unrelated semantic-search
+    failures in `tests/integration/test_v4_search.py`; those need follow-up
+    before merge
+
 **V4 World Model plan (Phases A-F) complete.** Remaining backlog is all in
 "Explicitly deferred" in `docs/V4_WORLD_MODEL_PLAN.md`.
 
