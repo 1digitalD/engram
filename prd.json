@@ -1,18 +1,15 @@
 {
   "iteration": "v4-noise-reduction-tier1",
-  "goal": "Reduce low-signal noise surfaced by the v4 workspace so attention lands on items that need a decision today. Out of scope: schema changes, schema migrations, AI prompt rewrites (already shipped in commit 1a21ed3b), and empty-content activity update guards (already enforced at api/v4_entities.py:1754 and :3258).",
+  "goal": "Reduce low-signal noise surfaced by the v4 workspace so attention lands on items that need a decision today. Tier 1 of 2 from the diagnostic at /Volumes/lex1t/OC-workspace/memory/engram-cleanup-diagnostic.md.",
   "riskLevel": "low",
-  "userProblem": "Today view and other entity list views render entities with null or placeholder titles as the literal string 'Untitled'. This produces confusing rows that the user cannot act on. Separately, V4Today renders 8 sections of equal weight on first paint: Focus now, Overdue, Due today, Stuck, Projects without open tasks, Stale projects, Suggested archival, Recent notes, plus Delegations quiet and Dependency interventions. With 12 idle projects and 25 recent notes against 3 due-today items, the actionable items are visually buried. Result: high cognitive load, missed follow-ups.",
-  "whyNow": "User reported too much noise to focus on important work. Diagnostic at /Volumes/lex1t/OC-workspace/memory/engram-cleanup-diagnostic.md identified these two surfaces as the highest-leverage low-risk fixes. Prior commit 1a21ed3b already shipped the extraction-prompt slice. Remaining work is pure presentation.",
+  "userProblem": "Today view and other entity list views render entities with null or placeholder titles as the literal string 'Untitled'. This produces confusing rows the user cannot act on. Separately, V4Today renders 8 sections of equal weight on first paint, so 12 idle projects and 25 recent notes visually bury the 3 actually-due follow-ups. Result: high cognitive load, missed follow-ups.",
+  "whyNow": "User reported too much noise to focus on important work. Diagnostic identified these two surfaces as the highest-leverage low-risk fixes. Task 1 (Untitled fallbacks) already shipped in commit af3dd806 on main. Remaining work is task 2 (V4Today collapse) and task 3 (React-side regression test that complements the pytest regression landed with task 1).",
   "scope": {
     "filesAffected": [
-      "mcp_server/v4_formatters.py",
       "ui/src/views/V4Today.jsx",
-      "ui/src/views/V4EntityList.jsx",
-      "ui/src/views/V4AgentActivity.jsx",
-      "ui/src/views/V4Search.jsx",
-      "ui/src/views/V4Suggestions.jsx",
-      "ui/src/views/V4Home.jsx"
+      "ui/src/views/V4Today.module.css",
+      "ui/src/views/V4Today.test.jsx",
+      "ui/src/views/__tests__/untitled-render.test.jsx (new)"
     ],
     "routesAffected": [],
     "dataOrApiDependencies": [],
@@ -22,61 +19,73 @@
     {
       "id": "untitled-fallbacks-mcp-and-ui",
       "title": "Drop 'Untitled' fallback strings in MCP and UI",
-      "description": "Replace every `entity.title || 'Untitled'` style fallback with explicit rendering that distinguishes a null title from a non-null one. In MCP formatters, render `(no title)` plus the entity id and type when title is missing, so the user has enough info to disambiguate. In React components, do the same and skip the row if title is required by the layout. Total sites: 13 in mcp_server/v4_formatters.py, 5 in ui/src/views/*.jsx. Confirmed by `grep -rn \"'Untitled'\"` on 2026-06-26.",
+      "description": "ALREADY COMPLETED. Replaced `entity.title || 'Untitled'` style fallbacks in mcp_server/v4_formatters.py (13 sites) and 7 UI view components with `(no title)` plus entity id and type via a shared entityTitleLabel() helper in ui/src/utils/entityDisplay.js. Added tests/unit/test_mcp_v4_formatters.py with 3 regression tests asserting 'Untitled' is not in formatter output. All 6 pytest tests pass, npm run build passes, grep returns zero matches.",
       "risk": "low",
       "acceptanceCriteria": [
         "`grep -rn \"'Untitled'\\|\\\"Untitled\\\"\" mcp_server/ ui/src/` returns no matches",
-        "When title is null, MCP formatters emit `(no title)` with the entity id and type on the same line",
-        "When title is null, React list rows render the entity id and type placeholder instead of the word Untitled",
-        "Existing tests in mcp_server/tests/ and ui/src/**/*.test.jsx still pass with updated snapshots where required",
-        "PYTHONPATH=. ./venv/bin/pytest -q passes",
+        "MCP formatters emit `(no title)` with id and type when title is null",
+        "React list rows render entity id and type placeholder when title is null",
+        "PYTHONPATH=. ./venv/bin/pytest -q tests/unit/test_mcp_v4_formatters.py passes (6/6)",
         "cd ui && npm run build passes"
       ],
       "validationCommands": [
-        "grep -rn \"'Untitled'\\|\\\"Untitled\\\"\" mcp_server/ ui/src/ ; test $? -eq 1",
-        "PYTHONPATH=. ./venv/bin/pytest -q",
-        "cd ui && npm install --no-audit --no-fund && npm run build"
-      ]
+        "bash -c \"! grep -rn \\\"'Untitled'\\|\\\\\\\"Untitled\\\\\\\"\\\" mcp_server/ ui/src/\"",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && PYTHONPATH=. ./venv/bin/pytest -q tests/unit/test_mcp_v4_formatters.py",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build"
+      ],
+      "blocked": false,
+      "passes": true,
+      "attempts": 1,
+      "commit": "af3dd806"
     },
     {
       "id": "v4today-default-collapse-low-signal",
       "title": "Default-collapse low-signal sections in V4Today",
-      "description": "V4Today currently renders 8 sections on first paint. After this change, the four low-signal sections \u2014 Projects without open tasks, Stale projects, Suggested archival, Recent notes \u2014 are collapsed by default and reveal via a 'Show N more' disclosure. The remaining four \u2014 Focus now, Overdue, Due today/follow-up, Stuck \u2014 remain visible at top. Cap the Projects without open tasks list at 5 visible items (with 'View all 12' link if more exist). Recent notes stays in the same screen but is collapsed, not removed. This is presentation only \u2014 the underlying `/api/v4/today` payload is unchanged.",
+      "description": "V4Today currently renders 8 sections on first paint. After this change, the four low-signal sections — Projects without open tasks, Stale projects, Suggested archival, Recent notes — are collapsed by default and reveal via a 'Show N more' disclosure. The remaining four — Focus now, Overdue, Due today/follow-up, Stuck — remain visible at top. Cap the Projects without open tasks list at 5 visible items (with 'View all 12' link if more exist). Recent notes stays in the same screen but is collapsed, not removed. This is presentation only — the underlying `/api/v4/today` payload is unchanged. Keyboard accessibility required: collapse controls must be focusable buttons (not divs), and aria-expanded must reflect state.",
       "risk": "low",
       "acceptanceCriteria": [
-        "On first render of V4Today with mixed-state data, Projects without open tasks / Stale projects / Suggested archival / Recent notes are collapsed",
-        "Each collapsed section shows a summary line ('12 idle projects \u2014 show') and expands on click",
-        "Projects without open tasks renders at most 5 items by default with a 'View all N' link",
+        "On first render of V4Today with mixed-state data, Projects without open tasks / Stale projects / Suggested archival / Recent notes are collapsed (not visible in DOM or hidden via aria-hidden)",
+        "Each collapsed section shows a summary line ('12 idle projects — show') on a focusable button and expands on click/Enter/Space",
+        "Projects without open tasks renders at most 5 items by default with a 'View all N' link that expands the list",
         "Focus now, Overdue, Due today/follow-up, and Stuck sections render fully as before",
-        "Local UI tests in ui/src/views/V4Today.test.jsx still pass; add a test that confirms collapsed initial state",
-        "cd ui && npm run build passes",
-        "cd ui && npm test -- --run V4Today passes (Vitest, not the legacy npm test command \u2014 verify via package.json)"
+        "ui/src/views/V4Today.test.jsx adds a test that confirms collapsed initial state for the four low-signal sections",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build passes",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- --run src/views/V4Today.test.jsx passes"
       ],
       "validationCommands": [
-        "PYTHONPATH=. ./venv/bin/pytest -q",
-        "cd ui && npm install --no-audit --no-fund && npm run build",
-        "cd ui && npm test -- --run src/views/V4Today.test.jsx 2>&1 | tail -20"
-      ]
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- --run src/views/V4Today.test.jsx 2>&1 | tail -30"
+      ],
+      "blocked": false,
+      "passes": false,
+      "attempts": 0
     },
     {
-      "id": "untitled-regression-test",
-      "title": "Add regression test that Untitled string does not appear in rendered output",
-      "description": "Add a focused unit test in mcp_server/tests/ that asserts no formatter output contains the literal substring 'Untitled'. This prevents future regression of the 'Untitled' fallback across all read tools. Add a parallel React component test that scans a fixture list with null-title entities and confirms the literal 'Untitled' is not in the rendered DOM.",
+      "id": "untitled-regression-test-react",
+      "title": "Add React-side regression test that 'Untitled' string does not appear in rendered DOM",
+      "description": "Task 1 already added Python-side regression coverage in tests/unit/test_mcp_v4_formatters.py. Add the parallel React coverage: a Vitest test that renders a fixture list with at least one null-title entity through V4EntityList (or any view using entityTitleLabel) and asserts the literal string 'Untitled' is not in the rendered DOM. Also assert the placeholder includes the entity id and type so the disambiguation contract is enforced on the UI side too. Test file: ui/src/views/__tests__/untitled-render.test.jsx.",
       "risk": "low",
       "acceptanceCriteria": [
-        "mcp_server/tests/test_v4_formatters_untitled.py exists and asserts 'Untitled' not in any formatter output for fixtures with null title",
-        "ui/src/views/__tests__/untitled-render.test.jsx (or appropriate existing test file) covers the same for React components",
-        "Both tests fail if 'Untitled' reappears in formatters/components"
+        "ui/src/views/__tests__/untitled-render.test.jsx exists",
+        "Test renders V4EntityList with a fixture containing an entity with title: null",
+        "Assertion: 'Untitled' is not in the rendered text",
+        "Assertion: '(no title)' is in the rendered text",
+        "Assertion: the entity id is in the rendered text",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- --run src/views/__tests__/untitled-render.test.jsx passes",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build passes"
       ],
       "validationCommands": [
-        "PYTHONPATH=. ./venv/bin/pytest -q mcp_server/tests/test_v4_formatters_untitled.py",
-        "cd ui && npm test -- --run src/views 2>&1 | tail -20"
-      ]
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- --run src/views/__tests__/untitled-render.test.jsx 2>&1 | tail -30",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build"
+      ],
+      "blocked": false,
+      "passes": false,
+      "attempts": 0
     }
   ],
   "validationCommands": [
-    "PYTHONPATH=. ./venv/bin/pytest -q",
-    "cd ui && npm install --no-audit --no-fund && npm run build"
+    "cd /Volumes/lex1t/dev/shared/repos/engram && PYTHONPATH=. ./venv/bin/pytest -q",
+    "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build"
   ],
   "codingLoopPolicy": {
     "primaryExecutor": "opencode",
@@ -87,7 +96,8 @@
     ],
     "platform": "openclaw",
     "allowExecutorFallback": true,
-    "requireHumanForDependencies": true
+    "requireHumanForDependencies": true,
+    "executorLaunchTimeoutSeconds": 1800
   },
   "publication": {
     "branchPrefix": "loopsmith",
@@ -100,33 +110,31 @@
     "Adding NOT NULL constraints on Entity.title",
     "Removing Entity.ai_meta duplicates (Tier 2 deferred per diagnostic)",
     "Adding a 'Focused mode' toggle (Tier 2 deferred)",
-    "Moving Recent notes out of Today view entirely (deferred \u2014 collapses instead)",
+    "Moving Recent notes out of Today view entirely (deferred — collapses instead)",
     "Cron job for slipped-bug DMs (user opted out of cron in earlier conversation)"
   ],
   "continuityNote": {
     "keyDecisions": [
-      "Already-shipped work (commit 1a21ed3b) handles the extraction-prompt concerns. Do not re-touch.",
+      "Already-shipped work (commit 1a21ed3b and af3dd806) handles the extraction-prompt and Untitled fallback concerns. Do not re-touch.",
       "Empty-content activity update guard already exists at api/v4_entities.py:1754 and :3258. Do not re-touch.",
-      "Render null titles as '(no title) [type-id]' instead of empty string so user retains disambiguation context.",
-      "Cap idle projects at 5 visible, do not remove the section \u2014 user may still want to scan it.",
+      "Validator commands run from the main repo path (/Volumes/lex1t/dev/shared/repos/engram) because worktrees do not carry the gitignored venv/ directory.",
+      "npm install is NOT in any validator — vite and dependencies are cached; install only adds latency. If a missing-dependency error appears, install in the main repo once and retry.",
+      "executorLaunchTimeoutSeconds is set to 1800 to absorb first-time build/indexing work; the default 300 was insufficient for npm build after a fresh worktree.",
+      "Render null titles as '(no title) [type-id]' so user retains disambiguation context (decided in task 1).",
+      "Cap idle projects at 5 visible, do not remove the section — user may still want to scan it.",
       "Keep Recent notes collapsed in place rather than relocating to Inbox (out of scope per non-goals)."
     ],
     "filesLikelyToChange": [
-      "mcp_server/v4_formatters.py",
       "ui/src/views/V4Today.jsx",
-      "ui/src/views/V4EntityList.jsx",
-      "ui/src/views/V4AgentActivity.jsx",
-      "ui/src/views/V4Search.jsx",
-      "ui/src/views/V4Suggestions.jsx",
-      "ui/src/views/V4Home.jsx",
-      "mcp_server/tests/test_v4_formatters_untitled.py (new)",
-      "ui/src/views/__tests__/ or existing V4*.test.jsx files"
+      "ui/src/views/V4Today.module.css",
+      "ui/src/views/V4Today.test.jsx",
+      "ui/src/views/__tests__/untitled-render.test.jsx (new)"
     ],
     "mainRisks": [
-      "Existing test snapshots that include the word Untitled will need updating",
-      "Removing 'Untitled' fallback could expose bugs where entity rendering assumed title was always non-null",
-      "V4Today collapse logic must remain keyboard-accessible (focusable disclosure controls)"
+      "Existing test snapshots that include collapsed-section state may need updating",
+      "Keyboard accessibility on collapse controls — must be <button> not <div onClick>",
+      "V4Today is the most-used view; visual regressions hit user immediately"
     ],
-    "nextStepIfInterrupted": "The two tasks are independent. Either task can land on its own branch. Do not block on the regression test \u2014 it can ride with the formatters task."
+    "nextStepIfInterrupted": "Tasks 2 and 3 are independent — V4Today collapse and React regression test can land on separate branches. Either can be retried on its own."
   }
 }
