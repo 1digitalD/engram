@@ -304,11 +304,35 @@ function EntitySection({ title, items, onQuickStatus, onUpdateField, onChanged, 
   );
 }
 
+function CollapsibleSection({ title, count, accent, initialOpen = false, children }) {
+  const [open, setOpen] = useState(initialOpen);
+  return (
+    <section className={`${styles.panel} ${accent ? styles[`panel_${accent}`] : ''}`}>
+      <button
+        type="button"
+        className={styles.panelHeaderToggle}
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+      >
+        <h2>{title}</h2>
+        <span className={styles.count}>{count}</span>
+        <span className={styles.toggleHint}>{open ? 'hide' : 'show'}</span>
+      </button>
+      {open && (
+        <div className={styles.collapsibleBody}>
+          {children}
+        </div>
+      )}
+    </section>
+  );
+}
+
 export default function V4Today() {
   const location = useLocation();
   const fromState = { from: location.pathname + location.search };
   const [today, setToday] = useState(null);
   const [error, setError] = useState('');
+  const [idleShowAll, setIdleShowAll] = useState(false);
 
   async function load() {
     try {
@@ -520,53 +544,67 @@ export default function V4Today() {
         </details>
       )}
 
-      <EntitySection
-        title="Recent notes"
-        items={recentNotes}
-        onQuickStatus={handleQuickStatus}
-        onUpdateField={handleUpdateField}
-        onChanged={load}
-        fromState={fromState}
-      />
+      {recentNotes.length > 0 && (
+        <CollapsibleSection title="Recent notes" count={recentNotes.length}>
+          <ul className={styles.list}>
+            {recentNotes.map((entity) => (
+              <EntityRow
+                key={entity.id}
+                entity={entity}
+                onQuickStatus={handleQuickStatus}
+                onUpdateField={handleUpdateField}
+                onChanged={load}
+                fromState={fromState}
+              />
+            ))}
+          </ul>
+        </CollapsibleSection>
+      )}
 
-      {(staleProjects.length > 0 || suggestedArchival.length > 0) && (
-        <details className={styles.collapsible}>
-          <summary className={styles.collapsibleSummary}>
-            Stale projects · {staleProjects.length + suggestedArchival.length} project{(staleProjects.length + suggestedArchival.length) === 1 ? '' : 's'} with no recent activity
-          </summary>
-          <section className={styles.panel}>
-            <ul className={styles.list}>
-              {suggestedArchival.map((p) => (
-                <StaleProjectRow key={p.id} entity={p} fromState={fromState} archival />
-              ))}
-              {staleProjects.map((p) => (
-                <StaleProjectRow key={p.id} entity={p} fromState={fromState} />
-              ))}
-            </ul>
-          </section>
-        </details>
+      {suggestedArchival.length > 0 && (
+        <CollapsibleSection title="Suggested archival" count={suggestedArchival.length}>
+          <ul className={styles.list}>
+            {suggestedArchival.map((p) => (
+              <StaleProjectRow key={p.id} entity={p} fromState={fromState} archival />
+            ))}
+          </ul>
+        </CollapsibleSection>
+      )}
+
+      {staleProjects.length > 0 && (
+        <CollapsibleSection title="Stale projects" count={staleProjects.length}>
+          <ul className={styles.list}>
+            {staleProjects.map((p) => (
+              <StaleProjectRow key={p.id} entity={p} fromState={fromState} />
+            ))}
+          </ul>
+        </CollapsibleSection>
       )}
 
       {idleProjects.length > 0 && (
-        <details className={styles.collapsible}>
-          <summary className={styles.collapsibleSummary}>
-            Backlog hygiene · {idleProjects.length} project{idleProjects.length === 1 ? '' : 's'} without an open task
-          </summary>
-          <section className={styles.panel}>
-            <ul className={styles.list}>
-              {idleProjects.map((p) => (
-                <li key={p.id} className={styles.row}>
-                  <Link to={entityPath(p)} className={styles.rowLink}>
-                    <strong>{p.title || 'Untitled project'}</strong>
-                    <span className={styles.metaRow}>
-                      <span className={styles.statusPill}>{p.status}</span>
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </section>
-        </details>
+        <CollapsibleSection title="Projects without open tasks" count={idleProjects.length}>
+          <ul className={styles.list}>
+            {idleProjects.slice(0, idleShowAll ? undefined : 5).map((p) => (
+              <li key={p.id} className={styles.row}>
+                <Link to={entityPath(p)} className={styles.rowLink}>
+                  <strong>{p.title || 'Untitled project'}</strong>
+                  <span className={styles.metaRow}>
+                    <span className={styles.statusPill}>{p.status}</span>
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+          {!idleShowAll && idleProjects.length > 5 && (
+            <button
+              type="button"
+              className={styles.viewAllLink}
+              onClick={() => setIdleShowAll(true)}
+            >
+              View all {idleProjects.length}
+            </button>
+          )}
+        </CollapsibleSection>
       )}
     </main>
   );

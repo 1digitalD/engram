@@ -107,6 +107,67 @@
   margin: 0;
 }
 
+.panelHeaderToggle {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--border-faint);
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0 0 var(--space-2);
+  text-align: left;
+  width: 100%;
+}
+
+.panelHeaderToggle:focus-visible {
+  outline: none;
+  border-radius: var(--radius-md);
+  box-shadow: 0 0 0 2px var(--accent-dim);
+}
+
+.panelHeaderToggle h2 {
+  color: var(--text);
+  font-size: var(--text-base);
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.toggleHint {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.02em;
+  margin-left: auto;
+  text-transform: lowercase;
+}
+
+.viewAllLink {
+  background: transparent;
+  border: 0;
+  color: var(--accent);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  margin-top: var(--space-1);
+  padding: 0;
+  text-decoration: none;
+}
+
+.viewAllLink:hover,
+.viewAllLink:focus-visible {
+  text-decoration: underline;
+}
+
+.viewAllLink:focus-visible {
+  outline: none;
+  border-radius: var(--radius-sm);
+  box-shadow: 0 0 0 2px var(--accent-dim);
+}
+
 .panel_overdue .panelHeader h2 {
   color: var(--red);
 }
