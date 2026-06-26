@@ -44,3 +44,33 @@ def test_format_recent_lists_entities():
 
     assert "Recent note entities" in text
     assert "Captured note" in text
+
+
+def test_format_search_results_shows_explicit_missing_title():
+    text = format_search_results(
+        {"results": [{"entity": {"id": "t1", "type": "task", "title": None}, "score": 0.5}]},
+        "orphan",
+    )
+
+    assert "(no title)" in text
+    assert "Untitled" not in text
+    assert "`t1`" in text
+    assert "[task]" in text
+
+
+def test_format_entity_shows_explicit_missing_title():
+    text = format_entity(
+        {"entity": {"id": "p1", "type": "project", "title": None, "status": "active", "lifecycle": "active"}}
+    )
+
+    assert "Title: (no title)" in text
+    assert "Untitled" not in text
+
+
+def test_format_recent_shows_explicit_missing_title():
+    text = format_recent({"data": [{"id": "n2", "type": "note", "title": None}]}, entity_type="note")
+
+    assert "(no title)" in text
+    assert "Untitled" not in text
+    assert "`n2`" in text
+    assert "[note]" in text

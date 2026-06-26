@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { ArrowDown, ArrowUp, Plus, X } from 'lucide-react';
 import { v4API } from '../api/v4Client';
+import { entityTitleLabel } from '../utils/entityDisplay';
 import CardActions from '../components/CardActions';
 import MarkdownContent from '../components/MarkdownContent';
 import styles from './V4EntityScreens.module.css';
@@ -368,7 +369,7 @@ export default function V4EntityList({ type }) {
           onChanged={() => setEntities((cur) => cur.filter((e) => e.id !== entity.id))}
         />
         <Link to={detailPath(entity)} state={fromState}>
-          <strong>{entity.title || 'Untitled'}</strong>
+          <strong>{entityTitleLabel(entity)}</strong>
           {!isCompactList && entity.content && (
             <MarkdownContent content={entity.content} compact />
           )}

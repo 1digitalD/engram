@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { RefreshCw } from 'lucide-react';
 import { v4API } from '../api/v4Client';
+import { entityTitleLabel } from '../utils/entityDisplay';
 import styles from './V4AgentActivity.module.css';
 
 const CATEGORY_LABELS = {
@@ -139,7 +140,7 @@ export default function V4AgentActivity() {
                 <strong>{formatEventType(item.event_type)}</strong>
                 {item.entity ? (
                   <Link to={entityPath(item.entity)} className={styles.entityLink}>
-                    {item.entity.title || 'Untitled'} · {item.entity.type}
+                    {entityTitleLabel(item.entity, { includeType: false })} · {item.entity.type}
                   </Link>
                 ) : (
                   <span className={styles.muted}>No source entity</span>

@@ -1,6 +1,23 @@
 """Formatting helpers for the v4 MCP server."""
 
 
+def _entity_title_text(entity, *, id_on_line=False, type_on_line=False):
+    title = entity.get("title")
+    if title:
+        return title
+
+    parts = ["(no title)"]
+    if not id_on_line:
+        entity_id = entity.get("id")
+        if entity_id:
+            parts.append(f"`{entity_id}`")
+    if not type_on_line:
+        entity_type = entity.get("type")
+        if entity_type:
+            parts.append(f"[{entity_type}]")
+    return " ".join(parts)
+
+
 def format_search_results(payload, query):
     results = payload.get("results") or []
     if not results:
@@ -15,7 +32,10 @@ def format_search_results(payload, query):
         snippet = match.get("snippet")
         source = match.get("source")
         source_text = f" source={source}" if source else ""
-        lines.append(f"{index}. `{entity.get('id')}` [{entity.get('type')}] {entity.get('title') or 'Untitled'}{score_text}{source_text}")
+        lines.append(
+            f"{index}. `{entity.get('id')}` [{entity.get('type')}] "
+            f"{_entity_title_text(entity, id_on_line=True, type_on_line=True)}{score_text}{source_text}"
+        )
         if snippet:
             lines.append(f"   {snippet}")
     return "\n".join(lines)
@@ -28,7 +48,7 @@ def format_entity(payload, include_relationships=True):
 
     lines = [
         f"{entity.get('type', 'Entity').capitalize()} `{entity.get('id')}`",
-        f"Title: {entity.get('title') or 'Untitled'}",
+        f"Title: {_entity_title_text(entity, id_on_line=True, type_on_line=True)}",
         f"Status: {entity.get('status')}",
         f"Lifecycle: {entity.get('lifecycle')}",
     ]
@@ -55,7 +75,7 @@ def format_entity(payload, include_relationships=True):
                     relationship = item.get("relationship") or {}
                     lines.append(
                         f"  - `{related.get('id')}` [{relationship.get('relationship_type')}] "
-                        f"{related.get('title') or 'Untitled'}"
+                        f"{_entity_title_text(related, id_on_line=True)}"
                     )
     return "\n".join(lines)
 
@@ -68,7 +88,10 @@ def format_recent(payload, entity_type=None):
 
     lines = [f"{label.capitalize()} ({len(entities)}):"]
     for entity in entities:
-        lines.append(f"- `{entity.get('id')}` [{entity.get('type')}] {entity.get('title') or 'Untitled'}")
+        lines.append(
+            f"- `{entity.get('id')}` [{entity.get('type')}] "
+            f"{_entity_title_text(entity, id_on_line=True, type_on_line=True)}"
+        )
     return "\n".join(lines)
 
 
@@ -90,7 +113,8 @@ def format_today(payload):
         lines.append(f"Follow-ups ({len(follow_ups)}):")
         for e in follow_ups:
             lines.append(
-                f"  - `{e.get('id')}` [{e.get('type')}] {e.get('title') or 'Untitled'}"
+                f"  - `{e.get('id')}` [{e.get('type')}] "
+                f"{_entity_title_text(e, id_on_line=True, type_on_line=True)}"
                 f" (follow-up: {e.get('follow_up_at', '')}){_attention_text(e)}"
             )
 
@@ -98,19 +122,22 @@ def format_today(payload):
     if blocked:
         lines.append(f"\nBlocked/waiting tasks ({len(blocked)}):")
         for e in blocked:
-            lines.append(f"  - `{e.get('id')}` {e.get('title') or 'Untitled'} [{e.get('status')}]{_attention_text(e)}")
+            lines.append(
+                f"  - `{e.get('id')}` {_entity_title_text(e, id_on_line=True)} "
+                f"[{e.get('status')}]{_attention_text(e)}"
+            )
 
     stalled = payload.get("projects_without_open_tasks") or []
     if stalled:
         lines.append(f"\nProjects without open tasks ({len(stalled)}):")
         for e in stalled:
-            lines.append(f"  - `{e.get('id')}` {e.get('title') or 'Untitled'}{_attention_text(e)}")
+            lines.append(f"  - `{e.get('id')}` {_entity_title_text(e, id_on_line=True)}{_attention_text(e)}")
 
     recent_notes = payload.get("recent_notes") or []
     if recent_notes:
         lines.append(f"\nRecent notes ({len(recent_notes)}):")
         for e in recent_notes:
-            lines.append(f"  - `{e.get('id')}` {e.get('title') or 'Untitled'}{_attention_text(e)}")
+            lines.append(f"  - `{e.get('id')}` {_entity_title_text(e, id_on_line=True)}{_attention_text(e)}")
 
     suggestions = payload.get("pending_suggestions") or []
     if suggestions:
@@ -138,7 +165,8 @@ def format_agent_activity(payload):
         except (TypeError, ValueError):
             conf_text = ""
         entity_text = (
-            f"`{entity.get('id')}` [{entity.get('type')}] {entity.get('title') or 'Untitled'}"
+            f"`{entity.get('id')}` [{entity.get('type')}] "
+            f"{_entity_title_text(entity, id_on_line=True, type_on_line=True)}"
             if entity else "no source entity"
         )
         lines.append(
@@ -190,10 +218,10 @@ def format_capture_result(payload):
     if skipped:
         return (
             f"Capture skipped: {payload.get('reason', 'duplicate')} "
-            f"(existing note `{note.get('id')}`: {note.get('title') or 'Untitled'})"
+            f"(existing note `{note.get('id')}`: {_entity_title_text(note, id_on_line=True)})"
         )
 
-    lines = [f"Captured note `{note.get('id')}`: {note.get('title') or 'Untitled'}"]
+    lines = [f"Captured note `{note.get('id')}`: {_entity_title_text(note, id_on_line=True)}"]
     if applied:
         lines.append(f"Applied {len(applied)} change(s):")
         for change in applied:
@@ -226,7 +254,7 @@ def format_entity_write(payload):
         return "Operation failed or returned empty."
     return (
         f"{entity.get('type', 'entity').capitalize()} `{entity.get('id')}` saved:"
-        f" {entity.get('title') or 'Untitled'} [{entity.get('status')}]"
+        f" {_entity_title_text(entity, id_on_line=True, type_on_line=True)} [{entity.get('status')}]"
     )
 
 
@@ -248,7 +276,8 @@ def format_suggestion_action(payload, action):
     lines = [f"Suggestion `{suggestion.get('id')}` {action}."]
     if created:
         lines.append(
-            f"Created {created.get('type')} `{created.get('id')}`: {created.get('title') or 'Untitled'}"
+            f"Created {created.get('type')} `{created.get('id')}`: "
+            f"{_entity_title_text(created, id_on_line=True, type_on_line=True)}"
         )
     if relationship:
         lines.append(
