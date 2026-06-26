@@ -57,8 +57,9 @@
         "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- --run src/views/V4Today.test.jsx 2>&1 | tail -30"
       ],
       "blocked": false,
-      "passes": false,
-      "attempts": 0
+      "passes": true,
+      "attempts": 1,
+      "commit": "2f41a0e3"
     },
     {
       "id": "untitled-regression-test-react",
