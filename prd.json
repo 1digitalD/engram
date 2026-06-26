@@ -82,8 +82,7 @@
       "blocked": false,
       "passes": true,
       "attempts": 1,
-      "blockerReason": null,
-      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- --run src/views/__tests__/untitled-render.test.jsx 2>&1 | tail -30\n\n> engram-ui@0.0.0 test\n> node scripts/run-tests.mjs --run src/views/__tests__/untitled-render.test.jsx\n\n\n RUN  v3.2.4 /Volumes/lex1t/dev/shared/repos/engram/ui\n\nNo test files found, exiting with code 1\n\nfilter: src/views/__tests__/untitled-render.test.jsx\ninclude: src/**/*.test.{js,jsx}\nexclude:  **/node_modules/**, **/dist/**, **/cypress/**, **/.{idea,git,cache,output,temp}/**, **/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build,eslint,prettier}.config.*\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build\n\n> engram-ui@0.0.0 build\n> vite build\n\nvite v8.0.10 building client environment for production...\n\u001b[2K\ntransforming...\u2713 1824 modules transformed.\nrendering chunks...\ncomputing gzip size...\n../static/index.html                             1.95 kB \u2502 gzip:   0.86 kB\n../static/assets/index-B2bpXnXx.css            110.95 kB \u2502 gzip:  16.53 kB\n../static/assets/rolldown-runtime-jpDsebLB.js    0.56 kB \u2502 gzip:   0.36 kB\n../static/assets/vendor-icons-I5azddoa.js        8.44 kB \u2502 gzip:   3.38 kB\n../static/assets/index-CrJghOGI.js             160.64 kB \u2502 gzip:  37.48 kB\n../static/assets/vendor-react-CzpOxXb9.js      230.92 kB \u2502 gzip:  73.30 kB\n../static/assets/vendor-CbNo6x5b.js            497.60 kB \u2502 gzip: 157.13 kB\n\n\u2713 built in 288ms"
+      "commit": "b6036877"
     }
   ],
   "validationCommands": [
