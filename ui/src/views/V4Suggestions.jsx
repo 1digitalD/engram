@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Check, Pencil, RefreshCw, RotateCcw, X } from 'lucide-react';
 import { v4API } from '../api/v4Client';
+import { entityTitleLabel } from '../utils/entityDisplay';
 import CardActions from '../components/CardActions';
 import MarkdownContent from '../components/MarkdownContent';
 import MarkdownEditor from '../components/MarkdownEditor';
@@ -226,7 +227,7 @@ function SuggestionCard({ suggestion, onAccept, onDismiss, onUpdate, onReprocess
             {nearMatch?.entity_id && (
               <div className={styles.nearMatchRow}>
                 <span className={styles.nearMatchLabel}>
-                  Looks like existing: <strong>{nearMatch.title || 'Untitled'}</strong>
+                  Looks like existing: <strong>{entityTitleLabel(nearMatch)}</strong>
                   {typeof nearMatch.score === 'number' ? ` (${Math.round(nearMatch.score * 100)}% similar)` : ''}
                 </span>
                 <button

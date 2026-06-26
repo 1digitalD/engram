@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { RefreshCw } from 'lucide-react';
 import { v4API } from '../api/v4Client';
+import { entityTitleLabel } from '../utils/entityDisplay';
 import styles from './V4Home.module.css';
 
 function entityPath(item) {
@@ -50,7 +51,7 @@ function BriefPanel({ brief, refreshing, onRefresh }) {
               <span className={`${styles.urgencyDot} ${urgencyClass(item.urgency)}`} aria-hidden="true" />
               <div className={styles.briefItemBody}>
                 <Link to={entityPath(item)} className={styles.briefItemTitle}>
-                  {item.title || 'Untitled'}
+                  {entityTitleLabel(item)}
                 </Link>
                 <span className={styles.briefWhy}>{item.why_now}</span>
               </div>
@@ -110,7 +111,7 @@ function CoordinationRadar({ radar }) {
           <article key={`${item.entity_type}:${item.entity_id}`} className={styles.radarCard}>
             <span className={styles.radarLabel}>1:1</span>
             <Link to={entityPath(item)} className={styles.radarLink}>
-              {item.title || 'Untitled'}
+              {entityTitleLabel(item)}
             </Link>
             <p className={styles.radarHeadline}>{item.headline}</p>
           </article>
@@ -119,7 +120,7 @@ function CoordinationRadar({ radar }) {
           <article key={`${item.entity_type}:${item.entity_id}`} className={styles.radarCard}>
             <span className={styles.radarLabel}>Project</span>
             <Link to={entityPath(item)} className={styles.radarLink}>
-              {item.title || 'Untitled'}
+              {entityTitleLabel(item)}
             </Link>
             <p className={styles.radarHeadline}>{item.headline}</p>
           </article>

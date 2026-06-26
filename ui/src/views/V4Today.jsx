@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { BookOpen, Compass, FileText, FolderKanban, SquareCheck, User } from 'lucide-react';
 import { v4API } from '../api/v4Client';
+import { entityTitleLabel } from '../utils/entityDisplay';
 import CardActions from '../components/CardActions';
 import MarkdownContent from '../components/MarkdownContent';
 import {
@@ -148,7 +149,7 @@ function EntityRow({ entity, onQuickStatus, onUpdateField, onChanged, fromState,
       <Link to={entityPath(entity)} state={fromState} className={styles.rowLink}>
         <span className={styles.titleRow}>
           <TypeGlyph type={entity.type} />
-          <strong>{entity.title || 'Untitled'}</strong>
+          <strong>{entityTitleLabel(entity)}</strong>
         </span>
         {entity.content && (
           <MarkdownContent content={entity.content} compact />
@@ -211,7 +212,7 @@ function DelegationQuietRow({ entity, fromState }) {
       <Link to={entityPath(entity)} state={fromState} className={styles.rowLink}>
         <span className={styles.titleRow}>
           <TypeGlyph type={entity.type} />
-          <strong>{entity.title || 'Untitled'}</strong>
+          <strong>{entityTitleLabel(entity)}</strong>
         </span>
         {entity.last_update && (
           <MarkdownContent content={entity.last_update} compact />
@@ -238,7 +239,7 @@ function DependencyInterventionRow({ item, fromState }) {
       <Link to={entityPath(entity)} state={fromState} className={styles.rowLink}>
         <span className={styles.titleRow}>
           <TypeGlyph type={entity.type} />
-          <strong>{entity.title || 'Untitled'}</strong>
+          <strong>{entityTitleLabel(entity)}</strong>
         </span>
       </Link>
       <div className={styles.metaRow}>

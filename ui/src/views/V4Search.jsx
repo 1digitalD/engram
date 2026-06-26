@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { X } from 'lucide-react';
 import { v4API } from '../api/v4Client';
+import { entityTitleLabel } from '../utils/entityDisplay';
 import CardActions from '../components/CardActions';
 import styles from './V4Search.module.css';
 
@@ -160,7 +161,7 @@ export default function V4Search() {
                     <span className={styles.status}>{result.entity.status}</span>
                     <span className={styles.matchMeta}>{matchLabel(result.match)}</span>
                   </div>
-                  <strong>{result.entity.title || 'Untitled'}</strong>
+                  <strong>{entityTitleLabel(result.entity)}</strong>
                   {result.entity.tags?.length ? (
                     <div className={styles.tagRow}>
                       {result.entity.tags.slice(0, 3).map((tag) => (

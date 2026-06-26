@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Archive, ArrowLeftRight, ChevronDown, ChevronRight, GitMerge, Plus, RefreshCw, Save, Trash2, X } from 'lucide-react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { v4API } from '../api/v4Client';
+import { entityTitleLabel } from '../utils/entityDisplay';
 import MarkdownContent from '../components/MarkdownContent';
 import MarkdownEditor from '../components/MarkdownEditor';
 import styles from './V4EntityScreens.module.css';
@@ -746,7 +747,7 @@ export default function V4EntityDetail({ type: routeType }) {
                 setDraft((current) => ({ ...current, title: val }));
                 setSaveStatus('');
               }}
-              placeholder="Untitled"
+              placeholder="Add a title"
               ariaLabel="Title"
               className={styles.detailTitle}
             />
@@ -1556,7 +1557,7 @@ function ResourceWorkspacePanel({ entity, detail }) {
           <h3>Primary anchor</h3>
           {primaryAnchor ? (
             <Link to={pathForEntity(primaryAnchor)} className={styles.workspaceLinkCard}>
-              <strong>{primaryAnchor.title || 'Untitled'}</strong>
+              <strong>{entityTitleLabel(primaryAnchor)}</strong>
               <span className={styles.mutedMeta}>Open the main linked context for this resource</span>
             </Link>
           ) : (
@@ -2019,7 +2020,7 @@ function LinkedEntityRow({ item, onRemove, onQuickStatus, showType = false }) {
   return (
     <li>
       <Link to={pathForEntity(item.entity)}>
-        <strong>{item.entity.title || 'Untitled'}</strong>
+        <strong>{entityTitleLabel(item.entity)}</strong>
         <span className={styles.metaRow}>
           {showType && <span className={styles.typePill}>{item.entity.type}</span>}
           <span className={styles.statusPill}>{item.entity.status}</span>
@@ -2472,7 +2473,7 @@ function MergePanel({ entity, onMerge, onClose }) {
         options={options}
         onPick={(targetId) => {
           const target = options.find((option) => option.id === targetId);
-          onMerge(targetId, target?.title || 'Untitled');
+          onMerge(targetId, entityTitleLabel(target));
         }}
         placeholder={`Search for the ${entity.type} to keep…`}
         ariaLabel="Search for the entity to merge into"
@@ -2558,7 +2559,7 @@ function LinkCombobox({ config, options, onPick, placeholder, ariaLabel }) {
                 onMouseDown={(event) => { event.preventDefault(); onPick(option.id); }}
                 onMouseEnter={() => setActiveIndex(index)}
               >
-                <span className={styles.comboboxTitle}>{option.title || 'Untitled'}</span>
+                <span className={styles.comboboxTitle}>{entityTitleLabel(option)}</span>
                 <span className={styles.comboboxMeta}>{option.status}</span>
               </li>
             ))
