@@ -41,11 +41,11 @@
     {
       "id": "v4today-default-collapse-low-signal",
       "title": "Default-collapse low-signal sections in V4Today",
-      "description": "V4Today currently renders 8 sections on first paint. After this change, the four low-signal sections — Projects without open tasks, Stale projects, Suggested archival, Recent notes — are collapsed by default and reveal via a 'Show N more' disclosure. The remaining four — Focus now, Overdue, Due today/follow-up, Stuck — remain visible at top. Cap the Projects without open tasks list at 5 visible items (with 'View all 12' link if more exist). Recent notes stays in the same screen but is collapsed, not removed. This is presentation only — the underlying `/api/v4/today` payload is unchanged. Keyboard accessibility required: collapse controls must be focusable buttons (not divs), and aria-expanded must reflect state.",
+      "description": "V4Today currently renders 8 sections on first paint. After this change, the four low-signal sections \u2014 Projects without open tasks, Stale projects, Suggested archival, Recent notes \u2014 are collapsed by default and reveal via a 'Show N more' disclosure. The remaining four \u2014 Focus now, Overdue, Due today/follow-up, Stuck \u2014 remain visible at top. Cap the Projects without open tasks list at 5 visible items (with 'View all 12' link if more exist). Recent notes stays in the same screen but is collapsed, not removed. This is presentation only \u2014 the underlying `/api/v4/today` payload is unchanged. Keyboard accessibility required: collapse controls must be focusable buttons (not divs), and aria-expanded must reflect state.",
       "risk": "low",
       "acceptanceCriteria": [
         "On first render of V4Today with mixed-state data, Projects without open tasks / Stale projects / Suggested archival / Recent notes are collapsed (not visible in DOM or hidden via aria-hidden)",
-        "Each collapsed section shows a summary line ('12 idle projects — show') on a focusable button and expands on click/Enter/Space",
+        "Each collapsed section shows a summary line ('12 idle projects \u2014 show') on a focusable button and expands on click/Enter/Space",
         "Projects without open tasks renders at most 5 items by default with a 'View all N' link that expands the list",
         "Focus now, Overdue, Due today/follow-up, and Stuck sections render fully as before",
         "ui/src/views/V4Today.test.jsx adds a test that confirms collapsed initial state for the four low-signal sections",
@@ -110,7 +110,7 @@
     "Adding NOT NULL constraints on Entity.title",
     "Removing Entity.ai_meta duplicates (Tier 2 deferred per diagnostic)",
     "Adding a 'Focused mode' toggle (Tier 2 deferred)",
-    "Moving Recent notes out of Today view entirely (deferred — collapses instead)",
+    "Moving Recent notes out of Today view entirely (deferred \u2014 collapses instead)",
     "Cron job for slipped-bug DMs (user opted out of cron in earlier conversation)"
   ],
   "continuityNote": {
@@ -118,10 +118,10 @@
       "Already-shipped work (commit 1a21ed3b and af3dd806) handles the extraction-prompt and Untitled fallback concerns. Do not re-touch.",
       "Empty-content activity update guard already exists at api/v4_entities.py:1754 and :3258. Do not re-touch.",
       "Validator commands run from the main repo path (/Volumes/lex1t/dev/shared/repos/engram) because worktrees do not carry the gitignored venv/ directory.",
-      "npm install is NOT in any validator — vite and dependencies are cached; install only adds latency. If a missing-dependency error appears, install in the main repo once and retry.",
+      "npm install is NOT in any validator \u2014 vite and dependencies are cached; install only adds latency. If a missing-dependency error appears, install in the main repo once and retry.",
       "executorLaunchTimeoutSeconds is set to 1800 to absorb first-time build/indexing work; the default 300 was insufficient for npm build after a fresh worktree.",
       "Render null titles as '(no title) [type-id]' so user retains disambiguation context (decided in task 1).",
-      "Cap idle projects at 5 visible, do not remove the section — user may still want to scan it.",
+      "Cap idle projects at 5 visible, do not remove the section \u2014 user may still want to scan it.",
       "Keep Recent notes collapsed in place rather than relocating to Inbox (out of scope per non-goals)."
     ],
     "filesLikelyToChange": [
@@ -132,9 +132,9 @@
     ],
     "mainRisks": [
       "Existing test snapshots that include collapsed-section state may need updating",
-      "Keyboard accessibility on collapse controls — must be <button> not <div onClick>",
+      "Keyboard accessibility on collapse controls \u2014 must be <button> not <div onClick>",
       "V4Today is the most-used view; visual regressions hit user immediately"
     ],
-    "nextStepIfInterrupted": "Tasks 2 and 3 are independent — V4Today collapse and React regression test can land on separate branches. Either can be retried on its own."
+    "nextStepIfInterrupted": "Tasks 2 and 3 are independent \u2014 V4Today collapse and React regression test can land on separate branches. Either can be retried on its own."
   }
 }
