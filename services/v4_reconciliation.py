@@ -15,10 +15,11 @@ import os
 from datetime import date
 
 from utils import get_openai_client
+from services.llm_models import resolve_chat_model
 
 logger = logging.getLogger(__name__)
 
-RECONCILIATION_MODEL = os.getenv("OPENAI_RECONCILIATION_MODEL", "gpt-4o")
+RECONCILIATION_MODEL = resolve_chat_model("OPENAI_RECONCILIATION_MODEL")
 SIMILARITY_THRESHOLD = 0.60
 TOP_K = 3
 CATALOG_CHAR_CAP = 8000  # ≈ 2000 tokens; projects/areas only

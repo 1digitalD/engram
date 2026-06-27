@@ -16,11 +16,12 @@ import os
 from datetime import datetime, timezone
 
 from utils import get_openai_client
+from services.llm_models import resolve_chat_model
 from services.job_worker import register_handler
 
 logger = logging.getLogger(__name__)
 
-SUMMARIZATION_MODEL = os.getenv("OPENAI_SUMMARIZATION_MODEL", "gpt-4o")
+SUMMARIZATION_MODEL = resolve_chat_model("OPENAI_SUMMARIZATION_MODEL")
 
 SYSTEM_PROMPT = """\
 You are a knowledge assistant synthesizing the current state of a workspace entity
