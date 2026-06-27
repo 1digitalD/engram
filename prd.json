@@ -43,9 +43,9 @@
         "cd /Volumes/lex1t/dev/shared/repos/engram && PYTHONPATH=. TEST_DATABASE_URL=postgresql://engram:engram@127.0.0.1:5433/engram_test ./venv/bin/pytest -q tests/unit"
       ],
       "blocked": true,
-      "passes": false,
+      "passes": true,
       "attempts": 1,
-      "blockerReason": "Executor completed without producing repository changes."
+      "commit": "d982cd6e"
     },
     {
       "id": "llm-model-gpt-5-4-nano",
@@ -74,9 +74,9 @@
         "cd /Volumes/lex1t/dev/shared/repos/engram && PYTHONPATH=. ./venv/bin/python -c \"from utils import get_openai_client; import os; c=get_openai_client(); r=c.chat.completions.create(model='gpt-5.4-nano', messages=[{'role':'user','content':'ok'}], max_tokens=1); print('model=', r.model, 'tokens=', r.usage.total_tokens)\""
       ],
       "blocked": true,
-      "passes": false,
+      "passes": true,
       "attempts": 1,
-      "blockerReason": "Executor completed without producing repository changes."
+      "commit": "53214598"
     },
     {
       "id": "engram-deploy-after-changes",
