@@ -113,11 +113,11 @@
         "bash /Volumes/lex1t/dev/shared/repos/engram/scripts/run_tests.sh /Volumes/lex1t/dev/shared/repos/.engram-codloop-worktrees/activity-update-zombies-stop-*-opencode tests/integration/test_v4_capture.py",
         "grep -nA3 def _create_activity_update_note /Volumes/lex1t/dev/shared/repos/.engram-codloop-worktrees/activity-update-zombies-stop-*-opencode/api/v4_entities.py"
       ],
-      "blocked": false,
+      "blocked": true,
       "passes": false,
-      "attempts": 0,
+      "attempts": 1,
       "commit": null,
-      "blockerReason": "Deterministic validation failed."
+      "blockerReason": "Executor completed without producing repository changes."
     },
     {
       "id": "engram-deploy-after-changes",
