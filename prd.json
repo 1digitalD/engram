@@ -1,92 +1,111 @@
 {
-  "iteration": "v4-noise-reduction-tier1",
-  "goal": "Reduce low-signal noise surfaced by the v4 workspace so attention lands on items that need a decision today. Tier 1 of 2 from the diagnostic at /Volumes/lex1t/OC-workspace/memory/engram-cleanup-diagnostic.md.",
+  "iteration": "v4-tier1-completion-plus-model-switch",
+  "goal": "Close out the two outstanding Tier 1 follow-ups identified in the Pass-2 review of v4-noise-reduction-tier1: (1) eliminate the three remaining 'Untitled' fallbacks in backend services that Tier 1 task 1 missed, and (2) unify the LLM model selection across all five LLM-using services on gpt-5.4-nano with a single source of truth.",
   "riskLevel": "low",
-  "userProblem": "Today view and other entity list views render entities with null or placeholder titles as the literal string 'Untitled'. This produces confusing rows the user cannot act on. Separately, V4Today renders 8 sections of equal weight on first paint, so 12 idle projects and 25 recent notes visually bury the 3 actually-due follow-ups. Result: high cognitive load, missed follow-ups.",
-  "whyNow": "User reported too much noise to focus on important work. Diagnostic identified these two surfaces as the highest-leverage low-risk fixes. Task 1 (Untitled fallbacks) already shipped in commit af3dd806 on main. Remaining work is task 2 (V4Today collapse) and task 3 (React-side regression test that complements the pytest regression landed with task 1).",
+  "userProblem": "Tier 1 task 1 grepped mcp_server/ and ui/src/ but missed three backend Python services that still emit the literal string 'Untitled': api/v4_entities.py:3092 (activity update title generator), services/canonical_document.py:8 (markdown export for canonical documents and embeddings), services/v4_extraction.py:245 (recent-context note feed to GPT during extraction). These are reachable from production paths and would re-introduce the very anti-pattern Tier 1 was supposed to eliminate. Separately, the LLM model selection has drifted: .env pins OPENAI_EXTRACTION_MODEL=gpt-5.4-mini, OPENAI_RECONCILIATION_MODEL and OPENAI_SUMMARIZATION_MODEL=gpt-5.4-nano, but the Python defaults in code still say gpt-4o for those plus gpt-4o-mini for ACTIVITY_UPDATE_EXTRACTION_MODEL and gpt-4o for BRIEF_MODEL. Some env vars have no .env override at all. The drift means a fresh deploy without .env (test env, CI, new machine) silently falls back to gpt-4o across the board \u2014 inconsistent with the user's intent of running on gpt-5.4-nano end-to-end.",
+  "whyNow": "Both items are small, low-risk, and complete the work Tier 1 started. The user explicitly asked to finish Tier 1 and unify the LLM model on gpt-5.4-nano. They also asked to use Loopsmith drain mode + a watchdog cron that self-terminates when both deliverables land.",
   "scope": {
     "filesAffected": [
-      "ui/src/views/V4Today.jsx",
-      "ui/src/views/V4Today.module.css",
-      "ui/src/views/V4Today.test.jsx",
-      "ui/src/views/__tests__/untitled-render.test.jsx (new)"
+      "services/canonical_document.py",
+      "services/v4_extraction.py",
+      "api/v4_entities.py",
+      "tests/unit/test_canonical_document.py",
+      "tests/unit/test_v4_extraction_titles.py",
+      "tests/unit/test_v4_entities_titles.py",
+      "tests/unit/test_model_config.py"
     ],
     "routesAffected": [],
-    "dataOrApiDependencies": [],
+    "dataOrApiDependencies": [
+      "OpenAI API key must accept gpt-5.4-nano model id (verified pre-launch via a 1-token ping)"
+    ],
     "writePathsAffected": []
   },
   "tasks": [
     {
-      "id": "untitled-fallbacks-mcp-and-ui",
-      "title": "Drop 'Untitled' fallback strings in MCP and UI",
-      "description": "ALREADY COMPLETED. Replaced `entity.title || 'Untitled'` style fallbacks in mcp_server/v4_formatters.py (13 sites) and 7 UI view components with `(no title)` plus entity id and type via a shared entityTitleLabel() helper in ui/src/utils/entityDisplay.js. Added tests/unit/test_mcp_v4_formatters.py with 3 regression tests asserting 'Untitled' is not in formatter output. All 6 pytest tests pass, npm run build passes, grep returns zero matches.",
+      "id": "untitled-backend-services",
+      "title": "Eliminate 'Untitled' fallback strings in three backend services",
+      "description": "Replace three literal 'Untitled' fallbacks in backend services with the same `(no title)` placeholder pattern used by the MCP formatters and the React entityTitleLabel helper. Add a single shared helper in services/title_utils.py (module-level function title_or_placeholder(entity, include_type=True)) so future code can't reintroduce the anti-pattern. Apply it at api/v4_entities.py:3092 (_activity_update_title), services/canonical_document.py:8 (generate_canonical_markdown), and services/v4_extraction.py:245 (recent context note feed). Add unit tests for all three call sites that pin 'Untitled' is not in any output for entities with title=None.",
       "risk": "low",
       "acceptanceCriteria": [
-        "`grep -rn \"'Untitled'\\|\\\"Untitled\\\"\" mcp_server/ ui/src/` returns no matches",
-        "MCP formatters emit `(no title)` with id and type when title is null",
-        "React list rows render entity id and type placeholder when title is null",
-        "PYTHONPATH=. ./venv/bin/pytest -q tests/unit/test_mcp_v4_formatters.py passes (6/6)",
-        "cd ui && npm run build passes"
+        "`git grep -nE \"or 'Untitled'|or \\\"Untitled\\\"\" -- '*.py' :!tests :!node_modules :!venv` returns zero matches in api/ and services/ excluding tests",
+        "`git grep -nE \"'Untitled'|\\\"Untitled\\\"\" -- '*.py' :!tests` returns zero matches in non-test Python files",
+        "services/title_utils.py exists with title_or_placeholder() used by all three sites",
+        "tests/unit/test_canonical_document.py asserts 'Untitled' not in generate_canonical_markdown output for entity with title=None",
+        "tests/unit/test_v4_entities_titles.py asserts _activity_update_title returns placeholder, not literal 'Untitled', for target with title=None",
+        "tests/unit/test_v4_extraction_titles.py asserts recent-context block uses placeholder, not 'Untitled', for notes with title=None",
+        "PYTHONPATH=. ./venv/bin/pytest -q tests/unit/test_canonical_document.py tests/unit/test_v4_entities_titles.py tests/unit/test_v4_extraction_titles.py passes",
+        "PYTHONPATH=. TEST_DATABASE_URL=postgresql://engram:engram@127.0.0.1:5433/engram_test ./venv/bin/pytest -q tests/unit passes (full unit suite, 103+ passes)"
       ],
       "validationCommands": [
-        "bash -c \"! grep -rn \\\"'Untitled'\\|\\\\\\\"Untitled\\\\\\\"\\\" mcp_server/ ui/src/\"",
-        "cd /Volumes/lex1t/dev/shared/repos/engram && PYTHONPATH=. ./venv/bin/pytest -q tests/unit/test_mcp_v4_formatters.py",
-        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build"
+        "cd /Volumes/lex1t/dev/shared/repos/engram && git grep -nE \"or 'Untitled'|or \\\"Untitled\\\"\" -- 'api/' 'services/' '*.py' ':!tests/' ':!venv/' | (test ! -s /dev/stdin)",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && git grep -nE \"'Untitled'|\\\"Untitled\\\"\" -- '*.py' ':!tests/' ':!venv/' | (test ! -s /dev/stdin)",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && PYTHONPATH=. TEST_DATABASE_URL=postgresql://engram:engram@127.0.0.1:5433/engram_test ./venv/bin/pytest -q tests/unit/test_canonical_document.py tests/unit/test_v4_entities_titles.py tests/unit/test_v4_extraction_titles.py",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && PYTHONPATH=. TEST_DATABASE_URL=postgresql://engram:engram@127.0.0.1:5433/engram_test ./venv/bin/pytest -q tests/unit"
       ],
       "blocked": false,
-      "passes": true,
-      "attempts": 1,
-      "commit": "af3dd806"
+      "passes": false,
+      "attempts": 0
     },
     {
-      "id": "v4today-default-collapse-low-signal",
-      "title": "Default-collapse low-signal sections in V4Today",
-      "description": "V4Today currently renders 8 sections on first paint. After this change, the four low-signal sections \u2014 Projects without open tasks, Stale projects, Suggested archival, Recent notes \u2014 are collapsed by default and reveal via a 'Show N more' disclosure. The remaining four \u2014 Focus now, Overdue, Due today/follow-up, Stuck \u2014 remain visible at top. Cap the Projects without open tasks list at 5 visible items (with 'View all 12' link if more exist). Recent notes stays in the same screen but is collapsed, not removed. This is presentation only \u2014 the underlying `/api/v4/today` payload is unchanged. Keyboard accessibility required: collapse controls must be focusable buttons (not divs), and aria-expanded must reflect state.",
+      "id": "llm-model-gpt-5-4-nano",
+      "title": "Unify LLM model on gpt-5.4-nano across all five LLM-using services",
+      "description": "Replace the four per-service model constants and the activity-update extraction constant in services/v4_extraction.py, services/v4_reconciliation.py, services/v4_summarization.py, services/v4_brief.py with a single canonical default of 'gpt-5.4-nano'. Centralize via a shared services/llm_models.py module that exports resolve_chat_model(env_var, default='gpt-5.4-nano') so each service keeps its existing env-var override path (OPENAI_EXTRACTION_MODEL, etc.) but the code-level default is now gpt-5.4-nano consistently. Do NOT change EMBEDDING_MODEL (text-embedding-3-small) \u2014 embeddings are a different model family and the user explicitly excluded them. Add tests/unit/test_model_config.py that pins each of the five services to gpt-5.4-nano by default, and that env-var overrides still win when set. Pre-launch check: verify gpt-5.4-nano is callable from the configured OPENAI_API_KEY (1-token ping) so we don't discover the model id is wrong only after deploy.",
       "risk": "low",
       "acceptanceCriteria": [
-        "On first render of V4Today with mixed-state data, Projects without open tasks / Stale projects / Suggested archival / Recent notes are collapsed (not visible in DOM or hidden via aria-hidden)",
-        "Each collapsed section shows a summary line ('12 idle projects \u2014 show') on a focusable button and expands on click/Enter/Space",
-        "Projects without open tasks renders at most 5 items by default with a 'View all N' link that expands the list",
-        "Focus now, Overdue, Due today/follow-up, and Stuck sections render fully as before",
-        "ui/src/views/V4Today.test.jsx adds a test that confirms collapsed initial state for the four low-signal sections",
-        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build passes",
-        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- --run src/views/V4Today.test.jsx passes"
+        "services/llm_models.py exists with resolve_chat_model(env_var, default='gpt-5.4-nano')",
+        "EXTRACTION_MODEL default in services/v4_extraction.py is 'gpt-5.4-nano' (env override OPENAI_EXTRACTION_MODEL still wins)",
+        "ACTIVITY_UPDATE_EXTRACTION_MODEL default in services/v4_extraction.py is 'gpt-5.4-nano' (env override OPENAI_ACTIVITY_UPDATE_MODEL still wins)",
+        "RECONCILIATION_MODEL default in services/v4_reconciliation.py is 'gpt-5.4-nano' (env override OPENAI_RECONCILIATION_MODEL still wins)",
+        "SUMMARIZATION_MODEL default in services/v4_summarization.py is 'gpt-5.4-nano' (env override OPENAI_SUMMARIZATION_MODEL still wins)",
+        "BRIEF_MODEL default in services/v4_brief.py is 'gpt-5.4-nano' (env override OPENAI_BRIEF_MODEL still wins)",
+        "EMBEDDING_MODEL in services/embeddings.py unchanged (still 'text-embedding-3-small')",
+        "`git grep -nE 'gpt-4o|gpt-4o-mini' -- services/ '*.py' ':!tests/' ':!venv/'` returns zero matches in services/ (after the change)",
+        "tests/unit/test_model_config.py asserts each of the 5 chat model constants resolves to 'gpt-5.4-nano' when its env var is unset",
+        "tests/unit/test_model_config.py asserts env-var overrides win when set (with monkeypatch)",
+        "OpenAI API key accepts gpt-5.4-nano (1-token completion ping) \u2014 recorded in validationEvidence",
+        "PYTHONPATH=. TEST_DATABASE_URL=postgresql://engram:engram@127.0.0.1:5433/engram_test ./venv/bin/pytest -q tests/unit/test_model_config.py passes",
+        "PYTHONPATH=. TEST_DATABASE_URL=postgresql://engram:engram@127.0.0.1:5433/engram_test ./venv/bin/pytest -q tests/unit passes (full unit suite)"
       ],
       "validationCommands": [
-        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build",
-        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- --run src/views/V4Today.test.jsx 2>&1 | tail -30"
+        "cd /Volumes/lex1t/dev/shared/repos/engram && git grep -nE 'gpt-4o|gpt-4o-mini' -- 'services/' '*.py' ':!tests/' ':!venv/' | (test ! -s /dev/stdin)",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && PYTHONPATH=. TEST_DATABASE_URL=postgresql://engram:engram@127.0.0.1:5433/engram_test ./venv/bin/pytest -q tests/unit/test_model_config.py",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && PYTHONPATH=. TEST_DATABASE_URL=postgresql://engram:engram@127.0.0.1:5433/engram_test ./venv/bin/pytest -q tests/unit",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && PYTHONPATH=. ./venv/bin/python -c \"from utils import get_openai_client; import os; c=get_openai_client(); r=c.chat.completions.create(model='gpt-5.4-nano', messages=[{'role':'user','content':'ok'}], max_tokens=1); print('model=', r.model, 'tokens=', r.usage.total_tokens)\""
       ],
       "blocked": false,
-      "passes": true,
-      "attempts": 1,
-      "commit": "2f41a0e3"
+      "passes": false,
+      "attempts": 0
     },
     {
-      "id": "untitled-regression-test-react",
-      "title": "Add React-side regression test that 'Untitled' string does not appear in rendered DOM",
-      "description": "Task 1 already added Python-side regression coverage in tests/unit/test_mcp_v4_formatters.py. Add the parallel React coverage: a Vitest test that renders a fixture list with at least one null-title entity through V4EntityList (or any view using entityTitleLabel) and asserts the literal string 'Untitled' is not in the rendered DOM. Also assert the placeholder includes the entity id and type so the disambiguation contract is enforced on the UI side too. Test file: ui/src/views/__tests__/untitled-render.test.jsx.",
+      "id": "engram-deploy-after-changes",
+      "title": "Deploy to production and verify",
+      "description": "After both code tasks land on main, run scripts/engram-deploy.sh which builds the UI, takes a production backup, restarts the Flask API via launchd, and verifies health. Then verify the live service serves the new code (curl /api/v4/health, grep response for /api/v4/canonical returning non-Untitled for a known null-title entity if one exists, otherwise just confirm the new bundles are being served). Production backup is required by AGENTS.md before any deploy. Skip if either code task fails.",
       "risk": "low",
       "acceptanceCriteria": [
-        "ui/src/views/__tests__/untitled-render.test.jsx exists",
-        "Test renders V4EntityList with a fixture containing an entity with title: null",
-        "Assertion: 'Untitled' is not in the rendered text",
-        "Assertion: '(no title)' is in the rendered text",
-        "Assertion: the entity id is in the rendered text",
-        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- --run src/views/__tests__/untitled-render.test.jsx passes",
-        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build passes"
+        "scripts/engram-deploy.sh exits 0",
+        "Backups directory contains a fresh engram_<timestamp>.sql of size > 1MB",
+        "curl http://127.0.0.1:5001/api/v4/health returns 200 with status: ok",
+        "launchctl list shows com.engram.api with PID present",
+        "API health endpoint reachable on https://danishs-mac-mini.tail003386.ts.net:5001"
       ],
       "validationCommands": [
-        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- --run src/views/__tests__/untitled-render.test.jsx 2>&1 | tail -30",
-        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build"
+        "bash /Volumes/lex1t/dev/shared/repos/engram/scripts/engram-deploy.sh",
+        "ls -la /Volumes/lex1t/dev/shared/repos/engram/backups/ | tail -3",
+        "curl -sf http://127.0.0.1:5001/api/v4/health | grep -q '\"status\":\"ok\"'",
+        "launchctl list | grep -q com.engram.api",
+        "curl -sf -m 5 https://danishs-mac-mini.tail003386.ts.net:5001/api/v4/health | grep -q '\"status\":\"ok\"'"
       ],
       "blocked": false,
-      "passes": true,
-      "attempts": 1,
-      "commit": "b6036877"
+      "passes": false,
+      "attempts": 0,
+      "dependsOn": [
+        "untitled-backend-services",
+        "llm-model-gpt-5-4-nano"
+      ]
     }
   ],
   "validationCommands": [
-    "cd /Volumes/lex1t/dev/shared/repos/engram && PYTHONPATH=. ./venv/bin/pytest -q",
+    "cd /Volumes/lex1t/dev/shared/repos/engram && PYTHONPATH=. TEST_DATABASE_URL=postgresql://engram:engram@127.0.0.1:5433/engram_test ./venv/bin/pytest -q tests/unit",
     "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build"
   ],
   "codingLoopPolicy": {
@@ -108,35 +127,41 @@
   },
   "nonGoals": [
     "Schema changes or migrations",
-    "AI extraction prompt rewrites (already shipped in 1a21ed3b)",
-    "Adding NOT NULL constraints on Entity.title",
-    "Removing Entity.ai_meta duplicates (Tier 2 deferred per diagnostic)",
-    "Adding a 'Focused mode' toggle (Tier 2 deferred)",
-    "Moving Recent notes out of Today view entirely (deferred \u2014 collapses instead)",
-    "Cron job for slipped-bug DMs (user opted out of cron in earlier conversation)"
+    "Touching EMBEDDING_MODEL or any embeddings code path",
+    "Adding new LLM call sites",
+    "Switching embedding model (text-embedding-3-small stays)",
+    "Merging branches back to main automatically \u2014 that happens at stop-and-verify time",
+    "Changing .env file in the repo (env file is per-host)"
   ],
   "continuityNote": {
     "keyDecisions": [
-      "Already-shipped work (commit 1a21ed3b and af3dd806) handles the extraction-prompt and Untitled fallback concerns. Do not re-touch.",
-      "Empty-content activity update guard already exists at api/v4_entities.py:1754 and :3258. Do not re-touch.",
-      "Validator commands run from the main repo path (/Volumes/lex1t/dev/shared/repos/engram) because worktrees do not carry the gitignored venv/ directory.",
-      "npm install is NOT in any validator \u2014 vite and dependencies are cached; install only adds latency. If a missing-dependency error appears, install in the main repo once and retry.",
-      "executorLaunchTimeoutSeconds is set to 1800 to absorb first-time build/indexing work; the default 300 was insufficient for npm build after a fresh worktree.",
-      "Render null titles as '(no title) [type-id]' so user retains disambiguation context (decided in task 1).",
-      "Cap idle projects at 5 visible, do not remove the section \u2014 user may still want to scan it.",
-      "Keep Recent notes collapsed in place rather than relocating to Inbox (out of scope per non-goals)."
+      "Path B (user-confirmed): code-level default is gpt-5.4-nano; env var overrides win when set. Single source of truth via services/llm_models.py.",
+      "Embeddings explicitly excluded \u2014 different model family, user-confirmed.",
+      "Shared Python title_or_placeholder helper added at services/title_utils.py so the anti-pattern cannot recur in backend Python.",
+      "Validations use absolute paths (cd /Volumes/lex1t/dev/shared/repos/engram && ...) so they work in both main checkout and worktrees.",
+      "Pre-launch 1-token OpenAI ping inside the model task verifies gpt-5.4-nano is actually callable before code is merged.",
+      "executorLaunchTimeoutSeconds = 1800 absorbs fresh-build overhead (default 300 is too short for npm build).",
+      "TEST_DATABASE_URL uses password 'engram' (matches docker-compose.test.yml), not the production password."
     ],
     "filesLikelyToChange": [
-      "ui/src/views/V4Today.jsx",
-      "ui/src/views/V4Today.module.css",
-      "ui/src/views/V4Today.test.jsx",
-      "ui/src/views/__tests__/untitled-render.test.jsx (new)"
+      "services/canonical_document.py",
+      "services/v4_extraction.py",
+      "services/v4_reconciliation.py",
+      "services/v4_summarization.py",
+      "services/v4_brief.py",
+      "api/v4_entities.py",
+      "services/title_utils.py (new)",
+      "services/llm_models.py (new)",
+      "tests/unit/test_canonical_document.py (new)",
+      "tests/unit/test_v4_entities_titles.py (new)",
+      "tests/unit/test_v4_extraction_titles.py (new)",
+      "tests/unit/test_model_config.py (new)"
     ],
     "mainRisks": [
-      "Existing test snapshots that include collapsed-section state may need updating",
-      "Keyboard accessibility on collapse controls \u2014 must be <button> not <div onClick>",
-      "V4Today is the most-used view; visual regressions hit user immediately"
+      "gpt-5.4-nano may not be available on the configured OPENAI_API_KEY \u2014 pre-launch ping catches this.",
+      "Some test fixtures may have hardcoded 'Untitled' assertions that need updating when we switch to '(no title)'.",
+      "The activity_update extraction path may be hit by integration tests with null-title targets; need to verify integration suite still passes."
     ],
-    "nextStepIfInterrupted": "Tasks 2 and 3 are independent \u2014 V4Today collapse and React regression test can land on separate branches. Either can be retried on its own."
+    "nextStepIfInterrupted": "Both code tasks are independent and can land on separate branches. Deploy depends on both. If interrupted, run `loopsmithctl recover --repo <repo> <attempt-id>` and re-launch with --drain."
   }
 }
