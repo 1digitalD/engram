@@ -66,10 +66,11 @@
         "cd /Volumes/lex1t/dev/shared/repos/engram && grep -nE 'TASK_RECENT_LIMIT|recent.*task' services/v4_extraction.py",
         "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/unit/test_v4_extraction.py"
       ],
-      "blocked": false,
+      "blocked": true,
       "passes": false,
-      "attempts": 0,
-      "commit": null
+      "attempts": 1,
+      "commit": null,
+      "blockerReason": "Deterministic validation failed."
     },
     {
       "id": "last-mile-exact-title-dedup",
