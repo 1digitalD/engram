@@ -98,12 +98,13 @@
         "curl -sf -m 5 https://danishs-mac-mini.tail003386.ts.net:5001/api/v4/health | grep -q '\"status\":\"ok\"'"
       ],
       "blocked": false,
-      "passes": false,
+      "passes": true,
       "attempts": 0,
       "dependsOn": [
         "untitled-backend-services",
         "llm-model-gpt-5-4-nano"
-      ]
+      ],
+      "commit": "7321fc90"
     }
   ],
   "validationCommands": [
