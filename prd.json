@@ -42,9 +42,10 @@
         "cd /Volumes/lex1t/dev/shared/repos/engram && PYTHONPATH=. TEST_DATABASE_URL=postgresql://engram:engram@127.0.0.1:5433/engram_test ./venv/bin/pytest -q tests/unit/test_canonical_document.py tests/unit/test_v4_entities_titles.py tests/unit/test_v4_extraction_titles.py",
         "cd /Volumes/lex1t/dev/shared/repos/engram && PYTHONPATH=. TEST_DATABASE_URL=postgresql://engram:engram@127.0.0.1:5433/engram_test ./venv/bin/pytest -q tests/unit"
       ],
-      "blocked": false,
+      "blocked": true,
       "passes": false,
-      "attempts": 0
+      "attempts": 1,
+      "blockerReason": "Executor completed without producing repository changes."
     },
     {
       "id": "llm-model-gpt-5-4-nano",
