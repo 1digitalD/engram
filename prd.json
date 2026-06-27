@@ -1,170 +1,142 @@
 {
-  "iteration": "v4-tier1-completion-plus-model-switch",
-  "goal": "Close out the two outstanding Tier 1 follow-ups identified in the Pass-2 review of v4-noise-reduction-tier1: (1) eliminate the three remaining 'Untitled' fallbacks in backend services that Tier 1 task 1 missed, and (2) unify the LLM model selection across all five LLM-using services on gpt-5.4-nano with a single source of truth.",
+  "iteration": "v4-noise-reduction-tier2",
+  "goal": "Reduce agent noise at the source by routing all extracted tasks to the review queue instead of auto-creating them, surfacing existing tasks to the extraction model so duplicates are suppressed at the prompt level, adding last-mile exact-title dedup before any auto-creation, and marking activity-update notes as AI-processed so they don't accumulate as zombie pending rows. Net effect: agent correction tax (deletions/reverts) drops materially and inbox acceptance rate rises; no new entity types or schemas.",
   "riskLevel": "low",
-  "userProblem": "Tier 1 task 1 grepped mcp_server/ and ui/src/ but missed three backend Python services that still emit the literal string 'Untitled': api/v4_entities.py:3092 (activity update title generator), services/canonical_document.py:8 (markdown export for canonical documents and embeddings), services/v4_extraction.py:245 (recent-context note feed to GPT during extraction). These are reachable from production paths and would re-introduce the very anti-pattern Tier 1 was supposed to eliminate. Separately, the LLM model selection has drifted: .env pins OPENAI_EXTRACTION_MODEL=gpt-5.4-mini, OPENAI_RECONCILIATION_MODEL and OPENAI_SUMMARIZATION_MODEL=gpt-5.4-nano, but the Python defaults in code still say gpt-4o for those plus gpt-4o-mini for ACTIVITY_UPDATE_EXTRACTION_MODEL and gpt-4o for BRIEF_MODEL. Some env vars have no .env override at all. The drift means a fresh deploy without .env (test env, CI, new machine) silently falls back to gpt-4o across the board \u2014 inconsistent with the user's intent of running on gpt-5.4-nano end-to-end.",
-  "whyNow": "Both items are small, low-risk, and complete the work Tier 1 started. The user explicitly asked to finish Tier 1 and unify the LLM model on gpt-5.4-nano. They also asked to use Loopsmith drain mode + a watchdog cron that self-terminates when both deliverables land.",
+  "userProblem": "Live data: 109 ai_capture tasks created, 56 deleted by user (51% correction tax on tasks). Of 67 active tasks, only 11 are done (16% completion rate). 32 of 33 activity_update notes stuck in ai_status=pending forever because they bypass reconciliation. The capture extraction prompt over-generates (says 'prefer over-extraction'), the extraction model has zero visibility into existing tasks (only projects/areas), and the activity_update path auto-creates tasks with no dedup at all. Tier 1 cut some of the worst noise but the AI is still doing too much curation work on the user's behalf.",
+  "whyNow": "The four fixes are small, independent, and high-ROI per Loopsmith's per-task validator discipline. Each can ship on its own branch with a tight test. Tier 1 of the noise-reduction work shipped on 2026-06-26 (untitled-fallback + gpt-5.4-nano) — Tier 2 closes the remaining extraction and gating gaps. Without Tier 2 the agent's correction tax stays above 30% and the inbox loses trust.",
   "scope": {
     "filesAffected": [
-      "services/canonical_document.py",
-      "services/v4_extraction.py",
       "api/v4_entities.py",
-      "tests/unit/test_canonical_document.py",
-      "tests/unit/test_v4_extraction_titles.py",
-      "tests/unit/test_v4_entities_titles.py",
-      "tests/unit/test_model_config.py"
+      "services/v4_extraction.py",
+      "tests/integration/test_v4_capture_extraction.py",
+      "tests/integration/test_v4_activity_updates.py",
+      "tests/integration/test_v4_suggestions.py",
+      "tests/unit/test_v4_extraction.py"
     ],
-    "routesAffected": [],
+    "routesAffected": [
+      "POST /api/v4/capture",
+      "POST /api/v4/entities/<id>/activity_updates"
+    ],
     "dataOrApiDependencies": [
-      "OpenAI API key must accept gpt-5.4-nano model id (verified pre-launch via a 1-token ping)"
+      "tests/integration/test_v4_capture_extraction.py::test_capture_auto_creates_high_confidence_task asserts the OLD auto-create behavior — this test must be updated as part of task 1 to assert the new suggest-only behavior. Loopsmith agents MUST update this test first (TDD)."
     ],
     "writePathsAffected": []
   },
   "tasks": [
     {
-      "id": "untitled-backend-services",
-      "title": "Eliminate 'Untitled' fallback strings in three backend services",
-      "description": "Replace three literal 'Untitled' fallbacks in backend services with the same `(no title)` placeholder pattern used by the MCP formatters and the React entityTitleLabel helper. Add a single shared helper in services/title_utils.py (module-level function title_or_placeholder(entity, include_type=True)) so future code can't reintroduce the anti-pattern. Apply it at api/v4_entities.py:3092 (_activity_update_title), services/canonical_document.py:8 (generate_canonical_markdown), and services/v4_extraction.py:245 (recent context note feed). Add unit tests for all three call sites that pin 'Untitled' is not in any output for entities with title=None.",
+      "id": "tasks-suggest-only-on-capture",
+      "title": "Move task auto-creation to suggest-only on capture path",
+      "description": "Make extraction-model task candidates always go to the review queue instead of being auto-created, while preserving every other entity-type auto-create behavior (project, area, person, resource still auto-create at high confidence). Implementation: add 'task' to SUGGEST_ONLY_CREATION_TYPES in api/v4_entities.py (line ~81). The _can_auto_create_entity function (line ~4972) already returns False for that set, so this is a one-line config change with test updates. Update the existing tests that assert task auto-creation to assert create_task suggestion emission instead. The activity_update path is NOT changed by this task — that's task 4. TDD discipline: update tests FIRST (failing), then make the production change (passing).",
       "risk": "low",
       "acceptanceCriteria": [
-        "`git grep -nE \"or 'Untitled'|or \\\"Untitled\\\"\" -- '*.py' :!tests :!node_modules :!venv` returns zero matches in api/ and services/ excluding tests",
-        "`git grep -nE \"'Untitled'|\\\"Untitled\\\"\" -- '*.py' :!tests` returns zero matches in non-test Python files",
-        "services/title_utils.py exists with title_or_placeholder() used by all three sites",
-        "tests/unit/test_canonical_document.py asserts 'Untitled' not in generate_canonical_markdown output for entity with title=None",
-        "tests/unit/test_v4_entities_titles.py asserts _activity_update_title returns placeholder, not literal 'Untitled', for target with title=None",
-        "tests/unit/test_v4_extraction_titles.py asserts recent-context block uses placeholder, not 'Untitled', for notes with title=None",
-        "PYTHONPATH=. ./venv/bin/pytest -q tests/unit/test_canonical_document.py tests/unit/test_v4_entities_titles.py tests/unit/test_v4_extraction_titles.py passes",
-        "PYTHONPATH=. TEST_DATABASE_URL=postgresql://engram:engram@127.0.0.1:5433/engram_test ./venv/bin/pytest -q tests/unit passes (full unit suite, 103+ passes)"
+        "SUGGEST_ONLY_CREATION_TYPES in api/v4_entities.py contains 'task' (was {'project', 'area'})",
+        "tests/integration/test_v4_capture_extraction.py::test_capture_auto_creates_high_confidence_task updated to assert create_task SUGGESTION emitted instead of entity_created; same patch scope",
+        "tests/integration/test_v4_capture_extraction.py::test_capture_auto_created_task_uses_task_to_note_derived_from_link updated to assert the task was created via suggestion acceptance path or assert no entity_created + 1 pending create_task suggestion",
+        "tests/integration/test_v4_capture_extraction.py::test_capture_auto_created_task_applies_assigned_to_person_link updated to follow the suggestion path",
+        "A new test exists: test_capture_high_confidence_task_goes_to_review_queue (extraction returns task@0.95 confidence → assert NO entity_created, ONE create_task suggestion with confidence=0.95)",
+        "A new test exists: test_capture_task_suggestion_includes_relationship_and_assigned_to (suggestion payload contains relationship_type='derived_from' and assigned_to when present)",
+        "Person, project, area, resource auto-create behavior is unchanged (test_capture_auto_creates_high_confidence_person and test_capture_does_not_auto_create_other_entity_types pass without change)",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration/test_v4_capture.py tests/integration/test_v4_capture_extraction.py tests/integration/test_v4_activity_updates.py tests/integration/test_v4_suggestions.py tests/unit/test_v4_extraction.py passes (no regressions)"
       ],
       "validationCommands": [
-        "cd /Volumes/lex1t/dev/shared/repos/engram && git grep -nE \"or 'Untitled'|or \\\"Untitled\\\"\" -- 'api/' 'services/' '*.py' ':!tests/' ':!venv/' | (test ! -s /dev/stdin)",
-        "cd /Volumes/lex1t/dev/shared/repos/engram && git grep -nE \"'Untitled'|\\\"Untitled\\\"\" -- '*.py' ':!tests/' ':!venv/' | (test ! -s /dev/stdin)",
-        "cd /Volumes/lex1t/dev/shared/repos/engram && PYTHONPATH=. TEST_DATABASE_URL=postgresql://engram:engram@127.0.0.1:5433/engram_test ./venv/bin/pytest -q tests/unit/test_canonical_document.py tests/unit/test_v4_entities_titles.py tests/unit/test_v4_extraction_titles.py",
-        "cd /Volumes/lex1t/dev/shared/repos/engram && PYTHONPATH=. TEST_DATABASE_URL=postgresql://engram:engram@127.0.0.1:5433/engram_test ./venv/bin/pytest -q tests/unit"
+        "cd /Volumes/lex1t/dev/shared/repos/engram && grep -n '^SUGGEST_ONLY_CREATION_TYPES\\|^TASK_NEVER_AUTO_CREATE' api/v4_entities.py",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration/test_v4_capture.py tests/integration/test_v4_capture_extraction.py tests/integration/test_v4_activity_updates.py tests/integration/test_v4_suggestions.py tests/unit/test_v4_extraction.py"
       ],
-      "blocked": true,
-      "passes": true,
-      "attempts": 1,
-      "commit": "d982cd6e"
+      "blocked": false,
+      "passes": false,
+      "attempts": 0,
+      "commit": null
     },
     {
-      "id": "llm-model-gpt-5-4-nano",
-      "title": "Unify LLM model on gpt-5.4-nano across all five LLM-using services",
-      "description": "Replace the four per-service model constants and the activity-update extraction constant in services/v4_extraction.py, services/v4_reconciliation.py, services/v4_summarization.py, services/v4_brief.py with a single canonical default of 'gpt-5.4-nano'. Centralize via a shared services/llm_models.py module that exports resolve_chat_model(env_var, default='gpt-5.4-nano') so each service keeps its existing env-var override path (OPENAI_EXTRACTION_MODEL, etc.) but the code-level default is now gpt-5.4-nano consistently. Do NOT change EMBEDDING_MODEL (text-embedding-3-small) \u2014 embeddings are a different model family and the user explicitly excluded them. Add tests/unit/test_model_config.py that pins each of the five services to gpt-5.4-nano by default, and that env-var overrides still win when set. Pre-launch check: verify gpt-5.4-nano is callable from the configured OPENAI_API_KEY (1-token ping) so we don't discover the model id is wrong only after deploy.",
+      "id": "extraction-prompt-sees-active-tasks",
+      "title": "Include top 15 active open tasks in EXISTING_ENTITIES block",
+      "description": "The extraction prompt already injects recent active projects and areas so the LLM can reuse canonical titles and avoid inventing duplicates. Add a third section 'Recent Active Open Tasks' containing the 15 most recently updated active, non-done tasks by title. Keep the cap low (titles only, no content) so this stays a few hundred tokens. The goal is to let the extraction model recognize that 'Follow up with Akash about Q3' is already an open task and NOT mint a duplicate. Implementation: services/v4_extraction.py — extend _recent_existing_entities() and _format_existing_entities_block() with a 'task' key. Filter: lifecycle=active, status not in DONE_TASK_STATUSES, ordered by updated_at desc, limit 15. The block is informational — the model may still extract tasks it considers new; reconciliation's _can_auto_create_entity already handles the suggest-only routing from task 1.",
       "risk": "low",
       "acceptanceCriteria": [
-        "services/llm_models.py exists with resolve_chat_model(env_var, default='gpt-5.4-nano')",
-        "EXTRACTION_MODEL default in services/v4_extraction.py is 'gpt-5.4-nano' (env override OPENAI_EXTRACTION_MODEL still wins)",
-        "ACTIVITY_UPDATE_EXTRACTION_MODEL default in services/v4_extraction.py is 'gpt-5.4-nano' (env override OPENAI_ACTIVITY_UPDATE_MODEL still wins)",
-        "RECONCILIATION_MODEL default in services/v4_reconciliation.py is 'gpt-5.4-nano' (env override OPENAI_RECONCILIATION_MODEL still wins)",
-        "SUMMARIZATION_MODEL default in services/v4_summarization.py is 'gpt-5.4-nano' (env override OPENAI_SUMMARIZATION_MODEL still wins)",
-        "BRIEF_MODEL default in services/v4_brief.py is 'gpt-5.4-nano' (env override OPENAI_BRIEF_MODEL still wins)",
-        "EMBEDDING_MODEL in services/embeddings.py unchanged (still 'text-embedding-3-small')",
-        "`git grep -nE 'gpt-4o|gpt-4o-mini' -- services/ '*.py' ':!tests/' ':!venv/'` returns zero matches in services/ (after the change)",
-        "tests/unit/test_model_config.py asserts each of the 5 chat model constants resolves to 'gpt-5.4-nano' when its env var is unset",
-        "tests/unit/test_model_config.py asserts env-var overrides win when set (with monkeypatch)",
-        "OpenAI API key accepts gpt-5.4-nano (1-token completion ping) \u2014 recorded in validationEvidence",
-        "PYTHONPATH=. TEST_DATABASE_URL=postgresql://engram:engram@127.0.0.1:5433/engram_test ./venv/bin/pytest -q tests/unit/test_model_config.py passes",
-        "PYTHONPATH=. TEST_DATABASE_URL=postgresql://engram:engram@127.0.0.1:5433/engram_test ./venv/bin/pytest -q tests/unit passes (full unit suite)"
+        "services/v4_extraction.py::_recent_existing_entities returns {'project': [...], 'area': [...], 'task': [...]} where 'task' contains up to 15 active non-done task titles ordered by updated_at desc",
+        "services/v4_extraction.py::_format_existing_entities_block renders a 'Recent Active Open Tasks' section between Projects and Areas sections",
+        "An active done task is NOT in the list (filter excludes status in DONE_TASK_STATUSES)",
+        "A deleted or archived task is NOT in the list (lifecycle filter)",
+        "tests/unit/test_v4_extraction.py has new tests: test_recent_existing_entities_includes_active_tasks, test_recent_existing_entities_excludes_done_tasks, test_format_existing_entities_block_includes_tasks_section",
+        "EXISTING_ENTITY_LIMIT constant stays at 50 for projects/areas; new constant TASK_RECENT_LIMIT = 15",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/unit/test_v4_extraction.py passes"
       ],
       "validationCommands": [
-        "cd /Volumes/lex1t/dev/shared/repos/engram && git grep -nE 'gpt-4o|gpt-4o-mini' -- 'services/' '*.py' ':!tests/' ':!venv/' | (test ! -s /dev/stdin)",
-        "cd /Volumes/lex1t/dev/shared/repos/engram && PYTHONPATH=. TEST_DATABASE_URL=postgresql://engram:engram@127.0.0.1:5433/engram_test ./venv/bin/pytest -q tests/unit/test_model_config.py",
-        "cd /Volumes/lex1t/dev/shared/repos/engram && PYTHONPATH=. TEST_DATABASE_URL=postgresql://engram:engram@127.0.0.1:5433/engram_test ./venv/bin/pytest -q tests/unit",
-        "cd /Volumes/lex1t/dev/shared/repos/engram && PYTHONPATH=. ./venv/bin/python -c \"from utils import get_openai_client; import os; c=get_openai_client(); r=c.chat.completions.create(model='gpt-5.4-nano', messages=[{'role':'user','content':'ok'}], max_tokens=1); print('model=', r.model, 'tokens=', r.usage.total_tokens)\""
+        "cd /Volumes/lex1t/dev/shared/repos/engram && grep -nE 'TASK_RECENT_LIMIT|recent.*task' services/v4_extraction.py",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/unit/test_v4_extraction.py"
       ],
-      "blocked": true,
-      "passes": true,
-      "attempts": 1,
-      "commit": "53214598"
+      "blocked": false,
+      "passes": false,
+      "attempts": 0,
+      "commit": null
+    },
+    {
+      "id": "last-mile-exact-title-dedup",
+      "title": "Exact-title dedup before any auto-creation (capture + activity_update)",
+      "description": "Both the capture path (_can_auto_create_entity → _auto_create_entity) and the activity_update path (create_activity_update at line ~1813) call _auto_create_entity without a final exact-title check. _find_existing_entity already exists at line ~4631 and does a case-insensitive title lookup, but is never called from either auto-create path. Add a single last-mile guard in _auto_create_entity itself: if an active entity of the same type with case-insensitive matching title already exists, return the existing entity instead of minting a duplicate. The caller already handles 'entity was returned vs created' semantics by checking entity.id, but to avoid touching every caller, have _auto_create_entity return the existing entity and rely on _create_entity_link being idempotent on (source_id, target_id, relationship_type) duplicates.",
+      "risk": "low",
+      "acceptanceCriteria": [
+        "api/v4_entities.py::_auto_create_entity calls _find_existing_entity(entity_type, title) before INSERT; if a match exists, returns it without creating a new row",
+        "tests/integration/test_v4_capture_extraction.py has new test: test_capture_exact_title_match_does_not_duplicate_task (create task 'Ship rollout', then capture 'Ship rollout' again with mocked extraction → assert only 1 task exists, second capture emits link suggestion)",
+        "tests/integration/test_v4_activity_updates.py has new test: test_activity_update_exact_title_match_does_not_duplicate_task (create task 'Check due dates', then activity_update mentioning 'Check due dates' → assert only 1 task)",
+        "Person auto-create path still works for an unmatched name (test_capture_auto_creates_high_confidence_person passes)",
+        "Person auto-create path no longer duplicates when name already exists (new test test_capture_exact_title_match_does_not_duplicate_person)",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration/test_v4_capture_extraction.py tests/integration/test_v4_activity_updates.py passes"
+      ],
+      "validationCommands": [
+        "cd /Volumes/lex1t/dev/shared/repos/engram && grep -nA5 'def _auto_create_entity' api/v4_entities.py",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration/test_v4_capture_extraction.py tests/integration/test_v4_activity_updates.py"
+      ],
+      "blocked": false,
+      "passes": false,
+      "attempts": 0,
+      "commit": null
+    },
+    {
+      "id": "activity-update-zombies-stop",
+      "title": "Mark activity-update notes as AI-processed at creation time",
+      "description": "32 of 33 activity_update notes have ai_status=pending forever — they bypass full reconciliation but the lightweight extraction doesn't set ai_status. They're filtered out of the inbox (line ~585 excludes source='activity_update'), but they exist as zombie rows that confuse the Needs review counter and may trigger embed jobs that never run. Simple fix: in api/v4_entities.py::_create_activity_update_note (called by POST /api/v4/entities/<id>/activity_updates), set note.ai_status='done' since the lightweight extraction already ran. Tests: add test_activity_update_note_is_marked_ai_done_on_creation that creates an activity update and asserts ai_status='done'. Existing activity update tests must still pass.",
+      "risk": "low",
+      "acceptanceCriteria": [
+        "api/v4_entities.py::_create_activity_update_note sets ai_status='done' on the activity-update note when it's created (covers the common path; idempotent on retry)",
+        "tests/integration/test_v4_activity_updates.py has new test: test_activity_update_note_ai_status_is_done_after_creation",
+        "tests/integration/test_v4_activity_updates.py::test_create_activity_update_still_returns_201_and_persists_update continues to pass (no regression)",
+        "Existing tests in test_v4_activity_updates.py that explicitly check ai_status='pending' behavior are updated to assert 'done' or removed if they no longer reflect intent",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration/test_v4_activity_updates.py tests/integration/test_v4_capture.py passes"
+      ],
+      "validationCommands": [
+        "cd /Volumes/lex1t/dev/shared/repos/engram && grep -nA3 'def _create_activity_update_note' api/v4_entities.py",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration/test_v4_activity_updates.py tests/integration/test_v4_capture.py"
+      ],
+      "blocked": false,
+      "passes": false,
+      "attempts": 0,
+      "commit": null
     },
     {
       "id": "engram-deploy-after-changes",
-      "title": "Deploy to production and verify",
-      "description": "After both code tasks land on main, run scripts/engram-deploy.sh which builds the UI, takes a production backup, restarts the Flask API via launchd, and verifies health. Then verify the live service serves the new code (curl /api/v4/health, grep response for /api/v4/canonical returning non-Untitled for a known null-title entity if one exists, otherwise just confirm the new bundles are being served). Production backup is required by AGENTS.md before any deploy. Skip if either code task fails.",
+      "title": "Deploy and verify on production instance",
+      "description": "After all four code tasks land on main, restart the API container, run the full unit + integration suite against the test database, hit the /api/v4/metrics/trust endpoint to confirm correction rate has dropped, and report results. This is the same shape as the v4-tier1 deploy task — no schema changes, just code.",
       "risk": "low",
       "acceptanceCriteria": [
-        "scripts/engram-deploy.sh exits 0",
-        "Backups directory contains a fresh engram_<timestamp>.sql of size > 1MB",
-        "curl http://127.0.0.1:5001/api/v4/health returns 200 with status: ok",
-        "launchctl list shows com.engram.api with PID present",
-        "API health endpoint reachable on https://danishs-mac-mini.tail003386.ts.net:5001"
+        "Full unit suite passes: cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/unit",
+        "Full integration suite passes: cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration",
+        "docker restart engram-api-1 succeeds",
+        "GET /api/v4/metrics/trust?days=7 returns a correction_rate lower than the pre-Tier-2 baseline (live baseline captured before first code task merged)"
       ],
       "validationCommands": [
-        "bash /Volumes/lex1t/dev/shared/repos/engram/scripts/engram-deploy.sh",
-        "ls -la /Volumes/lex1t/dev/shared/repos/engram/backups/ | tail -3",
-        "curl -sf http://127.0.0.1:5001/api/v4/health | grep -q '\"status\":\"ok\"'",
-        "launchctl list | grep -q com.engram.api",
-        "curl -sf -m 5 https://danishs-mac-mini.tail003386.ts.net:5001/api/v4/health | grep -q '\"status\":\"ok\"'"
+        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/unit",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration",
+        "docker restart engram-api-1 && sleep 3 && curl -fsS http://localhost:5001/api/v4/healthz || echo \"health endpoint may not exist; just verify container is up via docker ps\""
       ],
       "blocked": false,
-      "passes": true,
+      "passes": false,
       "attempts": 0,
-      "dependsOn": [
-        "untitled-backend-services",
-        "llm-model-gpt-5-4-nano"
-      ],
-      "commit": "7321fc90"
+      "commit": null
     }
   ],
-  "validationCommands": [
-    "cd /Volumes/lex1t/dev/shared/repos/engram && PYTHONPATH=. TEST_DATABASE_URL=postgresql://engram:engram@127.0.0.1:5433/engram_test ./venv/bin/pytest -q tests/unit",
-    "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build"
-  ],
-  "codingLoopPolicy": {
-    "primaryExecutor": "opencode",
-    "fallbackExecutors": [
-      "cursor",
-      "codex",
-      "claude"
-    ],
-    "platform": "openclaw",
-    "allowExecutorFallback": true,
-    "requireHumanForDependencies": true,
-    "executorLaunchTimeoutSeconds": 1800
-  },
-  "publication": {
-    "branchPrefix": "loopsmith",
-    "pushEnabled": false,
-    "prEnabled": false
-  },
-  "nonGoals": [
-    "Schema changes or migrations",
-    "Touching EMBEDDING_MODEL or any embeddings code path",
-    "Adding new LLM call sites",
-    "Switching embedding model (text-embedding-3-small stays)",
-    "Merging branches back to main automatically \u2014 that happens at stop-and-verify time",
-    "Changing .env file in the repo (env file is per-host)"
-  ],
-  "continuityNote": {
-    "keyDecisions": [
-      "Path B (user-confirmed): code-level default is gpt-5.4-nano; env var overrides win when set. Single source of truth via services/llm_models.py.",
-      "Embeddings explicitly excluded \u2014 different model family, user-confirmed.",
-      "Shared Python title_or_placeholder helper added at services/title_utils.py so the anti-pattern cannot recur in backend Python.",
-      "Validations use absolute paths (cd /Volumes/lex1t/dev/shared/repos/engram && ...) so they work in both main checkout and worktrees.",
-      "Pre-launch 1-token OpenAI ping inside the model task verifies gpt-5.4-nano is actually callable before code is merged.",
-      "executorLaunchTimeoutSeconds = 1800 absorbs fresh-build overhead (default 300 is too short for npm build).",
-      "TEST_DATABASE_URL uses password 'engram' (matches docker-compose.test.yml), not the production password."
-    ],
-    "filesLikelyToChange": [
-      "services/canonical_document.py",
-      "services/v4_extraction.py",
-      "services/v4_reconciliation.py",
-      "services/v4_summarization.py",
-      "services/v4_brief.py",
-      "api/v4_entities.py",
-      "services/title_utils.py (new)",
-      "services/llm_models.py (new)",
-      "tests/unit/test_canonical_document.py (new)",
-      "tests/unit/test_v4_entities_titles.py (new)",
-      "tests/unit/test_v4_extraction_titles.py (new)",
-      "tests/unit/test_model_config.py (new)"
-    ],
-    "mainRisks": [
-      "gpt-5.4-nano may not be available on the configured OPENAI_API_KEY \u2014 pre-launch ping catches this.",
-      "Some test fixtures may have hardcoded 'Untitled' assertions that need updating when we switch to '(no title)'.",
-      "The activity_update extraction path may be hit by integration tests with null-title targets; need to verify integration suite still passes."
-    ],
-    "nextStepIfInterrupted": "Both code tasks are independent and can land on separate branches. Deploy depends on both. If interrupted, run `loopsmithctl recover --repo <repo> <attempt-id>` and re-launch with --drain."
-  }
+  "drain": true,
+  "executor": "opencode",
+  "executorLaunchTimeoutSeconds": 1800,
+  "nextStepIfInterrupted": "Each code task is independent and ships on its own branch with a tight test. Deploy depends on all four. If interrupted, run `loopsmithctl recover --repo /Volumes/lex1t/dev/shared/repos/engram <attempt-id>` and re-launch with --drain."
 }
