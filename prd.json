@@ -3,7 +3,7 @@
   "goal": "Reduce agent noise at the source by routing all extracted tasks to the review queue instead of auto-creating them, surfacing existing tasks to the extraction model so duplicates are suppressed at the prompt level, adding last-mile exact-title dedup before any auto-creation, and marking activity-update notes as AI-processed so they don't accumulate as zombie pending rows. Net effect: agent correction tax (deletions/reverts) drops materially and inbox acceptance rate rises; no new entity types or schemas.",
   "riskLevel": "low",
   "userProblem": "Live data: 109 ai_capture tasks created, 56 deleted by user (51% correction tax on tasks). Of 67 active tasks, only 11 are done (16% completion rate). 32 of 33 activity_update notes stuck in ai_status=pending forever because they bypass reconciliation. The capture extraction prompt over-generates (says 'prefer over-extraction'), the extraction model has zero visibility into existing tasks (only projects/areas), and the activity_update path auto-creates tasks with no dedup at all. Tier 1 cut some of the worst noise but the AI is still doing too much curation work on the user's behalf.",
-  "whyNow": "The four fixes are small, independent, and high-ROI per Loopsmith's per-task validator discipline. Each can ship on its own branch with a tight test. Tier 1 of the noise-reduction work shipped on 2026-06-26 (untitled-fallback + gpt-5.4-nano) — Tier 2 closes the remaining extraction and gating gaps. Without Tier 2 the agent's correction tax stays above 30% and the inbox loses trust.",
+  "whyNow": "The four fixes are small, independent, and high-ROI per Loopsmith's per-task validator discipline. Each can ship on its own branch with a tight test. Tier 1 of the noise-reduction work shipped on 2026-06-26 (untitled-fallback + gpt-5.4-nano) \u2014 Tier 2 closes the remaining extraction and gating gaps. Without Tier 2 the agent's correction tax stays above 30% and the inbox loses trust.",
   "scope": {
     "filesAffected": [
       "api/v4_entities.py",
@@ -18,7 +18,7 @@
       "POST /api/v4/entities/<id>/activity_updates"
     ],
     "dataOrApiDependencies": [
-      "tests/integration/test_v4_capture_extraction.py::test_capture_auto_creates_high_confidence_task asserts the OLD auto-create behavior — this test must be updated as part of task 1 to assert the new suggest-only behavior. Loopsmith agents MUST update this test first (TDD)."
+      "tests/integration/test_v4_capture_extraction.py::test_capture_auto_creates_high_confidence_task asserts the OLD auto-create behavior \u2014 this test must be updated as part of task 1 to assert the new suggest-only behavior. Loopsmith agents MUST update this test first (TDD)."
     ],
     "writePathsAffected": []
   },
@@ -26,14 +26,14 @@
     {
       "id": "tasks-suggest-only-on-capture",
       "title": "Move task auto-creation to suggest-only on capture path",
-      "description": "Make extraction-model task candidates always go to the review queue instead of being auto-created, while preserving every other entity-type auto-create behavior (project, area, person, resource still auto-create at high confidence). Implementation: add 'task' to SUGGEST_ONLY_CREATION_TYPES in api/v4_entities.py (line ~81). The _can_auto_create_entity function (line ~4972) already returns False for that set, so this is a one-line config change with test updates. Update the existing tests that assert task auto-creation to assert create_task suggestion emission instead. The activity_update path is NOT changed by this task — that's task 4. TDD discipline: update tests FIRST (failing), then make the production change (passing).",
+      "description": "Make extraction-model task candidates always go to the review queue instead of being auto-created, while preserving every other entity-type auto-create behavior (project, area, person, resource still auto-create at high confidence). Implementation: add 'task' to SUGGEST_ONLY_CREATION_TYPES in api/v4_entities.py (line ~81). The _can_auto_create_entity function (line ~4972) already returns False for that set, so this is a one-line config change with test updates. Update the existing tests that assert task auto-creation to assert create_task suggestion emission instead. The activity_update path is NOT changed by this task \u2014 that's task 4. TDD discipline: update tests FIRST (failing), then make the production change (passing).",
       "risk": "low",
       "acceptanceCriteria": [
         "SUGGEST_ONLY_CREATION_TYPES in api/v4_entities.py contains 'task' (was {'project', 'area'})",
         "tests/integration/test_v4_capture_extraction.py::test_capture_auto_creates_high_confidence_task updated to assert create_task SUGGESTION emitted instead of entity_created; same patch scope",
         "tests/integration/test_v4_capture_extraction.py::test_capture_auto_created_task_uses_task_to_note_derived_from_link updated to assert the task was created via suggestion acceptance path or assert no entity_created + 1 pending create_task suggestion",
         "tests/integration/test_v4_capture_extraction.py::test_capture_auto_created_task_applies_assigned_to_person_link updated to follow the suggestion path",
-        "A new test exists: test_capture_high_confidence_task_goes_to_review_queue (extraction returns task@0.95 confidence → assert NO entity_created, ONE create_task suggestion with confidence=0.95)",
+        "A new test exists: test_capture_high_confidence_task_goes_to_review_queue (extraction returns task@0.95 confidence \u2192 assert NO entity_created, ONE create_task suggestion with confidence=0.95)",
         "A new test exists: test_capture_task_suggestion_includes_relationship_and_assigned_to (suggestion payload contains relationship_type='derived_from' and assigned_to when present)",
         "Person, project, area, resource auto-create behavior is unchanged (test_capture_auto_creates_high_confidence_person and test_capture_does_not_auto_create_other_entity_types pass without change)",
         "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration/test_v4_capture.py tests/integration/test_v4_capture_extraction.py tests/integration/test_v4_activity_updates.py tests/integration/test_v4_suggestions.py tests/unit/test_v4_extraction.py passes (no regressions)"
@@ -50,7 +50,7 @@
     {
       "id": "extraction-prompt-sees-active-tasks",
       "title": "Include top 15 active open tasks in EXISTING_ENTITIES block",
-      "description": "The extraction prompt already injects recent active projects and areas so the LLM can reuse canonical titles and avoid inventing duplicates. Add a third section 'Recent Active Open Tasks' containing the 15 most recently updated active, non-done tasks by title. Keep the cap low (titles only, no content) so this stays a few hundred tokens. The goal is to let the extraction model recognize that 'Follow up with Akash about Q3' is already an open task and NOT mint a duplicate. Implementation: services/v4_extraction.py — extend _recent_existing_entities() and _format_existing_entities_block() with a 'task' key. Filter: lifecycle=active, status not in DONE_TASK_STATUSES, ordered by updated_at desc, limit 15. The block is informational — the model may still extract tasks it considers new; reconciliation's _can_auto_create_entity already handles the suggest-only routing from task 1.",
+      "description": "The extraction prompt already injects recent active projects and areas so the LLM can reuse canonical titles and avoid inventing duplicates. Add a third section 'Recent Active Open Tasks' containing the 15 most recently updated active, non-done tasks by title. Keep the cap low (titles only, no content) so this stays a few hundred tokens. The goal is to let the extraction model recognize that 'Follow up with Akash about Q3' is already an open task and NOT mint a duplicate. Implementation: services/v4_extraction.py \u2014 extend _recent_existing_entities() and _format_existing_entities_block() with a 'task' key. Filter: lifecycle=active, status not in DONE_TASK_STATUSES, ordered by updated_at desc, limit 15. The block is informational \u2014 the model may still extract tasks it considers new; reconciliation's _can_auto_create_entity already handles the suggest-only routing from task 1.",
       "risk": "low",
       "acceptanceCriteria": [
         "services/v4_extraction.py::_recent_existing_entities returns {'project': [...], 'area': [...], 'task': [...]} where 'task' contains up to 15 active non-done task titles ordered by updated_at desc",
@@ -73,12 +73,12 @@
     {
       "id": "last-mile-exact-title-dedup",
       "title": "Exact-title dedup before any auto-creation (capture + activity_update)",
-      "description": "Both the capture path (_can_auto_create_entity → _auto_create_entity) and the activity_update path (create_activity_update at line ~1813) call _auto_create_entity without a final exact-title check. _find_existing_entity already exists at line ~4631 and does a case-insensitive title lookup, but is never called from either auto-create path. Add a single last-mile guard in _auto_create_entity itself: if an active entity of the same type with case-insensitive matching title already exists, return the existing entity instead of minting a duplicate. The caller already handles 'entity was returned vs created' semantics by checking entity.id, but to avoid touching every caller, have _auto_create_entity return the existing entity and rely on _create_entity_link being idempotent on (source_id, target_id, relationship_type) duplicates.",
+      "description": "Both the capture path (_can_auto_create_entity \u2192 _auto_create_entity) and the activity_update path (create_activity_update at line ~1813) call _auto_create_entity without a final exact-title check. _find_existing_entity already exists at line ~4631 and does a case-insensitive title lookup, but is never called from either auto-create path. Add a single last-mile guard in _auto_create_entity itself: if an active entity of the same type with case-insensitive matching title already exists, return the existing entity instead of minting a duplicate. The caller already handles 'entity was returned vs created' semantics by checking entity.id, but to avoid touching every caller, have _auto_create_entity return the existing entity and rely on _create_entity_link being idempotent on (source_id, target_id, relationship_type) duplicates.",
       "risk": "low",
       "acceptanceCriteria": [
         "api/v4_entities.py::_auto_create_entity calls _find_existing_entity(entity_type, title) before INSERT; if a match exists, returns it without creating a new row",
-        "tests/integration/test_v4_capture_extraction.py has new test: test_capture_exact_title_match_does_not_duplicate_task (create task 'Ship rollout', then capture 'Ship rollout' again with mocked extraction → assert only 1 task exists, second capture emits link suggestion)",
-        "tests/integration/test_v4_activity_updates.py has new test: test_activity_update_exact_title_match_does_not_duplicate_task (create task 'Check due dates', then activity_update mentioning 'Check due dates' → assert only 1 task)",
+        "tests/integration/test_v4_capture_extraction.py has new test: test_capture_exact_title_match_does_not_duplicate_task (create task 'Ship rollout', then capture 'Ship rollout' again with mocked extraction \u2192 assert only 1 task exists, second capture emits link suggestion)",
+        "tests/integration/test_v4_activity_updates.py has new test: test_activity_update_exact_title_match_does_not_duplicate_task (create task 'Check due dates', then activity_update mentioning 'Check due dates' \u2192 assert only 1 task)",
         "Person auto-create path still works for an unmatched name (test_capture_auto_creates_high_confidence_person passes)",
         "Person auto-create path no longer duplicates when name already exists (new test test_capture_exact_title_match_does_not_duplicate_person)",
         "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration/test_v4_capture_extraction.py tests/integration/test_v4_activity_updates.py passes"
@@ -95,7 +95,7 @@
     {
       "id": "activity-update-zombies-stop",
       "title": "Mark activity-update notes as AI-processed at creation time",
-      "description": "32 of 33 activity_update notes have ai_status=pending forever — they bypass full reconciliation but the lightweight extraction doesn't set ai_status. They're filtered out of the inbox (line ~585 excludes source='activity_update'), but they exist as zombie rows that confuse the Needs review counter and may trigger embed jobs that never run. Simple fix: in api/v4_entities.py::_create_activity_update_note (called by POST /api/v4/entities/<id>/activity_updates), set note.ai_status='done' since the lightweight extraction already ran. Tests: add test_activity_update_note_is_marked_ai_done_on_creation that creates an activity update and asserts ai_status='done'. Existing activity update tests must still pass.",
+      "description": "32 of 33 activity_update notes have ai_status=pending forever \u2014 they bypass full reconciliation but the lightweight extraction doesn't set ai_status. They're filtered out of the inbox (line ~585 excludes source='activity_update'), but they exist as zombie rows that confuse the Needs review counter and may trigger embed jobs that never run. Simple fix: in api/v4_entities.py::_create_activity_update_note (called by POST /api/v4/entities/<id>/activity_updates), set note.ai_status='done' since the lightweight extraction already ran. Tests: add test_activity_update_note_is_marked_ai_done_on_creation that creates an activity update and asserts ai_status='done'. Existing activity update tests must still pass.",
       "risk": "low",
       "acceptanceCriteria": [
         "api/v4_entities.py::_create_activity_update_note sets ai_status='done' on the activity-update note when it's created (covers the common path; idempotent on retry)",
@@ -116,7 +116,7 @@
     {
       "id": "engram-deploy-after-changes",
       "title": "Deploy and verify on production instance",
-      "description": "After all four code tasks land on main, restart the API container, run the full unit + integration suite against the test database, hit the /api/v4/metrics/trust endpoint to confirm correction rate has dropped, and report results. This is the same shape as the v4-tier1 deploy task — no schema changes, just code.",
+      "description": "After all four code tasks land on main, restart the API container, run the full unit + integration suite against the test database, hit the /api/v4/metrics/trust endpoint to confirm correction rate has dropped, and report results. This is the same shape as the v4-tier1 deploy task \u2014 no schema changes, just code.",
       "risk": "low",
       "acceptanceCriteria": [
         "Full unit suite passes: cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/unit",
@@ -138,5 +138,16 @@
   "drain": true,
   "executor": "opencode",
   "executorLaunchTimeoutSeconds": 1800,
-  "nextStepIfInterrupted": "Each code task is independent and ships on its own branch with a tight test. Deploy depends on all four. If interrupted, run `loopsmithctl recover --repo /Volumes/lex1t/dev/shared/repos/engram <attempt-id>` and re-launch with --drain."
+  "nextStepIfInterrupted": "Each code task is independent and ships on its own branch with a tight test. Deploy depends on all four. If interrupted, run `loopsmithctl recover --repo /Volumes/lex1t/dev/shared/repos/engram <attempt-id>` and re-launch with --drain.",
+  "codingLoopPolicy": {
+    "primaryExecutor": "opencode",
+    "fallbackExecutors": [
+      "cursor",
+      "codex",
+      "claude"
+    ],
+    "platform": "openclaw",
+    "allowExecutorFallback": true,
+    "requireHumanForDependencies": true
+  }
 }
