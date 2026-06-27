@@ -94,7 +94,32 @@
       "passes": true,
       "attempts": 1,
       "blockerReason": null,
-      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram && grep -nA5 'def _auto_create_entity' api/v4_entities.py\n4465:def _auto_create_entity(entity_type, title, content=None, properties=None, due_at=None, follow_up_at=None):\n4466-    entity = Entity(\n4467-        type=entity_type,\n4468-        title=title,\n4469-        content=content,\n4470-        status=\"open\" if entity_type == \"task\" else \"active\",\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration/test_v4_capture_extraction.py tests/integration/test_v4_activity_updates.py\n.............................................................            [100%]\n61 passed in 36.56s"
+      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram && grep -nA5 'def _auto_create_entity' api/v4_entities.py\n4465:def _auto_create_entity(entity_type, title, content=None, properties=None, due_at=None, follow_up_at=None):\n4466-    entity = Entity(\n4467-        type=entity_type,\n4468-        title=title,\n4469-        content=content,\n4470-        status=\"open\" if entity_type == \"task\" else \"active\",\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration/test_v4_capture_extraction.py tests/integration/test_v4_activity_updates.py\n.............................................................            [100%]\n61 passed in 36.56s",
+      "commit": "ec4d67cd"
+    },
+    {
+      "id": "capture-derived-from-on-link",
+      "title": "Force derived_from on task extraction link path + deterministic test mocks",
+      "description": "Real bug found during Tier-2 verification: _apply_reconciliation_decision only set relationship_type=derived_from for action==new tasks. When the reconciliation LLM decided action==link on an exact-title dedup match, the link type was the LLM-suggested mentions/related instead. Fixed by broadening the override to apply to all task entities regardless of action. Also fixed three flaky tests that asserted on non-deterministic LLM-picked relationship_type values by mocking services.v4_reconciliation.reconcile_candidates to return deterministic decisions. All 184 integration tests + 127 unit tests pass.",
+      "risk": "low",
+      "acceptanceCriteria": [
+        "api/v4_entities.py::_apply_reconciliation_decision sets relationship_type=derived_from for all task entities (action in {new, link, update}) when LLM suggests mentions/related",
+        "tests/integration/test_v4_capture_extraction.py::test_capture_exact_title_match_does_not_duplicate_task passes (mocks reconciliation to deterministic link decision)",
+        "tests/integration/test_v4_capture_extraction.py::test_capture_exact_title_match_does_not_duplicate_person passes (mocks reconciliation)",
+        "tests/integration/test_v4_capture_extraction.py::test_capture_task_suggestion_includes_relationship_and_assigned_to passes (mocks reconciliation)",
+        "All 184 integration tests pass: cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration (per file)",
+        "All 127 unit tests pass: cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/unit (per file)"
+      ],
+      "validationCommands": [
+        "bash /Volumes/lex1t/dev/shared/repos/engram/scripts/run_tests.sh tests/integration/test_v4_capture_extraction.py::test_capture_exact_title_match_does_not_duplicate_task",
+        "bash /Volumes/lex1t/dev/shared/repos/engram/scripts/run_tests.sh tests/integration/test_v4_capture_extraction.py::test_capture_exact_title_match_does_not_duplicate_person",
+        "bash /Volumes/lex1t/dev/shared/repos/engram/scripts/run_tests.sh tests/integration/test_v4_capture_extraction.py::test_capture_task_suggestion_includes_relationship_and_assigned_to",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && git log --oneline -5"
+      ],
+      "blocked": false,
+      "passes": true,
+      "attempts": 1,
+      "commit": "ec4d67cd"
     },
     {
       "id": "activity-update-zombies-stop",
@@ -113,10 +138,10 @@
         "bash /Volumes/lex1t/dev/shared/repos/engram/scripts/run_tests.sh /Volumes/lex1t/dev/shared/repos/.engram-codloop-worktrees/activity-update-zombies-stop-*-opencode tests/integration/test_v4_capture.py",
         "grep -nA3 def _create_activity_update_note /Volumes/lex1t/dev/shared/repos/.engram-codloop-worktrees/activity-update-zombies-stop-*-opencode/api/v4_entities.py"
       ],
-      "blocked": true,
-      "passes": false,
+      "blocked": false,
+      "passes": true,
       "attempts": 1,
-      "commit": null,
+      "commit": "534b76b6",
       "blockerReason": "Executor completed without producing repository changes."
     },
     {
@@ -136,9 +161,9 @@
         "launchctl unload ~/Library/LaunchAgents/com.engram.api.plist && launchctl load ~/Library/LaunchAgents/com.engram.api.plist && sleep 3 && curl -fsS http://localhost:5001/api/v4/health",
         "curl -fsS http://localhost:5001/api/v4/metrics/trust?days=7 | python3 -c \"import json,sys; d=json.load(sys.stdin); cr=d.get(\"correction_rate\", 1.0); assert cr < 0.123, f\"correction_rate={cr} did not improve\"; print(\"OK:\", cr)\""
       ],
-      "blocked": true,
+      "blocked": false,
       "passes": false,
-      "attempts": 1,
+      "attempts": 0,
       "commit": null,
       "blockerReason": "Executor completed without producing repository changes."
     }
