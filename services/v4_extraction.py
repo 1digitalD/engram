@@ -11,11 +11,12 @@ import os
 
 from services.title_utils import title_or_placeholder
 from utils import get_openai_client
+from services.llm_models import resolve_chat_model
 
 logger = logging.getLogger(__name__)
 
-EXTRACTION_MODEL = os.getenv("OPENAI_EXTRACTION_MODEL", "gpt-4o")
-ACTIVITY_UPDATE_EXTRACTION_MODEL = os.getenv("OPENAI_ACTIVITY_UPDATE_MODEL", "gpt-4o-mini")
+EXTRACTION_MODEL = resolve_chat_model("OPENAI_EXTRACTION_MODEL")
+ACTIVITY_UPDATE_EXTRACTION_MODEL = resolve_chat_model("OPENAI_ACTIVITY_UPDATE_MODEL")
 ALLOWED_ENTITY_TYPES = {"task", "project", "area", "person", "resource"}
 ALLOWED_RELATIONSHIP_TYPES = {"parent", "related", "derived_from", "mentions", "assigned_to", "references", "blocks"}
 EXISTING_ENTITY_LIMIT = 50
@@ -308,7 +309,7 @@ def extract_capture_candidates(content, mode="auto", exclude_note_id=None):
         return {}
 
     response = get_openai_client().chat.completions.create(
-        model=os.getenv("OPENAI_EXTRACTION_MODEL", EXTRACTION_MODEL),
+        model=EXTRACTION_MODEL,
         temperature=0,
         response_format={"type": "json_object"},
         messages=[

@@ -13,10 +13,11 @@ import os
 from datetime import datetime, timedelta, timezone
 
 from utils import get_openai_client
+from services.llm_models import resolve_chat_model
 
 logger = logging.getLogger(__name__)
 
-BRIEF_MODEL = os.getenv("OPENAI_BRIEF_MODEL", "gpt-4o")
+BRIEF_MODEL = resolve_chat_model("OPENAI_BRIEF_MODEL")
 BRIEF_MAX_AGE_HOURS = 6
 BRIEF_MAX_ITEMS = 7
 _BRIEF_CACHE = {"brief": None, "generated_at": None}
