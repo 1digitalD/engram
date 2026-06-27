@@ -78,7 +78,7 @@ AUTO_APPLY_CONFIDENCE = 0.8
 AUTO_CREATE_ENTITY_CONFIDENCE = 0.9
 RISKY_ENTITY_CREATION_TYPES = {"task", "project", "area", "resource", "person"}
 # Types that must never be auto-created from capture — always reviewed.
-SUGGEST_ONLY_CREATION_TYPES = {"project", "area"}
+SUGGEST_ONLY_CREATION_TYPES = {"project", "area", "task"}
 # Reconciliation similarity at or above which a "new" decision is treated as
 # a potential duplicate and routed to the review queue instead of auto-created.
 NEAR_DUPLICATE_SCORE = 0.75
@@ -3484,7 +3484,7 @@ def _apply_reconciliation_decision(note, candidate, decision, applied_changes, s
         )
         if entity_type == "task":
             _link_task_to_note_projects(note, entity, confidence, evidence, applied_changes)
-    elif entity_type in SUGGEST_ONLY_CREATION_TYPES:
+    elif entity_type in {"project", "area"}:
         # Projects/areas proposed as "new" from a capture have never been a
         # useful suggestion in practice (0% acceptance) — they're almost
         # always either an existing project described slightly differently,

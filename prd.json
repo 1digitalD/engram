@@ -43,9 +43,10 @@
         "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration/test_v4_capture.py tests/integration/test_v4_capture_extraction.py tests/integration/test_v4_activity_updates.py tests/integration/test_v4_suggestions.py tests/unit/test_v4_extraction.py"
       ],
       "blocked": false,
-      "passes": false,
-      "attempts": 0,
-      "commit": null
+      "passes": true,
+      "attempts": 1,
+      "blockerReason": null,
+      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram && grep -n '^SUGGEST_ONLY_CREATION_TYPES\\|^TASK_NEVER_AUTO_CREATE' api/v4_entities.py\n81:SUGGEST_ONLY_CREATION_TYPES = {\"project\", \"area\"}\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration/test_v4_capture.py tests/integration/test_v4_capture_extraction.py tests/integration/test_v4_activity_updates.py tests/integration/test_v4_suggestions.py tests/unit/test_v4_extraction.py\n........................................................................ [ 82%]\n...............                                                          [100%]\n87 passed in 41.77s"
     },
     {
       "id": "extraction-prompt-sees-active-tasks",

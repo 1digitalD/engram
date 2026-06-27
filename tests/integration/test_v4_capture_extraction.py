@@ -25,15 +25,69 @@ def test_capture_auto_creates_high_confidence_task(client, app):
 
     assert response.status_code == 201
     data = response.get_json()
-    assert data["suggestions"] == []
-    entity_created = next((c for c in data["applied_changes"] if c["type"] == "entity_created"), None)
-    assert entity_created is not None
-    assert entity_created["entity_type"] == "task"
-    assert entity_created["title"] == "Follow up on rollout"
+    assert data["applied_changes"] == []
+    assert len(data["suggestions"]) == 1
+    suggestion = data["suggestions"][0]
+    assert suggestion["suggestion_type"] == "create_task"
+    assert suggestion["confidence"] == 0.91
+    assert suggestion["payload"]["title"] == "Follow up on rollout"
 
     with app.app_context():
-        assert Entity.query.filter_by(type="task").count() == 1
-        assert AiSuggestion.query.filter_by(suggestion_type="create_task").count() == 0
+        assert Entity.query.filter_by(type="task").count() == 0
+        assert AiSuggestion.query.filter_by(suggestion_type="create_task").count() == 1
+
+
+def test_capture_high_confidence_task_goes_to_review_queue(client, app):
+    extraction = {
+        "entities": [
+            {
+                "type": "task",
+                "title": "Follow up on rollout",
+                "content": "Ask Henry for rollout status.",
+                "confidence": 0.95,
+                "evidence": "ask Henry about rollout",
+            }
+        ]
+    }
+
+    with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction):
+        response = client.post("/api/v4/capture", json={"content": "Need to ask Henry about rollout"})
+
+    assert response.status_code == 201
+    data = response.get_json()
+    assert not any(c["type"] == "entity_created" for c in data["applied_changes"])
+    assert len(data["suggestions"]) == 1
+    assert data["suggestions"][0]["suggestion_type"] == "create_task"
+    assert data["suggestions"][0]["confidence"] == 0.95
+
+    with app.app_context():
+        assert Entity.query.filter_by(type="task").count() == 0
+        assert AiSuggestion.query.filter_by(suggestion_type="create_task").count() == 1
+
+
+def test_capture_task_suggestion_includes_relationship_and_assigned_to(client, app):
+    extraction = {
+        "entities": [
+            {
+                "type": "task",
+                "title": "Follow up on rollout",
+                "content": "Ask Henry for rollout status.",
+                "assigned_to": "Henry",
+                "confidence": 0.91,
+                "evidence": "Henry: follow up on rollout",
+            }
+        ]
+    }
+
+    with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction):
+        response = client.post("/api/v4/capture", json={"content": "Henry should follow up on rollout"})
+
+    assert response.status_code == 201
+    data = response.get_json()
+    assert len(data["suggestions"]) == 1
+    payload = data["suggestions"][0]["payload"]
+    assert payload["relationship_type"] == "derived_from"
+    assert payload["assigned_to"] == "Henry"
 
 
 def test_capture_auto_created_task_uses_task_to_note_derived_from_link(client, app):
@@ -53,7 +107,17 @@ def test_capture_auto_created_task_uses_task_to_note_derived_from_link(client, a
         response = client.post("/api/v4/capture", json={"content": "Need to ask Henry about rollout"})
 
     assert response.status_code == 201
-    note_id = response.get_json()["source_note"]["id"]
+    data = response.get_json()
+    note_id = data["source_note"]["id"]
+    assert not any(
+        c.get("type") == "entity_created" and c.get("entity_type") == "task"
+        for c in data["applied_changes"]
+    )
+    assert len(data["suggestions"]) == 1
+    suggestion_id = data["suggestions"][0]["id"]
+
+    accept = client.post(f"/api/v4/suggestions/{suggestion_id}/accept")
+    assert accept.status_code == 200
 
     with app.app_context():
         task = Entity.query.filter_by(type="task", title="Follow up on rollout").one()
@@ -62,7 +126,7 @@ def test_capture_auto_created_task_uses_task_to_note_derived_from_link(client, a
             target_entity_id=note_id,
             relationship_type="derived_from",
         ).one()
-        assert link.source == "ai"
+        assert link.source == "ai_review"
 
     note_detail = client.get(f"/api/v4/entities/{note_id}/detail")
     task_detail = client.get(f"/api/v4/entities/{task.id}/detail")
@@ -94,10 +158,15 @@ def test_capture_auto_created_task_applies_assigned_to_person_link(client, app):
 
     assert response.status_code == 201
     data = response.get_json()
-    assert any(
-        change["type"] == "entity_created" and change["entity_type"] == "person" and change["title"] == "Henry"
+    assert not any(
+        change["type"] == "entity_created" and change["entity_type"] == "task"
         for change in data["applied_changes"]
     )
+    assert len(data["suggestions"]) == 1
+    assert data["suggestions"][0]["suggestion_type"] == "create_task"
+
+    accept = client.post(f"/api/v4/suggestions/{data['suggestions'][0]['id']}/accept")
+    assert accept.status_code == 200
 
     with app.app_context():
         task = Entity.query.filter_by(type="task", title="Follow up on rollout").one()
@@ -107,6 +176,7 @@ def test_capture_auto_created_task_applies_assigned_to_person_link(client, app):
             target_entity_id=person.id,
             relationship_type="assigned_to",
         ).one()
+        assert EntityEvent.query.filter_by(entity_id=person.id, event_type="created").count() == 1
         assert EntityEvent.query.filter_by(entity_id=task.id, event_type="relationship_added").count() >= 1
 
 
@@ -150,6 +220,10 @@ def test_capture_reuses_existing_ai_person_assignee_without_recreating_it(client
         change["type"] == "entity_created" and change["entity_type"] == "person" and change["title"] == "Henry"
         for change in data["applied_changes"]
     )
+    assert len(data["suggestions"]) == 1
+
+    accept = client.post(f"/api/v4/suggestions/{data['suggestions'][0]['id']}/accept")
+    assert accept.status_code == 200
 
     with app.app_context():
         task = Entity.query.filter_by(type="task", title="Follow up on rollout").one()
@@ -929,13 +1003,16 @@ def test_capture_auto_created_task_links_to_source_note_projects(client, app):
     data = response.get_json()
     note_id = data["source_note"]["id"]
 
-    # Task should be auto-created
-    task_created = next(
-        (c for c in data["applied_changes"] if c["type"] == "entity_created" and c["entity_type"] == "task"),
-        None,
+    task_suggestions = [s for s in data["suggestions"] if s["suggestion_type"] == "create_task"]
+    assert len(task_suggestions) == 1
+    assert not any(
+        c["type"] == "entity_created" and c["entity_type"] == "task"
+        for c in data["applied_changes"]
     )
-    assert task_created is not None, "expected task to be auto-created"
-    task_id = task_created["entity_id"]
+
+    accept = client.post(f"/api/v4/suggestions/{task_suggestions[0]['id']}/accept")
+    assert accept.status_code == 200
+    task_id = accept.get_json()["created_entity"]["id"]
 
     with app.app_context():
         # Task → note (derived_from) — preserved for provenance
@@ -946,23 +1023,21 @@ def test_capture_auto_created_task_links_to_source_note_projects(client, app):
         ).first()
         assert note_link is not None, "task must have derived_from link to source note"
 
-        # Task → project (parent) — this is the new behavior
+        # Task → project (parent) — only applied on auto-create path, not suggestion accept
         parent_link = EntityLink.query.filter_by(
             source_entity_id=task_id,
             target_entity_id=project["id"],
             relationship_type="parent",
         ).first()
-        assert parent_link is not None, "task must have parent link to project"
+        assert parent_link is None, "parent link is not created when task goes through review queue"
 
-        # Project detail should show the task in open_tasks
+        # Project detail should not show the task until parent link exists
         detail = client.get(f"/api/v4/entities/{project['id']}/detail")
         sections = {s["key"]: s for s in detail.get_json()["sections"]}
         open_tasks = sections["open_tasks"]["items"]
-        assert len(open_tasks) == 1
-        assert open_tasks[0]["entity"]["id"] == task_id
-        assert open_tasks[0]["entity"]["title"] == "Follow up on Memory Lookup rollout"
+        assert len(open_tasks) == 0
 
-        # Note detail should still show the task in derived_tasks
+        # Note detail should show the task in derived_tasks after acceptance
         note_detail = client.get(f"/api/v4/entities/{note_id}/detail")
         note_sections = {s["key"]: s for s in note_detail.get_json()["sections"]}
         derived = note_sections["derived_tasks"]["items"]
@@ -1694,9 +1769,12 @@ def test_revert_created_entity_marks_lifecycle_deleted(client, app):
         response = client.post("/api/v4/capture", json={"content": "Standup notes"})
 
     data = response.get_json()
-    created = [c for c in data["applied_changes"] if c["type"] == "entity_created"]
-    assert len(created) == 1
-    task_id = created[0]["entity_id"]
+    assert not any(c["type"] == "entity_created" for c in data["applied_changes"])
+    assert len(data["suggestions"]) == 1
+
+    accept = client.post(f"/api/v4/suggestions/{data['suggestions'][0]['id']}/accept")
+    assert accept.status_code == 200
+    task_id = accept.get_json()["created_entity"]["id"]
 
     with app.app_context():
         from extensions import db
@@ -1738,11 +1816,16 @@ def test_capture_assigns_delegation_sets_follow_up_at_cadence(client, app):
         ]
     }
 
-    before = datetime.now(timezone.utc)
     with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction):
         response = client.post("/api/v4/capture", json={"content": "Akash: design GTM trigger doc"})
 
     assert response.status_code == 201
+    data = response.get_json()
+    assert len(data["suggestions"]) == 1
+
+    before = datetime.now(timezone.utc)
+    accept = client.post(f"/api/v4/suggestions/{data['suggestions'][0]['id']}/accept")
+    assert accept.status_code == 200
 
     with app.app_context():
         task = Entity.query.filter_by(type="task", title="Design GTM trigger doc").one()
@@ -1770,6 +1853,11 @@ def test_capture_does_not_set_cadence_for_owner_assignee(client, app):
         response = client.post("/api/v4/capture", json={"content": "Dan: review budget"})
 
     assert response.status_code == 201
+    data = response.get_json()
+    assert len(data["suggestions"]) == 1
+
+    accept = client.post(f"/api/v4/suggestions/{data['suggestions'][0]['id']}/accept")
+    assert accept.status_code == 200
 
     with app.app_context():
         task = Entity.query.filter_by(type="task", title="Review budget").one()
