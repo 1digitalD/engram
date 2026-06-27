@@ -1,11 +1,12 @@
 """On-demand canonical markdown generation for v4 entities."""
 
 from models import Entity, EntityLink
+from services.title_utils import title_or_placeholder
 
 
 def generate_canonical_markdown(entity: Entity) -> str:
     lines = [
-        f"# {entity.title or 'Untitled'}",
+        f"# {title_or_placeholder(entity)}",
         "",
         f"Type: {entity.type}",
         f"Status: {entity.status}",

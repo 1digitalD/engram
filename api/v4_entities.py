@@ -15,6 +15,7 @@ from extensions import db
 from models import AiSuggestion, AppSetting, Entity, EntityEvent, EntityLink, EntityTag, Job, Tag, _iso
 from services import runtime_health
 from services.v4_attention import attention_for_entity, today_attention_count, today_attention_items
+from services.title_utils import title_or_placeholder
 
 STATUS_BY_TYPE = {
     "note": ["active", "processed", "archived"],
@@ -3089,7 +3090,7 @@ def _activity_update_title(target):
     first sentence ("There was no update on this during the week. Will ch…")
     is unreadable in note lists.
     """
-    target_title = (target.title or "Untitled").strip()
+    target_title = title_or_placeholder(target).strip()
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     return f"Update: {target_title[:130]} ({today})"
 
