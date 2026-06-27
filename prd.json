@@ -63,12 +63,13 @@
         "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/unit/test_v4_extraction.py passes"
       ],
       "validationCommands": [
-        "cd /Volumes/lex1t/dev/shared/repos/engram && grep -nE 'TASK_RECENT_LIMIT|recent.*task' services/v4_extraction.py",
-        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/unit/test_v4_extraction.py"
+        "bash /Volumes/lex1t/dev/shared/repos/engram/scripts/run_tests.sh /Volumes/lex1t/dev/shared/repos/.engram-codloop-worktrees/extraction-prompt-sees-active-tasks-*-opencode tests/unit/test_v4_extraction.py",
+        "bash /Volumes/lex1t/dev/shared/repos/engram/scripts/run_tests.sh /Volumes/lex1t/dev/shared/repos/.engram-codloop-worktrees/extraction-prompt-sees-active-tasks-*-opencode tests/integration/test_v4_capture_extraction.py",
+        "grep -nE TASK_RECENT_LIMIT /Volumes/lex1t/dev/shared/repos/.engram-codloop-worktrees/extraction-prompt-sees-active-tasks-*-opencode/services/v4_extraction.py"
       ],
-      "blocked": true,
+      "blocked": false,
       "passes": false,
-      "attempts": 1,
+      "attempts": 0,
       "commit": null,
       "blockerReason": "Deterministic validation failed."
     },
@@ -108,12 +109,13 @@
         "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration/test_v4_activity_updates.py tests/integration/test_v4_capture.py passes"
       ],
       "validationCommands": [
-        "cd /Volumes/lex1t/dev/shared/repos/engram && grep -nA3 'def _create_activity_update_note' api/v4_entities.py",
-        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration/test_v4_activity_updates.py tests/integration/test_v4_capture.py"
+        "bash /Volumes/lex1t/dev/shared/repos/engram/scripts/run_tests.sh /Volumes/lex1t/dev/shared/repos/.engram-codloop-worktrees/activity-update-zombies-stop-*-opencode tests/integration/test_v4_activity_updates.py",
+        "bash /Volumes/lex1t/dev/shared/repos/engram/scripts/run_tests.sh /Volumes/lex1t/dev/shared/repos/.engram-codloop-worktrees/activity-update-zombies-stop-*-opencode tests/integration/test_v4_capture.py",
+        "grep -nA3 def _create_activity_update_note /Volumes/lex1t/dev/shared/repos/.engram-codloop-worktrees/activity-update-zombies-stop-*-opencode/api/v4_entities.py"
       ],
-      "blocked": true,
+      "blocked": false,
       "passes": false,
-      "attempts": 1,
+      "attempts": 0,
       "commit": null,
       "blockerReason": "Deterministic validation failed."
     },
@@ -123,20 +125,22 @@
       "description": "After all four code tasks land on main, restart the API container, run the full unit + integration suite against the test database, hit the /api/v4/metrics/trust endpoint to confirm correction rate has dropped, and report results. This is the same shape as the v4-tier1 deploy task \u2014 no schema changes, just code.",
       "risk": "low",
       "acceptanceCriteria": [
-        "Full unit suite passes: cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/unit",
-        "Full integration suite passes: cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration",
-        "docker restart engram-api-1 succeeds",
-        "GET /api/v4/metrics/trust?days=7 returns a correction_rate lower than the pre-Tier-2 baseline (live baseline captured before first code task merged)"
+        "Full unit suite passes: bash /Volumes/lex1t/dev/shared/repos/engram/scripts/run_tests.sh tests/unit",
+        "Full integration suite passes: bash /Volumes/lex1t/dev/shared/repos/engram/scripts/run_tests.sh tests/integration",
+        "API restart via launchctl succeeds and /api/v4/health returns 200",
+        "GET /api/v4/metrics/trust?days=7 returns correction_rate < 0.123 (pre-Tier-2 baseline)"
       ],
       "validationCommands": [
-        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/unit",
-        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration",
-        "docker restart engram-api-1 && sleep 3 && curl -fsS http://localhost:5001/api/v4/healthz || echo \"health endpoint may not exist; just verify container is up via docker ps\""
+        "bash /Volumes/lex1t/dev/shared/repos/engram/scripts/run_tests.sh tests/unit",
+        "bash /Volumes/lex1t/dev/shared/repos/engram/scripts/run_tests.sh tests/integration",
+        "launchctl unload ~/Library/LaunchAgents/com.engram.api.plist && launchctl load ~/Library/LaunchAgents/com.engram.api.plist && sleep 3 && curl -fsS http://localhost:5001/api/v4/health",
+        "curl -fsS http://localhost:5001/api/v4/metrics/trust?days=7 | python3 -c \"import json,sys; d=json.load(sys.stdin); cr=d.get(\"correction_rate\", 1.0); assert cr < 0.123, f\"correction_rate={cr} did not improve\"; print(\"OK:\", cr)\""
       ],
       "blocked": false,
       "passes": false,
       "attempts": 0,
-      "commit": null
+      "commit": null,
+      "blockerReason": "Executor completed without producing repository changes."
     }
   ],
   "drain": true,
