@@ -1,6 +1,7 @@
 """Tests for the v4 activity update API."""
 
 from datetime import datetime, timedelta, timezone
+from unittest.mock import patch
 
 import pytest
 from extensions import db
@@ -30,6 +31,24 @@ def test_create_activity_update(client, app):
     from datetime import datetime, timezone
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     assert data["title"] == f"Update: Build v4 ({today})"
+
+
+def test_activity_update_note_ai_status_is_done_after_creation(client, app):
+    project = _create_entity(client, "project", "Build v4")
+
+    response = client.post(
+        f"/api/v4/entities/{project['id']}/activity_updates",
+        json={"content": "Lightweight extraction already ran."},
+    )
+
+    assert response.status_code == 201
+    data = response.get_json()["data"]
+    assert data["source"] == "activity_update"
+    assert data["ai"]["status"] == "done"
+
+    with app.app_context():
+        note = db.session.get(Entity, data["id"])
+        assert note.ai_status == "done"
 
 
 def test_create_activity_update_writes_event(client, app):

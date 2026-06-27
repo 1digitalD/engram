@@ -1676,6 +1676,7 @@ def _create_activity_update_note(target, content, actor="user", confidence=None,
         content=content,
         status="active",
         source="activity_update",
+        ai_status="done",
     )
     db.session.add(note)
     db.session.flush()
