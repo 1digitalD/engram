@@ -79,7 +79,23 @@ def test_capture_task_suggestion_includes_relationship_and_assigned_to(client, a
         ]
     }
 
-    with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction):
+    # Mock reconciliation for determinism — without this the LLM picks a
+    # non-deterministic relationship_type ("assigned_to" vs "derived_from")
+    # depending on whether it focuses on the person link or the note→task
+    # provenance link.
+    mock_decisions = [
+        {
+            "action": "new",
+            "target_id": None,
+            "relationship_type": "derived_from",
+            "fields": {},
+            "reason": "new task",
+            "top_match_score": 0.0,
+        }
+    ]
+
+    with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction), \
+         patch("services.v4_reconciliation.reconcile_candidates", return_value=mock_decisions):
         response = client.post("/api/v4/capture", json={"content": "Henry should follow up on rollout"})
 
     assert response.status_code == 201
@@ -1945,7 +1961,23 @@ def test_capture_exact_title_match_does_not_duplicate_task(client, app):
         ]
     }
 
-    with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction):
+    # Mock reconciliation to return a deterministic `link` decision. Without
+    # this, the live reconciliation LLM picks non-deterministic
+    # relationship_types, which makes the test flaky. The production behavior
+    # we care about is: exact-title task extraction must not create a
+    # duplicate entity, and must emit a relationship_added applied_change.
+    mock_decisions = [
+        {
+            "action": "link",
+            "target_id": existing_id,
+            "relationship_type": "derived_from",
+            "top_match_score": 1.0,
+            "reason": "exact title match",
+        }
+    ]
+
+    with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction), \
+         patch("services.v4_reconciliation.reconcile_candidates", return_value=mock_decisions):
         response = client.post("/api/v4/capture", json={"content": "Need to ship rollout"})
 
     assert response.status_code == 201
@@ -1988,7 +2020,21 @@ def test_capture_exact_title_match_does_not_duplicate_person(client, app):
         ]
     }
 
-    with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction):
+    # Mock reconciliation to return a deterministic `link` decision (same
+    # reason as the task test above — without this the live LLM picks a
+    # non-deterministic relationship_type and the test is flaky).
+    mock_decisions = [
+        {
+            "action": "link",
+            "target_id": existing_id,
+            "relationship_type": "mentions",
+            "top_match_score": 1.0,
+            "reason": "exact title match",
+        }
+    ]
+
+    with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction), \
+         patch("services.v4_reconciliation.reconcile_candidates", return_value=mock_decisions):
         response = client.post("/api/v4/capture", json={"content": "Henry owns the rollout"})
 
     assert response.status_code == 201

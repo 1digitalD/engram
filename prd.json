@@ -136,9 +136,9 @@
         "launchctl unload ~/Library/LaunchAgents/com.engram.api.plist && launchctl load ~/Library/LaunchAgents/com.engram.api.plist && sleep 3 && curl -fsS http://localhost:5001/api/v4/health",
         "curl -fsS http://localhost:5001/api/v4/metrics/trust?days=7 | python3 -c \"import json,sys; d=json.load(sys.stdin); cr=d.get(\"correction_rate\", 1.0); assert cr < 0.123, f\"correction_rate={cr} did not improve\"; print(\"OK:\", cr)\""
       ],
-      "blocked": false,
+      "blocked": true,
       "passes": false,
-      "attempts": 0,
+      "attempts": 1,
       "commit": null,
       "blockerReason": "Executor completed without producing repository changes."
     }

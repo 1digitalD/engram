@@ -3240,8 +3240,12 @@ def _apply_reconciliation_decision(note, candidate, decision, applied_changes, s
         relationship_type = _default_relationship_type(entity_type)
     # Tasks extracted from notes should always trace back to their source
     # note via derived_from for provenance/audit. The parent link to the
-    # project is added separately by _link_task_to_note_projects.
-    if action == "new" and entity_type == "task":
+    # project is added separately by _link_task_to_note_projects. Applies
+    # to both "new" (mint a task) and "link" (re-use existing task via
+    # exact-title dedup) so the source note→task trace is preserved either
+    # way. We override the LLM's suggestion of "mentions" or "related" for
+    # tasks because notes aren't merely mentioning tasks — they're producing them.
+    if entity_type == "task" and relationship_type in {"related", "mentions", None}:
         relationship_type = "derived_from"
 
     if action in ("update", "link"):
