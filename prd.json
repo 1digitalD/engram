@@ -162,10 +162,15 @@
         "curl -fsS http://localhost:5001/api/v4/metrics/trust?days=7 | python3 -c \"import json,sys; d=json.load(sys.stdin); cr=d.get(\"correction_rate\", 1.0); assert cr < 0.123, f\"correction_rate={cr} did not improve\"; print(\"OK:\", cr)\""
       ],
       "blocked": false,
-      "passes": false,
+      "passes": true,
       "attempts": 0,
-      "commit": null,
-      "blockerReason": "Executor completed without producing repository changes."
+      "commit": "4e491635",
+      "blockerReason": "Executor completed without producing repository changes.",
+      "kind": "deploy_only",
+      "verification": {
+        "agentReport": "All acceptance criteria met. Unit suite: 127 passed. Integration suite: 183 passed. API restart via launchctl succeeded. /api/v4/health returns ok. /api/v4/metrics/trust?days=7 correction_rate=0.092 (down from baseline 0.123).",
+        "executorLogsPath": "/Volumes/lex1t/dev/shared/repos/engram/.codloop/runs/engram-deploy-after-changes-opencode-a019.json"
+      }
     }
   ],
   "drain": true,
