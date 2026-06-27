@@ -1922,3 +1922,89 @@ def test_extraction_prompt_includes_recent_context_excluding_current_note(client
     assert "GTM agent trigger still flaky" in prompt
     assert "same issue as yesterday" not in prompt
     assert "Do NOT extract" in prompt
+
+
+def test_capture_exact_title_match_does_not_duplicate_task(client, app):
+    """A capture that extracts an already-existing exact-title task should link
+    to the existing task instead of minting a duplicate."""
+    existing_response = client.post(
+        "/api/v4/entities",
+        json={"type": "task", "title": "Ship rollout"},
+    )
+    assert existing_response.status_code == 201
+    existing_id = existing_response.get_json()["data"]["id"]
+
+    extraction = {
+        "entities": [
+            {
+                "type": "task",
+                "title": "Ship rollout",
+                "confidence": 0.91,
+                "evidence": "ship rollout",
+            }
+        ]
+    }
+
+    with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction):
+        response = client.post("/api/v4/capture", json={"content": "Need to ship rollout"})
+
+    assert response.status_code == 201
+    data = response.get_json()
+
+    with app.app_context():
+        assert Entity.query.filter_by(type="task", title="Ship rollout").count() == 1
+
+    assert not any(
+        change["type"] == "entity_created" and change["entity_type"] == "task"
+        for change in data["applied_changes"]
+    )
+    link_changes = [
+        change for change in data["applied_changes"]
+        if change["type"] == "relationship_added"
+        and change.get("target_entity_id") == existing_id
+        and change.get("relationship_type") == "derived_from"
+    ]
+    assert len(link_changes) == 1
+
+
+def test_capture_exact_title_match_does_not_duplicate_person(client, app):
+    """A capture that extracts an already-existing exact-name person should link
+    to the existing person instead of minting a duplicate."""
+    existing_response = client.post(
+        "/api/v4/entities",
+        json={"type": "person", "title": "Henry"},
+    )
+    assert existing_response.status_code == 201
+    existing_id = existing_response.get_json()["data"]["id"]
+
+    extraction = {
+        "entities": [
+            {
+                "type": "person",
+                "title": "Henry",
+                "confidence": 0.91,
+                "evidence": "Henry owns the rollout",
+            }
+        ]
+    }
+
+    with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction):
+        response = client.post("/api/v4/capture", json={"content": "Henry owns the rollout"})
+
+    assert response.status_code == 201
+    data = response.get_json()
+
+    with app.app_context():
+        assert Entity.query.filter_by(type="person", title="Henry").count() == 1
+
+    assert not any(
+        change["type"] == "entity_created" and change["entity_type"] == "person"
+        for change in data["applied_changes"]
+    )
+    link_changes = [
+        change for change in data["applied_changes"]
+        if change["type"] == "relationship_added"
+        and change.get("target_entity_id") == existing_id
+        and change.get("relationship_type") == "mentions"
+    ]
+    assert len(link_changes) == 1

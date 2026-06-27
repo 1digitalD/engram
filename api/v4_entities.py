@@ -1818,6 +1818,7 @@ def create_activity_update(entity_id):
                 due_at=task_candidate.get("due_at"),
             )
             if new_task:
+                found_existing = getattr(new_task, "_auto_create_found_existing", False)
                 # Link the new task to the target entity (derived_from).
                 _create_entity_link(
                     new_task, target, "derived_from",
@@ -1835,21 +1836,22 @@ def create_activity_update(entity_id):
                         source="activity_update",
                         actor="agent:activity-update",
                     )
-                _write_event(
-                    new_task,
-                    "created",
-                    new_value=new_task.to_dict(),
-                    actor="agent:activity-update",
-                    confidence=confidence,
-                    reason="extracted from activity update",
-                    source_note_id=note.id,
-                )
-                _queue_embed_job(new_task.id, "activity_update_task")
+                if not found_existing:
+                    _write_event(
+                        new_task,
+                        "created",
+                        new_value=new_task.to_dict(),
+                        actor="agent:activity-update",
+                        confidence=confidence,
+                        reason="extracted from activity update",
+                        source_note_id=note.id,
+                    )
+                    _queue_embed_job(new_task.id, "activity_update_task")
                 extracted_tasks.append({
                     "entity_id": new_task.id,
                     "title": new_task.title,
                     "confidence": confidence,
-                    "auto_created": True,
+                    "auto_created": not found_existing,
                 })
         else:
             # Lower confidence: create a suggestion for the user to review.
@@ -3454,16 +3456,18 @@ def _apply_reconciliation_decision(note, candidate, decision, applied_changes, s
             due_at=decision.get("fields", {}).get("due_at") or _candidate_value(candidate, "due_at"),
             follow_up_at=decision.get("fields", {}).get("follow_up_at") or _candidate_value(candidate, "follow_up_at"),
         )
+        found_existing = getattr(entity, "_auto_create_found_existing", False)
         link_source, link_target = _candidate_link_endpoints(note, entity, relationship_type)
         link = _create_entity_link(link_source, link_target, relationship_type, confidence, evidence)
-        _write_event(entity, "created", new_value=entity.to_dict(), actor="agent:v4-capture", confidence=confidence, reason=evidence, source_note_id=note.id)
-        applied_changes.append({
-            "type": "entity_created",
-            "entity_id": entity.id,
-            "entity_type": entity_type,
-            "title": title,
-            "confidence": confidence,
-        })
+        if not found_existing:
+            _write_event(entity, "created", new_value=entity.to_dict(), actor="agent:v4-capture", confidence=confidence, reason=evidence, source_note_id=note.id)
+            applied_changes.append({
+                "type": "entity_created",
+                "entity_id": entity.id,
+                "entity_type": entity_type,
+                "title": title,
+                "confidence": confidence,
+            })
         if link is not None:
             _write_event(note, "relationship_added", new_value=link.to_dict(), actor="agent:v4-capture", confidence=confidence, reason=evidence, source_note_id=note.id)
             applied_changes.append({
@@ -4463,6 +4467,10 @@ def _parse_iso_date(value):
 
 
 def _auto_create_entity(entity_type, title, content=None, properties=None, due_at=None, follow_up_at=None):
+    existing = _find_existing_entity(entity_type, title)
+    if existing is not None:
+        existing._auto_create_found_existing = True
+        return existing
     entity = Entity(
         type=entity_type,
         title=title,

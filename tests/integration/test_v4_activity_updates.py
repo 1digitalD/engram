@@ -239,3 +239,48 @@ def test_activity_note_detail_links_back_to_target(client, app):
     assert items[0]["entity"]["id"] == project["id"]
     assert items[0]["entity"]["title"] == "Build v4"
     assert items[0]["relationship"]["relationship_type"] == "activity_update"
+
+
+def test_activity_update_exact_title_match_does_not_duplicate_task(client, app):
+    """An activity update that extracts an already-existing exact-title task
+    should link to the existing task instead of minting a duplicate."""
+    existing_task = _create_entity(client, "task", "Check due dates")
+    project = _create_entity(client, "project", "Billing")
+
+    extraction = {
+        "follow_up_at": None,
+        "tasks": [
+            {
+                "title": "Check due dates",
+                "content": None,
+                "due_at": None,
+                "assigned_to": None,
+                "confidence": 0.85,
+            }
+        ],
+    }
+
+    with patch(
+        "services.v4_extraction.extract_dates_and_tasks_from_update",
+        return_value=extraction,
+    ):
+        response = client.post(
+            f"/api/v4/entities/{project['id']}/activity_updates",
+            json={"content": "Remember to check due dates"},
+        )
+
+    assert response.status_code == 201
+    data = response.get_json()
+
+    with app.app_context():
+        assert Entity.query.filter_by(type="task", title="Check due dates").count() == 1
+
+    extracted = data["extracted"]["tasks"]
+    assert len(extracted) == 1
+    assert extracted[0]["entity_id"] == existing_task["id"]
+    assert extracted[0]["auto_created"] is False
+
+    with app.app_context():
+        assert EntityEvent.query.filter_by(
+            entity_id=existing_task["id"], event_type="created"
+        ).count() == 1

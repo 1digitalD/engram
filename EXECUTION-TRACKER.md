@@ -491,3 +491,4 @@ The launchd/Tailscale path expects the API to bind to `127.0.0.1:5001`.
 The repo previously tracked fine-grained V2/V3/V3.5 execution logs in this file. Those logs were useful during active migration work but are now demoted because they contain stale pending-task guidance that can mislead fresh agents. Recover detailed history with `git log --oneline --decorate -- EXECUTION-TRACKER.md` if needed.
 - 2026-06-26T22:23:27.041618+00:00 untitled-regression-test-react accepted via opencode
 - 2026-06-27T16:41:37.222363+00:00 tasks-suggest-only-on-capture accepted via cursor
+- 2026-06-27T16:51:22.659853+00:00 last-mile-exact-title-dedup accepted via opencode

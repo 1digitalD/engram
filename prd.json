@@ -90,9 +90,10 @@
         "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration/test_v4_capture_extraction.py tests/integration/test_v4_activity_updates.py"
       ],
       "blocked": false,
-      "passes": false,
-      "attempts": 0,
-      "commit": null
+      "passes": true,
+      "attempts": 1,
+      "blockerReason": null,
+      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram && grep -nA5 'def _auto_create_entity' api/v4_entities.py\n4465:def _auto_create_entity(entity_type, title, content=None, properties=None, due_at=None, follow_up_at=None):\n4466-    entity = Entity(\n4467-        type=entity_type,\n4468-        title=title,\n4469-        content=content,\n4470-        status=\"open\" if entity_type == \"task\" else \"active\",\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration/test_v4_capture_extraction.py tests/integration/test_v4_activity_updates.py\n.............................................................            [100%]\n61 passed in 36.56s"
     },
     {
       "id": "activity-update-zombies-stop",
