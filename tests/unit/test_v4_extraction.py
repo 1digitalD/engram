@@ -126,3 +126,68 @@ def test_normalization_leaves_plain_ampersands_alone():
         "tags": [],
     })
     assert result["title"] == "Q&A session prep"
+
+
+def test_recent_existing_entities_includes_active_tasks(client, app):
+    task_resp = client.post(
+        "/api/v4/entities",
+        json={"type": "task", "title": "Follow up with Akash about Q3", "status": "open"},
+    )
+    assert task_resp.status_code == 201
+    project_resp = client.post(
+        "/api/v4/entities",
+        json={"type": "project", "title": "Agent convergence", "status": "active"},
+    )
+    assert project_resp.status_code == 201
+
+    with app.app_context():
+        result = v4_extraction._recent_existing_entities()
+
+    assert "Agent convergence" in result["project"]
+    assert "Follow up with Akash about Q3" in result["task"]
+    assert len(result["task"]) <= v4_extraction.TASK_RECENT_LIMIT
+
+
+def test_recent_existing_entities_excludes_done_tasks(client, app):
+    client.post(
+        "/api/v4/entities",
+        json={"type": "task", "title": "Done task", "status": "done"},
+    )
+    client.post(
+        "/api/v4/entities",
+        json={"type": "task", "title": "Open task", "status": "open"},
+    )
+    client.post(
+        "/api/v4/entities",
+        json={"type": "task", "title": "Archived task", "status": "open", "lifecycle": "archived"},
+    )
+    client.post(
+        "/api/v4/entities",
+        json={"type": "task", "title": "Deleted task", "status": "open", "lifecycle": "deleted"},
+    )
+
+    with app.app_context():
+        result = v4_extraction._recent_existing_entities()
+
+    titles = result["task"]
+    assert "Open task" in titles
+    assert "Done task" not in titles
+    assert "Archived task" not in titles
+    assert "Deleted task" not in titles
+
+
+def test_format_existing_entities_block_includes_tasks_section():
+    existing = {
+        "project": ["Agent convergence"],
+        "task": ["Follow up with Akash about Q3", "Draft project plan"],
+        "area": ["Work"],
+    }
+    block = v4_extraction._format_existing_entities_block(existing)
+
+    assert "Recent Active Open Tasks:" in block
+    assert "- Follow up with Akash about Q3" in block
+    assert "- Draft project plan" in block
+    projects_pos = block.index("Projects:")
+    tasks_pos = block.index("Recent Active Open Tasks:")
+    areas_pos = block.index("Areas:")
+    assert projects_pos < tasks_pos < areas_pos

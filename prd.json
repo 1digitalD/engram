@@ -68,10 +68,10 @@
         "grep -nE TASK_RECENT_LIMIT /Volumes/lex1t/dev/shared/repos/.engram-codloop-worktrees/extraction-prompt-sees-active-tasks-*-opencode/services/v4_extraction.py"
       ],
       "blocked": false,
-      "passes": false,
-      "attempts": 0,
-      "commit": null,
-      "blockerReason": "Deterministic validation failed."
+      "passes": true,
+      "attempts": 1,
+      "blockerReason": null,
+      "validationEvidence": "$ bash /Volumes/lex1t/dev/shared/repos/engram/scripts/run_tests.sh /Volumes/lex1t/dev/shared/repos/.engram-codloop-worktrees/extraction-prompt-sees-active-tasks-*-opencode tests/unit/test_v4_extraction.py\n....                                                                     [100%]\n4 passed in 0.12s\n\n$ bash /Volumes/lex1t/dev/shared/repos/engram/scripts/run_tests.sh /Volumes/lex1t/dev/shared/repos/.engram-codloop-worktrees/extraction-prompt-sees-active-tasks-*-opencode tests/integration/test_v4_capture_extraction.py\n.................................................                        [100%]\n49 passed in 1.16s\n\n$ grep -nE TASK_RECENT_LIMIT /Volumes/lex1t/dev/shared/repos/.engram-codloop-worktrees/extraction-prompt-sees-active-tasks-*-opencode/services/v4_extraction.py\n23:TASK_RECENT_LIMIT = 15\n208:            .limit(TASK_RECENT_LIMIT)"
     },
     {
       "id": "last-mile-exact-title-dedup",

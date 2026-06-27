@@ -9,6 +9,7 @@ import json
 import logging
 import os
 
+from api.v4_entities import DONE_TASK_STATUSES
 from services.title_utils import title_or_placeholder
 from utils import get_openai_client
 from services.llm_models import resolve_chat_model
@@ -20,6 +21,7 @@ ACTIVITY_UPDATE_EXTRACTION_MODEL = resolve_chat_model("OPENAI_ACTIVITY_UPDATE_MO
 ALLOWED_ENTITY_TYPES = {"task", "project", "area", "person", "resource"}
 ALLOWED_RELATIONSHIP_TYPES = {"parent", "related", "derived_from", "mentions", "assigned_to", "references", "blocks"}
 EXISTING_ENTITY_LIMIT = 50
+TASK_RECENT_LIMIT = 15
 
 SYSTEM_PROMPT_TEMPLATE = """You are an extraction engine for a personal knowledge workspace. \
 Analyze the note below and return JSON with metadata, link candidates, and entity creation candidates.
@@ -167,24 +169,29 @@ SYSTEM_PROMPT = SYSTEM_PROMPT_TEMPLATE
 
 
 def _recent_existing_entities(limit=EXISTING_ENTITY_LIMIT):
-    """Fetch the most recently updated active projects and areas.
+    """Fetch the most recently updated active projects, areas, and open tasks.
 
-    Returns a dict {"project": [titles], "area": [titles]}. Returns empty
-    lists if no Flask app context or DB is available.
+    Returns a dict {"project": [titles], "area": [titles], "task": [titles]}.
+    Returns empty lists if no Flask app context or DB is available.
     """
     try:
         from models import Entity
     except Exception:
-        return {"project": [], "area": []}
+        return {"project": [], "area": [], "task": []}
 
-    out = {"project": [], "area": []}
-    for entity_type in ("project", "area"):
+    out = {"project": [], "area": [], "task": []}
+    type_limits = {"project": limit, "area": limit, "task": TASK_RECENT_LIMIT}
+    for entity_type in ("project", "area", "task"):
         try:
+            query = Entity.query.filter(
+                Entity.type == entity_type,
+                Entity.lifecycle == "active",
+            )
+            if entity_type == "task":
+                query = query.filter(~Entity.status.in_(DONE_TASK_STATUSES))
             rows = (
-                Entity.query
-                .filter(Entity.type == entity_type, Entity.lifecycle == "active")
-                .order_by(Entity.updated_at.desc())
-                .limit(limit)
+                query.order_by(Entity.updated_at.desc())
+                .limit(type_limits[entity_type])
                 .all()
             )
             out[entity_type] = [r.title for r in rows if r.title]
@@ -204,6 +211,8 @@ def _format_existing_entities_block(existing):
         "for the corresponding type):\n"
         "Projects:\n"
         f"{fmt(existing.get('project') or [])}\n"
+        "Recent Active Open Tasks:\n"
+        f"{fmt(existing.get('task') or [])}\n"
         "Areas:\n"
         f"{fmt(existing.get('area') or [])}\n"
     )
