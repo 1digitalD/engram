@@ -9,6 +9,7 @@ import json
 import logging
 import os
 
+from services.title_utils import title_or_placeholder
 from utils import get_openai_client
 
 logger = logging.getLogger(__name__)
@@ -242,7 +243,7 @@ def _recent_context_notes(exclude_note_id=None, limit=RECENT_CONTEXT_NOTE_LIMIT)
     out = []
     for note in rows:
         out.append({
-            "title": note.title or "Untitled",
+            "title": title_or_placeholder(note),
             "date": note.created_at.date().isoformat() if note.created_at else "",
             "excerpt": (note.content or "")[:RECENT_CONTEXT_EXCERPT_CHARS],
         })
