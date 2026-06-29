@@ -6,6 +6,9 @@ fallbackExecutors:
 platform: openclaw
 allowExecutorFallback: true
 requireHumanForDependencies: true
+# Per the loopsmith skill: 300s default is too low for tasks that build JS
+# from a fresh worktree. Set to 1800s (30 min) for any PRD touching TS/JS.
+executorLaunchTimeoutSeconds: 1800
 publication:
   branchPrefix: loopsmith
   pushEnabled: false

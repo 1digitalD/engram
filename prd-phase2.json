@@ -1,0 +1,179 @@
+{
+  "iteration": "v5-redesign-phase2-composition",
+  "goal": "Build the new UI shell using the trust foundation from Phase 1. Three lenses (Now, Threads, Recall), one universal list component, sentence-shaped rows, the capture sheet with streaming response, and mobile responsive layouts. Phase 1 must be deployed and stable before Phase 2 launches. The new UI composes existing /api/v4 endpoints (today, summary, search, capture, entities) plus the new /api/v4/threads endpoint. No new AI behavior in this phase — the AI is what Phase 1 made it.",
+  "riskLevel": "low",
+  "userProblem": "The current UI scatters rich signals across 8+ separate views (Home, Today, Inbox, Search, 6 entity lists, Agent Activity, Suggestions). The user has to mentally compose the attention signal, the entity detail, the agent activity, and the capture state to know what to do next. The new design collapses 8 surfaces into 3 lenses + 3 sheets, with consistent sentence-shaped rows and a persistent FAB for capture. The threads concept unifies what was 6 type pages into one ranked list.",
+  "whyNow": "Phase 1 (skip/uncertain + streaming + narration) rebuilds AI trust at the source. Phase 2 builds the new UI shell that exposes the trust-improved AI behavior. Without Phase 2, the user can't see the streaming capture response in a useful way (it lands on the old capture form which doesn't render events). Without Phase 2, the AI's new skip/uncertain decisions have no UI affordance to display them. Phase 2 is the bridge between Phase 1's backend work and the user's daily workflow.",
+  "scope": {
+    "filesAffected": [
+      "ui/src/App.jsx",
+      "ui/src/views/V5Now.jsx (new)",
+      "ui/src/views/V5Threads.jsx (new)",
+      "ui/src/views/V5ThreadDetail.jsx (new)",
+      "ui/src/views/V5EntityRow.jsx (new)",
+      "ui/src/views/V5Recall.jsx (new)",
+      "ui/src/views/V5CaptureSheet.jsx (new)",
+      "ui/src/components/XGlyph.jsx (new)",
+      "ui/src/components/AIInspector.jsx (new)",
+      "ui/src/components/Sheet.jsx (new)",
+      "ui/src/components/TopBar.jsx (new)",
+      "ui/src/api/v5Client.js (new)",
+      "ui/src/styles/v5.module.css (new)",
+      "ui/src/views/V4*.jsx (delete after V5 verified)",
+      "api/v4_entities.py (new /api/v4/threads endpoint)"
+    ],
+    "routesAffected": [
+      "GET /api/v4/threads (new)",
+      "GET /api/v4/today (reused)",
+      "GET /api/v4/summary (reused)",
+      "GET /api/v4/search (reused)",
+      "POST /api/v4/capture (reused; capture sheet uses ?stream=true from Phase 1.2)",
+      "GET /api/v4/entities/<id> (reused)",
+      "GET /api/v4/entities/<id>/events (reused; uses narration from Phase 1.3)"
+    ],
+    "dataOrApiDependencies": [
+      "Slice 2.1 (shell + Now) reuses /api/v4/today, /api/v4/summary with mocked data initially; switches to real data once 2.2 lands",
+      "Slice 2.2 (threads endpoint) is the only new backend slice in Phase 2; everything else is frontend. Implementation: extend _coordination_radar_* to return ALL threads (not just top 3) and add /api/v4/threads route handler. Topic clustering via embedding similarity on notes is optional for this phase — can be deferred to Phase 3 if needed",
+      "The V4 views (V4Home, V4Today, V4Inbox, etc.) are deleted only after V5 views are verified end-to-end. The deletion is the last step of Phase 2.5, not a separate slice. Until deletion, both V4 and V5 are live and routable via a feature flag in App.jsx"
+    ],
+    "writePathsAffected": []
+  },
+  "tasks": [
+    {
+      "id": "prd-shell-now",
+      "title": "Top bar (3 lenses + FAB + Ask + trust score) and Now view (sentence-shaped rows)",
+      "description": "Build the new top bar component (TopBar.jsx) with: brand glyph, three lens toggles (Now / Threads / Recall), + Ask ✦ button, theme switcher, trust score chip. Build the new Now view (V5Now.jsx) that fetches /api/v4/today and renders ranked items as sentence-shaped rows. Each row: subject (one sentence), metadata (when + why-it-matters-now + thread context), 1-3 action buttons. Initial data: mocked JSON matching the v5 mockup-pass2.html screen; switch to live /api/v4/today once Slice 2.2 threads endpoint lands. Soft labels separate 'needs you now,' 'waiting on you,' 'ambient.' The capture sheet is not in this slice — that's Slice 2.4. Mobile responsive: same content, full-width cards, FAB prominent bottom-right.",
+      "risk": "low",
+      "acceptanceCriteria": [
+        "ui/src/components/TopBar.jsx renders brand + 3 lens toggles + Ask button + theme + trust score; matches v5 mockup (00-overview.md §'The new UI')",
+        "ui/src/views/V5Now.jsx fetches /api/v4/today (or mocked data) and renders ranked items as sentence-shaped rows; matches v5 mockup (mockup-pass2.html screen m-now)",
+        "Mobile: same content in single column, full-width cards, FAB bottom-right (mockup-pass2.html screen m-mobile)",
+        "Storybook stories for TopBar (3 states: default, theme=dark, trust low) and Now (3 states: needs-you-now, waiting-on-you, ambient)",
+        "Lighthouse a11y score ≥95 on both desktop and mobile renders",
+        "Routes: /now, /threads, /recall (placeholder for now); feature flag in App.jsx toggles V4 vs V5",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test passes (frontend suite green)",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build passes",
+        "Manual smoke: open /now, verify three sections render with realistic data, verify tap-through to entity detail (existing V4EntityDetail still works for this slice)"
+      ],
+      "validationCommands": [
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && test -f src/components/TopBar.jsx && test -f src/views/V5Now.jsx",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build"
+      ],
+      "blocked": false,
+      "passes": false,
+      "attempts": 0,
+      "blockerReason": null,
+      "validationEvidence": null
+    },
+    {
+      "id": "prd-threads",
+      "title": "/api/v4/threads endpoint + Threads lens view",
+      "description": "Add a new backend route GET /api/v4/threads?rank=attention&limit=20 that returns ranked threads (people + projects + topics). Each thread: id, type, name, attention_score, attention_reasons, last_activity_at, last_context, key_items. Implementation: extend _coordination_radar_people and _coordination_radar_projects to return all threads (not just the radar-culled top 3); add a topic-clustering pass over notes with cosine similarity ≥0.7 to surface topic threads that don't have a parent entity. Add /api/v4/threads route handler. Frontend V5Threads.jsx consumes the endpoint and renders the ranked list (matches v5 mockup m-threads). Topics are a soft pass for this slice — can return [] if clustering is too expensive; ranked people + projects alone is enough to validate the IA.",
+      "risk": "medium",
+      "acceptanceCriteria": [
+        "GET /api/v4/threads?rank=attention&limit=20 returns JSON with shape {threads: [{id, type, name, attention_score, attention_reasons, last_activity_at, last_context, key_items}]}",
+        "Topic clustering is best-effort; if embedding similarity pass is too slow (>500ms), return [] for topics and log a warning; do not fail the request",
+        "Attention reasons are the same reasons v4_attention.py computes per-entity, summed/aggregated for thread members",
+        "last_context is a 1-sentence summary of the most recent activity (use the most recent note's content or 'last activity on <date>')",
+        "Tests: tests/integration/test_v4_threads.py with test_threads_returns_active_people_and_projects, test_threads_ranked_by_attention, test_threads_includes_last_context, test_threads_topic_clustering_optional",
+        "Frontend V5Threads.jsx renders the list with hot/warm/ambient bands (matches mockup m-threads)",
+        "Mobile: single column, full-width thread cards (reuses V5EntityRow component from Slice 2.1)",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration/test_v4_threads.py tests/integration/test_v4_today.py passes",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test && npm run build",
+        "Manual smoke: open /threads, verify ranked list of people + projects with attention_score visible, verify tap-through to thread detail (uses V4EntityDetail for this slice)"
+      ],
+      "validationCommands": [
+        "cd /Volumes/lex1t/dev/shared/repos/engram && grep -nE '/threads|@api_v4_bp\\.route' api/v4_entities.py | grep -i thread",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration/test_v4_threads.py",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && curl -fsS 'http://localhost:5001/api/v4/threads?limit=5' | python3 -c 'import json,sys; d=json.load(sys.stdin); assert \"threads\" in d; print(f\"{len(d[\\\"threads\\\"])} threads returned\")'"
+      ],
+      "blocked": false,
+      "passes": false,
+      "attempts": 0,
+      "blockerReason": null,
+      "validationEvidence": null
+    },
+    {
+      "id": "prd-thread-detail",
+      "title": "Thread detail view (continuous timeline + next actions + decisions + people + related threads)",
+      "description": "Build V5ThreadDetail.jsx as the new deep surface. Replaces V4EntityDetail. Same regions for every entity type (project, person, area, resource, task, note): header (type glyph + title + status), narrative summary (from existing summarization or 'I haven't summarized this yet'), next actions (extracted from child tasks + decisions + blocking entities), continuous timeline (entity_events with narration from Phase 1.3), people section (typed relationships), related threads (clusters that share members with this thread). Narrative summary uses the existing canonical_document.py or a short 'current state' summary if available. Type-specific workspace panels (project_pulse, person_pulse, dependency_watch) are folded into the 'next actions' section as inline cards; not boxed regions. Mobile: single column, full-width sections, long-press for actions.",
+      "risk": "low",
+      "acceptanceCriteria": [
+        "ui/src/views/V5ThreadDetail.jsx renders all 5 regions (header, narrative, next actions, timeline, people, related threads) for every entity type",
+        "Timeline uses event.narration from Phase 1.3; no raw event_type strings visible to the user",
+        "Next actions section surfaces top 3 things the user could do (open task, send reminder, decide, etc.); each action has an inline button",
+        "Type-specific signals (project_pulse, person_pulse) appear as compact cards inside the 'next actions' section, not as separate boxed panels",
+        "Storybook story: V5ThreadDetail for each entity type (project, person, area, resource, task, note) with sample data",
+        "Mobile layout: single column, full-width sections, FAB still bottom-right (matches mockup m-thread-detail-mobile)",
+        "Lighthouse a11y ≥95",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test && npm run build",
+        "Manual smoke: tap into a project, a person, and a note thread; verify the layout is consistent across types and the timeline reads as a story not a log"
+      ],
+      "validationCommands": [
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && test -f src/views/V5ThreadDetail.jsx",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build"
+      ],
+      "blocked": false,
+      "passes": false,
+      "attempts": 0,
+      "blockerReason": null,
+      "validationEvidence": null
+    },
+    {
+      "id": "prd-capture-sheet",
+      "title": "Capture sheet with streaming response and contextual thread attachment",
+      "description": "Build V5CaptureSheet.jsx as a modal sheet (web) or bottom sheet (mobile) that opens from the FAB. The sheet has a single multi-line input. When the user types in a thread context, the sheet auto-attaches to that thread (the attachment is shown at the top, can be changed via a dropdown). On save, the sheet uses POST /api/v4/capture?stream=true and renders live progress events from the SSE stream. After the 'done' event, the sheet closes with a 1.5-second toast 'Saved · AI processing (N applied, M suggested). [View]'. Errors render inline; user can retry. The sheet replaces the old capture form in V4Inbox. The copy in the placeholder text is honest: 'Type anything. I'll suggest what I think it means; you can revert any of it after saving.' NOT 'AI will figure out what you mean' (that was the magical-thinking copy in Pass 2.0, replaced in Pass 2.5).",
+      "risk": "low",
+      "acceptanceCriteria": [
+        "ui/src/views/V5CaptureSheet.jsx opens from the FAB on any screen; context-aware: tap from inside a thread → attached by default; tap from Now or Threads → generic",
+        "Save uses POST /api/v4/capture?stream=true; live events render as they arrive (e.g. 'extracting…', 'linking Mary to HITL…', 'done')",
+        "Final 'done' event payload closes the sheet and shows a 1.5s toast with applied count + suggested count + [View] link",
+        "Errors render inline with retry button; sheet stays open on error",
+        "Mobile: slide-up bottom sheet, takes full width, drag-down to dismiss, FAB replaced by a header bar (input only)",
+        "Placeholder text is honest about AI behavior; copy matches the v5 spec (not the Pass 2.0 magical-thinking version)",
+        "Storybook: capture sheet in 3 states (empty, typing, streaming), 3 attachment states (none, thread, project)",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test && npm run build",
+        "Manual smoke: capture from Now, capture from inside a thread (verify auto-attach), verify streaming events render in real time"
+      ],
+      "validationCommands": [
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && test -f src/views/V5CaptureSheet.jsx",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build"
+      ],
+      "blocked": false,
+      "passes": false,
+      "attempts": 0,
+      "blockerReason": null,
+      "validationEvidence": null
+    },
+    {
+      "id": "prd-mobile-shell",
+      "title": "Mobile responsive layouts for Now, Threads, Thread detail (final pass + delete V4)",
+      "description": "After 2.1-2.4 land, do a mobile-responsive pass on the full app: V5Recall (search/ask palette as bottom sheet), V5ThreadDetail (single column), all the modals (bottom sheets on mobile). Verify the V4 views are no longer used; delete V4Home, V4Today, V4Inbox, V4EntityList, V4EntityDetail, V4Suggestions, V4AgentActivity, V4Search from ui/src/views/. Remove the feature flag in App.jsx; V5 is the only path. This is the cleanup that makes Phase 2 actually shippable. If V4 deletion reveals a gap in V5 (e.g. a view that wasn't migrated), add the missing slice to Phase 2 and re-validate before moving to Phase 3.",
+      "risk": "low",
+      "acceptanceCriteria": [
+        "V5Recall implemented as a bottom sheet on mobile (full-screen modal on desktop) — reuses the ⌘K palette logic",
+        "All modals (capture, ask, decision) render as bottom sheets on mobile (was: centered modals on desktop)",
+        "V4 views deleted from ui/src/views/: V4Home, V4Today, V4Inbox, V4EntityList, V4EntityDetail, V4Suggestions, V4AgentActivity, V4Search",
+        "App.jsx feature flag removed; V5 is the only path",
+        "Lighthouse mobile audit: performance ≥85, a11y ≥95, best-practices ≥90, PWA (basic installability) optional",
+        "Manual smoke on real device (Safari iOS, Chrome Android) for: Now render, Thread detail scroll, capture sheet open/close, search palette open",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test && npm run build",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run lint (if configured)"
+      ],
+      "validationCommands": [
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && ! test -f src/views/V4Home.jsx && ! test -f src/views/V4Today.jsx && ! test -f src/views/V4Inbox.jsx && ! test -f src/views/V4EntityDetail.jsx",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && grep -nE 'FEATURE_FLAG_V5|useV5|V5_ENABLED' src/App.jsx || echo 'no feature flag (good)'"
+      ],
+      "blocked": false,
+      "passes": false,
+      "attempts": 0,
+      "blockerReason": null,
+      "validationEvidence": null
+    }
+  ]
+}

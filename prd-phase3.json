@@ -1,0 +1,150 @@
+{
+  "iteration": "v5-redesign-phase3-intelligence",
+  "goal": "Add the new AI surfaces: decisions as first-class records, Ask ✦ endpoint + sheet with honest 'I don't know' state, episodic time-indexed timeline + Memory view. Phase 1 built trust at the AI's output source; Phase 2 built the UI shell that exposes it; Phase 3 adds the new capabilities that make the system substantially more useful. The 'decisions' extraction prompt is conservative by design (always to suggestions queue, never auto-apply) because a wrongly-recorded decision implies a commitment you didn't make.",
+  "riskLevel": "medium",
+  "userProblem": "The current system has no concept of 'decisions' as first-class records — commitments like 'ship target Friday Jun 26' or 'Mary is the final reviewer' are buried inside notes. The user can't query 'what did I commit to?' without searching notes. Ask ✦ mode (RAG over the workspace with grounded answers) is missing entirely. The system has no notion of an episode — a thread of activity spanning multiple entities — so the user can't ask 'what did I do last Tuesday afternoon?' The Memory view is a new surface that addresses all three gaps.",
+  "whyNow": "Decisions + Ask ✦ + Memory are the new AI surfaces that justify the v5 redesign. Without them the new UI is a cleaner version of the same capability. With them, the user has: a queryable record of commitments (decisions), a conversational interface over their workspace (Ask ✦), and a chronological view of their activity (Memory). Phase 3 is the slice of the redesign that's most likely to be re-evaluated post-launch; the decision extraction precision target (≥85% on labeled corpus) is the success metric.",
+  "scope": {
+    "filesAffected": [
+      "api/v4_entities.py (new /api/v4/ask, /api/v4/timeline, decisions-related routes)",
+      "services/v4_extraction.py (decision extraction prompt update)",
+      "services/v4_decisions.py (new — decision extraction, validation, query)",
+      "services/v4_ask.py (new — RAG question answering, citation rendering)",
+      "services/v4_timeline.py (new — chronological event stream across all entities)",
+      "ui/src/views/V5AskSheet.jsx (new)",
+      "ui/src/views/V5Memory.jsx (new — Memory view, vertical timeline with date headers)",
+      "ui/src/components/CitationsList.jsx (new — inline citation rendering for Ask ✦)",
+      "tests/integration/test_v4_decisions.py (new)",
+      "tests/integration/test_v4_ask.py (new)",
+      "tests/integration/test_v4_timeline.py (new)",
+      "tests/fixtures/decisions_corpus.json (new — labeled decision extraction corpus)"
+    ],
+    "routesAffected": [
+      "POST /api/v4/ask (new)",
+      "GET /api/v4/timeline?from=&to=&thread_id=&actor= (new)",
+      "GET /api/v4/decisions (new, list)",
+      "POST /api/v4/decisions (new, create)",
+      "POST /api/v4/capture (decision extraction added; suggestions queue only, never auto-apply)"
+    ],
+    "dataOrApiDependencies": [
+      "Slice 3.1 (decisions) adds a new table decisions(thread_id, statement, context, decided_at, decided_by, source_note_id, superseded_by). Migration script in scripts/migrations/004_decisions.sql. Additive schema, no destructive changes",
+      "Slice 3.2 (ask) depends on /api/v4/search (existing) for retrieval; uses services.v4_brief.BRIEF_MODEL for answer generation (same as existing brief, no new model)",
+      "Slice 3.3 (timeline) reuses existing entity_events table; new endpoint just queries by occurred_at DESC with filters; index may need to be added (occurred_at DESC) if not already there",
+      "Slice 3.4 (citations UI) is frontend-only; cross-links Ask ✦ citation objects into thread detail and memory view"
+    ],
+    "writePathsAffected": []
+  },
+  "tasks": [
+    {
+      "id": "prd-decisions",
+      "title": "Decisions as first-class records (extraction + schema + sheet)",
+      "description": "Add a new entity type 'decision' that tracks explicit commitments. Schema: id, thread_id (FK entities.id), statement, context, decided_at, decided_by ('user' or 'agent:<name>'), source_note_id (FK entities.id), superseded_by (FK decisions.id, nullable). Extract from notes/tasks via prompt: 'only extract EXPLICIT commitments with named person and specific date or deliverable. Reject tentative language (maybe, we could, I think).' Decisions ALWAYS go to suggestions queue, never auto-apply (per §11.6 of 02-fresh-pass.md). UI: thread detail timeline shows ⚖ decision entries; thread header shows a 'decisions' count chip; new POST /api/v4/decisions creates manually. False positives are worse than false negatives — a wrongly-recorded decision implies a commitment. Conservative prompt + always-to-suggestions is the guardrail.",
+      "risk": "medium",
+      "acceptanceCriteria": [
+        "scripts/migrations/004_decisions.sql creates the decisions table (idempotent); runs cleanly against the live DB",
+        "services/v4_decisions.py extracts decisions from notes via conservative prompt; only emits suggestions, never auto-creates",
+        "POST /api/v4/capture pipeline includes decision extraction; decisions appear as suggestions with reason='Explicit commitment detected: <statement>'",
+        "GET /api/v4/decisions?thread_id=<id> returns the thread's decisions ordered by decided_at desc; supports limit and superseded filtering",
+        "POST /api/v4/decisions creates a decision manually (user can record a decision without a source note)",
+        "Thread detail timeline (V5ThreadDetail) shows ⚖ decision entries; thread header chip shows the count",
+        "tests/integration/test_v4_decisions.py with test_decision_extracted_from_explicit_commitment, test_decision_rejected_for_tentative_language, test_decision_always_suggestion_not_auto, test_decision_manual_create, test_decision_superseded_chain",
+        "Decision extraction precision ≥85% on labeled corpus (tests/fixtures/decisions_corpus.json); precision = true_positives / (true_positives + false_positives)",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration/test_v4_decisions.py tests/integration/test_v4_capture_extraction.py tests/integration/test_v4_suggestions.py passes"
+      ],
+      "validationCommands": [
+        "cd /Volumes/lex1t/dev/shared/repos/engram && test -f scripts/migrations/004_decisions.sql && grep -c 'CREATE TABLE' scripts/migrations/004_decisions.sql",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && test -f services/v4_decisions.py",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration/test_v4_decisions.py",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && curl -fsS http://localhost:5001/api/v4/health"
+      ],
+      "blocked": false,
+      "passes": false,
+      "attempts": 0,
+      "blockerReason": null,
+      "validationEvidence": null
+    },
+    {
+      "id": "prd-ask-endpoint",
+      "title": "/api/v4/ask endpoint + V5AskSheet with honest 'I don't know' state",
+      "description": "POST /api/v4/ask takes a question, runs hybrid search to retrieve top-k context, generates a grounded answer with citations. Response shape: {answer, citations: [{entity_id, snippet, relevance}], confidence: high|medium|low, caveats: [...], suggested_actions: [{type, label, payload}]}. When confidence is low or context is empty, return honest 'I don't have anything in the workspace that answers this' response with caveats explaining why. NEVER confabulate. Cache answers for 24h keyed on (question, top-k context hash). UI: V5AskSheet opens from the + Ask ✦ button in the top bar; shows the question, thinking state, then answer with citations. When confidence is low, the sheet shows the 'I don't know' state with a 'Capture starting point' action.",
+      "risk": "medium",
+      "acceptanceCriteria": [
+        "POST /api/v4/ask with {question: 'What did Mary say about the PR review?'} returns {answer, citations, confidence, caveats, suggested_actions}",
+        "When question has no in-workspace grounding: answer is 'I don't have anything in the workspace that answers this' with caveats explaining why; confidence is 'low'",
+        "Citations always present when answer is grounded; inline format: 📝 'snippet' — entity_id",
+        "Confidence high requires ≥2 citations with relevance ≥0.7; medium is 1 citation or 2+ with relevance <0.7; low is 0 citations",
+        "Cache: 24h TTL keyed on sha256(question + top_k_context_hash); cache hit returns same response without re-running LLM",
+        "services/v4_ask.py uses services.v4_search for hybrid retrieval; uses services.v4_brief.BRIEF_MODEL for answer generation (no new model needed)",
+        "tests/integration/test_v4_ask.py with test_ask_returns_grounded_answer, test_ask_returns_low_confidence_when_no_context, test_ask_includes_citations, test_ask_low_confidence_state_does_not_confabulate, test_ask_cache_hit",
+        "V5AskSheet opens from top bar; renders question, thinking state, answer with citations, suggested actions; 'I don't know' state with Capture starting point action",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration/test_v4_ask.py tests/integration/test_v4_search.py passes",
+        "Manual smoke: ask 'What did Mary say about the PR review?' (grounded in note from Jun 22) and 'Did Mary say anything about Q3 budget in her last 1:1?' (no grounding) — verify the second returns the honest 'I don't know' state"
+      ],
+      "validationCommands": [
+        "cd /Volumes/lex1t/dev/shared/repos/engram && test -f services/v4_ask.py",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && grep -nE '/ask|@api_v4_bp\\.route' api/v4_entities.py | grep -i ask",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration/test_v4_ask.py",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && curl -fsS -X POST http://localhost:5001/api/v4/ask -H 'Content-Type: application/json' -d '{\"question\":\"test\"}' | python3 -c 'import json,sys; d=json.load(sys.stdin); assert \"confidence\" in d'"
+      ],
+      "blocked": false,
+      "passes": false,
+      "attempts": 0,
+      "blockerReason": null,
+      "validationEvidence": null
+    },
+    {
+      "id": "prd-timeline",
+      "title": "/api/v4/timeline endpoint + V5Memory view (episodic chronology)",
+      "description": "GET /api/v4/timeline?from=&to=&thread_id=&actor=&limit=&offset= returns a chronological event stream across all entities using the existing entity_events table. Each event: id, entity_id, entity_type, event_type, occurred_at, actor, narration (from Phase 1.3), thread_id (derived). Index: ensure entity_events has (occurred_at DESC) index or add via migration. UI: V5Memory view is a vertical timeline with date headers ('Today', 'Yesterday', 'Last week', 'May 2026', etc.), filter chips (entity_type, actor, thread), search box, and lazy loading. The view is the chronological complement to the Now surface; lets the user think in episodes not entities. Performance: paginate 50 events per page; 1000-event span should load in <500ms.",
+      "risk": "medium",
+      "acceptanceCriteria": [
+        "GET /api/v4/timeline?from=&to=&thread_id=&actor= returns {events: [...], next_offset: ...} ordered by occurred_at DESC",
+        "Migration scripts/migrations/005_timeline_index.sql adds (occurred_at DESC) index on entity_events if not present; runs idempotently",
+        "Each event includes: id, entity_id, entity_type, event_type, occurred_at, actor, narration (from Phase 1.3), thread_id (derived via entity's parent project or assigned person)",
+        "Pagination: limit (default 50, max 200), offset (cursor-style or numeric); query plan uses (occurred_at DESC) index",
+        "Performance: query for 1000 events across all entities returns in <500ms; measured via tests/integration/test_v4_timeline.py::test_timeline_performance_1000_events",
+        "V5Memory view: vertical timeline with date headers, filter chips, search box, lazy loading; matches mockup v5 mental model (date-grouped, not bucketed by entity type)",
+        "Mobile: single column, full-width event cards, pull-to-refresh, infinite scroll",
+        "tests/integration/test_v4_timeline.py with test_timeline_returns_events_desc, test_timeline_filtered_by_thread, test_timeline_filtered_by_actor, test_timeline_pagination, test_timeline_includes_narration, test_timeline_performance_1000_events",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration/test_v4_timeline.py tests/integration/test_v4_entity_detail.py passes"
+      ],
+      "validationCommands": [
+        "cd /Volumes/lex1t/dev/shared/repos/engram && test -f scripts/migrations/005_timeline_index.sql",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && grep -nE '/timeline|@api_v4_bp\\.route' api/v4_entities.py | grep -i timeline",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration/test_v4_timeline.py",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && curl -fsS 'http://localhost:5001/api/v4/timeline?limit=10' | python3 -c 'import json,sys; d=json.load(sys.stdin); assert \"events\" in d'"
+      ],
+      "blocked": false,
+      "passes": false,
+      "attempts": 0,
+      "blockerReason": null,
+      "validationEvidence": null
+    },
+    {
+      "id": "prd-citations-ui",
+      "title": "Cross-link Ask ✦ citations into thread detail + Memory view",
+      "description": "Citations from Ask ✦ answers are returned as objects with entity_id and snippet. Add a CitationsList component that renders them as inline cards (📝 glyph + snippet preview + date + link to entity). Wire CitationsList into V5AskSheet (inline below the answer), V5ThreadDetail (a 'references' section showing all entities that cite this thread), and V5Memory (event rows include clickable citation links). When a citation is clicked, open the cited entity in a sheet (not a navigation) so the user can read it and return. Frontend-only slice; no backend changes.",
+      "risk": "low",
+      "acceptanceCriteria": [
+        "ui/src/components/CitationsList.jsx renders citations as cards with 📝 glyph, snippet preview (truncated to 140 chars), date, and 'open' button",
+        "V5AskSheet renders CitationsList inline below the answer; clicking a citation opens a side sheet with the full entity",
+        "V5ThreadDetail has a 'references' section showing entities that cited this thread (from Ask ✦ answers where citation.entity_id is related to the current thread); cross-link via the entity's parent project or assigned person",
+        "V5Memory event rows include clickable citation links when the event has a source_note_id; clicking opens a side sheet",
+        "Citation side sheet: read-only view of the entity, with a 'back' button to return to the previous view; the previous view's state is preserved",
+        "Storybook: CitationsList in 3 states (single citation, multiple citations, no citations)",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test && npm run build",
+        "Manual smoke: open Ask ✦, ask a grounded question, tap a citation, verify the side sheet opens with the cited entity, tap 'back' to return"
+      ],
+      "validationCommands": [
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && test -f src/components/CitationsList.jsx",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build"
+      ],
+      "blocked": false,
+      "passes": false,
+      "attempts": 0,
+      "blockerReason": null,
+      "validationEvidence": null
+    }
+  ]
+}

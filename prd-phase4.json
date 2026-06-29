@@ -1,0 +1,172 @@
+{
+  "iteration": "v5-redesign-phase4-multimodal-polish",
+  "goal": "Add multimodal capture (audio via Whisper, image via vision model), voice capture long-press FAB, mobile gestures, and settings + a11y polish. This is the polish phase. The trust foundation (Phase 1), composition (Phase 2), and intelligence (Phase 3) must be deployed and stable before Phase 4 launches. Multimodal capture is the last step-change in the v5 redesign; the rest is finishing touches.",
+  "riskLevel": "medium",
+  "userProblem": "Capture is currently text-only. Voice memos, whiteboard photos, and forwarded emails are all valid capture inputs that the user can't directly add to Engram. Voice memos are especially valuable for senior EMs on the go — between meetings, in the car, walking. A 30-second voice memo becomes 3 minutes of typing if it's captured at all. Multimodal capture closes that gap. Mobile gestures and a11y polish are the final touches that make the new UI feel native on phone/tablet.",
+  "whyNow": "The capture sheet is built in Phase 2 and the trust foundation in Phase 1. Adding multimodal capture to a sheet that's already streaming response + showing live progress is the natural extension. Whisper is already installed locally on this box (per the openai-whisper skill). Vision model can be gpt-4o-mini or local; the slice is the integration, not the model. Mobile gestures are deferred from Phase 2.5 (V4 deletion) because they were the smallest-impact remaining items. Settings + a11y are explicit deliverables because the brief called for 'no compromise on quality.'",
+  "scope": {
+    "filesAffected": [
+      "api/v4_entities.py (capture route accepts content_type: text|audio|image, content_base64)",
+      "services/v4_transcription.py (new — Whisper integration for audio)",
+      "services/v4_vision.py (new — vision model integration for images)",
+      "ui/src/views/V5CaptureSheet.jsx (audio + image input controls, preview/edit before save)",
+      "ui/src/components/VoiceFAB.jsx (new — long-press FAB for voice input)",
+      "ui/src/hooks/useSwipeGesture.ts (new — swipe left/right on Now rows)",
+      "ui/src/views/V5Settings.jsx (new — overflow menu, profile, theme)",
+      "ui/src/components/LandmarkNav.jsx (new — accessibility landmarks for screen readers)",
+      "tests/integration/test_v4_capture_multimodal.py (new)",
+      "tests/fixtures/multimodal_corpus/ (new — 30 voice memos + 30 whiteboard photos with ground-truth text)"
+    ],
+    "routesAffected": [
+      "POST /api/v4/capture (now accepts content_type + content_base64 in addition to text content)",
+      "GET /api/v4/health (extended to report whisper + vision model availability)"
+    ],
+    "dataOrApiDependencies": [
+      "Slice 4.1 (audio) requires Whisper CLI on the engram host. Already installed via openai-whisper skill. Verify with `which whisper` before slice launch",
+      "Slice 4.2 (image) requires vision model. Use openai/gpt-4o-mini (cheap, fast) or local; decision is operational, not architectural. Use whichever is available",
+      "Slice 4.5 (a11y) is a Lighthouse audit + targeted fixes, no schema changes"
+    ],
+    "writePathsAffected": [
+      "scripts/seed_multimodal_corpus.sh (new — seeds 30+30 multimodal fixtures for the test suite)"
+    ]
+  },
+  "tasks": [
+    {
+      "id": "prd-audio-capture",
+      "title": "Audio capture via Whisper integration (with preview/edit before save)",
+      "description": "POST /api/v4/capture accepts content_type='audio' + content_base64. The server writes the audio to a temp file, runs Whisper (CLI: `whisper <temp> --model base --output_format txt`), reads the transcript, and proceeds through the existing extraction + reconciliation pipeline as if the user had typed the transcript. The capture sheet (V5CaptureSheet) gains an audio input control (mic icon); on tap, the browser's MediaRecorder API captures audio; on stop, the audio is sent to the server. The transcribed text is shown in a preview/edit area BEFORE the user confirms save. The user can correct transcription errors before extraction runs. This is critical because Whisper is ~85-95% accurate; uncorrected errors propagate to entity creation.",
+      "risk": "medium",
+      "acceptanceCriteria": [
+        "services/v4_transcription.py exists with transcribe_audio(audio_bytes: bytes) -> str that calls the local whisper CLI and returns the transcript",
+        "POST /api/v4/capture accepts content_type='audio' + content_base64 (and content_type='text' + content for backward compat)",
+        "V5CaptureSheet audio flow: tap mic → MediaRecorder captures → stop → server transcribes → preview shown → user edits if needed → user taps Save → extraction runs",
+        "Preview/edit area is editable; user MUST confirm before save (no auto-save on audio)",
+        "Performance: 30s audio memo → transcribed and shown in preview within 8s on M-series Mac",
+        "Edit distance test: 30 voice memos against ground-truth transcripts; median edit distance ≤15%",
+        "services/v4_transcription.py handles Whisper errors gracefully (timeout, missing model, low audio quality) and returns a user-readable error",
+        "tests/integration/test_v4_capture_multimodal.py with test_audio_capture_transcribes_and_extracts, test_audio_capture_preview_editable, test_audio_capture_whisper_error_returned_to_user",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration/test_v4_capture_multimodal.py tests/integration/test_v4_capture_extraction.py passes",
+        "Manual smoke: record a 30s voice memo, verify transcription appears in preview, correct if needed, save, verify entity creation works as expected"
+      ],
+      "validationCommands": [
+        "cd /Volumes/lex1t/dev/shared/repos/engram && test -f services/v4_transcription.py",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && which whisper && whisper --help 2>&1 | head -5",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration/test_v4_capture_multimodal.py"
+      ],
+      "blocked": false,
+      "passes": false,
+      "attempts": 0,
+      "blockerReason": null,
+      "validationEvidence": null
+    },
+    {
+      "id": "prd-image-capture",
+      "title": "Image capture via vision model (with preview/edit before save)",
+      "description": "POST /api/v4/capture accepts content_type='image' + content_base64. The server sends the image to a vision model (gpt-4o-mini default; configurable) with a prompt 'Extract any visible text, notes, or diagram labels from this image as a single text block.' The extracted text becomes the note content; the rest of the capture pipeline runs as if the user had typed it. The capture sheet (V5CaptureSheet) gains an image input control (camera/gallery icon); on selection, the image is sent to the server. The extracted text is shown in a preview/edit area BEFORE the user confirms save. Same as audio: uncorrected errors propagate, so preview/edit is required.",
+      "risk": "medium",
+      "acceptanceCriteria": [
+        "services/v4_vision.py exists with extract_text_from_image(image_bytes: bytes) -> str that calls a vision model and returns extracted text",
+        "POST /api/v4/capture accepts content_type='image' + content_base64",
+        "V5CaptureSheet image flow: tap camera → file input or camera capture → server extracts text → preview shown → user edits if needed → user taps Save → extraction runs",
+        "Vision model is configurable via OPENAI_VISION_MODEL env var; default is gpt-4o-mini",
+        "Performance: 1MB whiteboard photo → extracted and shown in preview within 10s",
+        "Edit distance test: 30 whiteboard photos against ground-truth text; median edit distance ≤20% (vision is harder than audio)",
+        "services/v4_vision.py handles vision model errors (timeout, image too large, low resolution) and returns a user-readable error",
+        "tests/integration/test_v4_capture_multimodal.py with test_image_capture_extracts_text, test_image_capture_preview_editable, test_image_capture_vision_error_returned_to_user",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration/test_v4_capture_multimodal.py tests/integration/test_v4_capture_extraction.py passes",
+        "Manual smoke: take a photo of a whiteboard, verify text extraction appears in preview, correct if needed, save, verify entity creation"
+      ],
+      "validationCommands": [
+        "cd /Volumes/lex1t/dev/shared/repos/engram && test -f services/v4_vision.py",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration/test_v4_capture_multimodal.py"
+      ],
+      "blocked": false,
+      "passes": false,
+      "attempts": 0,
+      "blockerReason": null,
+      "validationEvidence": null
+    },
+    {
+      "id": "prd-voice-fab",
+      "title": "Long-press FAB activates voice capture (Web Speech API + fallback)",
+      "description": "V5CaptureSheet's audio flow (Slice 4.1) requires the user to tap the mic icon, then tap to start, then tap to stop. The voice FAB adds a faster path: long-press the bottom-right FAB → browser's Web Speech API starts listening → on release, the transcript is sent to the server for extraction. Falls back to Slice 4.1's mic-icon flow if Web Speech API is unavailable (Safari has limited support, Firefox doesn't have it). The long-press gesture is a primary mobile affordance; on web, it's a power-user shortcut. Both paths produce the same capture experience from the user's perspective: transcribed text in preview, edit, save.",
+      "risk": "low",
+      "acceptanceCriteria": [
+        "ui/src/components/VoiceFAB.jsx wraps the existing FAB with long-press detection (~600ms hold)",
+        "On long-press: Web Speech API starts listening; visual indicator (pulsing border) shows the FAB is recording",
+        "On release: transcript is sent via the same path as Slice 4.1's audio flow; capture sheet opens with the transcript in preview",
+        "Fallback: if Web Speech API is unavailable, the long-press triggers Slice 4.1's mic-icon flow (MediaRecorder)",
+        "Web Speech API is browser-feature-detected; works on Chrome/Edge, may not work on Safari/Firefox",
+        "Storybook: VoiceFAB in 3 states (idle, recording, fallback)",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test && npm run build",
+        "Manual smoke on real device: long-press FAB, speak for 10s, release, verify transcript appears in preview, save, verify capture"
+      ],
+      "validationCommands": [
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && test -f src/components/VoiceFAB.jsx",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build"
+      ],
+      "blocked": false,
+      "passes": false,
+      "attempts": 0,
+      "blockerReason": null,
+      "validationEvidence": null
+    },
+    {
+      "id": "prd-mobile-gestures",
+      "title": "Mobile gestures: swipe left to snooze/dismiss, swipe right to mark done, pull-to-refresh",
+      "description": "Add the gestures called out in §10.3 of 02-fresh-pass.md: swipe left on a Now row → quick dismiss / snooze (3-arg menu); swipe right on a Now row → mark done; pull-to-refresh on Now and Threads views; long-press a card → quick actions sheet; pinch on Thread detail → collapse/expand sections. The Now row swipe actions trigger the existing /api/v4/entities/<id>/status update endpoint. Pull-to-refresh invalidates the now/threads cache and re-fetches. Frontend-only slice; no backend changes.",
+      "risk": "low",
+      "acceptanceCriteria": [
+        "ui/src/hooks/useSwipeGesture.ts detects horizontal swipe gestures on Now rows; left swipe shows dismiss/snooze menu, right swipe marks done",
+        "ui/src/hooks/usePullToRefresh.ts implements pull-to-refresh on Now and Threads views; invalidates the query cache and re-fetches",
+        "V5EntityRow accepts swipe configuration: {onSwipeLeft, onSwipeRight, dismissable, markDoneable}; V5Now wires the actions to existing /api/v4/entities/<id>/status updates",
+        "Long-press on a card opens a quick-actions sheet (overrides the FAB temporarily); matches the gesture called out in §10.3",
+        "Pinch gesture on V5ThreadDetail: zoom out (pinch in) collapses all sections; zoom in (pinch out) expands all sections; use a library like react-use-gesture",
+        "Touch targets are ≥44px (WCAG 2.5.5); verified via Storybook + Lighthouse",
+        "Storybook: useSwipeGesture with 3 states (idle, swiping-left, swiped-left), usePullToRefresh with 2 states (idle, refreshing)",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test && npm run build",
+        "Manual smoke on real device: swipe-left on a Now row, swipe-right on a Now row, pull-to-refresh on Threads"
+      ],
+      "validationCommands": [
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && test -f src/hooks/useSwipeGesture.ts && test -f src/hooks/usePullToRefresh.ts",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build"
+      ],
+      "blocked": false,
+      "passes": false,
+      "attempts": 0,
+      "blockerReason": null,
+      "validationEvidence": null
+    },
+    {
+      "id": "prd-settings-a11y",
+      "title": "Settings + profile + overflow menu + accessibility audit (LandmarkNav, a11y fixes)",
+      "description": "Add a V5Settings view (theme, model preferences, capture sheet defaults) and a profile section. Add an overflow menu (⋯) in the top bar for less-used chrome (settings, profile, help). Add LandmarkNav component for proper ARIA landmarks (screen reader navigation). Run Lighthouse a11y audit on all V5 views; fix any issues. Address: focus rings, ARIA labels, color contrast, semantic HTML, keyboard nav, screen reader announcements for live events. Frontend-only slice; no backend changes.",
+      "risk": "low",
+      "acceptanceCriteria": [
+        "V5Settings view: theme picker, capture sheet defaults, model preferences (extract/ask/brief/summarization); saves to localStorage + (optional) /api/v4/users/me/preferences",
+        "Top bar overflow menu (⋯): settings, profile, help, sign-out; opens a popover on tap",
+        "ui/src/components/LandmarkNav.jsx adds <nav> + <main> + <aside> with proper aria-labels; verified via axe-core",
+        "All interactive elements have visible focus rings (2px outline, high contrast); verified via keyboard nav",
+        "All icons have aria-labels; all live regions (streaming events, AI processing) have aria-live='polite' or 'assertive'",
+        "Color contrast: every text element meets WCAG AA (4.5:1 for normal, 3:1 for large); verified via Lighthouse",
+        "Lighthouse a11y audit on all V5 views (Now, Threads, Thread detail, Recall, Capture, Ask, Memory, Settings): score ≥95 on every view",
+        "axe-core a11y test suite added to frontend tests; runs in CI",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test && npm run build",
+        "Manual smoke: navigate the full app with keyboard only; verify every interactive element is reachable, every focus ring is visible, every screen reader announcement is appropriate"
+      ],
+      "validationCommands": [
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && test -f src/views/V5Settings.jsx && test -f src/components/LandmarkNav.jsx",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && grep -nE 'aria-live|aria-label|aria-expanded' src/components/LandmarkNav.jsx"
+      ],
+      "blocked": false,
+      "passes": false,
+      "attempts": 0,
+      "blockerReason": null,
+      "validationEvidence": null
+    }
+  ]
+}
