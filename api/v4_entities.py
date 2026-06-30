@@ -75,7 +75,8 @@ RELATIONSHIP_TYPES = {
 DEFAULT_OWNER_ALIASES = ["dan"]
 DEFAULT_DELEGATION_CADENCE_DAYS = 3
 AUTO_APPLY_CONFIDENCE = 0.8
-AUTO_CREATE_ENTITY_CONFIDENCE = 0.9
+AUTO_CREATE_ENTITY_CONFIDENCE = 0.85
+LOW_CONFIDENCE_THRESHOLD = 0.5
 RISKY_ENTITY_CREATION_TYPES = {"task", "project", "area", "resource", "person"}
 # Types that must never be auto-created from capture — always reviewed.
 SUGGEST_ONLY_CREATION_TYPES = {"project", "area", "task"}
@@ -3345,6 +3346,13 @@ def _reconcile_capture_candidates(note, extraction):
 
 def _apply_reconciliation_decision(note, candidate, decision, applied_changes, suggestions):
     action = (decision.get("action") or "new").lower()
+    if action == "skip":
+        return
+
+    uncertain = action == "uncertain"
+    if uncertain:
+        action = "new"
+
     confidence = _reconciliation_confidence(candidate, decision)
     evidence = _candidate_value(candidate, "evidence")
     entity_type = _candidate_value(candidate, "type")
@@ -3563,8 +3571,11 @@ def _apply_reconciliation_decision(note, candidate, decision, applied_changes, s
     # action == "new"
     if not title or not entity_type:
         return
+    if action == "new" and _candidate_confidence(candidate) < LOW_CONFIDENCE_THRESHOLD:
+        return
     content = _candidate_value(candidate, "content")
     top_match_score = decision.get("top_match_score") or 0.0
+    suggestion_reason = _capture_suggestion_reason(decision, confidence, uncertain=uncertain)
     if (
         entity_type == "task"
         and confidence < AUTO_CREATE_ENTITY_CONFIDENCE
@@ -3671,7 +3682,7 @@ def _apply_reconciliation_decision(note, candidate, decision, applied_changes, s
                     "score": top_match_score,
                 } if decision.get("top_match_id") else None,
             },
-            reason=decision.get("reason"),
+            reason=suggestion_reason,
         )
 
 
@@ -4893,6 +4904,17 @@ def _inbox_sort_key(note, pending_suggestion_count, mode):
     return (intent_rank, created_rank, timestamp_rank)
 
 
+def _capture_suggestion_reason(decision, confidence, uncertain=False):
+    from services.v4_reconciliation import (
+        UNCERTAIN_SUGGESTION_REASON,
+        is_uncertain_decision,
+    )
+
+    if uncertain or is_uncertain_decision(decision, confidence=confidence):
+        return UNCERTAIN_SUGGESTION_REASON
+    return decision.get("reason")
+
+
 def _append_capture_suggestion(note, candidate, action, entity_type, relationship_type, confidence, evidence, suggestions, suggestion_type, operation_type, payload, reason):
     if not _should_emit_capture_suggestion(note, candidate, action, entity_type, relationship_type, confidence):
         return
@@ -5110,6 +5132,8 @@ def _can_auto_create_entity(entity_type, confidence, top_match_score=0.0):
     # A plausible near-duplicate exists: route to review instead of creating
     # a sibling, regardless of how confident the model is that this is "new".
     if (top_match_score or 0.0) >= NEAR_DUPLICATE_SCORE:
+        return False
+    if confidence < LOW_CONFIDENCE_THRESHOLD:
         return False
     return confidence >= AUTO_CREATE_ENTITY_CONFIDENCE
 

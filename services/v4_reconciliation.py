@@ -4,7 +4,7 @@ Pipeline:
   1. Batch-embed all candidate titles in a single API call.
   2. Load each entity type's chunk set once; score all candidates of that type.
   3. Pass all candidates + their matches to an LLM in one batched call.
-  4. Return a decision per candidate: new / update / link.
+  4. Return a decision per candidate: new / update / link / skip / uncertain.
 """
 from __future__ import annotations
 
@@ -23,6 +23,9 @@ RECONCILIATION_MODEL = resolve_chat_model("OPENAI_RECONCILIATION_MODEL")
 SIMILARITY_THRESHOLD = 0.60
 TOP_K = 3
 CATALOG_CHAR_CAP = 8000  # ≈ 2000 tokens; projects/areas only
+LOW_CONFIDENCE_THRESHOLD = 0.5
+AUTO_CREATE_CONFIDENCE_THRESHOLD = 0.85
+UNCERTAIN_SUGGESTION_REASON = "AI was not sure about this"
 
 SYSTEM_PROMPT = """\
 You are a deduplication and reconciliation engine for a personal knowledge workspace.
@@ -39,6 +42,12 @@ For each candidate decide the correct action:
   "new"             — No good existing match. A new entity should be created.
   "update"          — A clear match exists. Update the existing entity with new information.
   "link"            — A clear match exists but no fields need changing. Just link to it.
+  "skip"            — Take no action. Do not create, update, link, or suggest anything.
+                       Use when the candidate is too speculative, ambiguous, or low-signal
+                       to act on (e.g. a vague mention with no clear entity).
+  "uncertain"       — The candidate might be real but you are not confident enough to
+                       act automatically. Surface it for human review with an explicit
+                       "I wasn't sure" signal — same fields as "new", but flagged uncertain.
   "progress_update" — The candidate is a status/progress remark about an existing
                        entity (e.g. a standup line like "shipped the HITL piece" or
                        "still waiting on infra"), not new information that changes
@@ -84,6 +93,12 @@ FOR "link" — include:
 FOR "new" — include:
   "relationship_type" : how the source note relates to the entity to be created
 
+FOR "uncertain" — include the same fields as "new".
+
+FOR "skip" — include only:
+  "confidence" : your confidence in the skip decision
+  "reason"     : brief explanation of why no action is warranted
+
 FOR "progress_update" — include:
   "target_id"  : id of the existing entity this update is about
   "update_text": a concise (one sentence) summary of the status/progress, \
@@ -120,7 +135,7 @@ in the same order as the input:
 {{
   "decisions": [
     {{
-      "action": "new" | "update" | "link" | "progress_update",
+      "action": "new" | "update" | "link" | "skip" | "uncertain" | "progress_update",
       "target_id": null,
       "fields": {{}},
       "update_text": null,
@@ -134,11 +149,64 @@ in the same order as the input:
 """
 
 
+def is_uncertain_decision(decision, threshold=AUTO_CREATE_CONFIDENCE_THRESHOLD, confidence=None):
+    """Return True when a decision should be labeled as uncertain in capture output."""
+    if not isinstance(decision, dict):
+        return False
+    action = (decision.get("action") or "").lower()
+    if action in ("skip", "uncertain"):
+        return True
+    if confidence is None:
+        confidence = _decision_confidence_value(decision)
+    try:
+        confidence = float(confidence)
+    except (TypeError, ValueError):
+        confidence = 0.0
+    return confidence < threshold
+
+
+def _decision_confidence_value(decision):
+    try:
+        return float(decision.get("confidence") or 0.0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _candidate_confidence_value(candidate):
+    try:
+        return float((candidate or {}).get("confidence") or 0.0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _default_decision_for_candidate(candidate):
+    """Fallback decision when the model omits an entry for this candidate."""
+    confidence = _candidate_confidence_value(candidate)
+    if confidence < LOW_CONFIDENCE_THRESHOLD:
+        return {
+            "action": "skip",
+            "target_id": None,
+            "fields": {},
+            "relationship_type": None,
+            "confidence": confidence,
+            "reason": "low-confidence candidate skipped by default",
+        }
+    return {
+        "action": "new",
+        "target_id": None,
+        "fields": {},
+        "relationship_type": None,
+        "confidence": confidence,
+        "reason": "",
+    }
+
+
 def reconcile_candidates(candidates):
     """Return one decision dict per candidate (same order as input).
 
     Each candidate must have at least: type, title, confidence.
-    Missing decisions (e.g. on model error) default to action="new".
+    Missing decisions (e.g. on model error) default to action="skip" when
+    candidate confidence < 0.5, otherwise action="new".
     """
     if not candidates:
         return []
@@ -147,9 +215,8 @@ def reconcile_candidates(candidates):
     decisions = _call_model(enriched)
 
     # Pad / fill defaults so caller always gets len(candidates) decisions
-    default = {"action": "new", "target_id": None, "fields": {}, "relationship_type": None, "confidence": 0.0, "reason": ""}
     while len(decisions) < len(candidates):
-        decisions.append(dict(default))
+        decisions.append(_default_decision_for_candidate(candidates[len(decisions)]))
     decisions = decisions[:len(candidates)]
 
     # Attach the strongest similarity match to each decision so the apply
@@ -474,13 +541,22 @@ def _heuristic_decisions(enriched):
                 "confidence": candidate.get("confidence", 0.5),
                 "reason": "exact title match (heuristic fallback)",
             })
+        elif _candidate_confidence_value(candidate) < LOW_CONFIDENCE_THRESHOLD:
+            decisions.append({
+                "action": "skip",
+                "target_id": None,
+                "fields": {},
+                "relationship_type": None,
+                "confidence": _candidate_confidence_value(candidate),
+                "reason": "low-confidence candidate skipped (heuristic fallback)",
+            })
         else:
             decisions.append({
                 "action": "new",
                 "target_id": None,
                 "fields": {},
                 "relationship_type": None,
-                "confidence": candidate.get("confidence", 0.0),
+                "confidence": _candidate_confidence_value(candidate),
                 "reason": "no match found (heuristic fallback)",
             })
     return decisions

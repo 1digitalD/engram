@@ -410,7 +410,7 @@ def test_capture_suggests_entity_below_auto_create_threshold(client, app):
             {
                 "type": "person",
                 "title": "Henry",
-                "confidence": 0.89,
+                "confidence": 0.84,
                 "evidence": "Henry owns the rollout",
             }
         ]
@@ -2178,3 +2178,149 @@ def test_capture_exact_title_match_does_not_duplicate_person(client, app):
         and change.get("relationship_type") == "mentions"
     ]
     assert len(link_changes) == 1
+
+
+def test_capture_low_confidence_task_no_suggestion_emitted(client, app):
+    extraction = {
+        "entities": [
+            {
+                "type": "task",
+                "title": "Maybe ask Mary about the thing",
+                "confidence": 0.3,
+                "evidence": "Mary mentioned something vague",
+            }
+        ]
+    }
+    mock_decisions = [
+        {
+            "action": "skip",
+            "target_id": None,
+            "fields": {},
+            "relationship_type": None,
+            "confidence": 0.3,
+            "reason": "too speculative",
+            "top_match_score": 0.0,
+        }
+    ]
+
+    with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction), \
+         patch("services.v4_reconciliation.reconcile_candidates", return_value=mock_decisions):
+        response = client.post("/api/v4/capture", json={"content": "Mary mentioned something vague maybe"})
+
+    assert response.status_code == 201
+    data = response.get_json()
+    assert data["suggestions"] == []
+
+    with app.app_context():
+        assert AiSuggestion.query.filter_by(suggestion_type="create_task").count() == 0
+
+
+def test_capture_medium_confidence_task_marked_uncertain(client, app):
+    extraction = {
+        "entities": [
+            {
+                "type": "task",
+                "title": "Follow up with Akash about Q3",
+                "confidence": 0.7,
+                "evidence": "follow up with Akash about Q3",
+            }
+        ]
+    }
+    mock_decisions = [
+        {
+            "action": "new",
+            "target_id": None,
+            "fields": {},
+            "relationship_type": "derived_from",
+            "confidence": 0.7,
+            "reason": "possible new task",
+            "top_match_score": 0.0,
+        }
+    ]
+
+    with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction), \
+         patch("services.v4_reconciliation.reconcile_candidates", return_value=mock_decisions):
+        response = client.post("/api/v4/capture", json={"content": "Should follow up with Akash about Q3"})
+
+    assert response.status_code == 201
+    data = response.get_json()
+    assert len(data["suggestions"]) == 1
+    assert data["suggestions"][0]["suggestion_type"] == "create_task"
+    assert data["suggestions"][0]["reason"] == "AI was not sure about this"
+
+    with app.app_context():
+        assert Entity.query.filter_by(type="task").count() == 0
+        assert AiSuggestion.query.filter_by(suggestion_type="create_task").count() == 1
+
+
+def test_capture_low_confidence_task_no_suggestion_emitted(client, app):
+    extraction = {
+        "entities": [
+            {
+                "type": "task",
+                "title": "Maybe ask Mary about the thing",
+                "confidence": 0.3,
+                "evidence": "Mary mentioned something vague",
+            }
+        ]
+    }
+    mock_decisions = [
+        {
+            "action": "skip",
+            "target_id": None,
+            "fields": {},
+            "relationship_type": None,
+            "confidence": 0.3,
+            "reason": "too speculative",
+            "top_match_score": 0.0,
+        }
+    ]
+
+    with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction), \
+         patch("services.v4_reconciliation.reconcile_candidates", return_value=mock_decisions):
+        response = client.post("/api/v4/capture", json={"content": "Mary mentioned something vague maybe"})
+
+    assert response.status_code == 201
+    data = response.get_json()
+    assert data["suggestions"] == []
+
+    with app.app_context():
+        assert AiSuggestion.query.filter_by(suggestion_type="create_task").count() == 0
+
+
+def test_capture_medium_confidence_task_marked_uncertain(client, app):
+    extraction = {
+        "entities": [
+            {
+                "type": "task",
+                "title": "Follow up with Akash about Q3",
+                "confidence": 0.7,
+                "evidence": "follow up with Akash about Q3",
+            }
+        ]
+    }
+    mock_decisions = [
+        {
+            "action": "new",
+            "target_id": None,
+            "fields": {},
+            "relationship_type": "derived_from",
+            "confidence": 0.7,
+            "reason": "possible new task",
+            "top_match_score": 0.0,
+        }
+    ]
+
+    with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction), \
+         patch("services.v4_reconciliation.reconcile_candidates", return_value=mock_decisions):
+        response = client.post("/api/v4/capture", json={"content": "Should follow up with Akash about Q3"})
+
+    assert response.status_code == 201
+    data = response.get_json()
+    assert len(data["suggestions"]) == 1
+    assert data["suggestions"][0]["suggestion_type"] == "create_task"
+    assert data["suggestions"][0]["reason"] == "AI was not sure about this"
+
+    with app.app_context():
+        assert Entity.query.filter_by(type="task").count() == 0
+        assert AiSuggestion.query.filter_by(suggestion_type="create_task").count() == 1
