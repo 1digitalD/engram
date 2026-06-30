@@ -7,7 +7,6 @@ import { v4API } from './api/v4Client';
 vi.mock('./api/v4Client', () => ({
   v4API: {
     capture: vi.fn(),
-    inbox: vi.fn(),
     entities: {
       list: vi.fn(),
       create: vi.fn(),
@@ -15,80 +14,56 @@ vi.mock('./api/v4Client', () => ({
     },
     today: vi.fn(),
     summary: vi.fn(),
-    suggestions: {
-      list: vi.fn(),
-    },
-    relationships: {
-      create: vi.fn(),
-    },
+    search: vi.fn(),
+    threads: vi.fn(),
   },
 }));
 
-vi.mock('./views/V4Home', () => ({ default: () => <main>Home view</main> }));
-vi.mock('./views/V4Inbox', () => ({ default: () => <main>Inbox view</main> }));
-vi.mock('./views/V4Today', () => ({ default: () => <main>Today view</main> }));
-vi.mock('./views/V4Search', () => ({ default: () => <main>Search view</main> }));
-vi.mock('./views/V4Suggestions', () => ({ default: () => <main>Review view</main> }));
-vi.mock('./views/V4AgentActivity', () => ({ default: () => <main>Agent log view</main> }));
+vi.mock('./views/V5Now', () => ({ default: () => <main>Now view</main> }));
 vi.mock('./views/V5Threads', () => ({ default: () => <main>Threads view</main> }));
-vi.mock('./views/V4EntityList', () => ({ default: ({ type }) => <main>{type} list</main> }));
+vi.mock('./views/V5EntityList', () => ({ default: ({ type }) => <main>{type} list</main> }));
 vi.mock('./views/V5ThreadDetail', () => ({ default: () => <main>Detail view</main> }));
 
-describe('App shell', () => {
+describe('V5 App shell', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     v4API.entities.list.mockResolvedValue({ data: [] });
     v4API.entities.get.mockResolvedValue({ id: 'p1', title: 'Project' });
-    v4API.relationships.create.mockResolvedValue({});
+    v4API.today.mockResolvedValue({});
+    v4API.summary.mockResolvedValue({ today_count: 0, threads_count: 0, recall_count: 0 });
+    v4API.threads.mockResolvedValue({ threads: [] });
+    v4API.search.mockResolvedValue({ data: [] });
   });
 
-  it('renders Home at the root route while keeping Inbox available separately', async () => {
-    v4API.inbox.mockResolvedValue({ needs_review: [{ id: 'n1' }] });
-    v4API.entities.list.mockResolvedValue({ meta: { total: 4 }, data: [] });
-    v4API.today.mockResolvedValue({});
-    v4API.summary.mockResolvedValue({ inbox_count: 1, today_count: 0, suggestions_count: 1 });
-    v4API.suggestions.list.mockResolvedValue({ meta: { total: 2 }, data: [] });
-
+  it('redirects root to /now and renders the Now lens', async () => {
     render(
       <MemoryRouter initialEntries={['/']}>
         <App />
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText('Home view')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Home/i })).toHaveAttribute('href', '/');
-    expect(screen.getByRole('link', { name: /Inbox/i })).toHaveAttribute('href', '/inbox');
-    expect(screen.queryByRole('link', { name: /^Review$/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: /Agent log/i })).not.toBeInTheDocument();
+    expect(await screen.findByText('Now view')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Now/i })).toHaveAttribute('href', '/now');
+    expect(screen.getByRole('link', { name: /Threads/i })).toHaveAttribute('href', '/threads');
   });
 
-  it('renders sidebar counts from the summary endpoint', async () => {
-    v4API.inbox.mockResolvedValue({ needs_review: [{ id: 'n1' }, { id: 'n2' }] });
-    v4API.entities.list.mockResolvedValue({ meta: { total: 4 }, data: [] });
-    v4API.today.mockResolvedValue({});
-    v4API.suggestions.list.mockResolvedValue({ meta: { total: 2 }, data: [] });
-    v4API.summary.mockResolvedValue({ inbox_count: 2, today_count: 7, suggestions_count: 2 });
+  it('renders lens counts from the summary endpoint', async () => {
+    v4API.summary.mockResolvedValue({ today_count: 3, threads_count: 7, recall_count: 0 });
 
     render(
-      <MemoryRouter initialEntries={['/']}>
+      <MemoryRouter initialEntries={['/now']}>
         <App />
       </MemoryRouter>,
     );
 
     await waitFor(() => expect(v4API.summary).toHaveBeenCalled());
-    expect(screen.getByRole('link', { name: /Today/i })).toHaveTextContent('7');
-    expect(screen.getByRole('link', { name: /Inbox/i })).toHaveTextContent('2');
+    expect(screen.getByRole('link', { name: /Now/i })).toHaveTextContent('3');
+    expect(screen.getByRole('link', { name: /Threads/i })).toHaveTextContent('7');
   });
 
   it('exposes a global capture FAB', async () => {
-    v4API.inbox.mockResolvedValue({ needs_review: [] });
-    v4API.entities.list.mockResolvedValue({ meta: { total: 0 }, data: [] });
-    v4API.today.mockResolvedValue({});
-    v4API.suggestions.list.mockResolvedValue({ meta: { total: 0 }, data: [] });
-    v4API.summary.mockResolvedValue({ inbox_count: 0, today_count: 0, suggestions_count: 0 });
-
     render(
-      <MemoryRouter initialEntries={['/projects/p1']}>
+      <MemoryRouter initialEntries={['/now']}>
         <App />
       </MemoryRouter>,
     );
@@ -98,41 +73,30 @@ describe('App shell', () => {
     expect(await screen.findByRole('dialog', { name: 'Capture' })).toBeInTheDocument();
   });
 
-  it('supports quick note capture from the shell', async () => {
-    v4API.inbox.mockResolvedValue({ needs_review: [] });
-    v4API.entities.list.mockResolvedValue({ meta: { total: 0 }, data: [] });
-    v4API.today.mockResolvedValue({});
-    v4API.suggestions.list.mockResolvedValue({ meta: { total: 0 }, data: [] });
-    v4API.summary.mockResolvedValue({ inbox_count: 0, today_count: 0, suggestions_count: 0 });
-    v4API.capture.mockResolvedValue({ source_note: { id: 'n1' } });
-
+  it('opens the Recall sheet with the Recall lens button', async () => {
     render(
-      <MemoryRouter initialEntries={['/']}>
+      <MemoryRouter initialEntries={['/now']}>
         <App />
       </MemoryRouter>,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /note/i }));
-    fireEvent.change(screen.getByLabelText('Quick note content'), {
-      target: { value: 'Remember this from anywhere' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: /save note/i }));
-
-    await waitFor(() => expect(v4API.capture).toHaveBeenCalledWith({
-      content: 'Remember this from anywhere',
-      source: 'ui',
-      mode: 'auto',
-    }));
-    expect(await screen.findByText('Saved note')).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('button', { name: /Open Recall/i }));
+    expect(await screen.findByRole('dialog', { name: 'Recall search' })).toBeInTheDocument();
   });
 
-  it('does not render the shell quick-action bar on entity list routes', async () => {
-    v4API.inbox.mockResolvedValue({ needs_review: [] });
-    v4API.entities.list.mockResolvedValue({ meta: { total: 0 }, data: [] });
-    v4API.today.mockResolvedValue({});
-    v4API.suggestions.list.mockResolvedValue({ meta: { total: 0 }, data: [] });
-    v4API.summary.mockResolvedValue({ inbox_count: 0, today_count: 0, suggestions_count: 0 });
+  it('opens the Recall sheet with Cmd+K', async () => {
+    render(
+      <MemoryRouter initialEntries={['/now']}>
+        <App />
+      </MemoryRouter>,
+    );
 
+    await screen.findByText('Now view');
+    fireEvent.keyDown(window, { key: 'k', metaKey: true });
+    expect(await screen.findByRole('dialog', { name: 'Recall search' })).toBeInTheDocument();
+  });
+
+  it('renders entity list routes', async () => {
     render(
       <MemoryRouter initialEntries={['/projects']}>
         <App />
@@ -140,8 +104,6 @@ describe('App shell', () => {
     );
 
     expect(await screen.findByText('project list')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Save note/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /New task/i })).not.toBeInTheDocument();
   });
 
   describe('theme switcher', () => {
@@ -154,24 +116,14 @@ describe('App shell', () => {
       localStorage.removeItem('engram-theme');
     });
 
-    function mockShellData() {
-      v4API.inbox.mockResolvedValue({ needs_review: [] });
-      v4API.entities.list.mockResolvedValue({ meta: { total: 0 }, data: [] });
-      v4API.today.mockResolvedValue({});
-      v4API.suggestions.list.mockResolvedValue({ meta: { total: 0 }, data: [] });
-      v4API.summary.mockResolvedValue({ inbox_count: 0, today_count: 0, suggestions_count: 0 });
-    }
-
-    it('switches theme from the sidebar and persists only on explicit choice', async () => {
-      mockShellData();
-
+    it('switches theme from the top bar and persists only on explicit choice', async () => {
       render(
-        <MemoryRouter initialEntries={['/']}>
+        <MemoryRouter initialEntries={['/now']}>
           <App />
         </MemoryRouter>,
       );
 
-      expect(await screen.findByText('Home view')).toBeInTheDocument();
+      expect(await screen.findByText('Now view')).toBeInTheDocument();
       expect(screen.getByRole('group', { name: 'Theme' })).toBeInTheDocument();
       expect(document.documentElement.dataset.theme).toBe('light');
       expect(localStorage.getItem('engram-theme')).toBeNull();
@@ -180,23 +132,18 @@ describe('App shell', () => {
       expect(document.documentElement.dataset.theme).toBe('glass');
       expect(localStorage.getItem('engram-theme')).toBe('glass');
       expect(screen.getByRole('button', { name: /Glass theme/i })).toHaveAttribute('aria-pressed', 'true');
-
-      fireEvent.click(screen.getByRole('button', { name: /Frost theme/i }));
-      expect(document.documentElement.dataset.theme).toBe('frost');
-      expect(localStorage.getItem('engram-theme')).toBe('frost');
     });
 
     it('restores the saved theme on load', async () => {
-      mockShellData();
       localStorage.setItem('engram-theme', 'dark');
 
       render(
-        <MemoryRouter initialEntries={['/']}>
+        <MemoryRouter initialEntries={['/now']}>
           <App />
         </MemoryRouter>,
       );
 
-      expect(await screen.findByText('Home view')).toBeInTheDocument();
+      expect(await screen.findByText('Now view')).toBeInTheDocument();
       expect(document.documentElement.dataset.theme).toBe('dark');
       expect(screen.getByRole('button', { name: /Dark theme/i })).toHaveAttribute('aria-pressed', 'true');
     });

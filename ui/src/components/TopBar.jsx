@@ -72,6 +72,7 @@ function TrustChip({ score }) {
 export default function TopBar({
   trustScore = 87,
   onAsk,
+  onRecall,
   nowCount,
   threadsCount,
   recallCount,
@@ -105,8 +106,30 @@ export default function TopBar({
       <nav className={styles.lenses} aria-label="Lenses">
         {lenses.map(([to, label]) => {
           const isActive = location.pathname === to
-            || (to !== '/now' && location.pathname.startsWith(to));
+            || (to !== '/now' && to !== '/recall' && location.pathname.startsWith(to));
           const count = counts[to];
+          const isRecall = to === '/recall' && onRecall;
+          const children = (
+            <>
+              <span className={styles.lensLabel}>{label}</span>
+              {count !== undefined && count !== null ? (
+                <span className={styles.lensCount}>{count}</span>
+              ) : null}
+            </>
+          );
+          if (isRecall) {
+            return (
+              <button
+                key={to}
+                type="button"
+                className={classNames(styles.lens, styles.lensButton)}
+                onClick={onRecall}
+                aria-label="Open Recall"
+              >
+                {children}
+              </button>
+            );
+          }
           return (
             <NavLink
               key={to}
@@ -114,10 +137,7 @@ export default function TopBar({
               aria-current={isActive ? 'page' : undefined}
               className={classNames(styles.lens, isActive && styles.lensActive)}
             >
-              <span className={styles.lensLabel}>{label}</span>
-              {count !== undefined && count !== null ? (
-                <span className={styles.lensCount}>{count}</span>
-              ) : null}
+              {children}
             </NavLink>
           );
         })}

@@ -66,6 +66,13 @@
   color: var(--text);
 }
 
+.lensButton {
+  border: 0;
+  background: transparent;
+  font-family: inherit;
+  cursor: pointer;
+}
+
 .lensActive {
   background: var(--surface);
   color: var(--accent);
