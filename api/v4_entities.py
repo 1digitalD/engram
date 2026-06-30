@@ -15,6 +15,7 @@ from extensions import db
 from models import AiSuggestion, AppSetting, Entity, EntityEvent, EntityLink, EntityTag, Job, Tag, _iso
 from services import runtime_health
 from services.v4_attention import attention_for_entity, today_attention_count, today_attention_items
+from services.v4_narration import narrate_event
 from services.title_utils import title_or_placeholder
 
 STATUS_BY_TYPE = {
@@ -1616,7 +1617,12 @@ def get_entity_events(entity_id):
         .limit(100)
         .all()
     )
-    return jsonify({"data": [event.to_dict() for event in events]})
+    data = []
+    for event in events:
+        event_dict = event.to_dict()
+        event_dict["narration"] = narrate_event(event)
+        data.append(event_dict)
+    return jsonify({"data": data})
 
 
 CAPTURE_CHANGE_EVENT_TYPES = {
