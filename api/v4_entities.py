@@ -5,7 +5,7 @@ import hashlib
 import json
 import re
 
-from flask import current_app, jsonify, request
+from flask import Response, current_app, jsonify, request, stream_with_context
 from sqlalchemy import func, or_
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.orm import selectinload
@@ -119,6 +119,18 @@ def health():
     return jsonify({"status": "ok", "api": "v4", "database": "ok"})
 
 
+CAPTURE_STREAM_EVENTS = (
+    "reading",
+    "extracting",
+    "candidates",
+    "reconciling",
+    "applying",
+    "linking",
+    "summarizing",
+    "done",
+)
+
+
 @api_v4_bp.route("/capture", methods=["POST"])
 def capture():
     data = request.get_json(silent=True) or {}
@@ -138,6 +150,90 @@ def capture():
             "reason": "exact duplicate",
         })
 
+    stream = request.args.get("stream", "").lower() == "true"
+    if stream:
+        return Response(
+            stream_with_context(_capture_sse_stream(data, content, user_title)),
+            mimetype="text/event-stream",
+            status=200,
+        )
+
+    note = _create_capture_note(data, content, user_title)
+    applied_changes, suggestions, warnings = _run_capture_extraction(
+        note,
+        content,
+        data.get("mode") or "auto",
+    )
+    db.session.commit()
+    return jsonify(_capture_result_payload(note, applied_changes, suggestions, warnings)), 201
+
+
+def _capture_sse_stream(data, content, user_title):
+    try:
+        note = _create_capture_note(data, content, user_title)
+        yield _format_capture_sse_event(
+            "reading",
+            {"note_id": note.id, "title": note.title, "content_length": len(content)},
+        )
+
+        applied_changes = []
+        suggestions = []
+        warnings = []
+        applied_changes.extend(_apply_explicit_mentions(note, content))
+
+        mode = data.get("mode") or "auto"
+        yield _format_capture_sse_event("extracting", {"mode": mode})
+
+        extraction = {}
+        try:
+            extraction = _run_basic_capture_extraction(note, mode) or {}
+        except Exception as exc:
+            warnings.append(str(exc))
+            note.ai_status = "failed"
+            _apply_capture_intent(note, {})
+
+        candidate_count = _count_extraction_candidates(extraction)
+        yield _format_capture_sse_event("candidates", {"count": candidate_count})
+
+        yield _format_capture_sse_event("reconciling", {"candidate_count": candidate_count})
+        yield _format_capture_sse_event("applying", {"candidate_count": candidate_count})
+
+        if not warnings:
+            try:
+                extraction_changes, extraction_suggestions = _reconcile_capture_candidates(
+                    note,
+                    extraction,
+                )
+                applied_changes.extend(extraction_changes)
+                suggestions.extend(extraction_suggestions)
+            except Exception as exc:
+                warnings.append(str(exc))
+                note.ai_status = "failed"
+                _apply_capture_intent(note, {})
+
+        link_count = sum(
+            1 for change in applied_changes if change.get("type") == "relationship_added"
+        )
+        yield _format_capture_sse_event("linking", {"links_created": link_count})
+
+        summarize_queued = _count_capture_summarize_jobs()
+        yield _format_capture_sse_event("summarizing", {"queued": summarize_queued})
+
+        db.session.commit()
+        yield _format_capture_sse_event(
+            "done",
+            _capture_result_payload(note, applied_changes, suggestions, warnings),
+        )
+    except Exception as exc:
+        db.session.rollback()
+        yield _format_capture_sse_event("error", {"message": str(exc)})
+
+
+def _format_capture_sse_event(event_type, payload):
+    return f"event: {event_type}\ndata: {json.dumps(payload, default=str)}\n\n"
+
+
+def _create_capture_note(data, content, user_title):
     note = Entity(
         type="note",
         title=user_title or _title_from_content(content),
@@ -154,13 +250,16 @@ def capture():
     _clear_review_resolution(note)
     _write_event(note, "created", new_value=note.to_dict())
     db.session.add(Job(job_type="embed", entity_id=note.id, payload={"entity_id": note.id, "reason": "capture"}))
+    return note
 
+
+def _run_capture_extraction(note, content, mode):
     applied_changes = []
     suggestions = []
     warnings = []
     applied_changes.extend(_apply_explicit_mentions(note, content))
     try:
-        result = _run_basic_capture_extraction(note, data.get("mode") or "auto")
+        result = _run_basic_capture_extraction(note, mode)
         extraction_changes, extraction_suggestions = _reconcile_capture_candidates(note, result or {})
         applied_changes.extend(extraction_changes)
         suggestions.extend(extraction_suggestions)
@@ -168,14 +267,33 @@ def capture():
         warnings.append(str(exc))
         note.ai_status = "failed"
         _apply_capture_intent(note, {})
+    return applied_changes, suggestions, warnings
 
-    db.session.commit()
-    return jsonify({
+
+def _capture_result_payload(note, applied_changes, suggestions, warnings):
+    return {
         "source_note": _load_entity(note.id).to_dict(),
         "applied_changes": applied_changes,
         "suggestions": suggestions,
         "warnings": warnings,
-    }), 201
+    }
+
+
+def _count_extraction_candidates(extraction):
+    if not extraction:
+        return 0
+    return len(extraction.get("entities") or []) + len(extraction.get("links") or [])
+
+
+def _count_capture_summarize_jobs():
+    return (
+        db.session.query(Job)
+        .filter(
+            Job.job_type == "summarize",
+            Job.status.in_(["pending", "running"]),
+        )
+        .count()
+    )
 
 
 @api_v4_bp.route("/brief", methods=["GET"])

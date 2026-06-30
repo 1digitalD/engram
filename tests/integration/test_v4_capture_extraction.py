@@ -1,10 +1,134 @@
 """Tests for v4 capture extraction and auto-apply behavior."""
 
+import json
 import os
 from unittest.mock import patch
 
 from extensions import db
 from models import AiSuggestion, Entity, EntityEvent, EntityLink
+
+
+def _parse_capture_sse_events(response_data):
+    events = []
+    for block in response_data.decode().strip().split("\n\n"):
+        if not block.strip():
+            continue
+        event_type = None
+        data = None
+        for line in block.split("\n"):
+            if line.startswith("event: "):
+                event_type = line[len("event: "):]
+            elif line.startswith("data: "):
+                data = json.loads(line[len("data: "):])
+        if event_type is not None:
+            events.append((event_type, data))
+    return events
+
+
+def test_capture_stream_emits_all_events(client, app):
+    extraction = {
+        "entities": [
+            {
+                "type": "task",
+                "title": "Follow up on rollout",
+                "content": "Ask Henry for rollout status.",
+                "confidence": 0.91,
+                "evidence": "ask Henry about rollout",
+            }
+        ]
+    }
+
+    with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction):
+        response = client.post(
+            "/api/v4/capture?stream=true",
+            json={"content": "Need to ask Henry about rollout"},
+        )
+        response_data = response.data
+
+    assert response.status_code == 200
+    assert response.mimetype == "text/event-stream"
+    events = _parse_capture_sse_events(response_data)
+    assert [event_type for event_type, _ in events] == [
+        "reading",
+        "extracting",
+        "candidates",
+        "reconciling",
+        "applying",
+        "linking",
+        "summarizing",
+        "done",
+    ]
+    assert events[0][1]["content_length"] > 0
+    assert events[2][1]["count"] == 1
+    assert set(events[-1][1]) == {"source_note", "applied_changes", "suggestions", "warnings"}
+
+
+def test_capture_stream_done_event_matches_single_shot(client, app):
+    extraction = {
+        "summary": "Rollout follow-up with Henry.",
+        "intent": "follow_up",
+        "intent_confidence": 0.94,
+        "confidence": 0.93,
+        "tags": [
+            {"name": "rollout", "confidence": 0.96},
+        ],
+    }
+
+    with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction):
+        stream_response = client.post(
+            "/api/v4/capture?stream=true",
+            json={"content": "Ask Henry about rollout"},
+        )
+        stream_data = stream_response.data
+        single_response = client.post(
+            "/api/v4/capture",
+            json={"content": "Ask Priya about deployment"},
+        )
+
+    assert stream_response.status_code == 200
+    assert single_response.status_code == 201
+
+    stream_events = _parse_capture_sse_events(stream_data)
+    stream_done = stream_events[-1][1]
+    single_shot = single_response.get_json()
+
+    assert set(stream_done) == set(single_shot)
+    assert stream_done["applied_changes"] == single_shot["applied_changes"]
+    assert stream_done["suggestions"] == single_shot["suggestions"]
+    assert stream_done["warnings"] == single_shot["warnings"]
+    assert stream_done["source_note"]["content"] == "Ask Henry about rollout"
+    assert single_shot["source_note"]["content"] == "Ask Priya about deployment"
+    assert stream_done["source_note"]["ai"] == single_shot["source_note"]["ai"]
+    assert [tag["name"] for tag in stream_done["source_note"]["tags"]] == [
+        tag["name"] for tag in single_shot["source_note"]["tags"]
+    ]
+
+
+def test_capture_stream_error_event(client, app):
+    with patch.object(db.session, "commit", side_effect=RuntimeError("pipeline broke")):
+        response = client.post(
+            "/api/v4/capture?stream=true",
+            json={"content": "Need to ask Henry about rollout"},
+        )
+        response_data = response.data
+
+    assert response.status_code == 200
+    events = _parse_capture_sse_events(response_data)
+    assert events[-1][0] == "error"
+    assert events[-1][1]["message"] == "pipeline broke"
+    assert [event_type for event_type, _ in events[:-1]] == [
+        "reading",
+        "extracting",
+        "candidates",
+        "reconciling",
+        "applying",
+        "linking",
+        "summarizing",
+    ]
+
+    with app.app_context():
+        note = Entity.query.filter_by(type="note", content="Need to ask Henry about rollout").one_or_none()
+        assert note is None
 
 
 def test_capture_auto_creates_high_confidence_task(client, app):
