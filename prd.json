@@ -60,10 +60,10 @@
         "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test",
         "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build"
       ],
-      "blocked": true,
+      "blocked": false,
       "passes": false,
-      "attempts": 1,
-      "blockerReason": "Executor completed without producing repository changes.",
+      "attempts": 0,
+      "blockerReason": null,
       "validationEvidence": null
     },
     {
@@ -88,11 +88,16 @@
         "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration/test_v4_threads.py",
         "cd /Volumes/lex1t/dev/shared/repos/engram && curl -fsS 'http://localhost:5001/api/v4/threads?limit=5' | python3 -c 'import json,sys; d=json.load(sys.stdin); assert \"threads\" in d; print(f\"{len(d[\\\"threads\\\"])} threads returned\")'"
       ],
-      "blocked": true,
-      "passes": false,
+      "blocked": false,
+      "passes": true,
       "attempts": 1,
-      "blockerReason": "Executor completed without producing repository changes.",
-      "validationEvidence": null
+      "blockerReason": null,
+      "validationEvidence": null,
+      "metadata": {
+        "completed_commit": "5bea4ba0",
+        "completed_at": "2026-06-30T16:29:00Z",
+        "completed_via": "manual-cherry-pick-after-loopsmith-fix"
+      }
     },
     {
       "id": "prd-thread-detail",
@@ -115,11 +120,16 @@
         "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test",
         "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build"
       ],
-      "blocked": true,
-      "passes": false,
+      "blocked": false,
+      "passes": true,
       "attempts": 1,
-      "blockerReason": "Executor completed without producing repository changes.",
-      "validationEvidence": null
+      "blockerReason": null,
+      "validationEvidence": null,
+      "metadata": {
+        "completed_commit": "070b4273",
+        "completed_at": "2026-06-30T16:29:00Z",
+        "completed_via": "manual-cherry-pick-after-loopsmith-fix"
+      }
     },
     {
       "id": "prd-capture-sheet",
@@ -142,11 +152,16 @@
         "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test",
         "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build"
       ],
-      "blocked": true,
-      "passes": false,
+      "blocked": false,
+      "passes": true,
       "attempts": 1,
-      "blockerReason": "Deterministic validation failed.",
-      "validationEvidence": null
+      "blockerReason": null,
+      "validationEvidence": null,
+      "metadata": {
+        "completed_commit": "bba1c975",
+        "completed_at": "2026-06-30T16:29:00Z",
+        "completed_via": "manual-cherry-pick-after-loopsmith-fix"
+      }
     },
     {
       "id": "prd-mobile-shell",
