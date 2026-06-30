@@ -200,6 +200,9 @@
     ],
     "platform": "openclaw",
     "allowExecutorFallback": true,
-    "requireHumanForDependencies": true
+    "requireHumanForDependencies": true,
+    "executorLaunchTimeoutSeconds": 1800,
+    "sameExecutorCooldownSeconds": 60,
+    "maxCrossExecutorRetries": 2
   }
 }
