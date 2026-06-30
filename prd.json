@@ -1,191 +1,108 @@
 {
-  "iteration": "v4-noise-reduction-tier2",
-  "goal": "Reduce agent noise at the source by routing all extracted tasks to the review queue instead of auto-creating them, surfacing existing tasks to the extraction model so duplicates are suppressed at the prompt level, adding last-mile exact-title dedup before any auto-creation, and marking activity-update notes as AI-processed so they don't accumulate as zombie pending rows. Net effect: agent correction tax (deletions/reverts) drops materially and inbox acceptance rate rises; no new entity types or schemas.",
+  "iteration": "v5-redesign-phase1-trust-foundation",
+  "goal": "Build the trust foundation for the v5 redesign before adding new AI surfaces. Three independent backend slices: (1) extend the reconciliation decision vocabulary to skip and uncertain so the AI admits when it doesn't know, (2) stream the capture response so the user watches the AI work, (3) add templated AI narration on the existing event log so the agent's actions are described in plain English. None of these change the user-facing data model; they change the AI's behavior at the source and make that behavior legible in real time. After Phase 1 the user should feel the AI is more honest and more inspectable, which is the prerequisite for Phase 3's Ask ✦ and Memory view.",
   "riskLevel": "low",
-  "userProblem": "Live data: 109 ai_capture tasks created, 56 deleted by user (51% correction tax on tasks). Of 67 active tasks, only 11 are done (16% completion rate). 32 of 33 activity_update notes stuck in ai_status=pending forever because they bypass reconciliation. The capture extraction prompt over-generates (says 'prefer over-extraction'), the extraction model has zero visibility into existing tasks (only projects/areas), and the activity_update path auto-creates tasks with no dedup at all. Tier 1 cut some of the worst noise but the AI is still doing too much curation work on the user's behalf.",
-  "whyNow": "The four fixes are small, independent, and high-ROI per Loopsmith's per-task validator discipline. Each can ship on its own branch with a tight test. Tier 1 of the noise-reduction work shipped on 2026-06-26 (untitled-fallback + gpt-5.4-nano) \u2014 Tier 2 closes the remaining extraction and gating gaps. Without Tier 2 the agent's correction tax stays above 30% and the inbox loses trust.",
+  "userProblem": "The AI is too noisy at the source: low-confidence candidates default to 'new' (line 152 of v4_reconciliation.py), so the suggestion queue fills with low-quality 'maybe?' suggestions. The user can't see what the AI did during capture — the response is fire-and-forget with a 5-30s gap. The agent_activity log shows raw event types ('ai_updated at 14:32') instead of plain English ('I created task X from your note'). Combined, these mean the user either trusts the AI blindly (risky) or reviews every suggestion exhaustively (expensive). The redesign needs to address the trust deficit at the source, not by adding more UI chrome over a noisy output.",
+  "whyNow": "These three changes are the prerequisites for the rest of the v5 redesign. Without skip/uncertain the Ask ✦ endpoint (Phase 3) will inherit the same noise problem. Without streaming capture the new capture sheet (Phase 2) will feel frozen during 30s LLM work. Without templated narration the new timeline view (Phase 3) will read as a log dump instead of a story. Tier 1 + 2 of the noise reduction work shipped on 2026-06-27 (untitled-fallback + gpt-5.4-nano + 4 extraction gating fixes); this phase is the next layer. The three slices are small, independent, and testable in isolation.",
   "scope": {
     "filesAffected": [
       "api/v4_entities.py",
       "services/v4_extraction.py",
+      "services/v4_reconciliation.py",
+      "services/v4_narration.py",
       "tests/integration/test_v4_capture_extraction.py",
-      "tests/integration/test_v4_activity_updates.py",
       "tests/integration/test_v4_suggestions.py",
-      "tests/unit/test_v4_extraction.py"
+      "tests/unit/test_v4_extraction.py",
+      "tests/unit/test_v4_reconciliation.py"
     ],
     "routesAffected": [
       "POST /api/v4/capture",
-      "POST /api/v4/entities/<id>/activity_updates"
+      "GET /api/v4/entities/<id>/events"
     ],
     "dataOrApiDependencies": [
-      "tests/integration/test_v4_capture_extraction.py::test_capture_auto_creates_high_confidence_task asserts the OLD auto-create behavior \u2014 this test must be updated as part of task 1 to assert the new suggest-only behavior. Loopsmith agents MUST update this test first (TDD)."
+      "Slice 1.1 (skip/uncertain) changes the default behavior of the reconciliation prompt and the auto-create threshold. Existing tests that assert on 'new' actions for low-confidence candidates must be updated to assert 'skip' or 'uncertain' instead.",
+      "Slice 1.2 (streaming) changes the capture response shape from a single JSON to a stream of events followed by a final JSON. Plan: a query param ?stream=true opt-in for the new behavior; the existing JSON response stays for callers that don't opt in."
     ],
     "writePathsAffected": []
   },
   "tasks": [
     {
-      "id": "tasks-suggest-only-on-capture",
-      "title": "Move task auto-creation to suggest-only on capture path",
-      "description": "Make extraction-model task candidates always go to the review queue instead of being auto-created, while preserving every other entity-type auto-create behavior (project, area, person, resource still auto-create at high confidence). Implementation: add 'task' to SUGGEST_ONLY_CREATION_TYPES in api/v4_entities.py (line ~81). The _can_auto_create_entity function (line ~4972) already returns False for that set, so this is a one-line config change with test updates. Update the existing tests that assert task auto-creation to assert create_task suggestion emission instead. The activity_update path is NOT changed by this task \u2014 that's task 4. TDD discipline: update tests FIRST (failing), then make the production change (passing).",
+      "id": "prd-skip-uncertain",
+      "title": "Add skip and uncertain to reconciliation decision vocabulary",
+      "description": "Currently the reconciliation LLM picks one of {new, update, link} per candidate, and the default is 'new' (v4_reconciliation.py line 152). This means a low-confidence 'Mary mentioned X' candidate gets suggested as 'create a new person Mary' even when there's a 30% chance the model is wrong. Extend the decision vocabulary to {new, update, link, skip, uncertain}. 'skip' = take no action, do not suggest. 'uncertain' = surface to the user for review with an explicit 'I wasn't sure' label. Default for low-confidence candidates becomes 'skip' instead of 'new'. Auto-create threshold drops from 0.9 to 0.85. The replay harness (scripts/replay_eval.py) is the safety net: run before and after, verify no regression on labeled 'expected: new' cases and ≥30% drop in suggestion count on the dismissed-creates fixture set.",
       "risk": "low",
       "acceptanceCriteria": [
-        "SUGGEST_ONLY_CREATION_TYPES in api/v4_entities.py contains 'task' (was {'project', 'area'})",
-        "tests/integration/test_v4_capture_extraction.py::test_capture_auto_creates_high_confidence_task updated to assert create_task SUGGESTION emitted instead of entity_created; same patch scope",
-        "tests/integration/test_v4_capture_extraction.py::test_capture_auto_created_task_uses_task_to_note_derived_from_link updated to assert the task was created via suggestion acceptance path or assert no entity_created + 1 pending create_task suggestion",
-        "tests/integration/test_v4_capture_extraction.py::test_capture_auto_created_task_applies_assigned_to_person_link updated to follow the suggestion path",
-        "A new test exists: test_capture_high_confidence_task_goes_to_review_queue (extraction returns task@0.95 confidence \u2192 assert NO entity_created, ONE create_task suggestion with confidence=0.95)",
-        "A new test exists: test_capture_task_suggestion_includes_relationship_and_assigned_to (suggestion payload contains relationship_type='derived_from' and assigned_to when present)",
-        "Person, project, area, resource auto-create behavior is unchanged (test_capture_auto_creates_high_confidence_person and test_capture_does_not_auto_create_other_entity_types pass without change)",
-        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration/test_v4_capture.py tests/integration/test_v4_capture_extraction.py tests/integration/test_v4_activity_updates.py tests/integration/test_v4_suggestions.py tests/unit/test_v4_extraction.py passes (no regressions)"
+        "services/v4_reconciliation.py prompt includes the new decision options skip and uncertain with explicit definitions",
+        "v4_reconciliation.py::_reconcile_candidates pads default decisions to 'skip' (not 'new') for low-confidence cases (confidence < 0.5)",
+        "api/v4_entities.py::_can_auto_create_entity auto-create threshold is 0.85 (was 0.9); values 0.5 ≤ confidence < 0.85 return False (suggest to review queue); confidence < 0.5 returns False AND the suggestion is marked as 'uncertain' in the reason field",
+        "A new function services/v4_reconciliation.py::is_uncertain_decision(decision) returns True for action='skip' or action='uncertain' OR for confidence below the threshold; used by the capture response to label suggestions with 'AI wasn't sure' copy",
+        "tests/unit/test_v4_reconciliation.py has new tests: test_low_confidence_defaults_to_skip, test_uncertain_decision_labeled_in_reason, test_high_confidence_still_creates",
+        "tests/integration/test_v4_capture_extraction.py has new tests: test_capture_low_confidence_task_no_suggestion_emitted, test_capture_medium_confidence_task_marked_uncertain",
+        "Replay harness runs cleanly before and after; suggestion count on fixture set drops ≥30% with no false negatives on 'expected: new' labels",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/unit/test_v4_reconciliation.py tests/unit/test_v4_extraction.py tests/integration/test_v4_capture_extraction.py tests/integration/test_v4_suggestions.py passes (no regressions)"
       ],
       "validationCommands": [
-        "cd /Volumes/lex1t/dev/shared/repos/engram && grep -n '^SUGGEST_ONLY_CREATION_TYPES\\|^TASK_NEVER_AUTO_CREATE' api/v4_entities.py",
-        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration/test_v4_capture.py tests/integration/test_v4_capture_extraction.py tests/integration/test_v4_activity_updates.py tests/integration/test_v4_suggestions.py tests/unit/test_v4_extraction.py"
+        "cd /Volumes/lex1t/dev/shared/repos/engram && grep -nE '\"skip\"|\"uncertain\"|action.*skip|action.*uncertain' services/v4_reconciliation.py api/v4_entities.py",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && grep -nE '_can_auto_create_entity|0\\.85|0\\.9' api/v4_entities.py | head -20",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/unit/test_v4_reconciliation.py tests/unit/test_v4_extraction.py tests/integration/test_v4_capture_extraction.py tests/integration/test_v4_suggestions.py"
       ],
       "blocked": false,
-      "passes": true,
-      "attempts": 1,
-      "blockerReason": null,
-      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram && grep -n '^SUGGEST_ONLY_CREATION_TYPES\\|^TASK_NEVER_AUTO_CREATE' api/v4_entities.py\n81:SUGGEST_ONLY_CREATION_TYPES = {\"project\", \"area\"}\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration/test_v4_capture.py tests/integration/test_v4_capture_extraction.py tests/integration/test_v4_activity_updates.py tests/integration/test_v4_suggestions.py tests/unit/test_v4_extraction.py\n........................................................................ [ 82%]\n...............                                                          [100%]\n87 passed in 41.77s"
-    },
-    {
-      "id": "extraction-prompt-sees-active-tasks",
-      "title": "Include top 15 active open tasks in EXISTING_ENTITIES block",
-      "description": "The extraction prompt already injects recent active projects and areas so the LLM can reuse canonical titles and avoid inventing duplicates. Add a third section 'Recent Active Open Tasks' containing the 15 most recently updated active, non-done tasks by title. Keep the cap low (titles only, no content) so this stays a few hundred tokens. The goal is to let the extraction model recognize that 'Follow up with Akash about Q3' is already an open task and NOT mint a duplicate. Implementation: services/v4_extraction.py \u2014 extend _recent_existing_entities() and _format_existing_entities_block() with a 'task' key. Filter: lifecycle=active, status not in DONE_TASK_STATUSES, ordered by updated_at desc, limit 15. The block is informational \u2014 the model may still extract tasks it considers new; reconciliation's _can_auto_create_entity already handles the suggest-only routing from task 1.",
-      "risk": "low",
-      "acceptanceCriteria": [
-        "services/v4_extraction.py::_recent_existing_entities returns {'project': [...], 'area': [...], 'task': [...]} where 'task' contains up to 15 active non-done task titles ordered by updated_at desc",
-        "services/v4_extraction.py::_format_existing_entities_block renders a 'Recent Active Open Tasks' section between Projects and Areas sections",
-        "An active done task is NOT in the list (filter excludes status in DONE_TASK_STATUSES)",
-        "A deleted or archived task is NOT in the list (lifecycle filter)",
-        "tests/unit/test_v4_extraction.py has new tests: test_recent_existing_entities_includes_active_tasks, test_recent_existing_entities_excludes_done_tasks, test_format_existing_entities_block_includes_tasks_section",
-        "EXISTING_ENTITY_LIMIT constant stays at 50 for projects/areas; new constant TASK_RECENT_LIMIT = 15",
-        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/unit/test_v4_extraction.py passes"
-      ],
-      "validationCommands": [
-        "bash /Volumes/lex1t/dev/shared/repos/engram/scripts/run_tests.sh /Volumes/lex1t/dev/shared/repos/.engram-codloop-worktrees/extraction-prompt-sees-active-tasks-*-opencode tests/unit/test_v4_extraction.py",
-        "bash /Volumes/lex1t/dev/shared/repos/engram/scripts/run_tests.sh /Volumes/lex1t/dev/shared/repos/.engram-codloop-worktrees/extraction-prompt-sees-active-tasks-*-opencode tests/integration/test_v4_capture_extraction.py",
-        "grep -nE TASK_RECENT_LIMIT /Volumes/lex1t/dev/shared/repos/.engram-codloop-worktrees/extraction-prompt-sees-active-tasks-*-opencode/services/v4_extraction.py"
-      ],
-      "blocked": false,
-      "passes": true,
-      "attempts": 1,
-      "blockerReason": null,
-      "validationEvidence": "$ bash /Volumes/lex1t/dev/shared/repos/engram/scripts/run_tests.sh /Volumes/lex1t/dev/shared/repos/.engram-codloop-worktrees/extraction-prompt-sees-active-tasks-*-opencode tests/unit/test_v4_extraction.py\n....                                                                     [100%]\n4 passed in 0.12s\n\n$ bash /Volumes/lex1t/dev/shared/repos/engram/scripts/run_tests.sh /Volumes/lex1t/dev/shared/repos/.engram-codloop-worktrees/extraction-prompt-sees-active-tasks-*-opencode tests/integration/test_v4_capture_extraction.py\n.................................................                        [100%]\n49 passed in 1.16s\n\n$ grep -nE TASK_RECENT_LIMIT /Volumes/lex1t/dev/shared/repos/.engram-codloop-worktrees/extraction-prompt-sees-active-tasks-*-opencode/services/v4_extraction.py\n23:TASK_RECENT_LIMIT = 15\n208:            .limit(TASK_RECENT_LIMIT)"
-    },
-    {
-      "id": "last-mile-exact-title-dedup",
-      "title": "Exact-title dedup before any auto-creation (capture + activity_update)",
-      "description": "Both the capture path (_can_auto_create_entity \u2192 _auto_create_entity) and the activity_update path (create_activity_update at line ~1813) call _auto_create_entity without a final exact-title check. _find_existing_entity already exists at line ~4631 and does a case-insensitive title lookup, but is never called from either auto-create path. Add a single last-mile guard in _auto_create_entity itself: if an active entity of the same type with case-insensitive matching title already exists, return the existing entity instead of minting a duplicate. The caller already handles 'entity was returned vs created' semantics by checking entity.id, but to avoid touching every caller, have _auto_create_entity return the existing entity and rely on _create_entity_link being idempotent on (source_id, target_id, relationship_type) duplicates.",
-      "risk": "low",
-      "acceptanceCriteria": [
-        "api/v4_entities.py::_auto_create_entity calls _find_existing_entity(entity_type, title) before INSERT; if a match exists, returns it without creating a new row",
-        "tests/integration/test_v4_capture_extraction.py has new test: test_capture_exact_title_match_does_not_duplicate_task (create task 'Ship rollout', then capture 'Ship rollout' again with mocked extraction \u2192 assert only 1 task exists, second capture emits link suggestion)",
-        "tests/integration/test_v4_activity_updates.py has new test: test_activity_update_exact_title_match_does_not_duplicate_task (create task 'Check due dates', then activity_update mentioning 'Check due dates' \u2192 assert only 1 task)",
-        "Person auto-create path still works for an unmatched name (test_capture_auto_creates_high_confidence_person passes)",
-        "Person auto-create path no longer duplicates when name already exists (new test test_capture_exact_title_match_does_not_duplicate_person)",
-        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration/test_v4_capture_extraction.py tests/integration/test_v4_activity_updates.py passes"
-      ],
-      "validationCommands": [
-        "cd /Volumes/lex1t/dev/shared/repos/engram && grep -nA5 'def _auto_create_entity' api/v4_entities.py",
-        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration/test_v4_capture_extraction.py tests/integration/test_v4_activity_updates.py"
-      ],
-      "blocked": false,
-      "passes": true,
-      "attempts": 1,
-      "blockerReason": null,
-      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram && grep -nA5 'def _auto_create_entity' api/v4_entities.py\n4465:def _auto_create_entity(entity_type, title, content=None, properties=None, due_at=None, follow_up_at=None):\n4466-    entity = Entity(\n4467-        type=entity_type,\n4468-        title=title,\n4469-        content=content,\n4470-        status=\"open\" if entity_type == \"task\" else \"active\",\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration/test_v4_capture_extraction.py tests/integration/test_v4_activity_updates.py\n.............................................................            [100%]\n61 passed in 36.56s",
-      "commit": "ec4d67cd"
-    },
-    {
-      "id": "capture-derived-from-on-link",
-      "title": "Force derived_from on task extraction link path + deterministic test mocks",
-      "description": "Real bug found during Tier-2 verification: _apply_reconciliation_decision only set relationship_type=derived_from for action==new tasks. When the reconciliation LLM decided action==link on an exact-title dedup match, the link type was the LLM-suggested mentions/related instead. Fixed by broadening the override to apply to all task entities regardless of action. Also fixed three flaky tests that asserted on non-deterministic LLM-picked relationship_type values by mocking services.v4_reconciliation.reconcile_candidates to return deterministic decisions. All 184 integration tests + 127 unit tests pass.",
-      "risk": "low",
-      "acceptanceCriteria": [
-        "api/v4_entities.py::_apply_reconciliation_decision sets relationship_type=derived_from for all task entities (action in {new, link, update}) when LLM suggests mentions/related",
-        "tests/integration/test_v4_capture_extraction.py::test_capture_exact_title_match_does_not_duplicate_task passes (mocks reconciliation to deterministic link decision)",
-        "tests/integration/test_v4_capture_extraction.py::test_capture_exact_title_match_does_not_duplicate_person passes (mocks reconciliation)",
-        "tests/integration/test_v4_capture_extraction.py::test_capture_task_suggestion_includes_relationship_and_assigned_to passes (mocks reconciliation)",
-        "All 184 integration tests pass: cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration (per file)",
-        "All 127 unit tests pass: cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/unit (per file)"
-      ],
-      "validationCommands": [
-        "bash /Volumes/lex1t/dev/shared/repos/engram/scripts/run_tests.sh tests/integration/test_v4_capture_extraction.py::test_capture_exact_title_match_does_not_duplicate_task",
-        "bash /Volumes/lex1t/dev/shared/repos/engram/scripts/run_tests.sh tests/integration/test_v4_capture_extraction.py::test_capture_exact_title_match_does_not_duplicate_person",
-        "bash /Volumes/lex1t/dev/shared/repos/engram/scripts/run_tests.sh tests/integration/test_v4_capture_extraction.py::test_capture_task_suggestion_includes_relationship_and_assigned_to",
-        "cd /Volumes/lex1t/dev/shared/repos/engram && git log --oneline -5"
-      ],
-      "blocked": false,
-      "passes": true,
-      "attempts": 1,
-      "commit": "ec4d67cd"
-    },
-    {
-      "id": "activity-update-zombies-stop",
-      "title": "Mark activity-update notes as AI-processed at creation time",
-      "description": "32 of 33 activity_update notes have ai_status=pending forever \u2014 they bypass full reconciliation but the lightweight extraction doesn't set ai_status. They're filtered out of the inbox (line ~585 excludes source='activity_update'), but they exist as zombie rows that confuse the Needs review counter and may trigger embed jobs that never run. Simple fix: in api/v4_entities.py::_create_activity_update_note (called by POST /api/v4/entities/<id>/activity_updates), set note.ai_status='done' since the lightweight extraction already ran. Tests: add test_activity_update_note_is_marked_ai_done_on_creation that creates an activity update and asserts ai_status='done'. Existing activity update tests must still pass.",
-      "risk": "low",
-      "acceptanceCriteria": [
-        "api/v4_entities.py::_create_activity_update_note sets ai_status='done' on the activity-update note when it's created (covers the common path; idempotent on retry)",
-        "tests/integration/test_v4_activity_updates.py has new test: test_activity_update_note_ai_status_is_done_after_creation",
-        "tests/integration/test_v4_activity_updates.py::test_create_activity_update_still_returns_201_and_persists_update continues to pass (no regression)",
-        "Existing tests in test_v4_activity_updates.py that explicitly check ai_status='pending' behavior are updated to assert 'done' or removed if they no longer reflect intent",
-        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration/test_v4_activity_updates.py tests/integration/test_v4_capture.py passes"
-      ],
-      "validationCommands": [
-        "bash /Volumes/lex1t/dev/shared/repos/engram/scripts/run_tests.sh /Volumes/lex1t/dev/shared/repos/.engram-codloop-worktrees/activity-update-zombies-stop-*-opencode tests/integration/test_v4_activity_updates.py",
-        "bash /Volumes/lex1t/dev/shared/repos/engram/scripts/run_tests.sh /Volumes/lex1t/dev/shared/repos/.engram-codloop-worktrees/activity-update-zombies-stop-*-opencode tests/integration/test_v4_capture.py",
-        "grep -nA3 def _create_activity_update_note /Volumes/lex1t/dev/shared/repos/.engram-codloop-worktrees/activity-update-zombies-stop-*-opencode/api/v4_entities.py"
-      ],
-      "blocked": false,
-      "passes": true,
-      "attempts": 1,
-      "commit": "534b76b6",
-      "blockerReason": "Executor completed without producing repository changes."
-    },
-    {
-      "id": "engram-deploy-after-changes",
-      "title": "Deploy and verify on production instance",
-      "description": "After all four code tasks land on main, restart the API container, run the full unit + integration suite against the test database, hit the /api/v4/metrics/trust endpoint to confirm correction rate has dropped, and report results. This is the same shape as the v4-tier1 deploy task \u2014 no schema changes, just code.",
-      "risk": "low",
-      "acceptanceCriteria": [
-        "Full unit suite passes: bash /Volumes/lex1t/dev/shared/repos/engram/scripts/run_tests.sh tests/unit",
-        "Full integration suite passes: bash /Volumes/lex1t/dev/shared/repos/engram/scripts/run_tests.sh tests/integration",
-        "API restart via launchctl succeeds and /api/v4/health returns 200",
-        "GET /api/v4/metrics/trust?days=7 returns correction_rate < 0.123 (pre-Tier-2 baseline)"
-      ],
-      "validationCommands": [
-        "bash /Volumes/lex1t/dev/shared/repos/engram/scripts/run_tests.sh tests/unit",
-        "bash /Volumes/lex1t/dev/shared/repos/engram/scripts/run_tests.sh tests/integration",
-        "launchctl unload ~/Library/LaunchAgents/com.engram.api.plist && launchctl load ~/Library/LaunchAgents/com.engram.api.plist && sleep 3 && curl -fsS http://localhost:5001/api/v4/health",
-        "curl -fsS http://localhost:5001/api/v4/metrics/trust?days=7 | python3 -c \"import json,sys; d=json.load(sys.stdin); cr=d.get(\"correction_rate\", 1.0); assert cr < 0.123, f\"correction_rate={cr} did not improve\"; print(\"OK:\", cr)\""
-      ],
-      "blocked": false,
-      "passes": true,
+      "passes": false,
       "attempts": 0,
-      "commit": "4e491635",
-      "blockerReason": "Executor completed without producing repository changes.",
-      "kind": "deploy_only",
-      "verification": {
-        "agentReport": "All acceptance criteria met. Unit suite: 127 passed. Integration suite: 183 passed. API restart via launchctl succeeded. /api/v4/health returns ok. /api/v4/metrics/trust?days=7 correction_rate=0.092 (down from baseline 0.123).",
-        "executorLogsPath": "/Volumes/lex1t/dev/shared/repos/engram/.codloop/runs/engram-deploy-after-changes-opencode-a019.json"
-      }
+      "blockerReason": null,
+      "validationEvidence": null
+    },
+    {
+      "id": "prd-streaming-capture",
+      "title": "Stream capture response via SSE (opt-in via ?stream=true)",
+      "description": "POST /api/v4/capture currently blocks for 5-30s and returns a single JSON with applied_changes and suggestions. Add an opt-in streaming mode: when ?stream=true, the response is a Server-Sent Events stream with events: 'reading', 'extracting', 'candidates', 'reconciling', 'applying', 'linking', 'summarizing', 'done'. The existing single-shot response stays as the default for backward compat. The frontend's new capture sheet (Phase 2) will use ?stream=true to render live progress.",
+      "risk": "low",
+      "acceptanceCriteria": [
+        "api/v4_entities.py::capture() detects ?stream=true and returns a Response with mimetype='text/event-stream' instead of a JSON response",
+        "Each pipeline step emits a Server-Sent Event with type matching the step name and a data field with step-specific JSON",
+        "The 'done' event's data field has the same shape as the current single-shot response; existing JSON consumers see no breaking change",
+        "Errors during streaming emit a 'error' event with the exception message in data, then close the stream with HTTP 200",
+        "Existing single-shot behavior (?stream=false or absent) is unchanged",
+        "tests/integration/test_v4_capture_extraction.py has new tests: test_capture_stream_emits_all_events, test_capture_stream_done_event_matches_single_shot, test_capture_stream_error_event",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration/test_v4_capture_extraction.py tests/integration/test_v4_capture.py passes",
+        "Manual smoke: capture a 200-word note via curl with ?stream=true, verify all 8 events arrive"
+      ],
+      "validationCommands": [
+        "cd /Volumes/lex1t/dev/shared/repos/engram && grep -nE 'stream.*true|text/event-stream|sse' api/v4_entities.py | head -10",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration/test_v4_capture_extraction.py tests/integration/test_v4_capture.py",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && curl -fsS -N -X POST 'http://localhost:5001/api/v4/capture?stream=true' -H 'Content-Type: application/json' -d '{\"content\":\"Test capture for SSE smoke\"}' | head -30"
+      ],
+      "blocked": false,
+      "passes": false,
+      "attempts": 0,
+      "blockerReason": null,
+      "validationEvidence": null
+    },
+    {
+      "id": "prd-narration-templates",
+      "title": "Templated AI narration on entity_events (read-side, cached)",
+      "description": "entity_events rows have event_type and reason but no human-readable narration. Add a services/v4_narration.py module that generates a 1-sentence narration for each event_type via templates. Templates cover the 80% case; the remaining 20% fall back to a default. Surface as event.narration on /api/v4/entities/<id>/events responses. Generated on read, cached per event_id in memory (LRU 10k entries); no LLM call in the read path. This is the read-side companion to the existing entity_events writer; no writer changes.",
+      "risk": "low",
+      "acceptanceCriteria": [
+        "services/v4_narration.py exists with a function narrate_event(event: EntityEvent) -> str",
+        "Templates cover all 22 ENTITY_EVENT_TYPES from api/v4_entities.py",
+        "Each template uses payload fields when present: 'ai_updated' + {task_created: X, from_note: Y} → 'I created task X from your note Y'",
+        "An LRU cache (max 10k entries) keyed on event_id wraps the template function",
+        "GET /api/v4/entities/<id>/events response includes a new 'narration' field on each event",
+        "tests/unit/test_v4_narration.py with new tests for each template + cache hit + default fallback",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/unit/test_v4_narration.py tests/integration/test_v4_entity_detail.py tests/integration/test_v4_capture_extraction.py passes",
+        "Manual smoke: GET /api/v4/entities/<id>/events for an entity with 5+ events, verify every event has a non-empty 'narration' field"
+      ],
+      "validationCommands": [
+        "cd /Volumes/lex1t/dev/shared/repos/engram && test -f services/v4_narration.py && grep -nE 'def narrate_event|ENTITY_EVENT_TYPES|templates' services/v4_narration.py | head -10",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/unit/test_v4_narration.py tests/integration/test_v4_entity_detail.py tests/integration/test_v4_capture_extraction.py",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && curl -fsS http://localhost:5001/api/v4/entities/<id>/events | python3 -c 'import json,sys; d=json.load(sys.stdin); assert all(\"narration\" in e for e in d); print(\"ok\")'"
+      ],
+      "blocked": false,
+      "passes": false,
+      "attempts": 0,
+      "blockerReason": null,
+      "validationEvidence": null
     }
-  ],
-  "drain": true,
-  "executor": "opencode",
-  "executorLaunchTimeoutSeconds": 1800,
-  "nextStepIfInterrupted": "Each code task is independent and ships on its own branch with a tight test. Deploy depends on all four. If interrupted, run `loopsmithctl recover --repo /Volumes/lex1t/dev/shared/repos/engram <attempt-id>` and re-launch with --drain.",
-  "codingLoopPolicy": {
-    "primaryExecutor": "opencode",
-    "fallbackExecutors": [
-      "cursor",
-      "codex",
-      "claude"
-    ],
-    "platform": "openclaw",
-    "allowExecutorFallback": true,
-    "requireHumanForDependencies": true
-  }
+  ]
 }
