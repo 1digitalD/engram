@@ -61,10 +61,10 @@
         "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build"
       ],
       "blocked": false,
-      "passes": false,
-      "attempts": 0,
+      "passes": true,
+      "attempts": 1,
       "blockerReason": null,
-      "validationEvidence": null
+      "validationEvidence": "manually cherry-picked a5ec4a5c from worktree prd-shell-now-opencode-a046-opencode (commit cc4cab0c); 97/97 frontend tests passed in worktree"
     },
     {
       "id": "prd-threads",
