@@ -28,7 +28,7 @@ vi.mock('./views/V4Suggestions', () => ({ default: () => <main>Review view</main
 vi.mock('./views/V4AgentActivity', () => ({ default: () => <main>Agent log view</main> }));
 vi.mock('./views/V5Threads', () => ({ default: () => <main>Threads view</main> }));
 vi.mock('./views/V4EntityList', () => ({ default: ({ type }) => <main>{type} list</main> }));
-vi.mock('./views/V4EntityDetail', () => ({ default: () => <main>Detail view</main> }));
+vi.mock('./views/V5ThreadDetail', () => ({ default: () => <main>Detail view</main> }));
 
 describe('App shell', () => {
   beforeEach(() => {

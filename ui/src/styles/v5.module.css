@@ -1,63 +1,300 @@
 .page {
-  max-width: 960px;
+  max-width: var(--content-max);
   margin: 0 auto;
-  padding: 16px 20px 48px;
+  padding: var(--space-4) var(--space-4) calc(var(--space-12) + 72px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
 }
 
-.headerRow {
+.loading,
+.error {
+  padding: var(--space-6);
+  color: var(--text-secondary);
+}
+
+.header {
   display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 12px;
-  margin-bottom: 16px;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.backLink {
+  align-self: flex-start;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  text-decoration: none;
+}
+
+.backLink:hover {
+  color: var(--text);
+}
+
+.typeMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
 }
 
 .title {
-  font-size: 1.05rem;
+  margin: 0;
+  font-size: var(--text-xl);
   font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  color: var(--text);
 }
 
-.subtitle {
-  font-size: 0.72rem;
-  color: var(--text-muted, #6b7280);
+.statusPill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: var(--surface2);
+  border: 1px solid var(--border-faint);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
 }
 
 .sectionLabel {
-  font-size: 0.68rem;
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-xs);
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-muted, #6b7280);
-  margin: 18px 0 8px;
+  color: var(--text-muted);
 }
 
-.list {
+.narrative {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font-size: var(--text-md);
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.section {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
-.ambientGrid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
+.actionRow,
+.timelineRow,
+.personRow,
+.relatedRow,
+.signalCard {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-3);
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.actionRow {
+  flex-wrap: wrap;
+}
+
+.actionLabel {
+  flex: 1 1 180px;
+  font-size: var(--text-md);
+  line-height: 1.4;
+  color: var(--text);
+}
+
+.actionButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.inlineButton,
+.fab {
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text);
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
+  min-height: 44px;
+  min-width: 44px;
+  font-size: var(--text-sm);
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.inlineButtonPrimary {
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: white;
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
+  min-height: 44px;
+  min-width: 44px;
+  font-size: var(--text-sm);
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.inlineButton:hover,
+.inlineButtonPrimary:hover {
+  filter: brightness(0.96);
+}
+
+.signalCard {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+}
+
+.signalTitle {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.signalBody,
+.signalMeta,
+.personMeta,
+.relatedMeta,
+.timelineDate,
+.emptyHint {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.timelineRow {
+  align-items: flex-start;
+}
+
+.timelineDate {
+  flex: 0 0 56px;
+  font-size: var(--text-xs);
+}
+
+.timelineGlyph {
+  flex: 0 0 18px;
+}
+
+.timelineText {
+  flex: 1;
+  font-size: var(--text-sm);
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.personLink,
+.relatedLink {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.personLink:hover,
+.relatedLink:hover,
+.backLink:hover {
+  color: var(--accent);
+}
+
+.personName,
+.relatedTitle {
+  font-size: var(--text-md);
+  color: var(--text);
+}
+
+.fab {
+  position: fixed;
+  right: var(--space-4);
+  bottom: var(--space-4);
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+  font-size: 28px;
+  line-height: 1;
+  box-shadow: var(--shadow-md);
+  z-index: 20;
+}
+
+.longPressMenu {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.24);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: var(--space-4);
+  z-index: 30;
+}
+
+.longPressSheet {
+  width: min(100%, 420px);
+  background: var(--surface-solid);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.longPressTitle {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
 }
 
 @media (max-width: 720px) {
   .page {
-    padding: 12px 12px 40px;
+    padding-left: var(--space-3);
+    padding-right: var(--space-3);
   }
 
-  .ambientGrid {
-    grid-template-columns: 1fr;
+  .section,
+  .narrative,
+  .actionRow,
+  .timelineRow,
+  .personRow,
+  .relatedRow,
+  .signalCard {
+    width: 100%;
   }
-}
 
-.statusMessage,
-.errorMessage {
-  padding: 12px 0;
-  color: var(--text-muted, #6b7280);
-}
+  .actionRow {
+    flex-direction: column;
+    align-items: stretch;
+  }
 
-.errorMessage {
-  color: var(--danger, #b42318);
+  .actionButtons {
+    width: 100%;
+  }
+
+  .inlineButton,
+  .inlineButtonPrimary {
+    flex: 1;
+  }
 }
