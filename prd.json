@@ -115,10 +115,10 @@
         "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test",
         "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build"
       ],
-      "blocked": false,
+      "blocked": true,
       "passes": false,
-      "attempts": 0,
-      "blockerReason": null,
+      "attempts": 1,
+      "blockerReason": "Executor completed without producing repository changes.",
       "validationEvidence": null
     },
     {
