@@ -88,10 +88,10 @@
         "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration/test_v4_threads.py",
         "cd /Volumes/lex1t/dev/shared/repos/engram && curl -fsS 'http://localhost:5001/api/v4/threads?limit=5' | python3 -c 'import json,sys; d=json.load(sys.stdin); assert \"threads\" in d; print(f\"{len(d[\\\"threads\\\"])} threads returned\")'"
       ],
-      "blocked": false,
+      "blocked": true,
       "passes": false,
-      "attempts": 0,
-      "blockerReason": null,
+      "attempts": 1,
+      "blockerReason": "Executor completed without producing repository changes.",
       "validationEvidence": null
     },
     {
