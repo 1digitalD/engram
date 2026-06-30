@@ -11,11 +11,15 @@ vi.mock('./api/v4Client', () => ({
     entities: {
       list: vi.fn(),
       create: vi.fn(),
+      get: vi.fn(),
     },
     today: vi.fn(),
     summary: vi.fn(),
     suggestions: {
       list: vi.fn(),
+    },
+    relationships: {
+      create: vi.fn(),
     },
   },
 }));
@@ -33,6 +37,9 @@ vi.mock('./views/V5ThreadDetail', () => ({ default: () => <main>Detail view</mai
 describe('App shell', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    v4API.entities.list.mockResolvedValue({ data: [] });
+    v4API.entities.get.mockResolvedValue({ id: 'p1', title: 'Project' });
+    v4API.relationships.create.mockResolvedValue({});
   });
 
   it('renders Home at the root route while keeping Inbox available separately', async () => {
@@ -71,6 +78,24 @@ describe('App shell', () => {
     await waitFor(() => expect(v4API.summary).toHaveBeenCalled());
     expect(screen.getByRole('link', { name: /Today/i })).toHaveTextContent('7');
     expect(screen.getByRole('link', { name: /Inbox/i })).toHaveTextContent('2');
+  });
+
+  it('exposes a global capture FAB', async () => {
+    v4API.inbox.mockResolvedValue({ needs_review: [] });
+    v4API.entities.list.mockResolvedValue({ meta: { total: 0 }, data: [] });
+    v4API.today.mockResolvedValue({});
+    v4API.suggestions.list.mockResolvedValue({ meta: { total: 0 }, data: [] });
+    v4API.summary.mockResolvedValue({ inbox_count: 0, today_count: 0, suggestions_count: 0 });
+
+    render(
+      <MemoryRouter initialEntries={['/projects/p1']}>
+        <App />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('button', { name: /open capture/i })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /open capture/i }));
+    expect(await screen.findByRole('dialog', { name: 'Capture' })).toBeInTheDocument();
   });
 
   it('supports quick note capture from the shell', async () => {

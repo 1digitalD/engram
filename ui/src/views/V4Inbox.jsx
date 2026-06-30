@@ -2,11 +2,10 @@
 import React from 'react';
 import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { X } from 'lucide-react';
 import { v4API } from '../api/v4Client';
+import { useCapture } from '../context/CaptureContext';
 import CardActions from '../components/CardActions';
 import MarkdownContent from '../components/MarkdownContent';
-import MarkdownEditor from '../components/MarkdownEditor';
 import styles from './V4Inbox.module.css';
 
 function entityTitle(entity) {
@@ -102,12 +101,10 @@ function NoteCard({ note, onChanged, fromState, showPreview = true }) {
 export default function V4Inbox() {
   const location = useLocation();
   const fromState = { from: location.pathname + location.search };
-  const [content, setContent] = useState('');
+  const { openCapture } = useCapture();
   const [needsReview, setNeedsReview] = useState([]);
   const [recent, setRecent] = useState([]);
-  const [captureLog, setCaptureLog] = useState([]);
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
 
   async function loadInbox() {
     try {
@@ -121,32 +118,6 @@ export default function V4Inbox() {
 
   useEffect(() => { loadInbox(); }, []);
 
-  async function handleSubmit(event) {
-    event.preventDefault();
-    const trimmed = content.trim();
-    if (!trimmed || loading) return;
-    setLoading(true);
-    setError('');
-    try {
-      const captureResult = await v4API.capture({
-        content: trimmed,
-        source: 'ui',
-        mode: 'auto',
-      });
-      setContent('');
-      setCaptureLog((prev) => [{ id: captureResult.source_note?.id || Date.now(), ...captureResult }, ...prev].slice(0, 5));
-      await loadInbox();
-    } catch (err) {
-      setError(err.message || 'Capture failed');
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  function dismissCaptureResult(id) {
-    setCaptureLog((prev) => prev.filter((r) => r.id !== id));
-  }
-
   return (
     <main className={styles.inbox}>
       <section className={styles.capturePanel}>
@@ -155,61 +126,18 @@ export default function V4Inbox() {
             <p className={styles.eyebrow}>Capture inbox</p>
             <h1>Capture first, then review or file the note.</h1>
             <p>
-              Raw notes land here. Review extraction outcomes below or move into the full notes library when you just need retrieval.
+              Use the + button anywhere to capture. Review extraction outcomes below or move into the full notes library when you just need retrieval.
             </p>
           </div>
           <div className={styles.captureHeaderActions}>
+            <button type="button" className={styles.captureHeaderLink} onClick={openCapture}>
+              Open capture
+            </button>
             <Link to="/suggestions" className={styles.captureHeaderLink}>Open review queue</Link>
             <Link to="/notes" className={styles.captureHeaderLink}>All notes</Link>
           </div>
         </header>
-        <form onSubmit={handleSubmit} className={styles.form}>
-          <MarkdownEditor
-            value={content}
-            onChange={setContent}
-            placeholder="Paste a note, reminder, task idea, person mention, or project update…"
-            minRows={6}
-            autoFocus
-          />
-          <button type="submit" className={styles.captureButton} disabled={!content.trim() || loading}>
-            {loading ? 'Capturing...' : 'Capture'}
-          </button>
-        </form>
         {error && <div className={styles.error}>{error}</div>}
-
-        {captureLog.length > 0 && (
-          <ul className={styles.captureLog} aria-label="Recent captures">
-            {captureLog.map((r) => {
-              const applied = (r.applied_changes || []).length;
-              const suggested = (r.suggestions || []).length;
-              return (
-                <li key={r.id} className={styles.captureLogItem}>
-                  <div className={styles.captureLogBody}>
-                    <strong>Saved · {entityTitle(r.source_note)}</strong>
-                    <span className={styles.captureLogMeta}>
-                      {applied > 0 && <span>{applied} applied</span>}
-                      {suggested > 0 && (
-                        <Link to="/suggestions">{suggested} suggestion{suggested === 1 ? '' : 's'} pending</Link>
-                      )}
-                      {(r.warnings || []).map((w) => (
-                        <span key={w} className={styles.warning}>{w}</span>
-                      ))}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    className={styles.dismiss}
-                    onClick={() => dismissCaptureResult(r.id)}
-                    aria-label="Dismiss"
-                    title="Dismiss"
-                  >
-                    <X size={12} strokeWidth={2.4} aria-hidden="true" />
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        )}
       </section>
 
       {needsReview.length > 0 && (

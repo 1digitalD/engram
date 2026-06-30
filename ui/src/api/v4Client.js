@@ -39,6 +39,8 @@ const getEntityDetail = (id) => v4Request('GET', `/entities/${encodeURIComponent
 const updateEntity = (id, data) => v4Request('PATCH', `/entities/${encodeURIComponent(id)}`, data);
 const deleteEntity = (id) => v4Request('DELETE', `/entities/${encodeURIComponent(id)}`);
 
+export { captureStream } from '../utils/captureStream';
+
 export const v4API = {
   health: () => v4Request('GET', '/health'),
   capture: (data) => v4Request('POST', '/capture', data),

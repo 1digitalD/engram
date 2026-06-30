@@ -3,35 +3,36 @@ import React from 'react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { CaptureProvider } from '../context/CaptureContext';
 import V4Inbox from './V4Inbox';
+import V5CaptureSheet from './V5CaptureSheet';
 import { v4API } from '../api/v4Client';
 
 vi.mock('../components/MarkdownContent', () => ({
   default: ({ content }) => content || null,
 }));
 
-// Mock MarkdownEditor as a plain textarea so tests can drive it with fireEvent.
-vi.mock('../components/MarkdownEditor', () => ({
-  default: ({ value, onChange, placeholder }) => (
-    <textarea
-      aria-label="Capture text"
-      placeholder={placeholder}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-    />
-  ),
-}));
-
 vi.mock('../api/v4Client', () => ({
   v4API: {
     capture: vi.fn(),
     inbox: vi.fn(),
-    entities: { update: vi.fn() },
+    entities: { update: vi.fn(), list: vi.fn(), get: vi.fn() },
   },
 }));
 
 function renderInbox() {
-  return render(<MemoryRouter><V4Inbox /></MemoryRouter>);
+  return render(
+    <MemoryRouter>
+      <CaptureProvider>
+        <V4Inbox />
+        <V5CaptureSheet attachmentOptions={[
+          { id: '', label: 'None', type: '' },
+          { id: 'p1', label: 'HITL Pilot', type: 'project' },
+        ]}
+        />
+      </CaptureProvider>
+    </MemoryRouter>,
+  );
 }
 
 describe('V4Inbox', () => {
@@ -45,34 +46,14 @@ describe('V4Inbox', () => {
     });
   });
 
-  it('captures text and surfaces the result in the capture log', async () => {
-    v4API.capture.mockResolvedValue({
-      source_note: { id: 'n1', title: 'Captured note', content: 'Ask Henry about rollout' },
-      applied_changes: [{ type: 'summary_updated' }],
-      suggestions: [{ id: 's1', suggestion_type: 'create_task', payload: { title: 'Follow up with Henry' } }],
-      warnings: ['AI extraction degraded'],
-    });
-
+  it('opens the capture sheet instead of rendering an inline capture form', async () => {
     renderInbox();
     await screen.findByText('Older note');
 
-    fireEvent.change(screen.getByLabelText(/capture text/i), {
-      target: { value: 'Ask Henry about rollout' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: /capture/i }));
-
-    await waitFor(() => {
-      expect(v4API.capture).toHaveBeenCalledWith({
-        content: 'Ask Henry about rollout',
-        source: 'ui',
-        mode: 'auto',
-      });
-    });
-    // Capture log surfaces the saved note, warning, applied count, and suggestion link.
-    expect(await screen.findByText(/Saved · Captured note/)).toBeInTheDocument();
-    expect(screen.getByText('AI extraction degraded')).toBeInTheDocument();
-    expect(screen.getByText(/1 applied/)).toBeInTheDocument();
-    expect(screen.getByText(/1 suggestion pending/)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/capture text/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^capture$/i })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /open capture/i }));
+    expect(await screen.findByRole('dialog', { name: 'Capture' })).toBeInTheDocument();
   });
 
   it('lists recent notes from the v4 inbox API', async () => {

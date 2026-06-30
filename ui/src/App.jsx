@@ -31,6 +31,8 @@ import V4Today from './views/V4Today';
 import V4Suggestions from './views/V4Suggestions';
 import V4AgentActivity from './views/V4AgentActivity';
 import V5Threads from './views/V5Threads';
+import { CaptureProvider, useCapture } from './context/CaptureContext';
+import V5CaptureSheet, { CaptureFab, CaptureToast } from './views/V5CaptureSheet';
 
 const viewItems = [
   ['/', 'Home', House, null],
@@ -276,10 +278,11 @@ function QuickActionBar() {
   );
 }
 
-export default function App() {
+function AppShell() {
   const location = useLocation();
   const counts = useSidebarCounts(location.pathname + location.search);
   const showQuickActions = location.pathname === '/';
+  const { toast } = useCapture();
   return (
     <div className={styles.shell}>
       <aside className={styles.sidebar}>
@@ -353,6 +356,17 @@ export default function App() {
           </Routes>
         </div>
       </div>
+      <CaptureFab />
+      <V5CaptureSheet />
+      <CaptureToast toast={toast} />
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <CaptureProvider>
+      <AppShell />
+    </CaptureProvider>
   );
 }

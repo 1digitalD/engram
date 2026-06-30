@@ -1,0 +1,234 @@
+.captureSheet {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.header {
+  align-items: baseline;
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-5) var(--space-1);
+}
+
+.title {
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+
+.attachmentWrap {
+  align-items: center;
+  color: var(--text-muted);
+  display: flex;
+  font-size: var(--text-sm);
+  gap: var(--space-1);
+  margin-left: auto;
+}
+
+.attachmentLabel {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.attachmentSelect {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: var(--text-sm);
+  max-width: 180px;
+  padding: 2px 6px;
+}
+
+.body {
+  padding: var(--space-2) var(--space-5) var(--space-4);
+}
+
+.textarea {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-sizing: border-box;
+  font-family: inherit;
+  font-size: var(--text-md);
+  line-height: 1.5;
+  min-height: 140px;
+  padding: var(--space-3) var(--space-4);
+  resize: vertical;
+  width: 100%;
+}
+
+.textarea:focus {
+  border-color: var(--border-focus);
+  outline: none;
+}
+
+.hint {
+  background: color-mix(in oklch, var(--accent) 8%, var(--surface));
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  margin-top: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+}
+
+.progress {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  margin-top: var(--space-3);
+}
+
+.progressList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+}
+
+.progressItem {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.progressItemActive {
+  color: var(--accent);
+}
+
+.error {
+  background: color-mix(in oklch, var(--red) 10%, var(--surface));
+  border: 1px solid color-mix(in oklch, var(--red) 30%, var(--border));
+  border-radius: var(--radius-sm);
+  color: var(--red);
+  font-size: var(--text-sm);
+  margin-top: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+}
+
+.errorActions {
+  margin-top: var(--space-2);
+}
+
+.footer {
+  align-items: center;
+  background: var(--surface2);
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+  padding: var(--space-3) var(--space-5) var(--space-4);
+}
+
+.footerHint {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  margin-right: auto;
+}
+
+.buttonSecondary,
+.buttonPrimary {
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: var(--text-sm);
+  padding: 6px 14px;
+}
+
+.buttonSecondary {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+
+.buttonPrimary {
+  background: var(--accent);
+  border: 0;
+  color: white;
+}
+
+.buttonPrimary:disabled,
+.buttonSecondary:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.toast {
+  align-items: center;
+  background: var(--text);
+  border-radius: var(--radius-md);
+  bottom: var(--space-6);
+  box-shadow: var(--shadow-lg);
+  color: var(--surface);
+  display: flex;
+  font-size: var(--text-sm);
+  gap: var(--space-3);
+  left: 50%;
+  padding: var(--space-3) var(--space-4);
+  position: fixed;
+  transform: translateX(-50%);
+  z-index: 1100;
+}
+
+.toastLink {
+  color: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.fab {
+  align-items: center;
+  background: var(--accent);
+  border: 0;
+  border-radius: var(--radius-full);
+  bottom: var(--space-6);
+  box-shadow: var(--shadow-lg);
+  color: white;
+  cursor: pointer;
+  display: flex;
+  height: 52px;
+  justify-content: center;
+  position: fixed;
+  right: var(--space-6);
+  width: 52px;
+  z-index: 900;
+}
+
+.fab:hover {
+  background: var(--accent-hover);
+}
+
+.mobileBar {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .fab {
+    display: none;
+  }
+
+  .mobileBar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: block;
+    left: 0;
+    padding: var(--space-2) var(--space-3);
+    position: fixed;
+    right: 0;
+    top: 0;
+    z-index: 800;
+  }
+
+  .mobileInput {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    box-sizing: border-box;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: var(--text-sm);
+    padding: 10px var(--space-3);
+    width: 100%;
+  }
+}
