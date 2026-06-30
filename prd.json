@@ -60,10 +60,10 @@
         "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test",
         "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build"
       ],
-      "blocked": false,
+      "blocked": true,
       "passes": false,
-      "attempts": 0,
-      "blockerReason": null,
+      "attempts": 1,
+      "blockerReason": "Verified isolated changes could not be applied to the primary repo: warning: unable to access '/dev/fd/63': Bad file descriptor\nerror: patch failed: ui/src/App.jsx:31\nerror: ui/src/App.jsx: patch does not apply\nerror: patch failed: ui/src/App.module.css:310\nerror: ui/src/App.module.css: patch does not apply\nerror: patch failed: ui/src/App.test.jsx:15\nerror: ui/src/App.test.jsx: patch does not apply\nerror: ui/src/components/TopBar.jsx: already exists in index\nerror: ui/src/components/TopBar.module.css: already exists in index\nerror: ui/src/components/TopBar.stories.jsx: already exists in index\nerror: ui/src/components/TopBar.test.jsx: already exists in index\nerror: patch failed: ui/src/views/V5CaptureSheet.jsx:87\nerror: ui/src/views/V5CaptureSheet.jsx: patch does not apply\nerror: patch failed: ui/src/views/V5CaptureSheet.module.css:198\nerror: ui/src/views/V5CaptureSheet.module.css: patch does not apply\nerror: ui/src/views/V5Now.fixtures.js: already exists in index\nerror: ui/src/views/V5Now.jsx: already exists in index\nerror: ui/src/views/V5Now.module.css: already exists in index\nerror: ui/src/views/V5Now.stories.jsx: already exists in index\nerror: ui/src/views/V5Now.test.jsx: already exists in index\nerror: ui/src/views/V5NowRow.jsx: already exists in index\nerror: ui/src/views/V5NowRow.module.css: already exists in index",
       "validationEvidence": null
     },
     {
