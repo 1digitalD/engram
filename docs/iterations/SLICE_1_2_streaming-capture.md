@@ -43,28 +43,61 @@ api/v4_entities.py, services/v4_extraction.py, services/v4_reconciliation.py, se
 - **Execution tracker**: `/Volumes/lex1t/OC-workspace/projects/engram-ux-redesign/04-execution-tracker.md`
 - **PRD task (Phase 1): prd-phase1.json` → `tasks[1]`
 
-## Results (filled in by Loopsmith on completion)
+## Results
 
-<!-- Loopsmith agent: fill in below. Replace each placeholder with actual evidence.
-     Required: test output (last 10-20 lines), commit SHA, replay metrics diff (if AI-touching).
--->
-
-**Commit:** `<sha>`
+**Commit:** `0a0e6d81` — `prd-streaming-capture: Stream capture response via SSE (opt-in via ?stream=true)`
 
 **Tests:**
 ```
-<paste test output>
+$ bash scripts/run_tests.sh tests/integration/test_v4_capture_extraction.py
+......................................................                   [100%]  54 passed in 36.46s
+```
+Full suite: `352 passed in 27.70s`.
+
+**Manual smoke (live API, 2026-06-29 22:52 PDT):**
+
+`POST /api/v4/capture?stream=true` with body
+`{"content":"Phase1 QA probe SSE — confirm applied_changes stream + skip/uncertain behaviour."}`
+returned `200 OK` with `Content-Type: text/event-stream`. Ordered events:
+
+```
+event: reading
+data: {"note_id": "98506aef-9a89-4075-b5bf-8acf77383298", "title": "Phase1 QA probe SSE — ...", "content_length": 80}
+
+event: extracting
+data: {"mode": "auto"}
+
+event: candidates
+data: {"count": 2}
+
+event: reconciling
+data: {"candidate_count": 2}
+
+event: applying
+data: {"candidate_count": 2}
+
+event: linking
+data: {"links_created": 1}
+
+event: summarizing
+data: {"queued": 1}
+
+event: done
+data: {"source_note": {...}, "applied_changes": [...], "suggestions": [...], "warnings": []}
 ```
 
-**Replay metrics (if applicable):**
-```
-<paste replay_eval.py output>
-```
-
-**Manual smoke:**
-<describe what you tested, what passed, what didn't>
+The `done` payload shape matches the non-streaming response contract:
+`source_note`, `applied_changes`, `suggestions`, `warnings`. Server-side
+implementation lives at `api/v4_entities.py:155–234` (`_capture_sse_stream`
+and `_format_capture_sse_event`).
 
 **Notes / follow-ups:**
-<any caveats, follow-up slices, or things the next slice should know>
+- The error path (`event: error`) was not exercised in this QA pass. Code
+  inspection confirms it yields on `db.session.rollback()` then emits the
+  error event, so a stranded client can parse it; full client-side recovery
+  behavior untested.
+- Live UI surfacing of stream updates (toast per event, progress bar, etc.)
+  is UI code not exercised in this QA pass.
 
-**Acceptance met:** [ ] yes / [ ] no (if no, document what's missing)
+**Acceptance met:** [x] yes — endpoint contract verified live; error-path and
+UI surfacing deferred to Phase 2 (capture sheet).
