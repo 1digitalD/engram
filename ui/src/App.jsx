@@ -31,6 +31,8 @@ import V4Today from './views/V4Today';
 import V4Suggestions from './views/V4Suggestions';
 import V4AgentActivity from './views/V4AgentActivity';
 import V5Threads from './views/V5Threads';
+import V5Now from './views/V5Now';
+import TopBar from './components/TopBar';
 import { CaptureProvider, useCapture } from './context/CaptureContext';
 import V5CaptureSheet, { CaptureFab, CaptureToast } from './views/V5CaptureSheet';
 
@@ -69,6 +71,27 @@ function getInitialTheme() {
     return 'dark';
   }
   return 'light';
+}
+
+function isV5Enabled() {
+  if (typeof window === 'undefined') return false;
+  try {
+    const saved = localStorage.getItem('engram-v5-enabled');
+    if (saved === 'true') return true;
+    if (saved === 'false') return false;
+  } catch { /* localStorage unavailable */ }
+  return import.meta.env?.VITE_ENGRAM_V5 === 'true';
+}
+
+function V5RecallPlaceholder() {
+  return (
+    <main className={styles.today}>
+      <section className={styles.panel}>
+        <h2>Recall</h2>
+        <p>Recall lens is coming in a future slice.</p>
+      </section>
+    </main>
+  );
 }
 
 function ThemeSwitcher() {
@@ -278,7 +301,7 @@ function QuickActionBar() {
   );
 }
 
-function AppShell() {
+function V4AppShell() {
   const location = useLocation();
   const counts = useSidebarCounts(location.pathname + location.search);
   const showQuickActions = location.pathname === '/';
@@ -363,10 +386,84 @@ function AppShell() {
   );
 }
 
+function V5AppShell() {
+  const location = useLocation();
+  const { toast, openCapture } = useCapture();
+  const [counts, setCounts] = useState({ today: 0, threads: 0, recall: 0 });
+
+  useEffect(() => {
+    let active = true;
+    v4API.summary()
+      .then((data) => {
+        if (!active) return;
+        setCounts({
+          today: data?.today_count ?? 0,
+          threads: data?.threads_count ?? data?.today_count ?? 0,
+          recall: data?.recall_count ?? 0,
+        });
+      })
+      .catch(() => {
+        if (!active) return;
+        setCounts({ today: 0, threads: 0, recall: 0 });
+      });
+    return () => { active = false; };
+  }, [location.pathname]);
+
+  return (
+    <div className={styles.shell} data-v5="true">
+      <TopBar
+        onAsk={openCapture}
+        nowCount={counts.today}
+        threadsCount={counts.threads}
+        recallCount={counts.recall}
+      />
+      <div className={styles.mainColumn}>
+        <div className={styles.routeViewport}>
+          <Routes>
+            <Route path="/" element={<Navigate to="/now" replace />} />
+            <Route path="/now" element={<V5Now />} />
+            <Route path="/threads" element={<V5Threads />} />
+            <Route path="/recall" element={<V5RecallPlaceholder />} />
+            <Route path="/entities/:id" element={<V5ThreadDetail />} />
+            <Route path="/notes" element={<V4EntityList type="note" />} />
+            <Route path="/notes/:id" element={<V5ThreadDetail type="note" />} />
+            <Route path="/projects" element={<V4EntityList type="project" />} />
+            <Route path="/projects/:id" element={<V5ThreadDetail type="project" />} />
+            <Route path="/tasks" element={<V4EntityList type="task" />} />
+            <Route path="/tasks/:id" element={<V5ThreadDetail type="task" />} />
+            <Route path="/areas" element={<V4EntityList type="area" />} />
+            <Route path="/areas/:id" element={<V5ThreadDetail type="area" />} />
+            <Route path="/people" element={<V4EntityList type="person" />} />
+            <Route path="/people/:id" element={<V5ThreadDetail type="person" />} />
+            <Route path="/resources" element={<V4EntityList type="resource" />} />
+            <Route path="/resources/:id" element={<V5ThreadDetail type="resource" />} />
+            <Route path="*" element={<Navigate to="/now" replace />} />
+          </Routes>
+        </div>
+      </div>
+      <CaptureFab />
+      <V5CaptureSheet />
+      <CaptureToast toast={toast} />
+    </div>
+  );
+}
+
 export default function App() {
+  const [v5, setV5] = useState(isV5Enabled);
+
+  useEffect(() => {
+    function handleStorage(event) {
+      if (event.key === 'engram-v5-enabled') {
+        setV5(event.newValue === 'true');
+      }
+    }
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
   return (
     <CaptureProvider>
-      <AppShell />
+      {v5 ? <V5AppShell /> : <V4AppShell />}
     </CaptureProvider>
   );
 }

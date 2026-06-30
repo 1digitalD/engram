@@ -8,6 +8,19 @@
   background: transparent;
 }
 
+.shell[data-v5="true"] {
+  grid-template-columns: 1fr;
+  grid-template-rows: auto 1fr;
+}
+
+.shell[data-v5="true"] .mainColumn {
+  overflow: auto;
+}
+
+.shell[data-v5="true"] .routeViewport {
+  overflow: visible;
+}
+
 .sidebar {
   border-right: 1px solid var(--border);
   background: color-mix(in oklch, var(--surface) 88%, transparent);
