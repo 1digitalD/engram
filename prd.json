@@ -46,10 +46,10 @@
         "cd /Volumes/lex1t/dev/shared/repos/engram && grep -nE '_can_auto_create_entity|0\\.85|0\\.9' api/v4_entities.py | head -20",
         "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/unit/test_v4_reconciliation.py tests/unit/test_v4_extraction.py tests/integration/test_v4_capture_extraction.py tests/integration/test_v4_suggestions.py"
       ],
-      "blocked": false,
+      "blocked": true,
       "passes": false,
-      "attempts": 0,
-      "blockerReason": null,
+      "attempts": 1,
+      "blockerReason": "Deterministic validation failed.",
       "validationEvidence": null
     },
     {
