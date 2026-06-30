@@ -46,11 +46,11 @@
         "cd /Volumes/lex1t/dev/shared/repos/engram && grep -nE '_can_auto_create_entity|0\\.85|0\\.9' api/v4_entities.py | head -20",
         "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/unit/test_v4_reconciliation.py tests/unit/test_v4_extraction.py tests/integration/test_v4_capture_extraction.py tests/integration/test_v4_suggestions.py"
       ],
-      "blocked": true,
-      "passes": false,
-      "attempts": 1,
-      "blockerReason": "Deterministic validation failed.",
-      "validationEvidence": null
+      "blocked": false,
+      "passes": true,
+      "attempts": 2,
+      "blockerReason": null,
+      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/unit/test_v4_reconciliation.py tests/unit/test_v4_extraction.py tests/unit/test_v4_narration.py tests/integration/test_v4_capture_extraction.py tests/integration/test_v4_suggestions.py tests/integration/test_v4_entity_detail.py\n....................................................................................................................\n116 passed in 17.64s"
     },
     {
       "id": "prd-streaming-capture",
@@ -99,10 +99,10 @@
         "cd /Volumes/lex1t/dev/shared/repos/engram && curl -fsS http://localhost:5001/api/v4/entities/<id>/events | python3 -c 'import json,sys; d=json.load(sys.stdin); assert all(\"narration\" in e for e in d); print(\"ok\")'"
       ],
       "blocked": false,
-      "passes": false,
-      "attempts": 0,
+      "passes": true,
+      "attempts": 2,
       "blockerReason": null,
-      "validationEvidence": null
+      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/unit/test_v4_reconciliation.py tests/unit/test_v4_extraction.py tests/unit/test_v4_narration.py tests/integration/test_v4_capture_extraction.py tests/integration/test_v4_suggestions.py tests/integration/test_v4_entity_detail.py\n....................................................................................................................\n116 passed in 17.64s"
     }
   ],
   "codingLoopPolicy": {

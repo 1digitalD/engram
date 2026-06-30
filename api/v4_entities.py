@@ -3352,14 +3352,27 @@ def _reconcile_capture_candidates(note, extraction):
 
 def _apply_reconciliation_decision(note, candidate, decision, applied_changes, suggestions):
     action = (decision.get("action") or "new").lower()
+    candidate_confidence = _candidate_confidence(candidate)
     if action == "skip":
-        return
-
-    uncertain = action == "uncertain"
-    if uncertain:
+        if candidate_confidence < LOW_CONFIDENCE_THRESHOLD:
+            return
+        # A medium/high-confidence candidate should still surface for review
+        # even if the reconciliation model declines to act on it.
         action = "new"
+        uncertain = True
+    else:
+        uncertain = action == "uncertain"
+        if uncertain:
+            action = "new"
 
+    decision_confidence = _candidate_confidence(decision)
     confidence = _reconciliation_confidence(candidate, decision)
+    if action == "new" and candidate_confidence > 0:
+        # Preserve extraction confidence for uncertain/converted-skip paths and
+        # for trivial model/extraction deltas, while still honoring an explicit
+        # low reconciliation confidence that should block auto-apply.
+        if uncertain or decision_confidence <= 0 or abs(candidate_confidence - decision_confidence) <= 0.05:
+            confidence = candidate_confidence
     evidence = _candidate_value(candidate, "evidence")
     entity_type = _candidate_value(candidate, "type")
     title = _candidate_value(candidate, "title")
