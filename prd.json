@@ -1,9 +1,9 @@
 {
   "iteration": "v5-redesign-phase1-trust-foundation",
-  "goal": "Build the trust foundation for the v5 redesign before adding new AI surfaces. Three independent backend slices: (1) extend the reconciliation decision vocabulary to skip and uncertain so the AI admits when it doesn't know, (2) stream the capture response so the user watches the AI work, (3) add templated AI narration on the existing event log so the agent's actions are described in plain English. None of these change the user-facing data model; they change the AI's behavior at the source and make that behavior legible in real time. After Phase 1 the user should feel the AI is more honest and more inspectable, which is the prerequisite for Phase 3's Ask ✦ and Memory view.",
+  "goal": "Build the trust foundation for the v5 redesign before adding new AI surfaces. Three independent backend slices: (1) extend the reconciliation decision vocabulary to skip and uncertain so the AI admits when it doesn't know, (2) stream the capture response so the user watches the AI work, (3) add templated AI narration on the existing event log so the agent's actions are described in plain English. None of these change the user-facing data model; they change the AI's behavior at the source and make that behavior legible in real time. After Phase 1 the user should feel the AI is more honest and more inspectable, which is the prerequisite for Phase 3's Ask \u2726 and Memory view.",
   "riskLevel": "low",
-  "userProblem": "The AI is too noisy at the source: low-confidence candidates default to 'new' (line 152 of v4_reconciliation.py), so the suggestion queue fills with low-quality 'maybe?' suggestions. The user can't see what the AI did during capture — the response is fire-and-forget with a 5-30s gap. The agent_activity log shows raw event types ('ai_updated at 14:32') instead of plain English ('I created task X from your note'). Combined, these mean the user either trusts the AI blindly (risky) or reviews every suggestion exhaustively (expensive). The redesign needs to address the trust deficit at the source, not by adding more UI chrome over a noisy output.",
-  "whyNow": "These three changes are the prerequisites for the rest of the v5 redesign. Without skip/uncertain the Ask ✦ endpoint (Phase 3) will inherit the same noise problem. Without streaming capture the new capture sheet (Phase 2) will feel frozen during 30s LLM work. Without templated narration the new timeline view (Phase 3) will read as a log dump instead of a story. Tier 1 + 2 of the noise reduction work shipped on 2026-06-27 (untitled-fallback + gpt-5.4-nano + 4 extraction gating fixes); this phase is the next layer. The three slices are small, independent, and testable in isolation.",
+  "userProblem": "The AI is too noisy at the source: low-confidence candidates default to 'new' (line 152 of v4_reconciliation.py), so the suggestion queue fills with low-quality 'maybe?' suggestions. The user can't see what the AI did during capture \u2014 the response is fire-and-forget with a 5-30s gap. The agent_activity log shows raw event types ('ai_updated at 14:32') instead of plain English ('I created task X from your note'). Combined, these mean the user either trusts the AI blindly (risky) or reviews every suggestion exhaustively (expensive). The redesign needs to address the trust deficit at the source, not by adding more UI chrome over a noisy output.",
+  "whyNow": "These three changes are the prerequisites for the rest of the v5 redesign. Without skip/uncertain the Ask \u2726 endpoint (Phase 3) will inherit the same noise problem. Without streaming capture the new capture sheet (Phase 2) will feel frozen during 30s LLM work. Without templated narration the new timeline view (Phase 3) will read as a log dump instead of a story. Tier 1 + 2 of the noise reduction work shipped on 2026-06-27 (untitled-fallback + gpt-5.4-nano + 4 extraction gating fixes); this phase is the next layer. The three slices are small, independent, and testable in isolation.",
   "scope": {
     "filesAffected": [
       "api/v4_entities.py",
@@ -29,16 +29,16 @@
     {
       "id": "prd-skip-uncertain",
       "title": "Add skip and uncertain to reconciliation decision vocabulary",
-      "description": "Currently the reconciliation LLM picks one of {new, update, link} per candidate, and the default is 'new' (v4_reconciliation.py line 152). This means a low-confidence 'Mary mentioned X' candidate gets suggested as 'create a new person Mary' even when there's a 30% chance the model is wrong. Extend the decision vocabulary to {new, update, link, skip, uncertain}. 'skip' = take no action, do not suggest. 'uncertain' = surface to the user for review with an explicit 'I wasn't sure' label. Default for low-confidence candidates becomes 'skip' instead of 'new'. Auto-create threshold drops from 0.9 to 0.85. The replay harness (scripts/replay_eval.py) is the safety net: run before and after, verify no regression on labeled 'expected: new' cases and ≥30% drop in suggestion count on the dismissed-creates fixture set.",
+      "description": "Currently the reconciliation LLM picks one of {new, update, link} per candidate, and the default is 'new' (v4_reconciliation.py line 152). This means a low-confidence 'Mary mentioned X' candidate gets suggested as 'create a new person Mary' even when there's a 30% chance the model is wrong. Extend the decision vocabulary to {new, update, link, skip, uncertain}. 'skip' = take no action, do not suggest. 'uncertain' = surface to the user for review with an explicit 'I wasn't sure' label. Default for low-confidence candidates becomes 'skip' instead of 'new'. Auto-create threshold drops from 0.9 to 0.85. The replay harness (scripts/replay_eval.py) is the safety net: run before and after, verify no regression on labeled 'expected: new' cases and \u226530% drop in suggestion count on the dismissed-creates fixture set.",
       "risk": "low",
       "acceptanceCriteria": [
         "services/v4_reconciliation.py prompt includes the new decision options skip and uncertain with explicit definitions",
         "v4_reconciliation.py::_reconcile_candidates pads default decisions to 'skip' (not 'new') for low-confidence cases (confidence < 0.5)",
-        "api/v4_entities.py::_can_auto_create_entity auto-create threshold is 0.85 (was 0.9); values 0.5 ≤ confidence < 0.85 return False (suggest to review queue); confidence < 0.5 returns False AND the suggestion is marked as 'uncertain' in the reason field",
+        "api/v4_entities.py::_can_auto_create_entity auto-create threshold is 0.85 (was 0.9); values 0.5 \u2264 confidence < 0.85 return False (suggest to review queue); confidence < 0.5 returns False AND the suggestion is marked as 'uncertain' in the reason field",
         "A new function services/v4_reconciliation.py::is_uncertain_decision(decision) returns True for action='skip' or action='uncertain' OR for confidence below the threshold; used by the capture response to label suggestions with 'AI wasn't sure' copy",
         "tests/unit/test_v4_reconciliation.py has new tests: test_low_confidence_defaults_to_skip, test_uncertain_decision_labeled_in_reason, test_high_confidence_still_creates",
         "tests/integration/test_v4_capture_extraction.py has new tests: test_capture_low_confidence_task_no_suggestion_emitted, test_capture_medium_confidence_task_marked_uncertain",
-        "Replay harness runs cleanly before and after; suggestion count on fixture set drops ≥30% with no false negatives on 'expected: new' labels",
+        "Replay harness runs cleanly before and after; suggestion count on fixture set drops \u226530% with no false negatives on 'expected: new' labels",
         "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/unit/test_v4_reconciliation.py tests/unit/test_v4_extraction.py tests/integration/test_v4_capture_extraction.py tests/integration/test_v4_suggestions.py passes (no regressions)"
       ],
       "validationCommands": [
@@ -86,7 +86,7 @@
       "acceptanceCriteria": [
         "services/v4_narration.py exists with a function narrate_event(event: EntityEvent) -> str",
         "Templates cover all 22 ENTITY_EVENT_TYPES from api/v4_entities.py",
-        "Each template uses payload fields when present: 'ai_updated' + {task_created: X, from_note: Y} → 'I created task X from your note Y'",
+        "Each template uses payload fields when present: 'ai_updated' + {task_created: X, from_note: Y} \u2192 'I created task X from your note Y'",
         "An LRU cache (max 10k entries) keyed on event_id wraps the template function",
         "GET /api/v4/entities/<id>/events response includes a new 'narration' field on each event",
         "tests/unit/test_v4_narration.py with new tests for each template + cache hit + default fallback",
@@ -104,5 +104,16 @@
       "blockerReason": null,
       "validationEvidence": null
     }
-  ]
+  ],
+  "codingLoopPolicy": {
+    "primaryExecutor": "opencode",
+    "fallbackExecutors": [
+      "cursor",
+      "codex",
+      "claude"
+    ],
+    "platform": "openclaw",
+    "allowExecutorFallback": true,
+    "requireHumanForDependencies": true
+  }
 }
