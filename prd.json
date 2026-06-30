@@ -1,108 +1,179 @@
 {
-  "iteration": "v5-redesign-phase1-trust-foundation",
-  "goal": "Build the trust foundation for the v5 redesign before adding new AI surfaces. Three independent backend slices: (1) extend the reconciliation decision vocabulary to skip and uncertain so the AI admits when it doesn't know, (2) stream the capture response so the user watches the AI work, (3) add templated AI narration on the existing event log so the agent's actions are described in plain English. None of these change the user-facing data model; they change the AI's behavior at the source and make that behavior legible in real time. After Phase 1 the user should feel the AI is more honest and more inspectable, which is the prerequisite for Phase 3's Ask \u2726 and Memory view.",
+  "iteration": "v5-redesign-phase2-composition",
+  "goal": "Build the new UI shell using the trust foundation from Phase 1. Three lenses (Now, Threads, Recall), one universal list component, sentence-shaped rows, the capture sheet with streaming response, and mobile responsive layouts. Phase 1 must be deployed and stable before Phase 2 launches. The new UI composes existing /api/v4 endpoints (today, summary, search, capture, entities) plus the new /api/v4/threads endpoint. No new AI behavior in this phase \u2014 the AI is what Phase 1 made it.",
   "riskLevel": "low",
-  "userProblem": "The AI is too noisy at the source: low-confidence candidates default to 'new' (line 152 of v4_reconciliation.py), so the suggestion queue fills with low-quality 'maybe?' suggestions. The user can't see what the AI did during capture \u2014 the response is fire-and-forget with a 5-30s gap. The agent_activity log shows raw event types ('ai_updated at 14:32') instead of plain English ('I created task X from your note'). Combined, these mean the user either trusts the AI blindly (risky) or reviews every suggestion exhaustively (expensive). The redesign needs to address the trust deficit at the source, not by adding more UI chrome over a noisy output.",
-  "whyNow": "These three changes are the prerequisites for the rest of the v5 redesign. Without skip/uncertain the Ask \u2726 endpoint (Phase 3) will inherit the same noise problem. Without streaming capture the new capture sheet (Phase 2) will feel frozen during 30s LLM work. Without templated narration the new timeline view (Phase 3) will read as a log dump instead of a story. Tier 1 + 2 of the noise reduction work shipped on 2026-06-27 (untitled-fallback + gpt-5.4-nano + 4 extraction gating fixes); this phase is the next layer. The three slices are small, independent, and testable in isolation.",
+  "userProblem": "The current UI scatters rich signals across 8+ separate views (Home, Today, Inbox, Search, 6 entity lists, Agent Activity, Suggestions). The user has to mentally compose the attention signal, the entity detail, the agent activity, and the capture state to know what to do next. The new design collapses 8 surfaces into 3 lenses + 3 sheets, with consistent sentence-shaped rows and a persistent FAB for capture. The threads concept unifies what was 6 type pages into one ranked list.",
+  "whyNow": "Phase 1 (skip/uncertain + streaming + narration) rebuilds AI trust at the source. Phase 2 builds the new UI shell that exposes the trust-improved AI behavior. Without Phase 2, the user can't see the streaming capture response in a useful way (it lands on the old capture form which doesn't render events). Without Phase 2, the AI's new skip/uncertain decisions have no UI affordance to display them. Phase 2 is the bridge between Phase 1's backend work and the user's daily workflow.",
   "scope": {
     "filesAffected": [
-      "api/v4_entities.py",
-      "services/v4_extraction.py",
-      "services/v4_reconciliation.py",
-      "services/v4_narration.py",
-      "tests/integration/test_v4_capture_extraction.py",
-      "tests/integration/test_v4_suggestions.py",
-      "tests/unit/test_v4_extraction.py",
-      "tests/unit/test_v4_reconciliation.py"
+      "ui/src/App.jsx",
+      "ui/src/views/V5Now.jsx (new)",
+      "ui/src/views/V5Threads.jsx (new)",
+      "ui/src/views/V5ThreadDetail.jsx (new)",
+      "ui/src/views/V5EntityRow.jsx (new)",
+      "ui/src/views/V5Recall.jsx (new)",
+      "ui/src/views/V5CaptureSheet.jsx (new)",
+      "ui/src/components/XGlyph.jsx (new)",
+      "ui/src/components/AIInspector.jsx (new)",
+      "ui/src/components/Sheet.jsx (new)",
+      "ui/src/components/TopBar.jsx (new)",
+      "ui/src/api/v5Client.js (new)",
+      "ui/src/styles/v5.module.css (new)",
+      "ui/src/views/V4*.jsx (delete after V5 verified)",
+      "api/v4_entities.py (new /api/v4/threads endpoint)"
     ],
     "routesAffected": [
-      "POST /api/v4/capture",
-      "GET /api/v4/entities/<id>/events"
+      "GET /api/v4/threads (new)",
+      "GET /api/v4/today (reused)",
+      "GET /api/v4/summary (reused)",
+      "GET /api/v4/search (reused)",
+      "POST /api/v4/capture (reused; capture sheet uses ?stream=true from Phase 1.2)",
+      "GET /api/v4/entities/<id> (reused)",
+      "GET /api/v4/entities/<id>/events (reused; uses narration from Phase 1.3)"
     ],
     "dataOrApiDependencies": [
-      "Slice 1.1 (skip/uncertain) changes the default behavior of the reconciliation prompt and the auto-create threshold. Existing tests that assert on 'new' actions for low-confidence candidates must be updated to assert 'skip' or 'uncertain' instead.",
-      "Slice 1.2 (streaming) changes the capture response shape from a single JSON to a stream of events followed by a final JSON. Plan: a query param ?stream=true opt-in for the new behavior; the existing JSON response stays for callers that don't opt in."
+      "Slice 2.1 (shell + Now) reuses /api/v4/today, /api/v4/summary with mocked data initially; switches to real data once 2.2 lands",
+      "Slice 2.2 (threads endpoint) is the only new backend slice in Phase 2; everything else is frontend. Implementation: extend _coordination_radar_* to return ALL threads (not just top 3) and add /api/v4/threads route handler. Topic clustering via embedding similarity on notes is optional for this phase \u2014 can be deferred to Phase 3 if needed",
+      "The V4 views (V4Home, V4Today, V4Inbox, etc.) are deleted only after V5 views are verified end-to-end. The deletion is the last step of Phase 2.5, not a separate slice. Until deletion, both V4 and V5 are live and routable via a feature flag in App.jsx"
     ],
     "writePathsAffected": []
   },
   "tasks": [
     {
-      "id": "prd-skip-uncertain",
-      "title": "Add skip and uncertain to reconciliation decision vocabulary",
-      "description": "Currently the reconciliation LLM picks one of {new, update, link} per candidate, and the default is 'new' (v4_reconciliation.py line 152). This means a low-confidence 'Mary mentioned X' candidate gets suggested as 'create a new person Mary' even when there's a 30% chance the model is wrong. Extend the decision vocabulary to {new, update, link, skip, uncertain}. 'skip' = take no action, do not suggest. 'uncertain' = surface to the user for review with an explicit 'I wasn't sure' label. Default for low-confidence candidates becomes 'skip' instead of 'new'. Auto-create threshold drops from 0.9 to 0.85. The replay harness (scripts/replay_eval.py) is the safety net: run before and after, verify no regression on labeled 'expected: new' cases and \u226530% drop in suggestion count on the dismissed-creates fixture set.",
+      "id": "prd-shell-now",
+      "title": "Top bar (3 lenses + FAB + Ask + trust score) and Now view (sentence-shaped rows)",
+      "description": "Build the new top bar component (TopBar.jsx) with: brand glyph, three lens toggles (Now / Threads / Recall), + Ask \u2726 button, theme switcher, trust score chip. Build the new Now view (V5Now.jsx) that fetches /api/v4/today and renders ranked items as sentence-shaped rows. Each row: subject (one sentence), metadata (when + why-it-matters-now + thread context), 1-3 action buttons. Initial data: mocked JSON matching the v5 mockup-pass2.html screen; switch to live /api/v4/today once Slice 2.2 threads endpoint lands. Soft labels separate 'needs you now,' 'waiting on you,' 'ambient.' The capture sheet is not in this slice \u2014 that's Slice 2.4. Mobile responsive: same content, full-width cards, FAB prominent bottom-right.",
       "risk": "low",
       "acceptanceCriteria": [
-        "services/v4_reconciliation.py prompt includes the new decision options skip and uncertain with explicit definitions",
-        "v4_reconciliation.py::_reconcile_candidates pads default decisions to 'skip' (not 'new') for low-confidence cases (confidence < 0.5)",
-        "api/v4_entities.py::_can_auto_create_entity auto-create threshold is 0.85 (was 0.9); values 0.5 \u2264 confidence < 0.85 return False (suggest to review queue); confidence < 0.5 returns False AND the suggestion is marked as 'uncertain' in the reason field",
-        "A new function services/v4_reconciliation.py::is_uncertain_decision(decision) returns True for action='skip' or action='uncertain' OR for confidence below the threshold; used by the capture response to label suggestions with 'AI wasn't sure' copy",
-        "tests/unit/test_v4_reconciliation.py has new tests: test_low_confidence_defaults_to_skip, test_uncertain_decision_labeled_in_reason, test_high_confidence_still_creates",
-        "tests/integration/test_v4_capture_extraction.py has new tests: test_capture_low_confidence_task_no_suggestion_emitted, test_capture_medium_confidence_task_marked_uncertain",
-        "Replay harness runs cleanly before and after; suggestion count on fixture set drops \u226530% with no false negatives on 'expected: new' labels",
-        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/unit/test_v4_reconciliation.py tests/unit/test_v4_extraction.py tests/integration/test_v4_capture_extraction.py tests/integration/test_v4_suggestions.py passes (no regressions)"
+        "ui/src/components/TopBar.jsx renders brand + 3 lens toggles + Ask button + theme + trust score; matches v5 mockup (00-overview.md \u00a7'The new UI')",
+        "ui/src/views/V5Now.jsx fetches /api/v4/today (or mocked data) and renders ranked items as sentence-shaped rows; matches v5 mockup (mockup-pass2.html screen m-now)",
+        "Mobile: same content in single column, full-width cards, FAB bottom-right (mockup-pass2.html screen m-mobile)",
+        "Storybook stories for TopBar (3 states: default, theme=dark, trust low) and Now (3 states: needs-you-now, waiting-on-you, ambient)",
+        "Lighthouse a11y score \u226595 on both desktop and mobile renders",
+        "Routes: /now, /threads, /recall (placeholder for now); feature flag in App.jsx toggles V4 vs V5",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test passes (frontend suite green)",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build passes",
+        "Manual smoke: open /now, verify three sections render with realistic data, verify tap-through to entity detail (existing V4EntityDetail still works for this slice)"
       ],
       "validationCommands": [
-        "cd /Volumes/lex1t/dev/shared/repos/engram && grep -nE '\"skip\"|\"uncertain\"|action.*skip|action.*uncertain' services/v4_reconciliation.py api/v4_entities.py",
-        "cd /Volumes/lex1t/dev/shared/repos/engram && grep -nE '_can_auto_create_entity|0\\.85|0\\.9' api/v4_entities.py | head -20",
-        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/unit/test_v4_reconciliation.py tests/unit/test_v4_extraction.py tests/integration/test_v4_capture_extraction.py tests/integration/test_v4_suggestions.py"
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && test -f src/components/TopBar.jsx && test -f src/views/V5Now.jsx",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build"
       ],
       "blocked": false,
-      "passes": true,
-      "attempts": 2,
+      "passes": false,
+      "attempts": 0,
       "blockerReason": null,
-      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/unit/test_v4_reconciliation.py tests/unit/test_v4_extraction.py tests/unit/test_v4_narration.py tests/integration/test_v4_capture_extraction.py tests/integration/test_v4_suggestions.py tests/integration/test_v4_entity_detail.py\n....................................................................................................................\n116 passed in 17.64s"
+      "validationEvidence": null
     },
     {
-      "id": "prd-streaming-capture",
-      "title": "Stream capture response via SSE (opt-in via ?stream=true)",
-      "description": "POST /api/v4/capture currently blocks for 5-30s and returns a single JSON with applied_changes and suggestions. Add an opt-in streaming mode: when ?stream=true, the response is a Server-Sent Events stream with events: 'reading', 'extracting', 'candidates', 'reconciling', 'applying', 'linking', 'summarizing', 'done'. The existing single-shot response stays as the default for backward compat. The frontend's new capture sheet (Phase 2) will use ?stream=true to render live progress.",
-      "risk": "low",
+      "id": "prd-threads",
+      "title": "/api/v4/threads endpoint + Threads lens view",
+      "description": "Add a new backend route GET /api/v4/threads?rank=attention&limit=20 that returns ranked threads (people + projects + topics). Each thread: id, type, name, attention_score, attention_reasons, last_activity_at, last_context, key_items. Implementation: extend _coordination_radar_people and _coordination_radar_projects to return all threads (not just the radar-culled top 3); add a topic-clustering pass over notes with cosine similarity \u22650.7 to surface topic threads that don't have a parent entity. Add /api/v4/threads route handler. Frontend V5Threads.jsx consumes the endpoint and renders the ranked list (matches v5 mockup m-threads). Topics are a soft pass for this slice \u2014 can return [] if clustering is too expensive; ranked people + projects alone is enough to validate the IA.",
+      "risk": "medium",
       "acceptanceCriteria": [
-        "api/v4_entities.py::capture() detects ?stream=true and returns a Response with mimetype='text/event-stream' instead of a JSON response",
-        "Each pipeline step emits a Server-Sent Event with type matching the step name and a data field with step-specific JSON",
-        "The 'done' event's data field has the same shape as the current single-shot response; existing JSON consumers see no breaking change",
-        "Errors during streaming emit a 'error' event with the exception message in data, then close the stream with HTTP 200",
-        "Existing single-shot behavior (?stream=false or absent) is unchanged",
-        "tests/integration/test_v4_capture_extraction.py has new tests: test_capture_stream_emits_all_events, test_capture_stream_done_event_matches_single_shot, test_capture_stream_error_event",
-        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration/test_v4_capture_extraction.py tests/integration/test_v4_capture.py passes",
-        "Manual smoke: capture a 200-word note via curl with ?stream=true, verify all 8 events arrive"
+        "GET /api/v4/threads?rank=attention&limit=20 returns JSON with shape {threads: [{id, type, name, attention_score, attention_reasons, last_activity_at, last_context, key_items}]}",
+        "Topic clustering is best-effort; if embedding similarity pass is too slow (>500ms), return [] for topics and log a warning; do not fail the request",
+        "Attention reasons are the same reasons v4_attention.py computes per-entity, summed/aggregated for thread members",
+        "last_context is a 1-sentence summary of the most recent activity (use the most recent note's content or 'last activity on <date>')",
+        "Tests: tests/integration/test_v4_threads.py with test_threads_returns_active_people_and_projects, test_threads_ranked_by_attention, test_threads_includes_last_context, test_threads_topic_clustering_optional",
+        "Frontend V5Threads.jsx renders the list with hot/warm/ambient bands (matches mockup m-threads)",
+        "Mobile: single column, full-width thread cards (reuses V5EntityRow component from Slice 2.1)",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration/test_v4_threads.py tests/integration/test_v4_today.py passes",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test && npm run build",
+        "Manual smoke: open /threads, verify ranked list of people + projects with attention_score visible, verify tap-through to thread detail (uses V4EntityDetail for this slice)"
       ],
       "validationCommands": [
-        "cd /Volumes/lex1t/dev/shared/repos/engram && grep -nE 'stream.*true|text/event-stream|sse' api/v4_entities.py | head -10",
-        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration/test_v4_capture_extraction.py tests/integration/test_v4_capture.py",
-        "cd /Volumes/lex1t/dev/shared/repos/engram && curl -fsS -N -X POST 'http://localhost:5001/api/v4/capture?stream=true' -H 'Content-Type: application/json' -d '{\"content\":\"Test capture for SSE smoke\"}' | head -30"
+        "cd /Volumes/lex1t/dev/shared/repos/engram && grep -nE '/threads|@api_v4_bp\\.route' api/v4_entities.py | grep -i thread",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration/test_v4_threads.py",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && curl -fsS 'http://localhost:5001/api/v4/threads?limit=5' | python3 -c 'import json,sys; d=json.load(sys.stdin); assert \"threads\" in d; print(f\"{len(d[\\\"threads\\\"])} threads returned\")'"
       ],
       "blocked": false,
-      "passes": true,
-      "attempts": 1,
+      "passes": false,
+      "attempts": 0,
       "blockerReason": null,
-      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram && grep -nE 'stream.*true|text/event-stream|sse' api/v4_entities.py | head -10\n21:    \"note\": [\"active\", \"processed\", \"archived\"],\n41:    \"note\": {\"active\", \"processed\", \"archived\"},\n214:    dismissed = suggestion_counts.get(\"dismissed\", 0)\n216:    decided = accepted + dismissed\n262:    corrections_total = reverts + merges + dismissed + quick_kills\n292:            \"dismissed\": dismissed,\n303:            \"dismissals\": dismissed,\n970:    category = \"review_action\" if event.event_type in {\"suggestion_accepted\", \"suggestion_dismissed\"} else \"auto_applied\"\n2394:    suggestion.status = \"dismissed\"\n2400:            \"suggestion_dismissed\",\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration/test_v4_capture_extraction.py tests/integration/test_v4_capture.py\n......................................................                   [100%]\n54 passed in 39.57s\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram && curl -fsS -N -X POST 'http://localhost:5001/api/v4/capture?stream=true' -H 'Content-Type: application/json' -d '{\"content\":\"Test capture for SSE smoke\"}' | head -30\n{\"applied_changes\":[],\"reason\":\"exact duplicate\",\"skipped\":true,\"source_note\":{\"ai\":{\"confidence\":0.95,\"entity_summarized_at\":null,\"entity_summary\":null,\"intent\":\"junk\",\"intent_confidence\":0.98,\"review_resolution\":null,\"review_state\":null,\"reviewed_at\":null,\"status\":\"done\",\"summary\":\"A brief test note about SSE smoke capture. It does not contain any concrete action items, named people, projects, or resources beyond the topic itself.\"},\"areas\":[],\"content\":\"Test capture for SSE smoke\",\"created_at\":\"2026-06-30T00:29:19.187669+00:00\",\"due_at\":null,\"follow_up_at\":null,\"id\":\"c647a0c1-d56b-4dfc-a2b1-c28cfc30fbe3\",\"lifecycle\":\"active\",\"linked_counts\":{},\"people\":[],\"projects\":[],\"properties\":{},\"reference_url\":null,\"relationship_counts\":{\"incoming\":0,\"outgoing\":0},\"source\":\"quick_capture\",\"status\":\"active\",\"tags\":[{\"id\":\"80d6b808-cdbd-4455-99af-dd1102620dce\",\"name\":\"sse\"},{\"id\":\"d24350eb-538d-47e9-b0f1-6eeaf88fb784\",\"name\":\"smoke-test\"},{\"id\":\"f4f45e73-3935-4315-b2ec-aa6b5ea7f781\",\"name\":\"testing\"}],\"task_counts\":{\"open\":0,\"total\":0},\"title\":\"Test capture for SSE smoke\",\"type\":\"note\",\"updated_at\":\"2026-06-30T00:29:19.187669+00:00\"},\"suggestions\":[],\"warnings\":[]}"
+      "validationEvidence": null
     },
     {
-      "id": "prd-narration-templates",
-      "title": "Templated AI narration on entity_events (read-side, cached)",
-      "description": "entity_events rows have event_type and reason but no human-readable narration. Add a services/v4_narration.py module that generates a 1-sentence narration for each event_type via templates. Templates cover the 80% case; the remaining 20% fall back to a default. Surface as event.narration on /api/v4/entities/<id>/events responses. Generated on read, cached per event_id in memory (LRU 10k entries); no LLM call in the read path. This is the read-side companion to the existing entity_events writer; no writer changes.",
+      "id": "prd-thread-detail",
+      "title": "Thread detail view (continuous timeline + next actions + decisions + people + related threads)",
+      "description": "Build V5ThreadDetail.jsx as the new deep surface. Replaces V4EntityDetail. Same regions for every entity type (project, person, area, resource, task, note): header (type glyph + title + status), narrative summary (from existing summarization or 'I haven't summarized this yet'), next actions (extracted from child tasks + decisions + blocking entities), continuous timeline (entity_events with narration from Phase 1.3), people section (typed relationships), related threads (clusters that share members with this thread). Narrative summary uses the existing canonical_document.py or a short 'current state' summary if available. Type-specific workspace panels (project_pulse, person_pulse, dependency_watch) are folded into the 'next actions' section as inline cards; not boxed regions. Mobile: single column, full-width sections, long-press for actions.",
       "risk": "low",
       "acceptanceCriteria": [
-        "services/v4_narration.py exists with a function narrate_event(event: EntityEvent) -> str",
-        "Templates cover all 22 ENTITY_EVENT_TYPES from api/v4_entities.py",
-        "Each template uses payload fields when present: 'ai_updated' + {task_created: X, from_note: Y} \u2192 'I created task X from your note Y'",
-        "An LRU cache (max 10k entries) keyed on event_id wraps the template function",
-        "GET /api/v4/entities/<id>/events response includes a new 'narration' field on each event",
-        "tests/unit/test_v4_narration.py with new tests for each template + cache hit + default fallback",
-        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/unit/test_v4_narration.py tests/integration/test_v4_entity_detail.py tests/integration/test_v4_capture_extraction.py passes",
-        "Manual smoke: GET /api/v4/entities/<id>/events for an entity with 5+ events, verify every event has a non-empty 'narration' field"
+        "ui/src/views/V5ThreadDetail.jsx renders all 5 regions (header, narrative, next actions, timeline, people, related threads) for every entity type",
+        "Timeline uses event.narration from Phase 1.3; no raw event_type strings visible to the user",
+        "Next actions section surfaces top 3 things the user could do (open task, send reminder, decide, etc.); each action has an inline button",
+        "Type-specific signals (project_pulse, person_pulse) appear as compact cards inside the 'next actions' section, not as separate boxed panels",
+        "Storybook story: V5ThreadDetail for each entity type (project, person, area, resource, task, note) with sample data",
+        "Mobile layout: single column, full-width sections, FAB still bottom-right (matches mockup m-thread-detail-mobile)",
+        "Lighthouse a11y \u226595",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test && npm run build",
+        "Manual smoke: tap into a project, a person, and a note thread; verify the layout is consistent across types and the timeline reads as a story not a log"
       ],
       "validationCommands": [
-        "cd /Volumes/lex1t/dev/shared/repos/engram && test -f services/v4_narration.py && grep -nE 'def narrate_event|ENTITY_EVENT_TYPES|templates' services/v4_narration.py | head -10",
-        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/unit/test_v4_narration.py tests/integration/test_v4_entity_detail.py tests/integration/test_v4_capture_extraction.py",
-        "cd /Volumes/lex1t/dev/shared/repos/engram && curl -fsS http://localhost:5001/api/v4/entities/<id>/events | python3 -c 'import json,sys; d=json.load(sys.stdin); assert all(\"narration\" in e for e in d); print(\"ok\")'"
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && test -f src/views/V5ThreadDetail.jsx",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build"
       ],
       "blocked": false,
-      "passes": true,
-      "attempts": 2,
+      "passes": false,
+      "attempts": 0,
       "blockerReason": null,
-      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/unit/test_v4_reconciliation.py tests/unit/test_v4_extraction.py tests/unit/test_v4_narration.py tests/integration/test_v4_capture_extraction.py tests/integration/test_v4_suggestions.py tests/integration/test_v4_entity_detail.py\n....................................................................................................................\n116 passed in 17.64s"
+      "validationEvidence": null
+    },
+    {
+      "id": "prd-capture-sheet",
+      "title": "Capture sheet with streaming response and contextual thread attachment",
+      "description": "Build V5CaptureSheet.jsx as a modal sheet (web) or bottom sheet (mobile) that opens from the FAB. The sheet has a single multi-line input. When the user types in a thread context, the sheet auto-attaches to that thread (the attachment is shown at the top, can be changed via a dropdown). On save, the sheet uses POST /api/v4/capture?stream=true and renders live progress events from the SSE stream. After the 'done' event, the sheet closes with a 1.5-second toast 'Saved \u00b7 AI processing (N applied, M suggested). [View]'. Errors render inline; user can retry. The sheet replaces the old capture form in V4Inbox. The copy in the placeholder text is honest: 'Type anything. I'll suggest what I think it means; you can revert any of it after saving.' NOT 'AI will figure out what you mean' (that was the magical-thinking copy in Pass 2.0, replaced in Pass 2.5).",
+      "risk": "low",
+      "acceptanceCriteria": [
+        "ui/src/views/V5CaptureSheet.jsx opens from the FAB on any screen; context-aware: tap from inside a thread \u2192 attached by default; tap from Now or Threads \u2192 generic",
+        "Save uses POST /api/v4/capture?stream=true; live events render as they arrive (e.g. 'extracting\u2026', 'linking Mary to HITL\u2026', 'done')",
+        "Final 'done' event payload closes the sheet and shows a 1.5s toast with applied count + suggested count + [View] link",
+        "Errors render inline with retry button; sheet stays open on error",
+        "Mobile: slide-up bottom sheet, takes full width, drag-down to dismiss, FAB replaced by a header bar (input only)",
+        "Placeholder text is honest about AI behavior; copy matches the v5 spec (not the Pass 2.0 magical-thinking version)",
+        "Storybook: capture sheet in 3 states (empty, typing, streaming), 3 attachment states (none, thread, project)",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test && npm run build",
+        "Manual smoke: capture from Now, capture from inside a thread (verify auto-attach), verify streaming events render in real time"
+      ],
+      "validationCommands": [
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && test -f src/views/V5CaptureSheet.jsx",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build"
+      ],
+      "blocked": false,
+      "passes": false,
+      "attempts": 0,
+      "blockerReason": null,
+      "validationEvidence": null
+    },
+    {
+      "id": "prd-mobile-shell",
+      "title": "Mobile responsive layouts for Now, Threads, Thread detail (final pass + delete V4)",
+      "description": "After 2.1-2.4 land, do a mobile-responsive pass on the full app: V5Recall (search/ask palette as bottom sheet), V5ThreadDetail (single column), all the modals (bottom sheets on mobile). Verify the V4 views are no longer used; delete V4Home, V4Today, V4Inbox, V4EntityList, V4EntityDetail, V4Suggestions, V4AgentActivity, V4Search from ui/src/views/. Remove the feature flag in App.jsx; V5 is the only path. This is the cleanup that makes Phase 2 actually shippable. If V4 deletion reveals a gap in V5 (e.g. a view that wasn't migrated), add the missing slice to Phase 2 and re-validate before moving to Phase 3.",
+      "risk": "low",
+      "acceptanceCriteria": [
+        "V5Recall implemented as a bottom sheet on mobile (full-screen modal on desktop) \u2014 reuses the \u2318K palette logic",
+        "All modals (capture, ask, decision) render as bottom sheets on mobile (was: centered modals on desktop)",
+        "V4 views deleted from ui/src/views/: V4Home, V4Today, V4Inbox, V4EntityList, V4EntityDetail, V4Suggestions, V4AgentActivity, V4Search",
+        "App.jsx feature flag removed; V5 is the only path",
+        "Lighthouse mobile audit: performance \u226585, a11y \u226595, best-practices \u226590, PWA (basic installability) optional",
+        "Manual smoke on real device (Safari iOS, Chrome Android) for: Now render, Thread detail scroll, capture sheet open/close, search palette open",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test && npm run build",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run lint (if configured)"
+      ],
+      "validationCommands": [
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && ! test -f src/views/V4Home.jsx && ! test -f src/views/V4Today.jsx && ! test -f src/views/V4Inbox.jsx && ! test -f src/views/V4EntityDetail.jsx",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && grep -nE 'FEATURE_FLAG_V5|useV5|V5_ENABLED' src/App.jsx || echo 'no feature flag (good)'"
+      ],
+      "blocked": false,
+      "passes": false,
+      "attempts": 0,
+      "blockerReason": null,
+      "validationEvidence": null
     }
   ],
   "codingLoopPolicy": {
