@@ -185,10 +185,10 @@
         "cd /Volumes/lex1t/dev/shared/repos/engram/ui && grep -nE 'FEATURE_FLAG_V5|useV5|V5_ENABLED' src/App.jsx || echo 'no feature flag (good)'"
       ],
       "blocked": false,
-      "passes": false,
-      "attempts": 0,
+      "passes": true,
+      "attempts": 1,
       "blockerReason": null,
-      "validationEvidence": null,
+      "validationEvidence": "manually cherry-picked 0733e2e6 from worktree prd-mobile-shell-opencode-a001-opencode (commit 801ea847); deleted V4 views, added V5EntityList/V5Recall/V5RecallOpener/RecallContext",
       "dependencies": [
         "prd-shell-now",
         "prd-threads",
