@@ -1,0 +1,110 @@
+.row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: start;
+  padding: 12px 14px;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 10px;
+  background: var(--bg-elev, #fff);
+  text-decoration: none;
+  color: inherit;
+}
+
+.rowHot {
+  border-left: 3px solid var(--temp-urgent, #c0392b);
+}
+
+.rowWarm {
+  border-left: 3px solid var(--temp-warm, #c87f1c);
+}
+
+.rowDefault {
+  border-left: 3px solid transparent;
+}
+
+.rowMain {
+  min-width: 0;
+}
+
+.sentence {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.meta {
+  margin-top: 4px;
+  font-size: 0.78rem;
+  color: var(--text-soft, #4b5563);
+}
+
+.lastContext {
+  margin-top: 4px;
+  font-size: 0.76rem;
+  font-style: italic;
+  color: var(--text-muted, #6b7280);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+}
+
+.badgeUrgent,
+.badgeHigh,
+.badgeWarm,
+.badgeQuiet {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.badgeUrgent {
+  color: var(--temp-urgent, #c0392b);
+  background: color-mix(in srgb, var(--temp-urgent, #c0392b) 12%, transparent);
+}
+
+.badgeHigh {
+  color: var(--due, #b45309);
+  background: color-mix(in srgb, var(--due, #b45309) 12%, transparent);
+}
+
+.badgeWarm {
+  color: var(--temp-warm, #c87f1c);
+  background: color-mix(in srgb, var(--temp-warm, #c87f1c) 12%, transparent);
+}
+
+.badgeQuiet {
+  color: var(--text-muted, #6b7280);
+  background: color-mix(in srgb, var(--text-muted, #6b7280) 10%, transparent);
+}
+
+.ambientCard {
+  display: block;
+  padding: 10px 12px;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 8px;
+  background: var(--bg-elev, #fff);
+  text-decoration: none;
+  color: inherit;
+}
+
+.ambientHead {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted, #6b7280);
+  margin-bottom: 4px;
+}
+
+.ambientBody {
+  font-size: 0.78rem;
+  color: var(--text-soft, #4b5563);
+}
+
+@media (max-width: 720px) {
+  .row {
+    width: 100%;
+  }
+}

@@ -3,7 +3,9 @@
 from datetime import datetime, time, timezone, timedelta
 import hashlib
 import json
+import logging
 import re
+import time as time_module
 
 from flask import Response, current_app, jsonify, request, stream_with_context
 from sqlalchemy import func, or_
@@ -12,11 +14,16 @@ from sqlalchemy.orm import selectinload
 
 from api import api_v4_bp
 from extensions import db
-from models import AiSuggestion, AppSetting, Entity, EntityEvent, EntityLink, EntityTag, Job, Tag, _iso
+from models import AiSuggestion, AppSetting, Entity, EntityChunk, EntityEvent, EntityLink, EntityTag, Job, Tag, _iso
 from services import runtime_health
 from services.v4_attention import attention_for_entity, today_attention_count, today_attention_items
 from services.v4_narration import narrate_event
 from services.title_utils import title_or_placeholder
+
+logger = logging.getLogger(__name__)
+
+TOPIC_CLUSTER_SIMILARITY = 0.7
+TOPIC_CLUSTER_TIME_BUDGET_MS = 500
 
 STATUS_BY_TYPE = {
     "note": ["active", "processed", "archived"],
@@ -866,6 +873,16 @@ def summary():
         "new_since_yesterday_count": today_payload["new_since_yesterday_count"],
         "coordination_radar": _coordination_radar(now),
     })
+
+
+@api_v4_bp.route("/threads", methods=["GET"])
+def threads():
+    rank = request.args.get("rank", "attention")
+    if rank != "attention":
+        return _error("unsupported rank; only 'attention' is supported", 400)
+    limit = max(1, min(request.args.get("limit", 20, type=int), 200))
+    now = datetime.now(timezone.utc)
+    return jsonify({"threads": _build_threads_payload(now, limit=limit)})
 
 
 @api_v4_bp.route("/inbox", methods=["GET"])
@@ -4187,12 +4204,12 @@ def _meeting_prep_headline(agenda_count, note_count):
 def _coordination_radar(now=None):
     now = now or datetime.now(timezone.utc)
     return {
-        "people": _coordination_radar_people(now),
-        "projects": _coordination_radar_projects(now),
+        "people": _coordination_radar_people(now, limit=3, require_signal=True),
+        "projects": _coordination_radar_projects(now, limit=3, require_signal=True),
     }
 
 
-def _coordination_radar_people(now):
+def _coordination_radar_people(now, *, limit=3, require_signal=True):
     owner_person_id = _owner_person_id()
     rows = (
         db.session.query(EntityLink.target_entity_id, Entity)
@@ -4243,7 +4260,7 @@ def _coordination_radar_people(now):
             continue
         pulse = _person_pulse(tasks[:50], latest_update, now=now)
         counts = pulse["summary"]
-        if not (counts["stuck_tasks"] or counts["overdue_follow_ups"] or counts["quiet_tasks"]):
+        if require_signal and not (counts["stuck_tasks"] or counts["overdue_follow_ups"] or counts["quiet_tasks"]):
             continue
         radar_items.append({
             "entity_id": person.id,
@@ -4262,7 +4279,9 @@ def _coordination_radar_people(now):
     radar_items.sort(key=lambda item: item["_rank"], reverse=True)
     for item in radar_items:
         item.pop("_rank", None)
-    return radar_items[:3]
+    if limit is None:
+        return radar_items
+    return radar_items[:limit]
 
 
 def _today_dependency_interventions(now):
@@ -4282,7 +4301,7 @@ def _today_dependency_interventions(now):
     return watch["focus_items"]
 
 
-def _coordination_radar_projects(now):
+def _coordination_radar_projects(now, *, limit=3, require_signal=True):
     rows = (
         db.session.query(EntityLink.target_entity_id, Entity)
         .join(Entity, Entity.id == EntityLink.source_entity_id)
@@ -4329,7 +4348,7 @@ def _coordination_radar_projects(now):
             continue
         pulse = _project_pulse(tasks[:50], latest_update, now=now)
         counts = pulse["summary"]
-        if not (counts["stuck_tasks"] or counts["overdue_tasks"] or counts["quiet_tasks"]):
+        if require_signal and not (counts["stuck_tasks"] or counts["overdue_tasks"] or counts["quiet_tasks"]):
             continue
         radar_items.append({
             "entity_id": project.id,
@@ -4348,7 +4367,448 @@ def _coordination_radar_projects(now):
     radar_items.sort(key=lambda item: item["_rank"], reverse=True)
     for item in radar_items:
         item.pop("_rank", None)
-    return radar_items[:3]
+    if limit is None:
+        return radar_items
+    return radar_items[:limit]
+
+
+def _aggregate_attention_reasons(attentions):
+    """Merge attention.reasons from thread members, summing weights by key."""
+    merged = {}
+    for attention in attentions:
+        for reason in attention.get("reasons") or []:
+            key = reason["key"]
+            if key in merged:
+                merged[key]["weight"] += reason["weight"]
+            else:
+                merged[key] = dict(reason)
+    return sorted(merged.values(), key=lambda reason: reason["weight"], reverse=True)
+
+
+def _thread_attention_score(reasons):
+    return max(0, min(100, sum(reason["weight"] for reason in reasons)))
+
+
+def _entity_recent_notes(entity_id, limit=10):
+    return (
+        _entity_query()
+        .join(EntityLink, EntityLink.source_entity_id == Entity.id)
+        .filter(
+            Entity.type == "note",
+            Entity.lifecycle == "active",
+            EntityLink.target_entity_id == entity_id,
+            EntityLink.relationship_type.in_(["mentions", "related", "references"]),
+        )
+        .order_by(Entity.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+
+
+def _thread_last_context(entity, tasks, latest_update, entity_notes, now):
+    """One-sentence summary of the most recent activity."""
+    candidates = []
+    for task in tasks:
+        last = latest_update.get(task.id)
+        if last:
+            created_at, content = last
+            candidates.append((created_at, content))
+    for note in entity_notes:
+        candidates.append((note.created_at, note.content))
+    if entity.updated_at:
+        candidates.append((entity.updated_at, None))
+
+    if not candidates:
+        return f"last activity on {now.date().isoformat()}"
+
+    most_recent = max(
+        candidates,
+        key=lambda item: _ensure_utc(item[0]) or datetime.min.replace(tzinfo=timezone.utc),
+    )
+    created_at, content = most_recent
+    if content and str(content).strip():
+        sentence = str(content).strip().split("\n")[0]
+        if len(sentence) > 200:
+            sentence = sentence[:197] + "..."
+        return sentence
+
+    reference = _ensure_utc(created_at) or now
+    return f"last activity on {reference.strftime('%b %d')}"
+
+
+def _thread_last_activity_at(entity, tasks, latest_update, entity_notes):
+    candidates = []
+    for task in tasks:
+        last = latest_update.get(task.id)
+        if last and last[0]:
+            candidates.append(_ensure_utc(last[0]))
+    for note in entity_notes:
+        if note.created_at:
+            candidates.append(_ensure_utc(note.created_at))
+    if entity.updated_at:
+        candidates.append(_ensure_utc(entity.updated_at))
+    candidates = [value for value in candidates if value is not None]
+    if not candidates:
+        return None
+    return max(candidates)
+
+
+def _build_thread_key_items(tasks, *, inherited_priorities, staleness, blocks, now, limit=3):
+    items = []
+    for task in tasks:
+        attention = attention_for_entity(
+            task,
+            inherited_priority=inherited_priorities.get(task.id),
+            staleness_days=staleness.get(task.id),
+            blocks_count=blocks.get(task.id, 0),
+            now=now,
+        )
+        items.append({
+            "id": task.id,
+            "type": task.type,
+            "name": task.title,
+            "attention_score": attention["score"],
+        })
+    items.sort(key=lambda item: item["attention_score"], reverse=True)
+    return items[:limit]
+
+
+def _person_thread(person, tasks, latest_update, now, inherited_priorities, staleness, blocks):
+    attentions = [
+        attention_for_entity(
+            task,
+            inherited_priority=inherited_priorities.get(task.id),
+            staleness_days=staleness.get(task.id),
+            blocks_count=blocks.get(task.id, 0),
+            now=now,
+        )
+        for task in tasks
+    ]
+    reasons = _aggregate_attention_reasons(attentions)
+    entity_notes = _entity_recent_notes(person.id)
+    last_activity_at = _thread_last_activity_at(person, tasks, latest_update, entity_notes)
+    return {
+        "id": person.id,
+        "type": "person",
+        "name": person.title,
+        "attention_score": _thread_attention_score(reasons),
+        "attention_reasons": reasons,
+        "last_activity_at": _iso(last_activity_at),
+        "last_context": _thread_last_context(person, tasks, latest_update, entity_notes, now),
+        "key_items": _build_thread_key_items(
+            tasks,
+            inherited_priorities=inherited_priorities,
+            staleness=staleness,
+            blocks=blocks,
+            now=now,
+        ),
+    }
+
+
+def _project_thread(project, tasks, latest_update, now, inherited_priorities, staleness, blocks):
+    attentions = [
+        attention_for_entity(
+            task,
+            inherited_priority=inherited_priorities.get(task.id),
+            staleness_days=staleness.get(task.id),
+            blocks_count=blocks.get(task.id, 0),
+            now=now,
+        )
+        for task in tasks
+    ]
+    reasons = _aggregate_attention_reasons(attentions)
+    entity_notes = _entity_recent_notes(project.id)
+    last_activity_at = _thread_last_activity_at(project, tasks, latest_update, entity_notes)
+    return {
+        "id": project.id,
+        "type": "project",
+        "name": project.title,
+        "attention_score": _thread_attention_score(reasons),
+        "attention_reasons": reasons,
+        "last_activity_at": _iso(last_activity_at),
+        "last_context": _thread_last_context(project, tasks, latest_update, entity_notes, now),
+        "key_items": _build_thread_key_items(
+            tasks,
+            inherited_priorities=inherited_priorities,
+            staleness=staleness,
+            blocks=blocks,
+            now=now,
+        ),
+    }
+
+
+def _people_threads(now):
+    owner_person_id = _owner_person_id()
+    rows = (
+        db.session.query(EntityLink.target_entity_id, Entity)
+        .join(Entity, Entity.id == EntityLink.source_entity_id)
+        .filter(
+            EntityLink.relationship_type == "assigned_to",
+            Entity.type == "task",
+            Entity.lifecycle == "active",
+            Entity.status.in_(OPEN_TASK_STATUSES),
+        )
+        .order_by(
+            EntityLink.target_entity_id,
+            Entity.follow_up_at.asc().nullslast(),
+            Entity.updated_at.desc(),
+        )
+        .all()
+    )
+    if not rows:
+        return []
+
+    tasks_by_person_id = {}
+    task_ids = []
+    for person_id, task in rows:
+        tasks_by_person_id.setdefault(person_id, []).append(task)
+        task_ids.append(task.id)
+
+    people = (
+        _entity_query()
+        .filter(
+            Entity.type == "person",
+            Entity.lifecycle == "active",
+            Entity.status == "active",
+            Entity.id.in_(list(tasks_by_person_id)),
+        )
+        .all()
+    )
+    people_by_id = {person.id: person for person in people}
+    latest_update = _latest_activity_updates(task_ids)
+    all_tasks = [task for tasks in tasks_by_person_id.values() for task in tasks]
+    inherited_priorities = _inherited_task_priorities(all_tasks)
+    staleness = _staleness_days_for(all_tasks, now)
+    blocks = _blocking_impact_counts(all_tasks)
+
+    threads = []
+    for person_id, tasks in tasks_by_person_id.items():
+        if owner_person_id is not None and person_id == owner_person_id:
+            continue
+        person = people_by_id.get(person_id)
+        if person is None:
+            continue
+        if owner_person_id is None and _is_owner(person.title, person.id):
+            continue
+        threads.append(
+            _person_thread(
+                person,
+                tasks[:50],
+                latest_update,
+                now,
+                inherited_priorities,
+                staleness,
+                blocks,
+            )
+        )
+    return threads
+
+
+def _project_threads(now):
+    rows = (
+        db.session.query(EntityLink.target_entity_id, Entity)
+        .join(Entity, Entity.id == EntityLink.source_entity_id)
+        .filter(
+            EntityLink.relationship_type == "parent",
+            Entity.type == "task",
+            Entity.lifecycle == "active",
+            Entity.status.in_(OPEN_TASK_STATUSES),
+        )
+        .order_by(
+            EntityLink.target_entity_id,
+            Entity.due_at.asc().nullslast(),
+            Entity.follow_up_at.asc().nullslast(),
+            Entity.updated_at.desc(),
+        )
+        .all()
+    )
+    if not rows:
+        return []
+
+    tasks_by_project_id = {}
+    task_ids = []
+    for project_id, task in rows:
+        tasks_by_project_id.setdefault(project_id, []).append(task)
+        task_ids.append(task.id)
+
+    projects = (
+        _entity_query()
+        .filter(
+            Entity.type == "project",
+            Entity.lifecycle == "active",
+            Entity.status == "active",
+            Entity.id.in_(list(tasks_by_project_id)),
+        )
+        .all()
+    )
+    projects_by_id = {project.id: project for project in projects}
+    latest_update = _latest_activity_updates(task_ids)
+    all_tasks = [task for tasks in tasks_by_project_id.values() for task in tasks]
+    inherited_priorities = _inherited_task_priorities(all_tasks)
+    staleness = _staleness_days_for(all_tasks, now)
+    blocks = _blocking_impact_counts(all_tasks)
+
+    threads = []
+    for project_id, tasks in tasks_by_project_id.items():
+        project = projects_by_id.get(project_id)
+        if project is None:
+            continue
+        threads.append(
+            _project_thread(
+                project,
+                tasks[:50],
+                latest_update,
+                now,
+                inherited_priorities,
+                staleness,
+                blocks,
+            )
+        )
+    return threads
+
+
+def _notes_linked_to_parent_entities(note_ids):
+    if not note_ids:
+        return set()
+    rows = (
+        db.session.query(EntityLink.source_entity_id)
+        .join(Entity, Entity.id == EntityLink.target_entity_id)
+        .filter(
+            EntityLink.source_entity_id.in_(note_ids),
+            EntityLink.relationship_type.in_(["mentions", "related", "parent", "references"]),
+            Entity.type.in_(["person", "project"]),
+        )
+        .all()
+    )
+    return {row[0] for row in rows}
+
+
+def _topic_thread_name(notes):
+    for note in notes:
+        title = (note.title or "").strip()
+        if title:
+            return title
+    for note in notes:
+        content = (note.content or "").strip()
+        if content:
+            line = content.split("\n")[0].strip()
+            if line:
+                return line[:80]
+    return "Untitled topic"
+
+
+def _topic_threads(now, *, limit=20):
+    """Best-effort topic clusters from orphan notes with embeddings."""
+    started = time_module.monotonic()
+
+    def _over_budget():
+        return (time_module.monotonic() - started) * 1000 > TOPIC_CLUSTER_TIME_BUDGET_MS
+
+    try:
+        from services.v4_reconciliation import _cosine
+
+        candidate_notes = (
+            _entity_query()
+            .filter(
+                Entity.type == "note",
+                Entity.lifecycle == "active",
+            )
+            .order_by(Entity.updated_at.desc())
+            .limit(150)
+            .all()
+        )
+        if _over_budget():
+            logger.warning(
+                "topic clustering exceeded %sms budget; returning no topics",
+                TOPIC_CLUSTER_TIME_BUDGET_MS,
+            )
+            return []
+
+        note_ids = [note.id for note in candidate_notes]
+        linked = _notes_linked_to_parent_entities(note_ids)
+        orphan_notes = [note for note in candidate_notes if note.id not in linked]
+        if len(orphan_notes) < 2:
+            return []
+
+        chunks = (
+            db.session.query(EntityChunk)
+            .filter(
+                EntityChunk.entity_id.in_([note.id for note in orphan_notes]),
+                EntityChunk.chunk_index == 0,
+                EntityChunk.embedding.is_not(None),
+            )
+            .all()
+        )
+        embedding_by_note = {chunk.entity_id: chunk.embedding for chunk in chunks}
+        notes_with_embeddings = [
+            (note, embedding_by_note[note.id])
+            for note in orphan_notes
+            if note.id in embedding_by_note
+        ]
+        if len(notes_with_embeddings) < 2:
+            return []
+
+        clusters = []
+        for index, (note, embedding) in enumerate(notes_with_embeddings):
+            if _over_budget():
+                logger.warning(
+                    "topic clustering exceeded %sms budget; returning no topics",
+                    TOPIC_CLUSTER_TIME_BUDGET_MS,
+                )
+                return []
+            placed = False
+            for cluster in clusters:
+                anchor_index = cluster[0]
+                anchor_embedding = notes_with_embeddings[anchor_index][1]
+                if _cosine(embedding, anchor_embedding) >= TOPIC_CLUSTER_SIMILARITY:
+                    cluster.append(index)
+                    placed = True
+                    break
+            if not placed:
+                clusters.append([index])
+
+        threads = []
+        for cluster_indices in clusters:
+            if len(cluster_indices) < 2:
+                continue
+            cluster_notes = [notes_with_embeddings[i][0] for i in cluster_indices]
+            attentions = [attention_for_entity(note, now=now) for note in cluster_notes]
+            reasons = _aggregate_attention_reasons(attentions)
+            latest_note = max(cluster_notes, key=lambda note: note.updated_at or note.created_at)
+            threads.append({
+                "id": f"topic:{hashlib.sha256(latest_note.id.encode()).hexdigest()[:12]}",
+                "type": "topic",
+                "name": _topic_thread_name(cluster_notes),
+                "attention_score": _thread_attention_score(reasons),
+                "attention_reasons": reasons,
+                "last_activity_at": _iso(latest_note.updated_at or latest_note.created_at),
+                "last_context": _thread_last_context(latest_note, [], {}, [latest_note], now),
+                "key_items": [
+                    {
+                        "id": note.id,
+                        "type": "note",
+                        "name": note.title or _topic_thread_name([note]),
+                        "attention_score": attention_for_entity(note, now=now)["score"],
+                    }
+                    for note in sorted(
+                        cluster_notes,
+                        key=lambda note: attention_for_entity(note, now=now)["score"],
+                        reverse=True,
+                    )[:3]
+                ],
+            })
+            if len(threads) >= limit:
+                break
+        return threads
+    except Exception as exc:
+        logger.warning("topic clustering failed: %s", exc)
+        return []
+
+
+def _build_threads_payload(now, *, limit=20):
+    threads = _people_threads(now) + _project_threads(now) + _topic_threads(now, limit=limit)
+    threads.sort(key=lambda thread: thread["attention_score"], reverse=True)
+    return threads[:limit]
 
 
 def _project_pulse(tasks, latest_update, now=None):

@@ -1,0 +1,63 @@
+.page {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 16px 20px 48px;
+}
+
+.headerRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.title {
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.subtitle {
+  font-size: 0.72rem;
+  color: var(--text-muted, #6b7280);
+}
+
+.sectionLabel {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted, #6b7280);
+  margin: 18px 0 8px;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ambientGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+@media (max-width: 720px) {
+  .page {
+    padding: 12px 12px 40px;
+  }
+
+  .ambientGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.statusMessage,
+.errorMessage {
+  padding: 12px 0;
+  color: var(--text-muted, #6b7280);
+}
+
+.errorMessage {
+  color: var(--danger, #b42318);
+}

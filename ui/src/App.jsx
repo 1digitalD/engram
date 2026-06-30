@@ -18,6 +18,7 @@ import {
   Layers,
   Users,
   Link2,
+  GitBranch,
 } from 'lucide-react';
 import styles from './App.module.css';
 import { v4API } from './api/v4Client';
@@ -29,11 +30,13 @@ import V4Search from './views/V4Search';
 import V4Today from './views/V4Today';
 import V4Suggestions from './views/V4Suggestions';
 import V4AgentActivity from './views/V4AgentActivity';
+import V5Threads from './views/V5Threads';
 
 const viewItems = [
   ['/', 'Home', House, null],
   ['/inbox', 'Inbox', Inbox, 'inbox'],
   ['/today', 'Today', Sun, 'today'],
+  ['/threads', 'Threads', GitBranch, null],
   ['/search', 'Search', Search, null],
 ];
 
@@ -329,6 +332,7 @@ export default function App() {
             <Route path="/" element={<V4Home />} />
             <Route path="/inbox" element={<V4Inbox />} />
             <Route path="/today" element={<V4Today />} />
+            <Route path="/threads" element={<V5Threads />} />
             <Route path="/search" element={<V4Search />} />
             <Route path="/agent-activity" element={<V4AgentActivity />} />
             <Route path="/entities/:id" element={<V4EntityDetail />} />

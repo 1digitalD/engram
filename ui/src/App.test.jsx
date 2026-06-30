@@ -26,6 +26,7 @@ vi.mock('./views/V4Today', () => ({ default: () => <main>Today view</main> }));
 vi.mock('./views/V4Search', () => ({ default: () => <main>Search view</main> }));
 vi.mock('./views/V4Suggestions', () => ({ default: () => <main>Review view</main> }));
 vi.mock('./views/V4AgentActivity', () => ({ default: () => <main>Agent log view</main> }));
+vi.mock('./views/V5Threads', () => ({ default: () => <main>Threads view</main> }));
 vi.mock('./views/V4EntityList', () => ({ default: ({ type }) => <main>{type} list</main> }));
 vi.mock('./views/V4EntityDetail', () => ({ default: () => <main>Detail view</main> }));
 
