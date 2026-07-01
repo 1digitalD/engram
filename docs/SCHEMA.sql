@@ -256,6 +256,10 @@ BEGIN
         RAISE EXCEPTION 'FATAL: truncate_all_tables() refused on production database "engram". This function is for test isolation only.';
     END IF;
 
+    -- Bounded lock wait so a leaked connection or concurrent worker cannot
+    -- cause the test runner to hang indefinitely. The caller retries on timeout.
+    SET LOCAL statement_timeout = '5s';
+
     TRUNCATE TABLE
         ai_suggestions,
         change_batches,

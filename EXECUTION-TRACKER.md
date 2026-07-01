@@ -4,6 +4,7 @@ This file is the fresh-agent handoff for the current v4 baseline. Use it to reco
 
 Last updated: 2026-07-01
 Branch: `main`
+Status: hardening-loop-reliability slice in progress; test isolation hardened, strict-doctor Codex blocker documented.
 Runtime baseline: `/api/v4` only, fresh Postgres + pgvector schema, write-enabled MCP aligned with the active API.
 
 ## Current hardening loop: Iteration 17 (2026-07-01)
@@ -17,6 +18,49 @@ Runtime baseline: `/api/v4` only, fresh Postgres + pgvector schema, write-enable
   - `host-run --drain` refuses to start from a dirty repo, including a new iteration contract file; planning overlays need to be committed before autonomous launch.
   - The detached OpenClaw wrapper currently gives poor launch visibility: the async log stayed empty while the underlying `opencode run` process was alive.
   - The first `hardening-loop-reliability` attempt reached `attempt_started`, spawned the isolated worktree and `opencode` child process, but the persisted Loopsmith run record remained stuck at `Executor launch in progress.` with no `worktreePath` or `nativeRunId` surfaced yet.
+
+## Slice: hardening-loop-reliability (2026-07-01)
+
+Goal: stabilize the backend test isolation path and bound the Loopsmith readiness check so focused/strict validation can run without deadlocks or indefinite hangs.
+
+### Changes
+
+- `tests/conftest.py`: replaced the single-shot `truncate_all_tables()` reset with a bounded-retry helper.
+  - Catches `DeadlockDetected` and `LockNotAvailable`, reconnects, and retries up to 5 times with exponential backoff + jitter.
+  - Sets a per-statement timeout on the truncate connection so a lock wait fails fast instead of hanging.
+  - Keeps the in-process `_schema_lock` and the production-DB guard (`_assert_not_production_db`).
+- `docs/SCHEMA.sql`: added `SET LOCAL statement_timeout = '5s'` inside `truncate_all_tables()` as defense-in-depth.
+
+### Validation results
+
+- `pytest tests/unit/ -q` on test DB: **171 passed** (no regressions).
+- `pytest tests/integration/test_v4_ask.py -q` on test DB: 4 passed, 2 pre-existing semantic-search assertion failures (low confidence / empty citations). These failures are unrelated to the isolation path.
+- Full backend suite (`tests/unit/ tests/integration/`): **377 passed, 6 failed**. The 6 failures are pre-existing:
+  - `tests/integration/test_v4_ask.py`: 2 (semantic search ranking)
+  - `tests/integration/test_v4_search.py`: 3 (semantic/hybrid search)
+  - `tests/integration/test_v4_today.py`: 1 (`new_since_yesterday_count` logic)
+
+### Loopsmith readiness findings
+
+- `loopsmithctl doctor --repo <repo> --strict` is **not hanging indefinitely**; it is **exceeding the 20 s orchestrator timeout**.
+- Running `loopsmith doctor --strict --json` directly takes **~41 s** and probes all four configured executors (opencode, cursor, codex, claude).
+- Strict doctor result is `ready: false` because the **Codex strict probe is blocked**: Codex v0.142.0 waits for additional stdin input instead of replying to the launch probe.
+- Non-strict doctor completes quickly and would be `ready: true` once the worktree is clean.
+
+### Explicit blocker for strict doctor
+
+The strict readiness probe cannot pass until either:
+1. The Codex executor is removed from fallback executors or its probe is fixed (operator policy change, not repo code), or
+2. The orchestrator's strict-doctor timeout is raised above the observed ~41 s multi-executor probe duration.
+
+Per project rules, `coding-loop-policy.yaml` and `prd.json`'s `codingLoopPolicy` block are operator-owned and were not modified.
+
+### Loop-level learnings
+
+- The "indefinite hang" symptom was actually a **bounded-but-too-long operation killed by an outer timeout**. Always time the full command directly before assuming an infinite loop.
+- Test-isolation deadlocks are best mitigated in layers: Postgres statement timeout inside the truncate function + bounded retries in the Python wrapper + in-process lock serialization.
+- `TRUNCATE` on multiple tables in a single statement is inherently lock-heavy; the mitigation does not change the path but makes it fail fast and recoverable.
+- Future slices should treat strict-doctor timeouts as a first-class environment signal and document executor-level blockers explicitly when policy files cannot be changed.
 
 ## Latest slice: prd-timeline (2026-06-30)
 
