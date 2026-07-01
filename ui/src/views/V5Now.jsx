@@ -4,7 +4,7 @@ import { v4API } from '../api/v4Client';
 import { MOCKED_NOW_DATA } from './V5Now.fixtures';
 import styles from './V5Now.module.css';
 
-const USE_MOCKED_DATA = true;
+const USE_MOCKED_DATA = false;
 
 function entityPath(item) {
   if (item.thread?.type === 'person') return `/people/${item.thread.id}`;
