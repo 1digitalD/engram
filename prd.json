@@ -298,10 +298,10 @@
         "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build"
       ],
       "blocked": false,
-      "passes": false,
-      "attempts": 0,
+      "passes": true,
+      "attempts": 1,
       "blockerReason": null,
-      "validationEvidence": null
+      "validationEvidence": "manually cherry-picked 2718cfd2 from worktree prd-citations-ui-opencode-a001 (cleaner a001 commit, 14 files/677 insertions); 69/69 frontend tests passing"
     }
   ],
   "previousIteration": "v5-redesign-phase2-composition",
