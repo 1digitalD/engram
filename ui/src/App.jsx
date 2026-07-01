@@ -20,25 +20,49 @@ function AppShell() {
   const { toast } = useCapture();
   const { open, openRecall, closeRecall } = useRecall();
   const [counts, setCounts] = useState({ today: 0, threads: 0, recall: 0 });
+  const [trustScore, setTrustScore] = useState(null);
   const [askOpen, setAskOpen] = useState(false);
 
+  // Fetch lens counts once on mount; data doesn't change between
+  // navigations, so re-fetching on every route change is wasted work.
+  // (Was previously keyed on location.pathname; see audit B-015.)
   useEffect(() => {
     let active = true;
     v4API.summary()
       .then((data) => {
         if (!active) return;
+        // /summary doesn't expose threads_count or recall_count; keep
+        // them at 0 rather than silently falling back to today_count.
         setCounts({
           today: data?.today_count ?? 0,
-          threads: data?.threads_count ?? data?.today_count ?? 0,
-          recall: data?.recall_count ?? 0,
+          threads: 0,
+          recall: 0,
         });
       })
       .catch(() => {
-        if (!active) return;
-        setCounts({ today: 0, threads: 0, recall: 0 });
+        if (active) setCounts({ today: 0, threads: 0, recall: 0 });
       });
     return () => { active = false; };
-  }, [location.pathname]);
+  }, []);
+
+  // Trust score derived from /metrics/trust's correction_rate:
+  // trust = (1 - correction_rate) * 100, rounded. Until the API exposes
+  // a dedicated trust_score, this gives a value the user can actually
+  // trust. (Was hard-coded to 87; see audit B-009.)
+  useEffect(() => {
+    let active = true;
+    v4API.metrics.trust()
+      .then((data) => {
+        if (!active || data?.correction_rate == null) return;
+        const score = Math.round((1 - data.correction_rate) * 100);
+        setTrustScore(score);
+      })
+      .catch(() => {
+        // Silent fallback — leave the chip hidden rather than show 87%
+        // (or some other arbitrary number) when we can't compute it.
+      });
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     function onKeyDown(event) {
@@ -59,6 +83,7 @@ function AppShell() {
         nowCount={counts.today}
         threadsCount={counts.threads}
         recallCount={counts.recall}
+        trustScore={trustScore}
       />
       <div className={styles.mainColumn}>
         <div className={styles.routeViewport}>
@@ -94,7 +119,7 @@ function AppShell() {
   );
 }
 
-export default function App() {
+function App() {
   return (
     <CaptureProvider>
       <RecallProvider>
@@ -103,3 +128,5 @@ export default function App() {
     </CaptureProvider>
   );
 }
+
+export default App;

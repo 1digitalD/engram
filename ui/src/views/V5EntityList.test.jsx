@@ -2,6 +2,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { v4API } from '../api/v4Client';
+import { CaptureProvider } from '../context/CaptureContext';
 import V5EntityList from './V5EntityList';
 
 vi.mock('../api/v4Client', () => ({
@@ -27,7 +28,9 @@ describe('V5EntityList', () => {
 
     render(
       <MemoryRouter>
-        <V5EntityList type="task" />
+        <CaptureProvider>
+                  <V5EntityList type="task" />
+        </CaptureProvider>
       </MemoryRouter>,
     );
 
@@ -45,7 +48,9 @@ describe('V5EntityList', () => {
 
     render(
       <MemoryRouter>
-        <V5EntityList type="project" />
+        <CaptureProvider>
+                  <V5EntityList type="project" />
+        </CaptureProvider>
       </MemoryRouter>,
     );
 
@@ -67,7 +72,9 @@ describe('V5EntityList', () => {
 
     render(
       <MemoryRouter>
-        <V5EntityList type="task" />
+        <CaptureProvider>
+                  <V5EntityList type="task" />
+        </CaptureProvider>
       </MemoryRouter>,
     );
 
@@ -79,7 +86,9 @@ describe('V5EntityList', () => {
 
     render(
       <MemoryRouter>
-        <V5EntityList type="note" />
+        <CaptureProvider>
+                  <V5EntityList type="note" />
+        </CaptureProvider>
       </MemoryRouter>,
     );
 

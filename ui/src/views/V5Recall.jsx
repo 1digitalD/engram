@@ -6,6 +6,7 @@ import { Search, Sparkles } from 'lucide-react';
 import Sheet from '../components/Sheet';
 import { v4API } from '../api/v4Client';
 import XGlyph from '../components/XGlyph';
+import { useCapture } from '../context/CaptureContext';
 import styles from './V5Recall.module.css';
 
 const DEBOUNCE_MS = 180;
@@ -71,6 +72,7 @@ function useRecallSearch(query) {
 
 export default function V5Recall({ open, onClose, initialQuery = '' }) {
   const navigate = useNavigate();
+  const { openCapture } = useCapture();
   const [query, setQuery] = useState(initialQuery);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef(null);
@@ -140,7 +142,7 @@ export default function V5Recall({ open, onClose, initialQuery = '' }) {
               className={styles.askButton}
               onClick={() => {
                 onClose?.();
-                navigate('/', { state: { capture: true, recallQuery: query } });
+                openCapture(query);
               }}
               aria-label={`Ask about ${query}`}
             >

@@ -16,6 +16,9 @@ vi.mock('./api/v4Client', () => ({
     summary: vi.fn(),
     search: vi.fn(),
     threads: vi.fn(),
+    metrics: {
+      trust: vi.fn().mockResolvedValue({ correction_rate: null }),
+    },
   },
 }));
 
@@ -33,6 +36,7 @@ describe('V5 App shell', () => {
     v4API.summary.mockResolvedValue({ today_count: 0, threads_count: 0, recall_count: 0 });
     v4API.threads.mockResolvedValue({ threads: [] });
     v4API.search.mockResolvedValue({ data: [] });
+    v4API.metrics.trust.mockResolvedValue({ correction_rate: null });
   });
 
   it('redirects root to /now and renders the Now lens', async () => {
@@ -48,7 +52,7 @@ describe('V5 App shell', () => {
   });
 
   it('renders lens counts from the summary endpoint', async () => {
-    v4API.summary.mockResolvedValue({ today_count: 3, threads_count: 7, recall_count: 0 });
+    v4API.summary.mockResolvedValue({ today_count: 3 });
 
     render(
       <MemoryRouter initialEntries={['/now']}>
@@ -58,7 +62,12 @@ describe('V5 App shell', () => {
 
     await waitFor(() => expect(v4API.summary).toHaveBeenCalled());
     expect(screen.getByRole('link', { name: /Now/i })).toHaveTextContent('3');
-    expect(screen.getByRole('link', { name: /Threads/i })).toHaveTextContent('7');
+    // Threads and Recall counts come from /summary which doesn't yet expose
+    // them; the lens pills fall back to 0 rather than mirroring today_count
+    // (audit B-010). When /summary exposes those keys, this assertion will
+    // need to grow.
+    expect(screen.getByRole('link', { name: /Threads/i })).toHaveTextContent('0');
+    expect(screen.getByRole('button', { name: /Recall/i })).toHaveTextContent('0');
   });
 
   it('exposes a global capture FAB', async () => {

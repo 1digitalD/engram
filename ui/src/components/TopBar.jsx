@@ -71,7 +71,7 @@ function TrustChip({ score }) {
 }
 
 export default function TopBar({
-  trustScore = 87,
+  trustScore = null,
   onAsk,
   onRecall,
   nowCount,
@@ -157,7 +157,7 @@ export default function TopBar({
         <span className={styles.askGlyph} aria-hidden="true">✦</span>
       </button>
 
-      <TrustChip score={trustScore} />
+      {trustScore != null && <TrustChip score={trustScore} />}
 
       <ThemeSwitcher theme={theme} onChoose={chooseTheme} />
     </header>

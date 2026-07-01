@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Plus, Search } from 'lucide-react';
 import { v4API } from '../api/v4Client';
 import { entityTitleLabel } from '../utils/entityDisplay';
 import XGlyph from '../components/XGlyph';
+import { useCapture } from '../context/CaptureContext';
 import styles from './V5EntityList.module.css';
 
 const PLURAL_TITLE = {
@@ -37,7 +38,7 @@ function statusMeta(entity) {
 }
 
 export default function V5EntityList({ type }) {
-  const navigate = useNavigate();
+  const { openCapture } = useCapture();
   const [entities, setEntities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -80,11 +81,11 @@ export default function V5EntityList({ type }) {
   const title = PLURAL_TITLE[type] || `${type}s`;
 
   function handleCreate() {
-    if (type === 'note') {
-      navigate('/', { state: { capture: true } });
-      return;
-    }
-    navigate('/');
+    // All entity types go through the capture sheet. The capture sheet
+    // defaults the attachment to the current thread (none on /notes, /tasks
+    // etc.) but the user can pick any project/person in the attachment
+    // dropdown.
+    openCapture();
   }
 
   if (loading) {

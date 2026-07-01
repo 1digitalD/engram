@@ -2,6 +2,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { v4API } from '../api/v4Client';
+import { CaptureProvider } from '../context/CaptureContext';
 import V5Recall from './V5Recall';
 
 vi.mock('../api/v4Client', () => ({
@@ -19,7 +20,9 @@ describe('V5Recall', () => {
   it('does not render when closed', () => {
     render(
       <MemoryRouter>
-        <V5Recall open={false} onClose={vi.fn()} />
+        <CaptureProvider>
+          <V5Recall open={false} onClose={vi.fn()} />
+        </CaptureProvider>
       </MemoryRouter>,
     );
 
@@ -29,7 +32,9 @@ describe('V5Recall', () => {
   it('renders the search palette when open', () => {
     render(
       <MemoryRouter>
-        <V5Recall open onClose={vi.fn()} />
+        <CaptureProvider>
+          <V5Recall open onClose={vi.fn()} />
+        </CaptureProvider>
       </MemoryRouter>,
     );
 
@@ -47,7 +52,9 @@ describe('V5Recall', () => {
 
     render(
       <MemoryRouter>
-        <V5Recall open onClose={onClose} />
+        <CaptureProvider>
+          <V5Recall open onClose={onClose} />
+        </CaptureProvider>
       </MemoryRouter>,
     );
 
@@ -64,7 +71,9 @@ describe('V5Recall', () => {
     const onClose = vi.fn();
     render(
       <MemoryRouter>
-        <V5Recall open onClose={onClose} />
+        <CaptureProvider>
+          <V5Recall open onClose={onClose} />
+        </CaptureProvider>
       </MemoryRouter>,
     );
 
