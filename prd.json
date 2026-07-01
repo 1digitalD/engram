@@ -243,10 +243,10 @@
         "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration/test_v4_ask.py",
         "cd /Volumes/lex1t/dev/shared/repos/engram && curl -fsS -X POST http://localhost:5001/api/v4/ask -H 'Content-Type: application/json' -d '{\"question\":\"test\"}' | python3 -c 'import json,sys; d=json.load(sys.stdin); assert \"confidence\" in d'"
       ],
-      "blocked": false,
+      "blocked": true,
       "passes": false,
-      "attempts": 0,
-      "blockerReason": null,
+      "attempts": 1,
+      "blockerReason": "Deterministic validation failed.",
       "validationEvidence": null
     },
     {
