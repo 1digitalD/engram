@@ -83,10 +83,10 @@
         "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- V5AskSheet",
         "cd /Volumes/lex1t/dev/shared/repos/engram && curl -fsS -X POST http://localhost:5001/api/v4/ask -H 'Content-Type: application/json' -d '{\"question\":\"What did Danish decide about Phase 4 of the v5 redesign?\"}' | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d[\"confidence\"]==\"low\"; assert d[\"citations\"]==[]'"
       ],
-      "blocked": false,
+      "blocked": true,
       "passes": false,
-      "attempts": 0,
-      "blockerReason": null,
+      "attempts": 1,
+      "blockerReason": "Deterministic validation failed.",
       "validationEvidence": null
     },
     {
