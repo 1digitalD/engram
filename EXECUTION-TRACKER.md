@@ -13,6 +13,10 @@ Runtime baseline: `/api/v4` only, fresh Postgres + pgvector schema, write-enable
 - Slice order is trust and loop reliability first, then truthful UI state, then Recall hardening, then `New` semantics, then smoke coverage.
 - First loop-level issue to resolve: `loopsmithctl doctor --strict` currently times out instead of returning a bounded readiness result, so the first slice explicitly includes loop/test reliability work.
 - Capture learnings from each slice here, especially anything that improves Loopsmith readiness probes, validation determinism, or autonomous recovery.
+- First-run learnings already confirmed:
+  - `host-run --drain` refuses to start from a dirty repo, including a new iteration contract file; planning overlays need to be committed before autonomous launch.
+  - The detached OpenClaw wrapper currently gives poor launch visibility: the async log stayed empty while the underlying `opencode run` process was alive.
+  - The first `hardening-loop-reliability` attempt reached `attempt_started`, spawned the isolated worktree and `opencode` child process, but the persisted Loopsmith run record remained stuck at `Executor launch in progress.` with no `worktreePath` or `nativeRunId` surfaced yet.
 
 ## Latest slice: prd-timeline (2026-06-30)
 
