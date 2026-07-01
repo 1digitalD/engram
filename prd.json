@@ -165,10 +165,10 @@
         "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build"
       ],
       "blocked": false,
-      "passes": false,
-      "attempts": 0,
+      "passes": true,
+      "attempts": 1,
       "blockerReason": null,
-      "validationEvidence": null
+      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- V5CaptureSheet V5AskSheet V5Recall V5EntityList\n\n> engram-ui@0.0.0 test\n> node scripts/run-tests.mjs V5CaptureSheet V5AskSheet V5Recall V5EntityList\n\n\n RUN  v3.2.4 /Volumes/lex1t/dev/shared/repos/engram/ui\n\n \u2713 src/views/V5RecallOpener.test.jsx (3 tests) 31ms\n \u2713 src/views/V5CaptureSheet.test.jsx (6 tests) 97ms\n \u2713 src/views/V5EntityList.test.jsx (10 tests) 114ms\n \u2713 src/views/V5AskSheet.test.jsx (3 tests) 93ms\n \u2713 src/views/V5Recall.test.jsx (5 tests) 289ms\n\n Test Files  5 passed (5)\n      Tests  27 passed (27)\n   Start at  12:32:24\n   Duration  828ms (transform 178ms, setup 137ms, collect 734ms, tests 623ms, environment 770ms, prepare 147ms)\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build\n\n> engram-ui@0.0.0 build\n> vite build\n\nvite v8.0.10 building client environment for production...\n\u001b[2K\ntransforming...\u2713 1773 modules transformed.\nrendering chunks...\ncomputing gzip size...\n../static/index.html                             1.95 kB \u2502 gzip:  0.86 kB\n../static/assets/index--4rWaywe.css             53.55 kB \u2502 gzip:  9.29 kB\n../static/assets/rolldown-runtime-jpDsebLB.js    0.56 kB \u2502 gzip:  0.36 kB\n../static/assets/vendor-_lNruhL-.js              3.56 kB \u2502 gzip:  1.57 kB\n../static/assets/vendor-icons-Ccngl9Uz.js       11.20 kB \u2502 gzip:  4.50 kB\n../static/assets/index-BJpZ-l9d.js              67.22 kB \u2502 gzip: 19.76 kB\n../static/assets/vendor-react-Q6R2TYE-.js      220.04 kB \u2502 gzip: 70.18 kB\n\n\u2713 built in 122ms"
     }
   ],
   "previousIteration": "v5-redesign-phase3-intelligence",

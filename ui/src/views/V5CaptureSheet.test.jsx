@@ -140,4 +140,43 @@ describe('V5CaptureSheet', () => {
       expect.any(Object),
     ));
   });
+
+  it('retries capture and succeeds after failure', async () => {
+    const onClose = vi.fn();
+    const onSaved = vi.fn();
+    const successResult = {
+      source_note: { id: 'n1', title: 'Captured on retry' },
+      applied_changes: [{ type: 'summary_updated' }],
+      suggestions: [],
+      warnings: [],
+    };
+
+    const captureFn = vi.fn()
+      .mockImplementationOnce(async (_body, { onEvent }) => {
+        onEvent({ type: 'extracting', data: {} });
+        onEvent({ type: 'error', data: { message: 'pipeline broke' } });
+        throw new Error('pipeline broke');
+      })
+      .mockImplementationOnce(async (_body, { onEvent }) => {
+        onEvent({ type: 'extracting', data: {} });
+        onEvent({ type: 'done', data: successResult });
+        return successResult;
+      });
+
+    renderSheet('/', { onClose, onSaved, captureFn });
+
+    fireEvent.change(screen.getByLabelText('Capture text'), {
+      target: { value: 'Retry me' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('pipeline broke');
+    expect(captureFn).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole('button', { name: /retry/i }));
+
+    await waitFor(() => expect(captureFn).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(onSaved).toHaveBeenCalledWith(successResult);
+  });
 });

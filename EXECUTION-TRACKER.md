@@ -4,7 +4,7 @@ This file is the fresh-agent handoff for the current v4 baseline. Use it to reco
 
 Last updated: 2026-07-01
 Branch: `main`
-Status: hardening-loop-reliability slice in progress; test isolation hardened, strict-doctor Codex blocker documented.
+Status: hardening-interaction-smoke slice complete; capture retry success-after-failure covered, Ask/Recall/entity-list smoke path verified, build green.
 Runtime baseline: `/api/v4` only, fresh Postgres + pgvector schema, write-enabled MCP aligned with the active API.
 
 ## Current hardening loop: Iteration 17 (2026-07-01)
@@ -61,6 +61,33 @@ Per project rules, `coding-loop-policy.yaml` and `prd.json`'s `codingLoopPolicy`
 - Test-isolation deadlocks are best mitigated in layers: Postgres statement timeout inside the truncate function + bounded retries in the Python wrapper + in-process lock serialization.
 - `TRUNCATE` on multiple tables in a single statement is inherently lock-heavy; the mitigation does not change the path but makes it fail fast and recoverable.
 - Future slices should treat strict-doctor timeouts as a first-class environment signal and document executor-level blockers explicitly when policy files cannot be changed.
+
+## Slice: hardening-interaction-smoke (2026-07-01)
+
+Goal: close the loop on the recent hardening fixes by adding the smallest high-signal interaction coverage that validates them as a coherent user experience, and record the autonomous-delivery learnings from this iteration.
+
+### Changes
+
+- `ui/src/views/V5CaptureSheet.test.jsx`: added `retries capture and succeeds after failure`.
+  - First capture fails with a stream error and the retry button is shown.
+  - Retry reuses the same payload and closes the sheet on success, calling `onSaved` with the result.
+- Smoke path coverage is now distributed across the four focused component specs:
+  - `V5AskSheet.test.jsx`: honest IDK state renders the canonical low-confidence envelope, caveats, and a capture action (no false citations).
+  - `V5Recall.test.jsx`: search palette opens, queries `v4API.search`, and navigates to a result on Enter; stale responses from older queries are ignored.
+  - `V5EntityList.test.jsx`: each entity-type empty state exposes a `Capture <type>` New button that opens the capture sheet.
+
+### Validation results
+
+- Focused frontend tests: `npm test -- V5CaptureSheet V5AskSheet V5Recall V5EntityList` → **27 passed** (was 26 before the retry test).
+- Full frontend suite: `npm test` → **102 passed**.
+- Frontend build: `npm run build` → green, no chunk warnings.
+
+### Loop-level learnings
+
+- **Worktree validation path mismatch**: the isolated worktree had no `ui/node_modules`, while the validation command path pointed at the main repo. A symlink to the main worktree's `node_modules` let tests run in the task worktree without installing dependencies or modifying operator-owned policy files.
+- **Smoke coverage can be closed by a single high-signal test**: the Ask/Recall/entity-list flows were already covered by existing focused component tests. The real gap in the autonomous loop was capture retry success-after-failure; one red-first test closes that loop.
+- **Focused test patterns keep the loop fast**: running `npm test -- V5CaptureSheet V5AskSheet V5Recall V5EntityList` gives sub-second feedback and exercises the exact surfaces a user touches in the core capture/ask/recall/list loop.
+- **Policy boundaries stay clean**: `coding-loop-policy.yaml` and `prd.json`'s `codingLoopPolicy` block were not touched; environment-level blockers (e.g., strict-doctor timeouts) were documented rather than worked around in repo code.
 
 ## Latest slice: prd-timeline (2026-06-30)
 
@@ -562,3 +589,4 @@ The repo previously tracked fine-grained V2/V3/V3.5 execution logs in this file.
 - 2026-07-01T19:11:09.856838+00:00 hardening-summary-counts accepted via opencode
 - 2026-07-01T19:20:41.981439+00:00 hardening-recall-stability accepted via opencode
 - 2026-07-01T19:26:35.564255+00:00 hardening-new-flow accepted via opencode
+- 2026-07-01T19:32:25.995429+00:00 hardening-interaction-smoke accepted via opencode
