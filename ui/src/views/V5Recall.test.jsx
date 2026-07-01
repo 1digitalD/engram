@@ -80,4 +80,54 @@ describe('V5Recall', () => {
     fireEvent.keyDown(document, { key: 'Escape' });
     await waitFor(() => expect(onClose).toHaveBeenCalled());
   });
+
+  it('ignores stale responses from older queries', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const onClose = vi.fn();
+    let resolveOld;
+    let resolveNew;
+
+    v4API.search.mockImplementation(({ q }) => {
+      if (q === 'old') {
+        return new Promise((resolve) => {
+          resolveOld = () => resolve({ data: [{ id: 'old1', type: 'note', title: 'Old result' }] });
+        });
+      }
+      if (q === 'new') {
+        return new Promise((resolve) => {
+          resolveNew = () => resolve({ data: [{ id: 'new1', type: 'note', title: 'New result' }] });
+        });
+      }
+      return Promise.resolve({ data: [] });
+    });
+
+    render(
+      <MemoryRouter>
+        <CaptureProvider>
+          <V5Recall open onClose={onClose} />
+        </CaptureProvider>
+      </MemoryRouter>,
+    );
+
+    const input = screen.getByLabelText('Search terms');
+
+    fireEvent.change(input, { target: { value: 'old' } });
+    await vi.advanceTimersByTimeAsync(200);
+    expect(v4API.search).toHaveBeenCalledWith({ q: 'old', limit: 24 });
+
+    fireEvent.change(input, { target: { value: 'new' } });
+    await vi.advanceTimersByTimeAsync(200);
+    expect(v4API.search).toHaveBeenLastCalledWith({ q: 'new', limit: 24 });
+
+    // Resolve the newer query first.
+    resolveNew();
+    await screen.findByRole('option', { name: /New result/i });
+
+    // Then resolve the older, stale query.
+    resolveOld();
+    await waitFor(() => expect(screen.queryByRole('option', { name: /Old result/i })).not.toBeInTheDocument());
+    expect(screen.getByRole('option', { name: /New result/i })).toBeInTheDocument();
+
+    vi.useRealTimers();
+  });
 });

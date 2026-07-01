@@ -31,6 +31,7 @@ function useRecallSearch(query) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const timerRef = useRef(null);
+  const requestIdRef = useRef(0);
 
   useEffect(() => {
     const trimmed = query.trim();
@@ -48,16 +49,20 @@ function useRecallSearch(query) {
       window.clearTimeout(timerRef.current);
     }
 
+    const requestId = ++requestIdRef.current;
     timerRef.current = window.setTimeout(() => {
       v4API.search({ q: trimmed, limit: 24 })
         .then((response) => {
+          if (requestId !== requestIdRef.current) return;
           setResults(response?.data || []);
         })
         .catch((err) => {
+          if (requestId !== requestIdRef.current) return;
           setError(friendlyApiError(err, 'Search failed'));
           setResults([]);
         })
         .finally(() => {
+          if (requestId !== requestIdRef.current) return;
           setLoading(false);
         });
     }, DEBOUNCE_MS);
