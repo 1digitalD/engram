@@ -1,310 +1,177 @@
 {
-  "iteration": "v5-redesign-phase3-intelligence",
-  "goal": "Add the new AI surfaces: decisions as first-class records, Ask \u2726 endpoint + sheet with honest 'I don't know' state, episodic time-indexed timeline + Memory view. Phase 1 built trust at the AI's output source; Phase 2 built the UI shell that exposes it; Phase 3 adds the new capabilities that make the system substantially more useful. The 'decisions' extraction prompt is conservative by design (always to suggestions queue, never auto-apply) because a wrongly-recorded decision implies a commitment you didn't make.",
+  "iteration": "v5-postphase3-hardening",
+  "goal": "Close the remaining trust, routing, and reliability gaps in the v5 redesign with thin, verifiable slices that can run cleanly through Loopsmith drain mode.",
   "riskLevel": "medium",
-  "userProblem": "The current system has no concept of 'decisions' as first-class records \u2014 commitments like 'ship target Friday Jun 26' or 'Mary is the final reviewer' are buried inside notes. The user can't query 'what did I commit to?' without searching notes. Ask \u2726 mode (RAG over the workspace with grounded answers) is missing entirely. The system has no notion of an episode \u2014 a thread of activity spanning multiple entities \u2014 so the user can't ask 'what did I do last Tuesday afternoon?' The Memory view is a new surface that addresses all three gaps.",
-  "whyNow": "Decisions + Ask \u2726 + Memory are the new AI surfaces that justify the v5 redesign. Without them the new UI is a cleaner version of the same capability. With them, the user has: a queryable record of commitments (decisions), a conversational interface over their workspace (Ask \u2726), and a chronological view of their activity (Memory). Phase 3 is the slice of the redesign that's most likely to be re-evaluated post-launch; the decision extraction precision target (\u226585% on labeled corpus) is the success metric.",
+  "userProblem": "Phase 3 shipped the core v5 surfaces, but the app still has a few gaps between passing tests and behaving like a trustworthy personal workspace in normal use. The remaining issues are concentrated in Ask honesty, summary truthfulness, Recall stability, deterministic creation flows, and backend validation reliability.",
+  "whyNow": "These are the highest-leverage post-launch fixes because they affect trust, correctness, and the dependability of autonomous delivery itself. Closing them in thin slices reduces regression risk and improves the quality of future Loopsmith runs.",
   "scope": {
     "filesAffected": [
-      "api/v4_entities.py (new /api/v4/ask, /api/v4/timeline, decisions-related routes)",
-      "services/v4_extraction.py (decision extraction prompt update)",
-      "services/v4_decisions.py (new \u2014 decision extraction, validation, query)",
-      "services/v4_ask.py (new \u2014 RAG question answering, citation rendering)",
-      "services/v4_timeline.py (new \u2014 chronological event stream across all entities)",
-      "ui/src/views/V5AskSheet.jsx (new)",
-      "ui/src/views/V5Memory.jsx (new \u2014 Memory view, vertical timeline with date headers)",
-      "ui/src/components/CitationsList.jsx (new \u2014 inline citation rendering for Ask \u2726)",
-      "tests/integration/test_v4_decisions.py (new)",
-      "tests/integration/test_v4_ask.py (new)",
-      "tests/integration/test_v4_timeline.py (new)",
-      "tests/fixtures/decisions_corpus.json (new \u2014 labeled decision extraction corpus)"
+      "services/v4_ask.py",
+      "api/v4_entities.py",
+      "tests/conftest.py",
+      "tests/integration/test_v4_ask.py",
+      "tests/integration/test_v4_threads.py",
+      "ui/src/App.jsx",
+      "ui/src/views/V5AskSheet.jsx",
+      "ui/src/views/V5Recall.jsx",
+      "ui/src/views/V5RecallOpener.jsx",
+      "ui/src/views/V5EntityList.jsx",
+      "ui/src/views/V5CaptureSheet.jsx",
+      "ui/src/**/*.test.*",
+      "EXECUTION-TRACKER.md",
+      "docs/iterations/ITERATION_17_V5_HARDENING.md"
     ],
     "routesAffected": [
-      "POST /api/v4/ask (new)",
-      "GET /api/v4/timeline?from=&to=&thread_id=&actor= (new)",
-      "GET /api/v4/decisions (new, list)",
-      "POST /api/v4/decisions (new, create)",
-      "POST /api/v4/capture (decision extraction added; suggestions queue only, never auto-apply)"
+      "POST /api/v4/ask",
+      "GET /api/v4/summary",
+      "GET /api/v4/threads",
+      "/recall",
+      "/notes",
+      "/tasks",
+      "/projects",
+      "/people",
+      "/resources"
     ],
     "dataOrApiDependencies": [
-      "Slice 3.1 (decisions) adds a new table decisions(thread_id, statement, context, decided_at, decided_by, source_note_id, superseded_by). Migration script in scripts/migrations/004_decisions.sql. Additive schema, no destructive changes",
-      "Slice 3.2 (ask) depends on /api/v4/search (existing) for retrieval; uses services.v4_brief.BRIEF_MODEL for answer generation (same as existing brief, no new model)",
-      "Slice 3.3 (timeline) reuses existing entity_events table; new endpoint just queries by occurred_at DESC with filters; index may need to be added (occurred_at DESC) if not already there",
-      "Slice 3.4 (citations UI) is frontend-only; cross-links Ask \u2726 citation objects into thread detail and memory view"
+      "Summary counts must be derived from live v4 endpoints or omitted when unsupported.",
+      "Recall stability work must preserve existing search and detail navigation behavior.",
+      "Backend test isolation changes must continue to protect production data and keep TEST_DATABASE_URL pointed at the test database only."
     ],
-    "writePathsAffected": []
+    "writePathsAffected": [
+      "Ask response serialization",
+      "Summary payload shape",
+      "Optional typed entity creation or capture handoff payload shape",
+      "Test database reset path"
+    ]
   },
   "tasks": [
     {
-      "id": "prd-shell-now",
-      "title": "Top bar (3 lenses + FAB + Ask + trust score) and Now view (sentence-shaped rows)",
-      "description": "Build the new top bar component (TopBar.jsx) with: brand glyph, three lens toggles (Now / Threads / Recall), + Ask \u2726 button, theme switcher, trust score chip. Build the new Now view (V5Now.jsx) that fetches /api/v4/today and renders ranked items as sentence-shaped rows. Each row: subject (one sentence), metadata (when + why-it-matters-now + thread context), 1-3 action buttons. Initial data: mocked JSON matching the v5 mockup-pass2.html screen; switch to live /api/v4/today once Slice 2.2 threads endpoint lands. Soft labels separate 'needs you now,' 'waiting on you,' 'ambient.' The capture sheet is not in this slice \u2014 that's Slice 2.4. Mobile responsive: same content, full-width cards, FAB prominent bottom-right.",
-      "risk": "low",
+      "id": "hardening-loop-reliability",
+      "title": "Stabilize the Loopsmith execution loop and backend test reset path",
+      "description": "Fix the backend test isolation path so focused and strict validation can run reliably without recurring deadlocks or indefinite hangs. Use the outcome to tighten the first-run validation for subsequent slices and document any loop-level learnings in the execution tracker.",
+      "risk": "medium",
       "acceptanceCriteria": [
-        "ui/src/components/TopBar.jsx renders brand + 3 lens toggles + Ask button + theme + trust score; matches v5 mockup (00-overview.md \u00a7'The new UI')",
-        "ui/src/views/V5Now.jsx fetches /api/v4/today (or mocked data) and renders ranked items as sentence-shaped rows; matches v5 mockup (mockup-pass2.html screen m-now)",
-        "Mobile: same content in single column, full-width cards, FAB bottom-right (mockup-pass2.html screen m-mobile)",
-        "Storybook stories for TopBar (3 states: default, theme=dark, trust low) and Now (3 states: needs-you-now, waiting-on-you, ambient)",
-        "Lighthouse a11y score \u226595 on both desktop and mobile renders",
-        "Routes: /now, /threads, /recall (placeholder for now); feature flag in App.jsx toggles V4 vs V5",
-        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test passes (frontend suite green)",
-        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build passes",
-        "Manual smoke: open /now, verify three sections render with realistic data, verify tap-through to entity detail (existing V4EntityDetail still works for this slice)"
+        "A bounded readiness check for this repo completes without hanging indefinitely; if strict doctor still cannot fully pass, the blocker is made explicit and reproducible.",
+        "Backend test isolation no longer relies on the current deadlock-prone truncate path without mitigation.",
+        "Focused backend validation for the changed isolation path passes on the test database.",
+        "EXECUTION-TRACKER.md records the concrete Loopsmith/autonomy learnings from this slice so later runs inherit them."
       ],
       "validationCommands": [
-        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && test -f src/components/TopBar.jsx && test -f src/views/V5Now.jsx",
-        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/unit/ -q",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/integration/test_v4_ask.py -q",
+        "timeout 20 python3 /Users/danish/.openclaw/agents/main/agent/codex-home/skills/loopsmith-coding/scripts/loopsmithctl.py doctor --repo /Volumes/lex1t/dev/shared/repos/engram --strict"
+      ],
+      "blocked": false,
+      "passes": false,
+      "attempts": 0,
+      "blockerReason": null,
+      "validationEvidence": null
+    },
+    {
+      "id": "hardening-ask-contract",
+      "title": "Normalize Ask responses to a single honest IDK contract",
+      "description": "Make Ask return the full low-confidence IDK envelope whenever the final answer is effectively 'I do not know', even if retrieval initially found weak or misleading context. Close the backend/frontend contract gap so the UI never renders an honest IDK as a grounded answer.",
+      "risk": "medium",
+      "acceptanceCriteria": [
+        "POST /api/v4/ask returns the canonical low-confidence IDK shape whenever the final answer has no grounded support.",
+        "The IDK shape does not include misleading citations.",
+        "Backend tests cover the case where retrieval returns weak context but final answer should still be IDK.",
+        "Frontend tests cover the rendered IDK state for that normalized response shape."
+      ],
+      "validationCommands": [
+        "cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/integration/test_v4_ask.py -q",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- V5AskSheet",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && curl -fsS -X POST http://localhost:5001/api/v4/ask -H 'Content-Type: application/json' -d '{\"question\":\"What did Danish decide about Phase 4 of the v5 redesign?\"}' | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d[\"confidence\"]==\"low\"; assert d[\"citations\"]==[]'"
+      ],
+      "blocked": false,
+      "passes": false,
+      "attempts": 0,
+      "blockerReason": null,
+      "validationEvidence": null
+    },
+    {
+      "id": "hardening-summary-counts",
+      "title": "Make top-bar counts truthful",
+      "description": "Replace hardcoded or placeholder top-bar counts with values derived from live API contracts, or suppress unsupported counts instead of showing false zeroes. The shell must not present false precision.",
+      "risk": "low",
+      "acceptanceCriteria": [
+        "GET /api/v4/summary exposes truthful count fields for the top bar or the UI hides unsupported pills.",
+        "App shell no longer hardcodes threads or recall counts to zero.",
+        "Frontend and backend tests cover the selected truthful behavior."
+      ],
+      "validationCommands": [
+        "cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/integration/test_v4_threads.py -q",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- App TopBar",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && curl -fsS http://localhost:5001/api/v4/summary | python3 -c 'import json,sys; d=json.load(sys.stdin); assert \"today_count\" in d'"
+      ],
+      "blocked": false,
+      "passes": false,
+      "attempts": 0,
+      "blockerReason": null,
+      "validationEvidence": null
+    },
+    {
+      "id": "hardening-recall-stability",
+      "title": "Harden Recall routing and async search behavior",
+      "description": "Replace the fragile Recall opener history shim with a route-safe pattern and prevent stale async search responses from overwriting newer ones. Preserve the overlay UX without relying on brittle browser history assumptions.",
+      "risk": "medium",
+      "acceptanceCriteria": [
+        "/recall behaves predictably on direct load, refresh, and in-app navigation.",
+        "Recall search ignores stale responses from older queries.",
+        "Focused UI tests cover both route behavior and async search ordering."
+      ],
+      "validationCommands": [
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- V5Recall V5RecallOpener",
         "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build"
       ],
       "blocked": false,
-      "passes": true,
-      "attempts": 1,
+      "passes": false,
+      "attempts": 0,
       "blockerReason": null,
-      "validationEvidence": "manually cherry-picked a5ec4a5c from worktree prd-shell-now-opencode-a046-opencode (commit cc4cab0c); 97/97 frontend tests passed in worktree"
+      "validationEvidence": null
     },
     {
-      "id": "prd-threads",
-      "title": "/api/v4/threads endpoint + Threads lens view",
-      "description": "Add a new backend route GET /api/v4/threads?rank=attention&limit=20 that returns ranked threads (people + projects + topics). Each thread: id, type, name, attention_score, attention_reasons, last_activity_at, last_context, key_items. Implementation: extend _coordination_radar_people and _coordination_radar_projects to return all threads (not just the radar-culled top 3); add a topic-clustering pass over notes with cosine similarity \u22650.7 to surface topic threads that don't have a parent entity. Add /api/v4/threads route handler. Frontend V5Threads.jsx consumes the endpoint and renders the ranked list (matches v5 mockup m-threads). Topics are a soft pass for this slice \u2014 can return [] if clustering is too expensive; ranked people + projects alone is enough to validate the IA.",
+      "id": "hardening-new-flow",
+      "title": "Make entity-list New flows deterministic",
+      "description": "Align the New action on entity list screens with actual product intent. Either create the requested entity type directly or make the UI explicitly reflect a capture-first flow; do not leave the current semantic mismatch in place.",
       "risk": "medium",
       "acceptanceCriteria": [
-        "GET /api/v4/threads?rank=attention&limit=20 returns JSON with shape {threads: [{id, type, name, attention_score, attention_reasons, last_activity_at, last_context, key_items}]}",
-        "Topic clustering is best-effort; if embedding similarity pass is too slow (>500ms), return [] for topics and log a warning; do not fail the request",
-        "Attention reasons are the same reasons v4_attention.py computes per-entity, summed/aggregated for thread members",
-        "last_context is a 1-sentence summary of the most recent activity (use the most recent note's content or 'last activity on <date>')",
-        "Tests: tests/integration/test_v4_threads.py with test_threads_returns_active_people_and_projects, test_threads_ranked_by_attention, test_threads_includes_last_context, test_threads_topic_clustering_optional",
-        "Frontend V5Threads.jsx renders the list with hot/warm/ambient bands (matches mockup m-threads)",
-        "Mobile: single column, full-width thread cards (reuses V5EntityRow component from Slice 2.1)",
-        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration/test_v4_threads.py tests/integration/test_v4_today.py passes",
-        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test && npm run build",
-        "Manual smoke: open /threads, verify ranked list of people + projects with attention_score visible, verify tap-through to thread detail (uses V4EntityDetail for this slice)"
+        "New on list screens matches the promised behavior for that entity type.",
+        "If creation remains capture-first, the UI copy and tests make that contract explicit.",
+        "Focused tests cover the selected creation path end to end at the component level."
       ],
       "validationCommands": [
-        "cd /Volumes/lex1t/dev/shared/repos/engram && grep -nE '/threads|@api_v4_bp\\.route' api/v4_entities.py | grep -i thread",
-        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration/test_v4_threads.py",
-        "cd /Volumes/lex1t/dev/shared/repos/engram && curl -fsS 'http://localhost:5001/api/v4/threads?limit=5' | python3 -c 'import json,sys; d=json.load(sys.stdin); assert \"threads\" in d; print(f\"{len(d[\\\"threads\\\"])} threads returned\")'"
-      ],
-      "blocked": false,
-      "passes": true,
-      "attempts": 1,
-      "blockerReason": null,
-      "validationEvidence": null,
-      "metadata": {
-        "completed_commit": "5bea4ba0",
-        "completed_at": "2026-06-30T16:29:00Z",
-        "completed_via": "manual-cherry-pick-after-loopsmith-fix"
-      }
-    },
-    {
-      "id": "prd-thread-detail",
-      "title": "Thread detail view (continuous timeline + next actions + decisions + people + related threads)",
-      "description": "Build V5ThreadDetail.jsx as the new deep surface. Replaces V4EntityDetail. Same regions for every entity type (project, person, area, resource, task, note): header (type glyph + title + status), narrative summary (from existing summarization or 'I haven't summarized this yet'), next actions (extracted from child tasks + decisions + blocking entities), continuous timeline (entity_events with narration from Phase 1.3), people section (typed relationships), related threads (clusters that share members with this thread). Narrative summary uses the existing canonical_document.py or a short 'current state' summary if available. Type-specific workspace panels (project_pulse, person_pulse, dependency_watch) are folded into the 'next actions' section as inline cards; not boxed regions. Mobile: single column, full-width sections, long-press for actions.",
-      "risk": "low",
-      "acceptanceCriteria": [
-        "ui/src/views/V5ThreadDetail.jsx renders all 5 regions (header, narrative, next actions, timeline, people, related threads) for every entity type",
-        "Timeline uses event.narration from Phase 1.3; no raw event_type strings visible to the user",
-        "Next actions section surfaces top 3 things the user could do (open task, send reminder, decide, etc.); each action has an inline button",
-        "Type-specific signals (project_pulse, person_pulse) appear as compact cards inside the 'next actions' section, not as separate boxed panels",
-        "Storybook story: V5ThreadDetail for each entity type (project, person, area, resource, task, note) with sample data",
-        "Mobile layout: single column, full-width sections, FAB still bottom-right (matches mockup m-thread-detail-mobile)",
-        "Lighthouse a11y \u226595",
-        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test && npm run build",
-        "Manual smoke: tap into a project, a person, and a note thread; verify the layout is consistent across types and the timeline reads as a story not a log"
-      ],
-      "validationCommands": [
-        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && test -f src/views/V5ThreadDetail.jsx",
-        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- V5EntityList V5CaptureSheet",
         "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build"
       ],
       "blocked": false,
-      "passes": true,
-      "attempts": 1,
+      "passes": false,
+      "attempts": 0,
       "blockerReason": null,
-      "validationEvidence": null,
-      "metadata": {
-        "completed_commit": "070b4273",
-        "completed_at": "2026-06-30T16:29:00Z",
-        "completed_via": "manual-cherry-pick-after-loopsmith-fix"
-      }
+      "validationEvidence": null
     },
     {
-      "id": "prd-capture-sheet",
-      "title": "Capture sheet with streaming response and contextual thread attachment",
-      "description": "Build V5CaptureSheet.jsx as a modal sheet (web) or bottom sheet (mobile) that opens from the FAB. The sheet has a single multi-line input. When the user types in a thread context, the sheet auto-attaches to that thread (the attachment is shown at the top, can be changed via a dropdown). On save, the sheet uses POST /api/v4/capture?stream=true and renders live progress events from the SSE stream. After the 'done' event, the sheet closes with a 1.5-second toast 'Saved \u00b7 AI processing (N applied, M suggested). [View]'. Errors render inline; user can retry. The sheet replaces the old capture form in V4Inbox. The copy in the placeholder text is honest: 'Type anything. I'll suggest what I think it means; you can revert any of it after saving.' NOT 'AI will figure out what you mean' (that was the magical-thinking copy in Pass 2.0, replaced in Pass 2.5).",
+      "id": "hardening-interaction-smoke",
+      "title": "Close the loop with smoke coverage and captured learnings",
+      "description": "Add the smallest high-signal interaction coverage needed to validate the repaired flows and record what improved or failed in the autonomous loop itself. This slice is where the app-level fixes are verified as a coherent user experience rather than isolated patches.",
       "risk": "low",
       "acceptanceCriteria": [
-        "ui/src/views/V5CaptureSheet.jsx opens from the FAB on any screen; context-aware: tap from inside a thread \u2192 attached by default; tap from Now or Threads \u2192 generic",
-        "Save uses POST /api/v4/capture?stream=true; live events render as they arrive (e.g. 'extracting\u2026', 'linking Mary to HITL\u2026', 'done')",
-        "Final 'done' event payload closes the sheet and shows a 1.5s toast with applied count + suggested count + [View] link",
-        "Errors render inline with retry button; sheet stays open on error",
-        "Mobile: slide-up bottom sheet, takes full width, drag-down to dismiss, FAB replaced by a header bar (input only)",
-        "Placeholder text is honest about AI behavior; copy matches the v5 spec (not the Pass 2.0 magical-thinking version)",
-        "Storybook: capture sheet in 3 states (empty, typing, streaming), 3 attachment states (none, thread, project)",
-        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test && npm run build",
-        "Manual smoke: capture from Now, capture from inside a thread (verify auto-attach), verify streaming events render in real time"
+        "Capture retry success-after-failure is covered by an automated test.",
+        "A focused smoke path covers Ask honest IDK, Recall open/search, and the entity-list New flow.",
+        "EXECUTION-TRACKER.md records the concrete Loopsmith/autonomous-delivery learnings from this hardening loop."
       ],
       "validationCommands": [
-        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && test -f src/views/V5CaptureSheet.jsx",
-        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- V5CaptureSheet V5AskSheet V5Recall V5EntityList",
         "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build"
       ],
       "blocked": false,
-      "passes": true,
-      "attempts": 1,
+      "passes": false,
+      "attempts": 0,
       "blockerReason": null,
-      "validationEvidence": null,
-      "metadata": {
-        "completed_commit": "bba1c975",
-        "completed_at": "2026-06-30T16:29:00Z",
-        "completed_via": "manual-cherry-pick-after-loopsmith-fix"
-      }
-    },
-    {
-      "id": "prd-mobile-shell",
-      "title": "Mobile responsive layouts for Now, Threads, Thread detail (final pass + delete V4)",
-      "description": "After 2.1-2.4 land, do a mobile-responsive pass on the full app: V5Recall (search/ask palette as bottom sheet), V5ThreadDetail (single column), all the modals (bottom sheets on mobile). Verify the V4 views are no longer used; delete V4Home, V4Today, V4Inbox, V4EntityList, V4EntityDetail, V4Suggestions, V4AgentActivity, V4Search from ui/src/views/. Remove the feature flag in App.jsx; V5 is the only path. This is the cleanup that makes Phase 2 actually shippable. If V4 deletion reveals a gap in V5 (e.g. a view that wasn't migrated), add the missing slice to Phase 2 and re-validate before moving to Phase 3.",
-      "risk": "low",
-      "acceptanceCriteria": [
-        "V5Recall implemented as a bottom sheet on mobile (full-screen modal on desktop) \u2014 reuses the \u2318K palette logic",
-        "All modals (capture, ask, decision) render as bottom sheets on mobile (was: centered modals on desktop)",
-        "V4 views deleted from ui/src/views/: V4Home, V4Today, V4Inbox, V4EntityList, V4EntityDetail, V4Suggestions, V4AgentActivity, V4Search",
-        "App.jsx feature flag removed; V5 is the only path",
-        "Lighthouse mobile audit: performance \u226585, a11y \u226595, best-practices \u226590, PWA (basic installability) optional",
-        "Manual smoke on real device (Safari iOS, Chrome Android) for: Now render, Thread detail scroll, capture sheet open/close, search palette open",
-        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test && npm run build",
-        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run lint (if configured)"
-      ],
-      "validationCommands": [
-        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && ! test -f src/views/V4Home.jsx && ! test -f src/views/V4Today.jsx && ! test -f src/views/V4Inbox.jsx && ! test -f src/views/V4EntityDetail.jsx",
-        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test",
-        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build",
-        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && grep -nE 'FEATURE_FLAG_V5|useV5|V5_ENABLED' src/App.jsx || echo 'no feature flag (good)'"
-      ],
-      "blocked": false,
-      "passes": true,
-      "attempts": 1,
-      "blockerReason": null,
-      "validationEvidence": "manually cherry-picked 0733e2e6 from worktree prd-mobile-shell-opencode-a001-opencode (commit 801ea847); deleted V4 views, added V5EntityList/V5Recall/V5RecallOpener/RecallContext",
-      "dependencies": [
-        "prd-shell-now",
-        "prd-threads",
-        "prd-thread-detail",
-        "prd-capture-sheet"
-      ]
-    },
-    {
-      "id": "prd-decisions",
-      "title": "Decisions as first-class records (extraction + schema + sheet)",
-      "description": "Add a new entity type 'decision' that tracks explicit commitments. Schema: id, thread_id (FK entities.id), statement, context, decided_at, decided_by ('user' or 'agent:<name>'), source_note_id (FK entities.id), superseded_by (FK decisions.id, nullable). Extract from notes/tasks via prompt: 'only extract EXPLICIT commitments with named person and specific date or deliverable. Reject tentative language (maybe, we could, I think).' Decisions ALWAYS go to suggestions queue, never auto-apply (per \u00a711.6 of 02-fresh-pass.md). UI: thread detail timeline shows \u2696 decision entries; thread header shows a 'decisions' count chip; new POST /api/v4/decisions creates manually. False positives are worse than false negatives \u2014 a wrongly-recorded decision implies a commitment. Conservative prompt + always-to-suggestions is the guardrail.",
-      "risk": "medium",
-      "acceptanceCriteria": [
-        "scripts/migrations/004_decisions.sql creates the decisions table (idempotent); runs cleanly against the live DB",
-        "services/v4_decisions.py extracts decisions from notes via conservative prompt; only emits suggestions, never auto-creates",
-        "POST /api/v4/capture pipeline includes decision extraction; decisions appear as suggestions with reason='Explicit commitment detected: <statement>'",
-        "GET /api/v4/decisions?thread_id=<id> returns the thread's decisions ordered by decided_at desc; supports limit and superseded filtering",
-        "POST /api/v4/decisions creates a decision manually (user can record a decision without a source note)",
-        "Thread detail timeline (V5ThreadDetail) shows \u2696 decision entries; thread header chip shows the count",
-        "tests/integration/test_v4_decisions.py with test_decision_extracted_from_explicit_commitment, test_decision_rejected_for_tentative_language, test_decision_always_suggestion_not_auto, test_decision_manual_create, test_decision_superseded_chain",
-        "Decision extraction precision \u226585% on labeled corpus (tests/fixtures/decisions_corpus.json); precision = true_positives / (true_positives + false_positives)",
-        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration/test_v4_decisions.py tests/integration/test_v4_capture_extraction.py tests/integration/test_v4_suggestions.py passes"
-      ],
-      "validationCommands": [
-        "cd /Volumes/lex1t/dev/shared/repos/engram && test -f scripts/migrations/004_decisions.sql && grep -c 'CREATE TABLE' scripts/migrations/004_decisions.sql",
-        "cd /Volumes/lex1t/dev/shared/repos/engram && test -f services/v4_decisions.py",
-        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration/test_v4_decisions.py",
-        "cd /Volumes/lex1t/dev/shared/repos/engram && curl -fsS http://localhost:5001/api/v4/health"
-      ],
-      "blocked": false,
-      "passes": true,
-      "attempts": 1,
-      "blockerReason": null,
-      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram && test -f scripts/migrations/004_decisions.sql && grep -c 'CREATE TABLE' scripts/migrations/004_decisions.sql\n1\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram && test -f services/v4_decisions.py\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration/test_v4_decisions.py\n.....                                                                    [100%]\n5 passed in 10.33s\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram && curl -fsS http://localhost:5001/api/v4/health\n{\"api\":\"v4\",\"database\":\"ok\",\"status\":\"ok\"}"
-    },
-    {
-      "id": "prd-ask-endpoint",
-      "title": "/api/v4/ask endpoint + V5AskSheet with honest 'I don't know' state",
-      "description": "POST /api/v4/ask takes a question, runs hybrid search to retrieve top-k context, generates a grounded answer with citations. Response shape: {answer, citations: [{entity_id, snippet, relevance}], confidence: high|medium|low, caveats: [...], suggested_actions: [{type, label, payload}]}. When confidence is low or context is empty, return honest 'I don't have anything in the workspace that answers this' response with caveats explaining why. NEVER confabulate. Cache answers for 24h keyed on (question, top-k context hash). UI: V5AskSheet opens from the + Ask \u2726 button in the top bar; shows the question, thinking state, then answer with citations. When confidence is low, the sheet shows the 'I don't know' state with a 'Capture starting point' action.",
-      "risk": "medium",
-      "acceptanceCriteria": [
-        "POST /api/v4/ask with {question: 'What did Mary say about the PR review?'} returns {answer, citations, confidence, caveats, suggested_actions}",
-        "When question has no in-workspace grounding: answer is 'I don't have anything in the workspace that answers this' with caveats explaining why; confidence is 'low'",
-        "Citations always present when answer is grounded; inline format: \ud83d\udcdd 'snippet' \u2014 entity_id",
-        "Confidence high requires \u22652 citations with relevance \u22650.7; medium is 1 citation or 2+ with relevance <0.7; low is 0 citations",
-        "Cache: 24h TTL keyed on sha256(question + top_k_context_hash); cache hit returns same response without re-running LLM",
-        "services/v4_ask.py uses services.v4_search for hybrid retrieval; uses services.v4_brief.BRIEF_MODEL for answer generation (no new model needed)",
-        "tests/integration/test_v4_ask.py with test_ask_returns_grounded_answer, test_ask_returns_low_confidence_when_no_context, test_ask_includes_citations, test_ask_low_confidence_state_does_not_confabulate, test_ask_cache_hit",
-        "V5AskSheet opens from top bar; renders question, thinking state, answer with citations, suggested actions; 'I don't know' state with Capture starting point action",
-        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration/test_v4_ask.py tests/integration/test_v4_search.py passes",
-        "Manual smoke: ask 'What did Mary say about the PR review?' (grounded in note from Jun 22) and 'Did Mary say anything about Q3 budget in her last 1:1?' (no grounding) \u2014 verify the second returns the honest 'I don't know' state"
-      ],
-      "validationCommands": [
-        "cd /Volumes/lex1t/dev/shared/repos/engram && test -f services/v4_ask.py",
-        "cd /Volumes/lex1t/dev/shared/repos/engram && grep -nE '/ask|@api_v4_bp\\.route' api/v4_entities.py | grep -i ask",
-        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration/test_v4_ask.py",
-        "cd /Volumes/lex1t/dev/shared/repos/engram && curl -fsS -X POST http://localhost:5001/api/v4/ask -H 'Content-Type: application/json' -d '{\"question\":\"test\"}' | python3 -c 'import json,sys; d=json.load(sys.stdin); assert \"confidence\" in d'"
-      ],
-      "blocked": false,
-      "passes": true,
-      "attempts": 1,
-      "blockerReason": null,
-      "validationEvidence": "manually cherry-picked from worktree (prd-ask-endpoint-opencode-a002/a003); worker code was correct, validation failed due to dummy OpenAI API key during live boot"
-    },
-    {
-      "id": "prd-timeline",
-      "title": "/api/v4/timeline endpoint + V5Memory view (episodic chronology)",
-      "description": "GET /api/v4/timeline?from=&to=&thread_id=&actor=&limit=&offset= returns a chronological event stream across all entities using the existing entity_events table. Each event: id, entity_id, entity_type, event_type, occurred_at, actor, narration (from Phase 1.3), thread_id (derived). Index: ensure entity_events has (occurred_at DESC) index or add via migration. UI: V5Memory view is a vertical timeline with date headers ('Today', 'Yesterday', 'Last week', 'May 2026', etc.), filter chips (entity_type, actor, thread), search box, and lazy loading. The view is the chronological complement to the Now surface; lets the user think in episodes not entities. Performance: paginate 50 events per page; 1000-event span should load in <500ms.",
-      "risk": "medium",
-      "acceptanceCriteria": [
-        "GET /api/v4/timeline?from=&to=&thread_id=&actor= returns {events: [...], next_offset: ...} ordered by occurred_at DESC",
-        "Migration scripts/migrations/005_timeline_index.sql adds (occurred_at DESC) index on entity_events if not present; runs idempotently",
-        "Each event includes: id, entity_id, entity_type, event_type, occurred_at, actor, narration (from Phase 1.3), thread_id (derived via entity's parent project or assigned person)",
-        "Pagination: limit (default 50, max 200), offset (cursor-style or numeric); query plan uses (occurred_at DESC) index",
-        "Performance: query for 1000 events across all entities returns in <500ms; measured via tests/integration/test_v4_timeline.py::test_timeline_performance_1000_events",
-        "V5Memory view: vertical timeline with date headers, filter chips, search box, lazy loading; matches mockup v5 mental model (date-grouped, not bucketed by entity type)",
-        "Mobile: single column, full-width event cards, pull-to-refresh, infinite scroll",
-        "tests/integration/test_v4_timeline.py with test_timeline_returns_events_desc, test_timeline_filtered_by_thread, test_timeline_filtered_by_actor, test_timeline_pagination, test_timeline_includes_narration, test_timeline_performance_1000_events",
-        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration/test_v4_timeline.py tests/integration/test_v4_entity_detail.py passes"
-      ],
-      "validationCommands": [
-        "cd /Volumes/lex1t/dev/shared/repos/engram && test -f scripts/migrations/005_timeline_index.sql",
-        "cd /Volumes/lex1t/dev/shared/repos/engram && grep -nE '/timeline|@api_v4_bp\\.route' api/v4_entities.py | grep -i timeline",
-        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration/test_v4_timeline.py",
-        "cd /Volumes/lex1t/dev/shared/repos/engram && curl -fsS 'http://localhost:5001/api/v4/timeline?limit=10' | python3 -c 'import json,sys; d=json.load(sys.stdin); assert \"events\" in d'"
-      ],
-      "blocked": false,
-      "passes": true,
-      "attempts": 1,
-      "blockerReason": null,
-      "validationEvidence": "manually cherry-picked from worktree (prd-timeline-opencode-a002/a003); worker code was correct, validation failed due to dummy OpenAI API key during live boot"
-    },
-    {
-      "id": "prd-citations-ui",
-      "title": "Cross-link Ask \u2726 citations into thread detail + Memory view",
-      "description": "Citations from Ask \u2726 answers are returned as objects with entity_id and snippet. Add a CitationsList component that renders them as inline cards (\ud83d\udcdd glyph + snippet preview + date + link to entity). Wire CitationsList into V5AskSheet (inline below the answer), V5ThreadDetail (a 'references' section showing all entities that cite this thread), and V5Memory (event rows include clickable citation links). When a citation is clicked, open the cited entity in a sheet (not a navigation) so the user can read it and return. Frontend-only slice; no backend changes.",
-      "risk": "low",
-      "acceptanceCriteria": [
-        "ui/src/components/CitationsList.jsx renders citations as cards with \ud83d\udcdd glyph, snippet preview (truncated to 140 chars), date, and 'open' button",
-        "V5AskSheet renders CitationsList inline below the answer; clicking a citation opens a side sheet with the full entity",
-        "V5ThreadDetail has a 'references' section showing entities that cited this thread (from Ask \u2726 answers where citation.entity_id is related to the current thread); cross-link via the entity's parent project or assigned person",
-        "V5Memory event rows include clickable citation links when the event has a source_note_id; clicking opens a side sheet",
-        "Citation side sheet: read-only view of the entity, with a 'back' button to return to the previous view; the previous view's state is preserved",
-        "Storybook: CitationsList in 3 states (single citation, multiple citations, no citations)",
-        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test && npm run build",
-        "Manual smoke: open Ask \u2726, ask a grounded question, tap a citation, verify the side sheet opens with the cited entity, tap 'back' to return"
-      ],
-      "validationCommands": [
-        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && test -f src/components/CitationsList.jsx",
-        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test",
-        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build"
-      ],
-      "blocked": false,
-      "passes": true,
-      "attempts": 1,
-      "blockerReason": null,
-      "validationEvidence": "manually cherry-picked 2718cfd2 from worktree prd-citations-ui-opencode-a001 (cleaner a001 commit, 14 files/677 insertions); 69/69 frontend tests passing"
+      "validationEvidence": null
     }
   ],
-  "previousIteration": "v5-redesign-phase2-composition",
+  "previousIteration": "v5-redesign-phase3-intelligence",
   "previousIterationStatus": "completed",
   "codingLoopPolicy": {
     "primaryExecutor": "opencode",

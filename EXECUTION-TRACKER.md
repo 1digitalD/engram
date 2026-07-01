@@ -2,9 +2,17 @@
 
 This file is the fresh-agent handoff for the current v4 baseline. Use it to reconstruct context quickly without reading stale task logs first.
 
-Last updated: 2026-06-30
+Last updated: 2026-07-01
 Branch: `main`
 Runtime baseline: `/api/v4` only, fresh Postgres + pgvector schema, write-enabled MCP aligned with the active API.
+
+## Current hardening loop: Iteration 17 (2026-07-01)
+
+- Loopsmith runtime was fully drained at the end of the v5 Phase 3 work, so a new execution overlay was created in `prd.json` for post-Phase-3 hardening slices.
+- This is intentional even though the longer-term repo plan lives in `docs/V4_WORLD_MODEL_PLAN.md`: the `prd.json` file is being used here as a narrow Loopsmith task graph, not as the repo's product-plan source of truth.
+- Slice order is trust and loop reliability first, then truthful UI state, then Recall hardening, then `New` semantics, then smoke coverage.
+- First loop-level issue to resolve: `loopsmithctl doctor --strict` currently times out instead of returning a bounded readiness result, so the first slice explicitly includes loop/test reliability work.
+- Capture learnings from each slice here, especially anything that improves Loopsmith readiness probes, validation determinism, or autonomous recovery.
 
 ## Latest slice: prd-timeline (2026-06-30)
 
