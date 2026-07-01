@@ -1,5 +1,36 @@
 const API_PREFIX = '/api/v4';
 
+/**
+ * Translate known API errors to user-friendly messages. B-018: raw OpenAI
+ * error strings are confusing and can leak billing/quota internals. Use
+ * `friendlyApiError(err)` in catch blocks instead of `err.message`.
+ */
+export function friendlyApiError(err, fallback) {
+  const status = err?.status;
+  const body = err?.body || {};
+  // 429 quota / rate limit
+  if (status === 429) {
+    if (
+      typeof body.error === 'string' &&
+      /quota|billing|insufficient/i.test(body.error)
+    ) {
+      return 'Service is temporarily unavailable — usage limit reached. Try again later or check your plan.';
+    }
+    return 'Service is rate-limited right now. Wait a minute and try again.';
+  }
+  // Network / CORS / DNS — fetch throws before status is set
+  if (err instanceof TypeError && /fetch|network/i.test(err.message)) {
+    return 'Could not reach the workspace. Check your connection and try again.';
+  }
+  if (status >= 500) {
+    return 'The workspace hit an unexpected error. Try again in a moment.';
+  }
+  // Default: trim and clean the raw message
+  const raw = err?.message || '';
+  if (raw.length > 200) return `${raw.slice(0, 197)}…`;
+  return raw || fallback || 'Something went wrong.';
+}
+
 export async function v4Request(method, path, body = null, params = {}) {
   const url = new URL(`${API_PREFIX}${path}`, window.location.origin);
   Object.entries(params || {}).forEach(([key, value]) => {

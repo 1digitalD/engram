@@ -11,6 +11,7 @@ vi.mock('../api/v4Client', () => ({
       list: vi.fn(),
     },
   },
+  friendlyApiError: (err, fallback) => err?.message || fallback || 'Something went wrong.',
 }));
 
 describe('V5EntityList', () => {

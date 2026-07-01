@@ -16,6 +16,7 @@ vi.mock('../api/v4Client', () => ({
       create: vi.fn(),
     },
   },
+  friendlyApiError: (err, fallback) => err?.message || fallback || 'Something went wrong.',
 }));
 
 import { v4API } from '../api/v4Client';

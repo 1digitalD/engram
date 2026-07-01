@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import Sheet from '../components/Sheet';
 import { useCapture } from '../context/CaptureContext';
-import { v4API } from '../api/v4Client';
+import { v4API, friendlyApiError } from '../api/v4Client';
 import { captureStream, formatCaptureStreamLabel } from '../utils/captureStream';
 import styles from './V5CaptureSheet.module.css';
 
@@ -218,7 +218,7 @@ export default function V5CaptureSheet({
         });
       }
     } catch (err) {
-      setError(err.message || 'Capture failed');
+      setError(friendlyApiError(err, 'Capture failed'));
     } finally {
       setStreaming(false);
     }

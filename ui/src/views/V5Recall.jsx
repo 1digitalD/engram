@@ -4,7 +4,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { Search, Sparkles } from 'lucide-react';
 import Sheet from '../components/Sheet';
-import { v4API } from '../api/v4Client';
+import { v4API, friendlyApiError } from '../api/v4Client';
 import XGlyph from '../components/XGlyph';
 import { useCapture } from '../context/CaptureContext';
 import styles from './V5Recall.module.css';
@@ -54,7 +54,7 @@ function useRecallSearch(query) {
           setResults(response?.data || []);
         })
         .catch((err) => {
-          setError(err.message || 'Search failed');
+          setError(friendlyApiError(err, 'Search failed'));
           setResults([]);
         })
         .finally(() => {

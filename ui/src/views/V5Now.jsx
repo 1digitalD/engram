@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { v4API } from '../api/v4Client';
+import { v4API, friendlyApiError } from '../api/v4Client';
 import { MOCKED_NOW_DATA } from './V5Now.fixtures';
 import styles from './V5Now.module.css';
 
@@ -177,7 +177,7 @@ export default function V5Now({ previewData }) {
       })
       .catch((err) => {
         if (!active) return;
-        setError(err.message || 'Failed to load Now');
+        setError(friendlyApiError(err, 'Failed to load Now'));
         setData(null);
       })
       .finally(() => {
@@ -205,7 +205,7 @@ export default function V5Now({ previewData }) {
           const today = await v4API.today();
           setData(transformTodayResponse(today));
         } catch (err) {
-          setError(err.message || 'Snooze failed');
+          setError(friendlyApiError(err, 'Snooze failed'));
         } finally {
           setPendingAction(null);
         }
@@ -219,7 +219,7 @@ export default function V5Now({ previewData }) {
           const today = await v4API.today();
           setData(transformTodayResponse(today));
         } catch (err) {
-          setError(err.message || 'Mark done failed');
+          setError(friendlyApiError(err, 'Mark done failed'));
         } finally {
           setPendingAction(null);
         }

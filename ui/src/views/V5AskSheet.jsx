@@ -6,7 +6,7 @@ import { Sparkles, ArrowRight, Plus } from 'lucide-react';
 import Sheet from '../components/Sheet';
 import CitationsList from '../components/CitationsList';
 import CitationEntitySheet from '../components/CitationEntitySheet';
-import { v4API } from '../api/v4Client';
+import { v4API, friendlyApiError } from '../api/v4Client';
 import { useCapture } from '../context/CaptureContext';
 import styles from './V5AskSheet.module.css';
 
@@ -82,7 +82,7 @@ export default function V5AskSheet({ open, onClose }) {
       const data = await v4API.ask({ question: trimmed, top_k: 5 });
       setResult(data);
     } catch (err) {
-      setError(err.message || 'Ask failed');
+      setError(friendlyApiError(err));
     } finally {
       setLoading(false);
     }

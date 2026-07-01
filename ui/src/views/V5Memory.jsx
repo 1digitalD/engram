@@ -7,7 +7,7 @@ import {
 } from 'react';
 import { Link } from 'react-router-dom';
 import { Loader2, RefreshCw, Search } from 'lucide-react';
-import { v4API } from '../api/v4Client';
+import { v4API, friendlyApiError } from '../api/v4Client';
 import CitationEntitySheet from '../components/CitationEntitySheet';
 import { pathForEntity } from './v5ThreadDetailUtils';
 import styles from './V5Memory.module.css';
@@ -175,7 +175,7 @@ export default function V5Memory({ previewData }) {
       }
       setNextOffset(data.next_offset);
     } catch (err) {
-      setError(err.message || 'Failed to load timeline');
+      setError(friendlyApiError(err, 'Failed to load timeline'));
       if (!append) setEvents([]);
     } finally {
       setLoading(false);

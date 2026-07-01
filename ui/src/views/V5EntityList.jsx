@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus, Search } from 'lucide-react';
-import { v4API } from '../api/v4Client';
+import { v4API, friendlyApiError } from '../api/v4Client';
 import { entityTitleLabel } from '../utils/entityDisplay';
 import XGlyph from '../components/XGlyph';
 import { useCapture } from '../context/CaptureContext';
@@ -55,7 +55,7 @@ export default function V5EntityList({ type }) {
       })
       .catch((err) => {
         if (!active) return;
-        setError(err.message || `Failed to load ${type}s`);
+        setError(friendlyApiError(err, `Failed to load ${type}s`));
         setEntities([]);
       })
       .finally(() => {

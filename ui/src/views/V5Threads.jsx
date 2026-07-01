@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { v4API } from '../api/v4Client';
+import { v4API, friendlyApiError } from '../api/v4Client';
 import V5EntityRow from './V5EntityRow';
 import pageStyles from '../styles/v5.module.css';
 
@@ -33,7 +33,7 @@ export default function V5Threads() {
       })
       .catch((err) => {
         if (!active) return;
-        setError(err.message || 'Failed to load threads');
+        setError(friendlyApiError(err, 'Failed to load threads'));
         setThreads([]);
       })
       .finally(() => {
