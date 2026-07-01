@@ -103,6 +103,33 @@ def test_threads_includes_last_context(client, app):
     assert thread["last_activity_at"]
 
 
+def test_summary_threads_count_matches_threads_endpoint(client, app):
+    akash = _create_entity(client, "person", "Akash")
+    blocked_task = _create_entity(client, "task", "Blocked dashboard work", status="blocked")
+    _link(client, blocked_task["id"], akash["id"], "assigned_to")
+
+    project = _create_entity(client, "project", "Launch readiness")
+    overdue_task = _create_entity(
+        client,
+        "task",
+        "Send rollout update",
+        status="open",
+        due_at=(datetime.now(timezone.utc) - timedelta(days=1)).isoformat(),
+    )
+    _link(client, overdue_task["id"], project["id"], "parent")
+
+    threads_response = client.get("/api/v4/threads")
+    assert threads_response.status_code == 200
+    threads_count = len(threads_response.get_json()["threads"])
+    assert threads_count > 0
+
+    summary_response = client.get("/api/v4/summary")
+    assert summary_response.status_code == 200
+    summary = summary_response.get_json()
+    assert "threads_count" in summary
+    assert summary["threads_count"] == threads_count
+
+
 def test_threads_topic_clustering_optional(client, app):
     note_a = _create_entity(client, "note", "Orphan topic A", content="Shared rollout planning notes")
     note_b = _create_entity(client, "note", "Orphan topic B", content="Shared rollout planning follow-up")

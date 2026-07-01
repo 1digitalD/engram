@@ -1039,6 +1039,7 @@ def summary():
         "inbox_count": _needs_review_count(),
         "today_count": today_attention_count(today_payload),
         "suggestions_count": _needs_review_count(),
+        "threads_count": len(_build_threads_payload(now)),
         "last_reviewed_at": today_payload["last_reviewed_at"],
         "reviewed_today": today_payload["reviewed_today"],
         "stale_projects_count": (

@@ -105,10 +105,10 @@
         "cd /Volumes/lex1t/dev/shared/repos/engram && curl -fsS http://localhost:5001/api/v4/summary | python3 -c 'import json,sys; d=json.load(sys.stdin); assert \"today_count\" in d'"
       ],
       "blocked": false,
-      "passes": false,
-      "attempts": 0,
+      "passes": true,
+      "attempts": 1,
       "blockerReason": null,
-      "validationEvidence": null
+      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/integration/test_v4_threads.py -q\n.....                                                                    [100%]\n5 passed in 0.42s\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- App TopBar\n\n> engram-ui@0.0.0 test\n> node scripts/run-tests.mjs App TopBar\n\n\n RUN  v3.2.4 /Volumes/lex1t/dev/shared/repos/engram/ui\n\n \u2713 src/components/TopBar.test.jsx (5 tests) 70ms\n \u2713 src/App.test.jsx (8 tests) 164ms\n\n Test Files  2 passed (2)\n      Tests  13 passed (13)\n   Start at  12:11:08\n   Duration  877ms (transform 128ms, setup 99ms, collect 370ms, tests 234ms, environment 496ms, prepare 75ms)\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram && curl -fsS http://localhost:5001/api/v4/summary | python3 -c 'import json,sys; d=json.load(sys.stdin); assert \"today_count\" in d'"
     },
     {
       "id": "hardening-recall-stability",

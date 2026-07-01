@@ -50,4 +50,14 @@ describe('TopBar', () => {
 
     delete document.documentElement.dataset.theme;
   });
+
+  it('renders count pills for supported lenses and hides unsupported ones', () => {
+    renderWithRouter(
+      <TopBar trustScore={87} onAsk={() => {}} onRecall={() => {}} nowCount={3} threadsCount={7} />,
+    );
+
+    expect(screen.getByRole('link', { name: /Now/i })).toHaveTextContent('3');
+    expect(screen.getByRole('link', { name: /Threads/i })).toHaveTextContent('7');
+    expect(screen.getByRole('button', { name: /Recall/i })).not.toHaveTextContent(/\d/);
+  });
 });

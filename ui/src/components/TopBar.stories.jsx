@@ -23,7 +23,6 @@ export const Default = {
     trustScore: 87,
     nowCount: 3,
     threadsCount: 7,
-    recallCount: 0,
     onAsk: () => {},
   },
 };
@@ -36,7 +35,6 @@ export const ThemeDark = {
     trustScore: 87,
     nowCount: 3,
     threadsCount: 7,
-    recallCount: 0,
     onAsk: () => {},
   },
   decorators: [
@@ -52,7 +50,6 @@ export const TrustLow = {
     trustScore: 42,
     nowCount: 1,
     threadsCount: 2,
-    recallCount: 0,
     onAsk: () => {},
   },
 };
@@ -65,7 +62,6 @@ export const Mobile = {
     trustScore: 87,
     nowCount: 3,
     threadsCount: 7,
-    recallCount: 0,
     onAsk: () => {},
   },
 };

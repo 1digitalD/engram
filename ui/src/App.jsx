@@ -19,7 +19,7 @@ function AppShell() {
   const location = useLocation();
   const { toast } = useCapture();
   const { open, openRecall, closeRecall } = useRecall();
-  const [counts, setCounts] = useState({ today: 0, threads: 0, recall: 0 });
+  const [counts, setCounts] = useState({ today: 0, threads: undefined, recall: undefined });
   const [trustScore, setTrustScore] = useState(null);
   const [askOpen, setAskOpen] = useState(false);
 
@@ -31,16 +31,17 @@ function AppShell() {
     v4API.summary()
       .then((data) => {
         if (!active) return;
-        // /summary doesn't expose threads_count or recall_count; keep
-        // them at 0 rather than silently falling back to today_count.
+        // /summary exposes threads_count. Recall is a search dialog with no
+        // meaningful count, so its pill is suppressed (undefined) instead of
+        // showing a false zero (audit B-010).
         setCounts({
           today: data?.today_count ?? 0,
-          threads: 0,
-          recall: 0,
+          threads: data?.threads_count ?? 0,
+          recall: undefined,
         });
       })
       .catch(() => {
-        if (active) setCounts({ today: 0, threads: 0, recall: 0 });
+        if (active) setCounts({ today: 0, threads: 0, recall: undefined });
       });
     return () => { active = false; };
   }, []);

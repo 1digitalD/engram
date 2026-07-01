@@ -5,10 +5,14 @@ Flask test client. Avoids the database fixture deadlock that affects
 integration tests.
 """
 
+import pathlib
 import sys
 from unittest.mock import patch
 
-sys.path.insert(0, "/Volumes/lex1t/dev/shared/repos/engram")
+# Make the test runnable standalone from any checkout/worktree.
+_PROJECT_ROOT = pathlib.Path(__file__).resolve().parents[2]
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
 
 from services import v4_ask
 
