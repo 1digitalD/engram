@@ -4,6 +4,8 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { Sparkles, ArrowRight, Plus } from 'lucide-react';
 import Sheet from '../components/Sheet';
+import CitationsList from '../components/CitationsList';
+import CitationEntitySheet from '../components/CitationEntitySheet';
 import { v4API } from '../api/v4Client';
 import { useCapture } from '../context/CaptureContext';
 import styles from './V5AskSheet.module.css';
@@ -12,21 +14,6 @@ function entityPath(entityId, type) {
   if (type === 'person') return `/people/${entityId}`;
   if (type) return `/${type}s/${entityId}`;
   return `/entities/${entityId}`;
-}
-
-function CitationList({ citations }) {
-  if (!citations?.length) return null;
-  return (
-    <ul className={styles.citationList} aria-label="Citations">
-      {citations.map((citation) => (
-        <li key={citation.entity_id} className={styles.citation}>
-          <span className={styles.citationGlyph} aria-hidden="true">📝</span>
-          <span className={styles.citationSnippet}>{citation.snippet}</span>
-          <span className={styles.citationId}>— {citation.entity_id}</span>
-        </li>
-      ))}
-    </ul>
-  );
 }
 
 function ActionList({ actions, onOpen, onCapture }) {
@@ -72,6 +59,7 @@ export default function V5AskSheet({ open, onClose }) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
+  const [citationEntityId, setCitationEntityId] = useState(null);
   const inputRef = useRef(null);
 
   useEffect(() => {
@@ -192,7 +180,10 @@ export default function V5AskSheet({ open, onClose }) {
                   >
                     {result.answer}
                   </div>
-                  <CitationList citations={result.citations} />
+                  <CitationsList
+                    citations={result.citations}
+                    onOpen={(citation) => setCitationEntityId(citation.entity_id)}
+                  />
                 </>
               )}
 
@@ -229,6 +220,11 @@ export default function V5AskSheet({ open, onClose }) {
           </span>
         </footer>
       </div>
+      <CitationEntitySheet
+        entityId={citationEntityId}
+        open={!!citationEntityId}
+        onClose={() => setCitationEntityId(null)}
+      />
     </Sheet>
   );
 }

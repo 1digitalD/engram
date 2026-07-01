@@ -150,4 +150,11 @@ describe('V5ThreadDetail', () => {
     expect(within(peopleSection).getByText('Mary')).toBeInTheDocument();
     expect(within(peopleSection).getByText(/mentions/i)).toBeInTheDocument();
   });
+
+  it('renders a references section with related entities', async () => {
+    renderThread('project');
+    const referencesSection = await screen.findByRole('region', { name: 'References' });
+    expect(referencesSection).toBeInTheDocument();
+    expect(within(referencesSection).getAllByRole('button', { name: /Open citation/i }).length).toBeGreaterThan(0);
+  });
 });

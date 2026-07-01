@@ -237,3 +237,40 @@ export function buildRelatedThreads(detail, entity) {
 export function statusLabel(status) {
   return humanizeToken(status || 'active');
 }
+
+function referenceSnippet(entity) {
+  const summary = entity?.ai?.entity_summary?.trim() || entity?.ai?.summary?.trim();
+  if (summary) return summary;
+
+  const title = entity?.title?.trim();
+  if (title) return title;
+
+  const content = entity?.content?.trim();
+  if (content) return content.slice(0, 140);
+
+  return '(no summary)';
+}
+
+export function buildReferences(detail, entity) {
+  const references = [];
+  const seen = new Set();
+
+  (detail?.sections || []).forEach((section) => {
+    (section.items || []).forEach((item) => {
+      const related = item?.entity;
+      if (!related || related.id === entity?.id || seen.has(related.id)) return;
+      seen.add(related.id);
+      const relationshipType = item.relationship?.relationship_type;
+      references.push({
+        entity_id: related.id,
+        snippet: referenceSnippet(related),
+        created_at: related.created_at,
+        updated_at: related.updated_at,
+        entity: related,
+        meta: humanizeToken(relationshipType || section.title),
+      });
+    });
+  });
+
+  return references;
+}

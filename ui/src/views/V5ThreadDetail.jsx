@@ -3,11 +3,14 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import { v4API } from '../api/v4Client';
 import XGlyph from '../components/XGlyph';
+import CitationsList from '../components/CitationsList';
+import CitationEntitySheet from '../components/CitationEntitySheet';
 import { entityTitleLabel } from '../utils/entityDisplay';
 import styles from '../styles/v5.module.css';
 import {
   buildNextActions,
   buildPeople,
+  buildReferences,
   buildRelatedThreads,
   buildSignalCards,
   formatTimelineDate,
@@ -77,6 +80,9 @@ function ThreadDetailContent({
   canonicalText,
   onAction,
   onCapture,
+  onOpenReference,
+  showCaptureFab = true,
+  showNextActions = true,
 }) {
   const entity = detail.entity;
   const entityType = entity.type;
@@ -85,6 +91,7 @@ function ThreadDetailContent({
   const signalCards = buildSignalCards(detail, entityType);
   const people = buildPeople(detail);
   const relatedThreads = buildRelatedThreads(detail, entity);
+  const references = buildReferences(detail, entity);
   const [longPressTarget, setLongPressTarget] = useState(null);
 
   const longPress = useLongPress((target) => setLongPressTarget(target));
@@ -119,45 +126,47 @@ function ThreadDetailContent({
         <p className={styles.narrative}>{summary}</p>
       </section>
 
-      <section className={styles.section} aria-labelledby="thread-next-actions-label">
-        <h2 id="thread-next-actions-label" className={styles.sectionLabel}>Next actions</h2>
-        {signalCards.map((card) => (
-          <article key={card.key} className={styles.signalCard} aria-label={card.title}>
-            <h3 className={styles.signalTitle}>{card.title}</h3>
-            <p className={styles.signalBody}>{card.body}</p>
-            {card.meta ? (
-              <p className={styles.signalMeta}>
-                {Object.entries(card.meta)
-                  .filter(([, value]) => typeof value === 'number' && value > 0)
-                  .map(([key, value]) => `${value} ${key.replace(/_/g, ' ')}`)
-                  .join(' · ')}
-              </p>
-            ) : null}
-          </article>
-        ))}
-        {nextActions.length > 0 ? nextActions.map((action) => (
-          <div
-            key={action.id}
-            className={styles.actionRow}
-            onTouchStart={(event) => longPress.onTouchStart(event, action)}
-            onTouchEnd={longPress.onTouchEnd}
-            onTouchMove={longPress.onTouchMove}
-            onMouseDown={(event) => longPress.onMouseDown(event, action)}
-            onMouseUp={longPress.onMouseUp}
-            onMouseLeave={longPress.onMouseLeave}
-            data-testid={`action-row-${action.id}`}
-          >
-            <div className={styles.actionLabel}>{action.label}</div>
-            <div className={styles.actionButtons}>
-              {action.buttons.map((button) => (
-                <ActionButton key={button.key} button={button} onAction={onAction} />
-              ))}
+      {showNextActions ? (
+        <section className={styles.section} aria-labelledby="thread-next-actions-label">
+          <h2 id="thread-next-actions-label" className={styles.sectionLabel}>Next actions</h2>
+          {signalCards.map((card) => (
+            <article key={card.key} className={styles.signalCard} aria-label={card.title}>
+              <h3 className={styles.signalTitle}>{card.title}</h3>
+              <p className={styles.signalBody}>{card.body}</p>
+              {card.meta ? (
+                <p className={styles.signalMeta}>
+                  {Object.entries(card.meta)
+                    .filter(([, value]) => typeof value === 'number' && value > 0)
+                    .map(([key, value]) => `${value} ${key.replace(/_/g, ' ')}`)
+                    .join(' · ')}
+                </p>
+              ) : null}
+            </article>
+          ))}
+          {nextActions.length > 0 ? nextActions.map((action) => (
+            <div
+              key={action.id}
+              className={styles.actionRow}
+              onTouchStart={(event) => longPress.onTouchStart(event, action)}
+              onTouchEnd={longPress.onTouchEnd}
+              onTouchMove={longPress.onTouchMove}
+              onMouseDown={(event) => longPress.onMouseDown(event, action)}
+              onMouseUp={longPress.onMouseUp}
+              onMouseLeave={longPress.onMouseLeave}
+              data-testid={`action-row-${action.id}`}
+            >
+              <div className={styles.actionLabel}>{action.label}</div>
+              <div className={styles.actionButtons}>
+                {action.buttons.map((button) => (
+                  <ActionButton key={button.key} button={button} onAction={onAction} />
+                ))}
+              </div>
             </div>
-          </div>
-        )) : (
-          <p className={styles.emptyHint}>No obvious next actions right now.</p>
-        )}
-      </section>
+          )) : (
+            <p className={styles.emptyHint}>No obvious next actions right now.</p>
+          )}
+        </section>
+      ) : null}
 
       <section className={styles.section} aria-labelledby="thread-timeline-label">
         <h2 id="thread-timeline-label" className={styles.sectionLabel}>Timeline</h2>
@@ -216,14 +225,25 @@ function ThreadDetailContent({
         )}
       </section>
 
-      <button
-        type="button"
-        className={styles.fab}
-        aria-label="Capture"
-        onClick={onCapture}
-      >
-        <Plus size={24} strokeWidth={2.2} aria-hidden="true" />
-      </button>
+      <section className={styles.section} aria-labelledby="thread-references-label">
+        <h2 id="thread-references-label" className={styles.sectionLabel}>References</h2>
+        {references.length > 0 ? (
+          <CitationsList citations={references} onOpen={onOpenReference} />
+        ) : (
+          <p className={styles.emptyHint}>No references yet.</p>
+        )}
+      </section>
+
+      {showCaptureFab ? (
+        <button
+          type="button"
+          className={styles.fab}
+          aria-label="Capture"
+          onClick={onCapture}
+        >
+          <Plus size={24} strokeWidth={2.2} aria-hidden="true" />
+        </button>
+      ) : null}
 
       {longPressTarget ? (
         <div className={styles.longPressMenu} role="dialog" aria-label="Quick actions">
@@ -263,6 +283,7 @@ export default function V5ThreadDetail({
   const [canonicalText, setCanonicalText] = useState(previewCanonical);
   const [loading, setLoading] = useState(!previewDetail);
   const [error, setError] = useState('');
+  const [citationEntityId, setCitationEntityId] = useState(null);
 
   useEffect(() => {
     if (previewDetail) {
@@ -351,6 +372,12 @@ export default function V5ThreadDetail({
         canonicalText={canonicalText}
         onAction={handleAction}
         onCapture={handleCapture}
+        onOpenReference={(citation) => setCitationEntityId(citation.entity_id)}
+      />
+      <CitationEntitySheet
+        entityId={citationEntityId}
+        open={!!citationEntityId}
+        onClose={() => setCitationEntityId(null)}
       />
     </main>
   );

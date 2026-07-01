@@ -8,6 +8,7 @@ import {
 import { Link } from 'react-router-dom';
 import { Loader2, RefreshCw, Search } from 'lucide-react';
 import { v4API } from '../api/v4Client';
+import CitationEntitySheet from '../components/CitationEntitySheet';
 import { pathForEntity } from './v5ThreadDetailUtils';
 import styles from './V5Memory.module.css';
 
@@ -97,7 +98,7 @@ function FilterChips({ options, value, onChange, ariaLabel }) {
   );
 }
 
-function EventCard({ event }) {
+function EventCard({ event, onOpenCitation }) {
   const path = entityPath(event);
   return (
     <article className={styles.eventCard} data-testid={`memory-event-${event.id}`}>
@@ -110,6 +111,16 @@ function EventCard({ event }) {
           {event.entity_type}
         </Link>
         <span className={styles.eventActor}>{event.actor}</span>
+        {event.source_note_id ? (
+          <button
+            type="button"
+            className={styles.citationLink}
+            onClick={() => onOpenCitation?.(event.source_note_id)}
+            aria-label="Open source note"
+          >
+            📝 source
+          </button>
+        ) : null}
       </div>
       <p className={styles.eventNarration}>{event.narration}</p>
     </article>
@@ -128,6 +139,7 @@ export default function V5Memory({ previewData }) {
   const [entityType, setEntityType] = useState('');
   const [actorFilter, setActorFilter] = useState('');
   const [threadId, setThreadId] = useState('');
+  const [citationEntityId, setCitationEntityId] = useState(null);
 
   const touchStartY = useRef(null);
   const observerTarget = useRef(null);
@@ -315,7 +327,11 @@ export default function V5Memory({ previewData }) {
             <h2 className={styles.dateHeader}>{header}</h2>
             <div className={styles.eventList}>
               {headerEvents.map((event) => (
-                <EventCard key={event.id} event={event} />
+                <EventCard
+                  key={event.id}
+                  event={event}
+                  onOpenCitation={(entityId) => setCitationEntityId(entityId)}
+                />
               ))}
             </div>
           </section>
@@ -332,6 +348,11 @@ export default function V5Memory({ previewData }) {
       {!previewData && nextOffset ? (
         <div ref={observerTarget} className={styles.loadTrigger} aria-hidden="true" />
       ) : null}
+      <CitationEntitySheet
+        entityId={citationEntityId}
+        open={!!citationEntityId}
+        onClose={() => setCitationEntityId(null)}
+      />
     </main>
   );
 }

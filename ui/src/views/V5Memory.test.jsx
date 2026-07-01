@@ -1,7 +1,20 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import V5Memory from './V5Memory';
+import { v4API } from '../api/v4Client';
+
+vi.mock('../api/v4Client', () => ({
+  v4API: {
+    timeline: vi.fn(),
+    entities: {
+      detail: vi.fn(),
+      events: vi.fn(),
+      canonical: vi.fn(),
+    },
+  },
+}));
 
 function renderWithRouter(ui) {
   return render(
@@ -78,5 +91,42 @@ describe('V5Memory', () => {
 
     expect(screen.getByText(/Created task "Ship timeline"/i)).toBeInTheDocument();
     expect(screen.queryByText(/I processed this entity/i)).not.toBeInTheDocument();
+  });
+
+  it('renders a clickable citation link when an event has a source_note_id', async () => {
+    const user = userEvent.setup();
+    const dataWithSourceNote = {
+      events: [
+        {
+          id: 'e3',
+          entity_id: 'task-1',
+          entity_type: 'task',
+          event_type: 'ai_updated',
+          occurred_at: new Date().toISOString(),
+          actor: 'agent:v4-extraction',
+          narration: 'Created task from note.',
+          thread_id: 'project-1',
+          source_note_id: 'note-source',
+        },
+      ],
+      next_offset: null,
+    };
+
+    v4API.entities.detail.mockResolvedValue({
+      entity: { id: 'note-source', type: 'note', title: 'Source note', status: 'active' },
+      sections: [],
+    });
+    v4API.entities.events.mockResolvedValue({ data: [] });
+    v4API.entities.canonical.mockResolvedValue({ canonical: '' });
+
+    renderWithRouter(<V5Memory previewData={dataWithSourceNote} />);
+
+    const link = screen.getByRole('button', { name: /Open source note/i });
+    expect(link).toBeInTheDocument();
+
+    await user.click(link);
+
+    expect(v4API.entities.detail).toHaveBeenCalledWith('note-source');
+    expect(screen.getByRole('dialog', { name: 'Citation' })).toBeInTheDocument();
   });
 });
