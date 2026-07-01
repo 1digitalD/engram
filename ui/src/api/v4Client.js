@@ -99,6 +99,7 @@ export const v4API = {
     list: (params = {}) => v4Request('GET', '/decisions', null, params),
     create: (data) => v4Request('POST', '/decisions', data),
   },
+  timeline: (params = {}) => v4Request('GET', '/timeline', null, params),
   activityUpdates: {
     list: (entityId) => v4Request('GET', `/entities/${encodeURIComponent(entityId)}/activity_updates`),
     create: (entityId, content) => v4Request('POST', `/entities/${encodeURIComponent(entityId)}/activity_updates`, { content }),

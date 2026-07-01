@@ -13,6 +13,7 @@ const themeOptions = [
 const lenses = [
   ['/now', 'Now'],
   ['/threads', 'Threads'],
+  ['/memory', 'Memory'],
   ['/recall', 'Recall'],
 ];
 

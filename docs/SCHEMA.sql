@@ -127,6 +127,8 @@ CREATE TABLE IF NOT EXISTS entity_events (
 
 CREATE INDEX IF NOT EXISTS entity_events_entity_idx
     ON entity_events (entity_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS entity_events_occurred_at_idx
+    ON entity_events (created_at DESC);
 CREATE INDEX IF NOT EXISTS entity_events_type_idx
     ON entity_events (event_type, created_at DESC);
 CREATE INDEX IF NOT EXISTS entity_events_actor_idx

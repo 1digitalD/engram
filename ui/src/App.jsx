@@ -8,6 +8,7 @@ import V5Threads from './views/V5Threads';
 import V5Now from './views/V5Now';
 import V5Recall from './views/V5Recall';
 import V5RecallOpener from './views/V5RecallOpener';
+import V5Memory from './views/V5Memory';
 import TopBar from './components/TopBar';
 import { CaptureProvider, useCapture } from './context/CaptureContext';
 import { RecallProvider, useRecall } from './context/RecallContext';
@@ -65,6 +66,7 @@ function AppShell() {
             <Route path="/" element={<Navigate to="/now" replace />} />
             <Route path="/now" element={<V5Now />} />
             <Route path="/threads" element={<V5Threads />} />
+            <Route path="/memory" element={<V5Memory />} />
             <Route path="/recall" element={<V5RecallOpener />} />
             <Route path="/entities/:id" element={<V5ThreadDetail />} />
             <Route path="/notes" element={<V5EntityList type="note" />} />

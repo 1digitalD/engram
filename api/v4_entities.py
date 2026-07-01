@@ -317,6 +317,148 @@ def daily_brief():
     return jsonify({"brief": brief, "from_cache": from_cache})
 
 
+@api_v4_bp.route("/timeline", methods=["GET"])
+def timeline():
+    """Chronological event stream across all entities.
+
+    Returns a descending-ordered list of entity_events with narration and a
+    derived thread_id (parent project, assigned person, or the entity itself).
+    """
+    limit = max(1, min(request.args.get("limit", 50, type=int), 200))
+    offset = max(0, request.args.get("offset", 0, type=int))
+
+    from_dt, from_err = _parse_datetime_or_error(request.args.get("from"))
+    if from_err:
+        return from_err
+    to_dt, to_err = _parse_datetime_or_error(request.args.get("to"))
+    if to_err:
+        return to_err
+    thread_id = request.args.get("thread_id")
+    actor = request.args.get("actor")
+    entity_type = request.args.get("entity_type")
+
+    if entity_type and entity_type not in ENTITY_TYPES:
+        return _error(f"invalid entity type: {entity_type}")
+
+    query = (
+        db.session.query(EntityEvent, Entity.type)
+        .join(Entity, Entity.id == EntityEvent.entity_id)
+        .filter(Entity.lifecycle != "deleted")
+    )
+
+    if from_dt:
+        query = query.filter(EntityEvent.created_at >= from_dt)
+    if to_dt:
+        query = query.filter(EntityEvent.created_at <= to_dt)
+    if actor:
+        query = query.filter(EntityEvent.actor == actor)
+    if entity_type:
+        query = query.filter(Entity.type == entity_type)
+    if thread_id:
+        entity_ids = _timeline_thread_entity_ids(thread_id)
+        if not entity_ids:
+            return jsonify({"events": [], "next_offset": None})
+        query = query.filter(EntityEvent.entity_id.in_(entity_ids))
+
+    rows = (
+        query.order_by(EntityEvent.created_at.desc(), EntityEvent.id.desc())
+        .offset(offset)
+        .limit(limit + 1)
+        .all()
+    )
+
+    has_more = len(rows) > limit
+    rows = rows[:limit]
+
+    entity_ids_in_page = {event.entity_id for event, _ in rows}
+    thread_map = _timeline_thread_map(entity_ids_in_page)
+
+    events = []
+    for event, entity_type in rows:
+        event_dict = event.to_dict()
+        event_dict["entity_type"] = entity_type
+        event_dict["occurred_at"] = event_dict["created_at"]
+        event_dict["thread_id"] = thread_map.get(event.entity_id, event.entity_id)
+        event_dict["narration"] = narrate_event(event)
+        events.append(event_dict)
+
+    return jsonify({
+        "events": events,
+        "next_offset": offset + len(events) if has_more else None,
+    })
+
+
+def _timeline_thread_entity_ids(thread_id):
+    """Return entity IDs whose events belong to the given thread."""
+    entity_ids = {thread_id}
+    thread = db.session.get(Entity, thread_id)
+    if thread is None:
+        return entity_ids
+
+    if thread.type == "project":
+        rows = (
+            db.session.query(EntityLink.source_entity_id)
+            .filter(
+                EntityLink.target_entity_id == thread_id,
+                EntityLink.relationship_type == "parent",
+            )
+            .all()
+        )
+    elif thread.type == "person":
+        rows = (
+            db.session.query(EntityLink.source_entity_id)
+            .filter(
+                EntityLink.target_entity_id == thread_id,
+                EntityLink.relationship_type.in_(["assigned_to", "mentions"]),
+            )
+            .all()
+        )
+    else:
+        rows = []
+
+    entity_ids.update(r[0] for r in rows)
+    return entity_ids
+
+
+def _timeline_thread_map(entity_ids):
+    """Map entity_id -> derived thread_id for a batch of entities.
+
+    Priority: parent project, assigned person, mentions person, entity itself.
+    """
+    if not entity_ids:
+        return {}
+
+    rows = (
+        db.session.query(EntityLink.source_entity_id, EntityLink.target_entity_id, EntityLink.relationship_type)
+        .filter(
+            EntityLink.source_entity_id.in_(entity_ids),
+            EntityLink.relationship_type.in_(["parent", "assigned_to", "mentions"]),
+        )
+        .all()
+    )
+
+    target_ids = {r.target_entity_id for r in rows}
+    targets = {
+        e.id: e.type
+        for e in db.session.query(Entity.id, Entity.type).filter(Entity.id.in_(target_ids)).all()
+    }
+
+    result = {}
+    for source_id, target_id, rel_type in rows:
+        target_type = targets.get(target_id)
+        if rel_type == "parent" and target_type == "project":
+            result[source_id] = target_id
+        elif rel_type == "assigned_to" and target_type == "person" and source_id not in result:
+            result[source_id] = target_id
+        elif rel_type == "mentions" and target_type == "person" and source_id not in result:
+            result[source_id] = target_id
+
+    for entity_id in entity_ids:
+        result.setdefault(entity_id, entity_id)
+
+    return result
+
+
 @api_v4_bp.route("/metrics/trust", methods=["GET"])
 def trust_metrics():
     """Aggregate how much the agent's work is being accepted vs corrected.

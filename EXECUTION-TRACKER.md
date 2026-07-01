@@ -2,9 +2,17 @@
 
 This file is the fresh-agent handoff for the current v4 baseline. Use it to reconstruct context quickly without reading stale task logs first.
 
-Last updated: 2026-06-17
+Last updated: 2026-06-30
 Branch: `main`
 Runtime baseline: `/api/v4` only, fresh Postgres + pgvector schema, write-enabled MCP aligned with the active API.
+
+## Latest slice: prd-timeline (2026-06-30)
+
+- Added `GET /api/v4/timeline` with chronological event stream, filtering, pagination, narration, and derived `thread_id`.
+- Added migration `scripts/migrations/005_timeline_index.sql` and updated `docs/SCHEMA.sql` with `(created_at DESC)` index.
+- Added V5Memory view at `/memory` with date-grouped timeline, entity-type/actor/thread filters, search, infinite scroll, and mobile pull-to-refresh.
+- Integration tests: `tests/integration/test_v4_timeline.py` (8/8 passing with `test_v4_entity_detail.py`).
+- UI tests and build pass.
 
 ## Active Sources Of Truth
 
