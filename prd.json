@@ -61,10 +61,10 @@
         "cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/integration/test_v4_ask.py -q",
         "timeout 20 python3 /Users/danish/.openclaw/agents/main/agent/codex-home/skills/loopsmith-coding/scripts/loopsmithctl.py doctor --repo /Volumes/lex1t/dev/shared/repos/engram --strict"
       ],
-      "blocked": false,
+      "blocked": true,
       "passes": false,
-      "attempts": 0,
-      "blockerReason": null,
+      "attempts": 1,
+      "blockerReason": "Deterministic validation failed.",
       "validationEvidence": null
     },
     {
