@@ -305,5 +305,16 @@
     }
   ],
   "previousIteration": "v5-redesign-phase2-composition",
-  "previousIterationStatus": "completed"
+  "previousIterationStatus": "completed",
+  "codingLoopPolicy": {
+    "primaryExecutor": "opencode",
+    "fallbackExecutors": [
+      "cursor",
+      "codex",
+      "claude"
+    ],
+    "platform": "openclaw",
+    "allowExecutorFallback": true,
+    "requireHumanForDependencies": true
+  }
 }
