@@ -18,11 +18,11 @@ const PLURAL_TITLE = {
 
 const EMPTY_HINT = {
   note: 'No notes yet. Capture something from the quick capture sheet.',
-  task: 'No tasks yet. Capture or create one from the sheet.',
-  project: 'No projects yet. Create one to start tracking outcomes.',
-  area: 'No areas yet. Areas group projects and tasks by responsibility.',
+  task: 'No tasks yet. Capture a task to get started.',
+  project: 'No projects yet. Capture a project idea to get started.',
+  area: 'No areas yet. Capture an area to group projects and tasks.',
   person: 'No people yet. Mention someone in a capture to add them.',
-  resource: 'No resources yet. Save links, files, or references here.',
+  resource: 'No resources yet. Save a link, file, or reference in a capture.',
 };
 
 function detailPath(entity) {
@@ -81,10 +81,10 @@ export default function V5EntityList({ type }) {
   const title = PLURAL_TITLE[type] || `${type}s`;
 
   function handleCreate() {
-    // All entity types go through the capture sheet. The capture sheet
-    // defaults the attachment to the current thread (none on /notes, /tasks
-    // etc.) but the user can pick any project/person in the attachment
-    // dropdown.
+    // Entity list screens are capture-first: the New button opens the capture
+    // sheet so the source note is preserved and the agent can extract the
+    // requested entity. The attachment defaults to the current thread when
+    // inside a thread, and is empty on list routes.
     openCapture();
   }
 
@@ -104,10 +104,10 @@ export default function V5EntityList({ type }) {
           type="button"
           className={styles.createButton}
           onClick={handleCreate}
-          aria-label={`Create ${type}`}
+          aria-label={`Capture ${type}`}
         >
           <Plus size={16} strokeWidth={2.4} aria-hidden="true" />
-          <span>New</span>
+          <span>Capture</span>
         </button>
       </header>
 

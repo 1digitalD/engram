@@ -561,3 +561,4 @@ The repo previously tracked fine-grained V2/V3/V3.5 execution logs in this file.
 - 2026-07-01T04:29:04.040780+00:00 prd-decisions accepted via opencode
 - 2026-07-01T19:11:09.856838+00:00 hardening-summary-counts accepted via opencode
 - 2026-07-01T19:20:41.981439+00:00 hardening-recall-stability accepted via opencode
+- 2026-07-01T19:26:35.564255+00:00 hardening-new-flow accepted via opencode

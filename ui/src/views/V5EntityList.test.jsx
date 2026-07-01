@@ -3,6 +3,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { v4API } from '../api/v4Client';
 import { CaptureProvider } from '../context/CaptureContext';
+import V5CaptureSheet from './V5CaptureSheet';
 import V5EntityList from './V5EntityList';
 
 vi.mock('../api/v4Client', () => ({
@@ -94,5 +95,29 @@ describe('V5EntityList', () => {
     );
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Network down');
+  });
+
+  it.each([
+    ['note', 'No notes yet. Capture something from the quick capture sheet.'],
+    ['task', 'No tasks yet. Capture a task to get started.'],
+    ['project', 'No projects yet. Capture a project idea to get started.'],
+    ['area', 'No areas yet. Capture an area to group projects and tasks.'],
+    ['person', 'No people yet. Mention someone in a capture to add them.'],
+    ['resource', 'No resources yet. Save a link, file, or reference in a capture.'],
+  ])('opens the capture sheet from the %s list New button', async (type, hint) => {
+    v4API.entities.list.mockResolvedValue({ data: [] });
+
+    render(
+      <MemoryRouter>
+        <CaptureProvider>
+          <V5EntityList type={type} />
+          <V5CaptureSheet />
+        </CaptureProvider>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText(hint)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(`Capture ${type}`, 'i') }));
+    expect(await screen.findByLabelText('Capture text')).toBeInTheDocument();
   });
 });
