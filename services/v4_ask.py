@@ -20,6 +20,11 @@ logger = logging.getLogger(__name__)
 ASK_TOP_K = 5
 CACHE_TTL_SECONDS = 24 * 60 * 60
 HIGH_RELEVANCE = 0.7
+# Citations below this relevance are not strong enough to ground an answer
+# (audit B-017). Even one well-aligned citation at 0.4-0.5 can mislead the
+# LLM into confabulating; we'd rather say "I don't have anything..." than
+# answer confidently from weak evidence.
+WEAK_RELEVANCE = 0.5
 
 _ASK_CACHE: dict[str, dict] = {}
 
@@ -135,6 +140,13 @@ def _build_citations(results: list[dict], question: str) -> list[dict]:
 
 def _compute_confidence(citations: list[dict]) -> str:
     if not citations:
+        return "low"
+    # B-017: if the best citation we found is still weak, treat the answer
+    # as ungrounded. The previous code returned "medium" for any non-empty
+    # list, which let the LLM confabulate from off-topic context (e.g.
+    # asking "capital of Mars" returned HR notes with relevance ~0.3).
+    max_relevance = max(c["relevance"] for c in citations)
+    if max_relevance < WEAK_RELEVANCE:
         return "low"
     high_count = sum(1 for c in citations if c["relevance"] >= HIGH_RELEVANCE)
     if high_count >= 2:

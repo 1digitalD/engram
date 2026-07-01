@@ -122,6 +122,49 @@ def test_ask_low_confidence_state_does_not_confabulate(client):
     assert data["citations"] == []
 
 
+def test_ask_weak_citations_does_not_confabulate_b017(client, app):
+    """B-017 regression test: when search returns weak citations (max
+    relevance below WEAK_RELEVANCE=0.5), Ask ✦ must still say IDK instead
+    of dumping the citations into a fallback answer.
+
+    The previous code returned 'medium' for any non-empty citations list,
+    which let _fallback_answer dump unrelated snippets as if they answered
+    the question. This test ensures the IDK path fires for unanswerable
+    questions like 'What is the capital of Mars?' even when the search
+    happens to return weak matches.
+    """
+    v4_ask._clear_cache()
+    # Create a note with content that's tangentially related to the question
+    # but unlikely to be a strong match. Use a low-relevance embedding to
+    # force the search to return this note with relevance < 0.5.
+    note = _create_entity(
+        client,
+        "note",
+        "Mars exploration context",
+        "NASA's Mars rover program has been ongoing for decades.",
+    )
+    with app.app_context():
+        # Embedding is the opposite of the query vector, so cosine sim is low.
+        _add_chunk(note["id"], "NASA Mars rover.", [-1.0] + [0.0] * 1535)
+
+    # Query with an embedding close to [1, 0, 0, ...] so sim with [-1, 0, ...] is -1.
+    with patch("services.embeddings._embed_texts", return_value=[[1.0] + [0.0] * 1535]):
+        response = client.post(
+            "/api/v4/ask",
+            json={"question": "What is the capital of Mars?"},
+        )
+
+    assert response.status_code == 200
+    data = response.get_json()
+    # The IDK answer should fire because citations are weak (relevance < 0.5).
+    assert data["answer"] == "I don't have anything in the workspace that answers this.", (
+        f"Got fallback answer with weak citations: {data['answer'][:200]}"
+    )
+    assert data["confidence"] == "low"
+    assert data["caveats"]
+    assert any("matching" in c.lower() or "ground" in c.lower() for c in data["caveats"])
+
+
 def test_ask_cache_hit(client, app):
     v4_ask._clear_cache()
     note = _create_entity(
