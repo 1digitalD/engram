@@ -12,12 +12,14 @@ import TopBar from './components/TopBar';
 import { CaptureProvider, useCapture } from './context/CaptureContext';
 import { RecallProvider, useRecall } from './context/RecallContext';
 import V5CaptureSheet, { CaptureFab, CaptureToast } from './views/V5CaptureSheet';
+import V5AskSheet from './views/V5AskSheet';
 
 function AppShell() {
   const location = useLocation();
-  const { toast, openCapture } = useCapture();
+  const { toast } = useCapture();
   const { open, openRecall, closeRecall } = useRecall();
   const [counts, setCounts] = useState({ today: 0, threads: 0, recall: 0 });
+  const [askOpen, setAskOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -51,7 +53,7 @@ function AppShell() {
   return (
     <div className={styles.shell} data-v5="true">
       <TopBar
-        onAsk={openCapture}
+        onAsk={() => setAskOpen(true)}
         onRecall={openRecall}
         nowCount={counts.today}
         threadsCount={counts.threads}
@@ -83,6 +85,7 @@ function AppShell() {
       </div>
       <CaptureFab />
       <V5CaptureSheet />
+      <V5AskSheet open={askOpen} onClose={() => setAskOpen(false)} />
       <CaptureToast toast={toast} />
       <V5Recall open={open} onClose={closeRecall} />
     </div>

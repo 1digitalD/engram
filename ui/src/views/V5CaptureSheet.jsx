@@ -126,6 +126,7 @@ export default function V5CaptureSheet({
   const open = openProp ?? captureCtx.open;
   const onClose = onCloseProp ?? captureCtx.closeCapture;
   const defaultAttachment = defaultAttachmentProp ?? captureCtx.defaultAttachment;
+  const initialContent = captureCtx.initialContent ?? '';
   const showToast = captureCtx.showToast;
 
   const [content, setContent] = useState('');
@@ -146,6 +147,7 @@ export default function V5CaptureSheet({
       lastPayloadRef.current = null;
       return;
     }
+    setContent(initialContent);
 
     let active = true;
     (async () => {
@@ -162,7 +164,7 @@ export default function V5CaptureSheet({
     })();
 
     return () => { active = false; };
-  }, [open, defaultAttachment, attachmentOptionsProp]);
+  }, [open, defaultAttachment, attachmentOptionsProp, initialContent]);
 
   const activeLabel = useMemo(
     () => events.filter((event) => event.type !== 'done').at(-1),

@@ -30,14 +30,22 @@ export function CaptureProvider({ children }) {
   const location = useLocation();
   const [open, setOpen] = useState(false);
   const [toast, setToast] = useState(null);
+  const [initialContent, setInitialContent] = useState('');
 
   const defaultAttachment = useMemo(
     () => threadFromPathname(location.pathname),
     [location.pathname],
   );
 
-  const openCapture = useCallback(() => setOpen(true), []);
-  const closeCapture = useCallback(() => setOpen(false), []);
+  const openCapture = useCallback((content) => {
+    const safeContent = typeof content === 'string' ? content : '';
+    setInitialContent(safeContent);
+    setOpen(true);
+  }, []);
+  const closeCapture = useCallback(() => {
+    setOpen(false);
+    setInitialContent('');
+  }, []);
 
   const showToast = useCallback((payload) => {
     setToast(payload);
@@ -50,9 +58,10 @@ export function CaptureProvider({ children }) {
     openCapture,
     closeCapture,
     defaultAttachment,
+    initialContent,
     toast,
     showToast,
-  }), [open, openCapture, closeCapture, defaultAttachment, toast, showToast]);
+  }), [open, openCapture, closeCapture, defaultAttachment, initialContent, toast, showToast]);
 
   return (
     <CaptureContext.Provider value={value}>

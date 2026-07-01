@@ -93,6 +93,7 @@ export const v4API = {
   },
   recent: (params = {}) => v4Request('GET', '/recent', null, params),
   inbox: (params = {}) => v4Request('GET', '/inbox', null, params),
+  ask: (data) => v4Request('POST', '/ask', data),
   agentActivity: (params = {}) => v4Request('GET', '/agent-activity', null, params),
   decisions: {
     list: (params = {}) => v4Request('GET', '/decisions', null, params),

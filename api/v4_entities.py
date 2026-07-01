@@ -541,6 +541,30 @@ def search():
     return jsonify({"query": q, "tag": tag, "mode": resolved_mode, "results": results})
 
 
+@api_v4_bp.route("/ask", methods=["POST"])
+def ask():
+    """Answer a natural-language question from workspace context."""
+    from services.v4_ask import ask_question
+
+    data = request.get_json(silent=True) or {}
+    question = (data.get("question") or "").strip()
+    if not question:
+        return _error("question is required")
+
+    try:
+        top_k = max(1, min(int(data.get("top_k", 5)), 20))
+    except (TypeError, ValueError):
+        top_k = 5
+
+    try:
+        result = ask_question(question, top_k=top_k)
+    except Exception as exc:
+        logger.exception("ask failed: %s", exc)
+        return _error("ask failed"), 500
+
+    return jsonify(result)
+
+
 DONE_TASK_STATUSES = {"done", "completed", "cancelled"}
 OPEN_TASK_STATUSES = {"open", "in_progress", "waiting", "blocked"}
 FOLLOW_UP_ENTITY_TYPES = {"task", "project"}

@@ -207,19 +207,24 @@ def _rrf(keyword_ranked, semantic_ranked, k=60):
 def _format_results(ranked, keyword_ranked, semantic_ranked, limit):
     keyword_ranks = {row[0].id: index for index, row in enumerate(keyword_ranked, start=1)}
     semantic_ranks = {row[0].id: index for index, row in enumerate(semantic_ranked, start=1)}
+    semantic_scores = {row[0].id: row[1] for row in semantic_ranked}
     results = []
     for index, (entity, score, snippet) in enumerate(ranked[:limit], start=1):
         keyword_rank = keyword_ranks.get(entity.id)
         semantic_rank = semantic_ranks.get(entity.id)
+        source = _match_source(keyword_rank, semantic_rank)
+        match = {
+            "source": source,
+            "keyword_rank": keyword_rank,
+            "semantic_rank": semantic_rank,
+            "snippet": snippet,
+        }
+        if source in ("semantic", "hybrid") and entity.id in semantic_scores:
+            match["semantic_score"] = round(float(semantic_scores[entity.id]), 4)
         results.append({
             "entity": entity.to_dict(),
             "score": score,
-            "match": {
-                "source": _match_source(keyword_rank, semantic_rank),
-                "keyword_rank": keyword_rank,
-                "semantic_rank": semantic_rank,
-                "snippet": snippet,
-            },
+            "match": match,
         })
     return results
 
