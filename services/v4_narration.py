@@ -36,6 +36,7 @@ ENTITY_EVENT_TYPES = (
     "merged",
     "merged_into",
     "type_converted",
+    "decision_recorded",
 )
 
 
@@ -399,6 +400,19 @@ def _template_type_converted(
     return "Converted this entity to a new type."
 
 
+def _template_decision_recorded(
+    event_type: str,
+    actor: str,
+    new_value: Mapping[str, Any] | None,
+    old_value: Mapping[str, Any] | None,
+    reason: str | None,
+) -> str:
+    statement = _get(new_value, "statement")
+    if statement:
+        return f"Decision recorded: {statement}"
+    return "A decision was recorded."
+
+
 TEMPLATES = {
     "created": _template_created,
     "updated": _template_updated,
@@ -422,6 +436,7 @@ TEMPLATES = {
     "merged": _template_merged,
     "merged_into": _template_merged_into,
     "type_converted": _template_type_converted,
+    "decision_recorded": _template_decision_recorded,
 }
 
 

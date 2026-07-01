@@ -14,7 +14,7 @@ from sqlalchemy.orm import selectinload
 
 from api import api_v4_bp
 from extensions import db
-from models import AiSuggestion, AppSetting, Entity, EntityChunk, EntityEvent, EntityLink, EntityTag, Job, Tag, _iso
+from models import AiSuggestion, AppSetting, Decision, Entity, EntityChunk, EntityEvent, EntityLink, EntityTag, Job, Tag, _iso
 from services import runtime_health
 from services.v4_attention import attention_for_entity, today_attention_count, today_attention_items
 from services.v4_narration import narrate_event
@@ -828,6 +828,14 @@ def mark_today_reviewed():
     })
 
 
+def _decisions_count_for_entity(entity_id):
+    """Count active (non-superseded) decisions recorded for an entity."""
+    return Decision.query.filter(
+        Decision.thread_id == entity_id,
+        Decision.superseded_by.is_(None),
+    ).count()
+
+
 def _needs_review_query():
     unresolved_review = or_(
         Entity.ai_meta["review_state"].as_string().is_(None),
@@ -1256,7 +1264,11 @@ def get_entity_detail(entity_id):
     entity_data = entity.to_dict()
     if entity.type == "person":
         entity_data["is_owner"] = _is_owner(entity.title, entity.id)
-    detail = {"entity": entity_data, "sections": _relationship_detail_sections(entity)}
+    detail = {
+        "entity": entity_data,
+        "sections": _relationship_detail_sections(entity),
+        "decisions_count": _decisions_count_for_entity(entity.id),
+    }
     if entity.type == "person":
         tasks = _person_open_tasks(entity)
         latest_update = _latest_activity_updates([task.id for task in tasks])
@@ -2118,6 +2130,8 @@ def accept_suggestion(suggestion_id):
         return _accept_link_existing_suggestion(suggestion)
     if suggestion.operation_type == "update_entity":
         return _accept_update_entity_suggestion(suggestion)
+    if suggestion.operation_type == "create_decision":
+        return _accept_create_decision_suggestion(suggestion)
     if not _is_create_suggestion_operation(suggestion.operation_type):
         return _error(f"unsupported suggestion operation: {suggestion.operation_type}")
 
@@ -2220,6 +2234,75 @@ def accept_suggestion(suggestion_id):
         "suggestion": suggestion.to_dict(),
         "created_entity": _load_entity(entity.id).to_dict(),
         "relationship": assignment_link.to_dict() if assignment_link is not None else (link.to_dict() if link is not None else None),
+    })
+
+
+def _accept_create_decision_suggestion(suggestion):
+    """Accept a create_decision suggestion and persist the decision record."""
+    payload = suggestion.payload or {}
+    thread_id = payload.get("thread_id")
+    if not thread_id:
+        return _error("thread_id is required")
+    thread = db.session.get(Entity, thread_id)
+    if thread is None or thread.lifecycle == "deleted":
+        return _error("thread entity not found", 404)
+
+    statement = _clean_text(payload.get("statement"))
+    if not statement:
+        return _error("statement is required")
+
+    decided_by = _clean_text(payload.get("decided_by")) or "user"
+    if not _valid_decided_by(decided_by):
+        return _error("decided_by must be 'user' or 'agent:<name>'")
+
+    decided_at, decided_at_error = _parse_datetime_or_error(payload.get("decided_at"))
+    if decided_at_error:
+        return decided_at_error
+    if decided_at is None:
+        decided_at = datetime.now(timezone.utc)
+
+    source_note_id = payload.get("source_note_id")
+    if source_note_id:
+        source_note = db.session.get(Entity, source_note_id)
+        if source_note is None:
+            return _error("source note not found", 404)
+
+    decision = Decision(
+        thread_id=thread_id,
+        statement=statement,
+        context=_clean_text(payload.get("context")),
+        decided_at=decided_at,
+        decided_by=decided_by,
+        source_note_id=source_note_id,
+    )
+    db.session.add(decision)
+    db.session.flush()
+
+    _write_event(
+        thread,
+        "decision_recorded",
+        new_value=decision.to_dict(),
+        actor="agent:v4-review",
+        confidence=suggestion.confidence,
+        reason=suggestion.reason,
+        source_note_id=source_note_id,
+    )
+
+    suggestion.status = "accepted"
+    suggestion.resolved_at = datetime.utcnow()
+    _write_event(
+        thread,
+        "suggestion_accepted",
+        new_value={"suggestion_id": suggestion.id, "decision_id": decision.id},
+        actor="agent:v4-review",
+        confidence=suggestion.confidence,
+        reason=suggestion.reason,
+    )
+    db.session.commit()
+
+    return jsonify({
+        "suggestion": suggestion.to_dict(),
+        "decision": decision.to_dict(),
     })
 
 
@@ -2547,6 +2630,92 @@ def dismiss_suggestion(suggestion_id):
         )
     db.session.commit()
     return jsonify({"data": suggestion.to_dict()})
+
+
+@api_v4_bp.route("/decisions", methods=["GET"])
+def list_decisions():
+    """List decisions for a thread, ordered by decided_at desc."""
+    thread_id = request.args.get("thread_id")
+    if not thread_id:
+        return _error("thread_id is required")
+    if db.session.get(Entity, thread_id) is None:
+        return _error("thread entity not found", 404)
+
+    limit = max(1, min(request.args.get("limit", 50, type=int), 200))
+    superseded_filter = request.args.get("superseded", "exclude").lower()
+
+    query = Decision.query.filter(Decision.thread_id == thread_id)
+    if superseded_filter == "exclude":
+        query = query.filter(Decision.superseded_by.is_(None))
+    elif superseded_filter == "only":
+        query = query.filter(Decision.superseded_by.isnot(None))
+    # "all" returns both superseded and active
+
+    rows = query.order_by(Decision.decided_at.desc()).limit(limit).all()
+    return jsonify({"data": [row.to_dict() for row in rows], "meta": {"limit": limit}})
+
+
+@api_v4_bp.route("/decisions", methods=["POST"])
+def create_decision():
+    """Manually record a decision against a thread."""
+    data = request.get_json(silent=True) or {}
+    thread_id = data.get("thread_id")
+    if not thread_id:
+        return _error("thread_id is required")
+    thread = db.session.get(Entity, thread_id)
+    if thread is None or thread.lifecycle == "deleted":
+        return _error("thread entity not found", 404)
+
+    statement = _clean_text(data.get("statement"))
+    if not statement:
+        return _error("statement is required")
+
+    decided_by = _clean_text(data.get("decided_by")) or "user"
+    if not _valid_decided_by(decided_by):
+        return _error("decided_by must be 'user' or 'agent:<name>'")
+
+    decided_at, decided_at_error = _parse_datetime_or_error(data.get("decided_at"))
+    if decided_at_error:
+        return decided_at_error
+    if decided_at is None:
+        decided_at = datetime.now(timezone.utc)
+
+    source_note_id = data.get("source_note_id")
+    if source_note_id:
+        source_note = db.session.get(Entity, source_note_id)
+        if source_note is None:
+            return _error("source note not found", 404)
+
+    superseded_by = data.get("superseded_by")
+    if superseded_by:
+        superseding = db.session.get(Decision, superseded_by)
+        if superseding is None:
+            return _error("superseded_by decision not found", 404)
+        if superseding.thread_id != thread_id:
+            return _error("superseded_by decision belongs to a different thread", 400)
+
+    decision = Decision(
+        thread_id=thread_id,
+        statement=statement,
+        context=_clean_text(data.get("context")),
+        decided_at=decided_at,
+        decided_by=decided_by,
+        source_note_id=source_note_id,
+        superseded_by=superseded_by,
+    )
+    db.session.add(decision)
+    db.session.flush()
+
+    _write_event(
+        thread,
+        "decision_recorded",
+        new_value=decision.to_dict(),
+        actor=decided_by if decided_by.startswith("agent:") else "user",
+        reason="manual decision recorded",
+    )
+    db.session.commit()
+
+    return jsonify({"data": decision.to_dict()}), 201
 
 
 @api_v4_bp.route("/entities/<entity_id>/review/resolve", methods=["POST"])
@@ -3246,6 +3415,49 @@ def _run_basic_capture_extraction(note, mode):
     return extract_capture_candidates(note.content or "", mode=mode, exclude_note_id=note.id)
 
 
+def _extract_decision_candidates(note):
+    """Extract explicit-commitment decision candidates from a note.
+
+    Returns candidates with a resolved thread_id (linked project/person, or
+    the note itself as a fallback) and a high confidence value. These are
+    always turned into reviewable suggestions, never auto-created.
+    """
+    from services.v4_decisions import extract_decisions_from_note
+
+    candidates = extract_decisions_from_note(note.content or "")
+    if not candidates:
+        return []
+    thread_id = _decision_thread_id_for_note(note)
+    for candidate in candidates:
+        candidate["thread_id"] = thread_id
+        candidate["confidence"] = 0.9
+    return candidates
+
+
+def _decision_thread_id_for_note(note):
+    """Pick the most relevant project/person thread for a decision.
+
+    Falls back to the note itself when no project/person is linked.
+    """
+    links = EntityLink.query.filter(
+        EntityLink.source_entity_id == note.id,
+        EntityLink.relationship_type.in_(["parent", "related", "mentions", "assigned_to"]),
+    ).all()
+    for link in links:
+        target = db.session.get(Entity, link.target_entity_id)
+        if target is not None and target.type in {"project", "person"} and target.lifecycle == "active":
+            return target.id
+    return note.id
+
+
+def _valid_decided_by(value):
+    if value == "user":
+        return True
+    if isinstance(value, str) and value.startswith("agent:") and len(value) > 6:
+        return True
+    return False
+
+
 def _reconcile_capture_candidates(note, extraction):
     applied_changes = []
     suggestions = []
@@ -3356,6 +3568,32 @@ def _reconcile_capture_candidates(note, extraction):
         decisions = reconcile_candidates(all_candidates)
         for candidate, decision in zip(all_candidates, decisions):
             _apply_reconciliation_decision(note, candidate, decision, applied_changes, suggestions)
+
+    # Decision extraction: explicit commitments always become reviewable
+    # suggestions, never auto-created.
+    decision_candidates = _extract_decision_candidates(note)
+    for candidate in decision_candidates:
+        _append_capture_suggestion(
+            note,
+            candidate,
+            action="new",
+            entity_type="decision",
+            relationship_type=None,
+            confidence=candidate.get("confidence", 0.9),
+            evidence=candidate.get("statement"),
+            suggestions=suggestions,
+            suggestion_type="create_decision",
+            operation_type="create_decision",
+            payload={
+                "thread_id": candidate.get("thread_id"),
+                "statement": candidate.get("statement"),
+                "context": candidate.get("context"),
+                "decided_at": candidate.get("decided_at"),
+                "decided_by": candidate.get("decided_by"),
+                "source_note_id": note.id,
+            },
+            reason=f"Explicit commitment detected: {candidate.get('statement')}",
+        )
 
     # Reconciliation ran to completion — mark the note as AI-processed regardless
     # of whether extraction produced a summary. Previously notes with empty
@@ -5411,6 +5649,9 @@ def _append_capture_suggestion(note, candidate, action, entity_type, relationshi
 
 def _should_emit_capture_suggestion(note, candidate, action, entity_type, relationship_type, confidence):
     intent = ((note.ai_meta or {}).get("intent") or "note")
+    if entity_type == "decision":
+        # Decisions are high-signal by design; emit unless confidence is very low.
+        return confidence >= LOW_CONFIDENCE_THRESHOLD
     if intent == "junk" and confidence < INTENT_SUGGESTION_CONFIDENCE_FLOOR:
         return False
     if (
@@ -5561,6 +5802,13 @@ def _normalized_suggestion_payload(operation_type, payload):
             "assigned_to": _clean_text(payload.get("assigned_to")),
             "relationship_type": _clean_text(payload.get("relationship_type")),
             "target_entity_id": _clean_text(payload.get("target_entity_id")),
+        }
+    if operation_type == "create_decision":
+        return {
+            "thread_id": _clean_text(payload.get("thread_id")),
+            "statement": _clean_text(payload.get("statement")),
+            "decided_at": _clean_text(payload.get("decided_at")),
+            "decided_by": _clean_text(payload.get("decided_by")),
         }
     if operation_type == "update_entity":
         fields = payload.get("fields") or {}

@@ -102,6 +102,14 @@ function ThreadDetailContent({
           <span>{entityType}</span>
           <span aria-hidden="true">·</span>
           <span className={styles.statusPill}>{statusLabel(entity.status)}</span>
+          {detail?.decisions_count ? (
+            <>
+              <span aria-hidden="true">·</span>
+              <span className={styles.countChip} title={`${detail.decisions_count} decision${detail.decisions_count === 1 ? '' : 's'}`}>
+                {detail.decisions_count} decision{detail.decisions_count === 1 ? '' : 's'}
+              </span>
+            </>
+          ) : null}
         </div>
         <h1 className={styles.title}>{entityTitleLabel(entity, { includeType: false })}</h1>
       </header>

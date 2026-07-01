@@ -215,10 +215,10 @@
         "cd /Volumes/lex1t/dev/shared/repos/engram && curl -fsS http://localhost:5001/api/v4/health"
       ],
       "blocked": false,
-      "passes": false,
-      "attempts": 0,
+      "passes": true,
+      "attempts": 1,
       "blockerReason": null,
-      "validationEvidence": null
+      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram && test -f scripts/migrations/004_decisions.sql && grep -c 'CREATE TABLE' scripts/migrations/004_decisions.sql\n1\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram && test -f services/v4_decisions.py\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/run_tests.sh tests/integration/test_v4_decisions.py\n.....                                                                    [100%]\n5 passed in 10.33s\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram && curl -fsS http://localhost:5001/api/v4/health\n{\"api\":\"v4\",\"database\":\"ok\",\"status\":\"ok\"}"
     },
     {
       "id": "prd-ask-endpoint",

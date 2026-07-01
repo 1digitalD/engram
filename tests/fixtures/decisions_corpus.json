@@ -1,0 +1,123 @@
+{
+  "examples": [
+    {
+      "content": "Dan committed to ship the HITL piece by Friday.",
+      "label": "decision",
+      "mock": {
+        "decisions": [
+          {
+            "statement": "Dan committed to ship the HITL piece by Friday",
+            "context": "Dan committed to ship the HITL piece by Friday",
+            "decided_at": "2026-06-30T10:00:00+00:00",
+            "decided_by": "user"
+          }
+        ]
+      }
+    },
+    {
+      "content": "Mary will deliver the wireframes by 2026-07-15.",
+      "label": "decision",
+      "mock": {
+        "decisions": [
+          {
+            "statement": "Mary will deliver the wireframes by 2026-07-15",
+            "context": "Mary will deliver the wireframes by 2026-07-15",
+            "decided_at": "2026-07-15T00:00:00+00:00",
+            "decided_by": "user"
+          }
+        ]
+      }
+    },
+    {
+      "content": "The agent decided to use Python for the new stack.",
+      "label": "decision",
+      "mock": {
+        "decisions": [
+          {
+            "statement": "The agent decided to use Python for the new stack",
+            "context": "The agent decided to use Python for the new stack",
+            "decided_at": null,
+            "decided_by": "agent:v4-capture"
+          }
+        ]
+      }
+    },
+    {
+      "content": "Akash promised to finalize the API contract by end of day Wednesday.",
+      "label": "decision",
+      "mock": {
+        "decisions": [
+          {
+            "statement": "Akash promised to finalize the API contract by end of day Wednesday",
+            "context": "Akash promised to finalize the API contract by end of day Wednesday",
+            "decided_at": null,
+            "decided_by": "user"
+          }
+        ]
+      }
+    },
+    {
+      "content": "We agreed to drop the custom auth and use Clerk instead.",
+      "label": "decision",
+      "mock": {
+        "decisions": [
+          {
+            "statement": "We agreed to drop the custom auth and use Clerk instead",
+            "context": "We agreed to drop the custom auth and use Clerk instead",
+            "decided_at": null,
+            "decided_by": "user"
+          }
+        ]
+      }
+    },
+    {
+      "content": "Maybe we should ship by Friday if the tests pass.",
+      "label": "not_decision",
+      "mock": {
+        "decisions": []
+      }
+    },
+    {
+      "content": "I think Python is probably the right choice for this.",
+      "label": "not_decision",
+      "mock": {
+        "decisions": []
+      }
+    },
+    {
+      "content": "Let's consider wireframes next week.",
+      "label": "not_decision",
+      "mock": {
+        "decisions": []
+      }
+    },
+    {
+      "content": "We could look into using a different database later.",
+      "label": "not_decision",
+      "mock": {
+        "decisions": []
+      }
+    },
+    {
+      "content": "Possibly Akash will handle the deployment, but I'm not sure.",
+      "label": "not_decision",
+      "mock": {
+        "decisions": []
+      }
+    },
+    {
+      "content": "Dan hopes to finish the report by Tuesday.",
+      "label": "not_decision",
+      "mock": {
+        "decisions": []
+      }
+    },
+    {
+      "content": "We are exploring whether to use React or Vue.",
+      "label": "not_decision",
+      "mock": {
+        "decisions": []
+      }
+    }
+  ]
+}

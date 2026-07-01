@@ -37,6 +37,7 @@ const sampleEvents = [
 export const threadDetailFixtures = {
   project: {
     detail: {
+      decisions_count: 2,
       entity: {
         ...baseEntity,
         id: 'project-hitl',
@@ -106,6 +107,7 @@ export const threadDetailFixtures = {
   },
   person: {
     detail: {
+      decisions_count: 0,
       entity: {
         ...baseEntity,
         id: 'person-mary',
@@ -159,6 +161,7 @@ export const threadDetailFixtures = {
   },
   area: {
     detail: {
+      decisions_count: 0,
       entity: {
         ...baseEntity,
         id: 'area-exec',
@@ -188,6 +191,7 @@ export const threadDetailFixtures = {
   },
   resource: {
     detail: {
+      decisions_count: 0,
       entity: {
         ...baseEntity,
         id: 'resource-prd',
@@ -211,6 +215,7 @@ export const threadDetailFixtures = {
   },
   task: {
     detail: {
+      decisions_count: 0,
       entity: {
         ...baseEntity,
         id: 't-review',
@@ -259,6 +264,7 @@ export const threadDetailFixtures = {
   },
   note: {
     detail: {
+      decisions_count: 0,
       entity: {
         ...baseEntity,
         id: 'note-mary',

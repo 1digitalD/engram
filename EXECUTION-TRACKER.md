@@ -494,3 +494,4 @@ The repo previously tracked fine-grained V2/V3/V3.5 execution logs in this file.
 - 2026-06-27T16:51:22.659853+00:00 last-mile-exact-title-dedup accepted via opencode
 - 2026-06-27T18:46:40.276864+00:00 extraction-prompt-sees-active-tasks accepted via cursor
 - 2026-06-30T00:30:13.826717+00:00 prd-streaming-capture accepted via cursor
+- 2026-07-01T04:29:04.040780+00:00 prd-decisions accepted via opencode

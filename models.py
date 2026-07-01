@@ -532,6 +532,61 @@ class AppSetting(db.Model):
         return f"<AppSetting {self.key!r}>"
 
 
+# ─── Decisions ───────────────────────────────────────────────────────────────
+
+
+class Decision(BaseModel):
+    """Explicit commitment recorded against a thread.
+
+    Table: decisions
+    """
+
+    __tablename__ = "decisions"
+
+    thread_id = Column(
+        String(36), ForeignKey("entities.id", ondelete="CASCADE"), nullable=False
+    )
+    statement = Column(Text, nullable=False)
+    context = Column(Text, nullable=True)
+    decided_at = Column(
+        DateTime, nullable=False, default=lambda: datetime.now(timezone.utc)
+    )
+    decided_by = Column(Text, nullable=False)
+    source_note_id = Column(
+        String(36), ForeignKey("entities.id", ondelete="SET NULL"), nullable=True
+    )
+    superseded_by = Column(
+        String(36), ForeignKey("decisions.id", ondelete="SET NULL"), nullable=True
+    )
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+    thread = relationship("Entity", foreign_keys=[thread_id])
+    source_note = relationship("Entity", foreign_keys=[source_note_id])
+    superseding_decision = relationship("Decision", foreign_keys=[superseded_by])
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "thread_id": self.thread_id,
+            "statement": self.statement,
+            "context": self.context,
+            "decided_at": _iso(self.decided_at),
+            "decided_by": self.decided_by,
+            "source_note_id": self.source_note_id,
+            "superseded_by": self.superseded_by,
+            "created_at": _iso(self.created_at),
+            "updated_at": _iso(self.updated_at),
+        }
+
+    def __repr__(self):
+        return f"<Decision {self.id[:8]} thread={self.thread_id[:8]}>"
+
+
 # ─── Helpers ─────────────────────────────────────────────────────────────────
 
 

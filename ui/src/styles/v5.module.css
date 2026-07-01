@@ -62,6 +62,19 @@
   color: var(--text-secondary);
 }
 
+.countChip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: var(--accent-soft, var(--surface2));
+  border: 1px solid var(--border-faint);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+}
+
 .sectionLabel {
   margin: 0 0 var(--space-2);
   font-size: var(--text-xs);

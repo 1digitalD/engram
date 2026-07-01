@@ -15,6 +15,7 @@ V4_TABLES = {
     "jobs",
     "change_batches",
     "app_settings",
+    "decisions",
 }
 
 FORBIDDEN_DTO_FIELDS = {

@@ -94,6 +94,10 @@ export const v4API = {
   recent: (params = {}) => v4Request('GET', '/recent', null, params),
   inbox: (params = {}) => v4Request('GET', '/inbox', null, params),
   agentActivity: (params = {}) => v4Request('GET', '/agent-activity', null, params),
+  decisions: {
+    list: (params = {}) => v4Request('GET', '/decisions', null, params),
+    create: (data) => v4Request('POST', '/decisions', data),
+  },
   activityUpdates: {
     list: (entityId) => v4Request('GET', `/entities/${encodeURIComponent(entityId)}/activity_updates`),
     create: (entityId, content) => v4Request('POST', `/entities/${encodeURIComponent(entityId)}/activity_updates`, { content }),
