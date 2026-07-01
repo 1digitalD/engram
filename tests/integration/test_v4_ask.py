@@ -43,7 +43,7 @@ def test_ask_returns_grounded_answer(client, app):
             [1.0] + [0.0] * 1535,
         )
 
-    with patch("services.embeddings._embed_texts", return_value=[[1.0] + [0.0] * 1535]):
+    with patch("services.embeddings.embed_query", return_value=[1.0] + [0.0] * 1535):
         response = client.post(
             "/api/v4/ask",
             json={"question": "What did Mary say about the PR review?"},
@@ -92,7 +92,7 @@ def test_ask_includes_citations(client, app):
     with app.app_context():
         _add_chunk(note["id"], "Mary said the PR review looked good.", [1.0] + [0.0] * 1535)
 
-    with patch("services.embeddings._embed_texts", return_value=[[1.0] + [0.0] * 1535]):
+    with patch("services.embeddings.embed_query", return_value=[1.0] + [0.0] * 1535):
         response = client.post(
             "/api/v4/ask",
             json={"question": "What did Mary say about the PR review?"},
@@ -161,8 +161,49 @@ def test_ask_weak_citations_does_not_confabulate_b017(client, app):
         f"Got fallback answer with weak citations: {data['answer'][:200]}"
     )
     assert data["confidence"] == "low"
+    assert data["citations"] == []
     assert data["caveats"]
     assert any("matching" in c.lower() or "ground" in c.lower() for c in data["caveats"])
+
+
+def test_ask_normalizes_honest_idk_despite_retrieved_context(client, app):
+    """Honest IDK answers must always be returned as the canonical low-
+    confidence IDK envelope, even when retrieval returned context that looked
+    relevant enough to pass the weak-relevance threshold.
+
+    This closes the backend/frontend contract gap: the UI keys its IDK state
+    on (confidence == 'low' AND citations == []), so a response that says IDK
+    but still carries citations would be rendered as a grounded answer.
+    """
+    v4_ask._clear_cache()
+    note = _create_entity(
+        client,
+        "note",
+        "Mars exploration context",
+        "NASA's Mars rover program has been ongoing for decades.",
+    )
+    with app.app_context():
+        # High similarity to the query vector so the citation survives the
+        # weak-relevance threshold.
+        _add_chunk(note["id"], "NASA Mars rover.", [0.9] + [0.0] * 1535)
+
+    with patch("services.embeddings.embed_query", return_value=[0.9] + [0.0] * 1535), \
+         patch("services.v4_ask._generate_answer", return_value="I don't have anything in the workspace that answers this."):
+        response = client.post(
+            "/api/v4/ask",
+            json={"question": "What is the capital of Mars?"},
+        )
+
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["answer"] == "I don't have anything in the workspace that answers this."
+    assert data["confidence"] == "low"
+    assert data["citations"] == []
+    assert data["caveats"]
+    assert any(
+        action["type"] == "capture" and action["label"] == "Capture starting point"
+        for action in data["suggested_actions"]
+    )
 
 
 def test_ask_cache_hit(client, app):

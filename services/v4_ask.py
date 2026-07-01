@@ -195,9 +195,13 @@ def _fallback_answer(question: str, citations: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def _idk_response(question: str, citations: list[dict]) -> dict:
+def _idk_response(
+    question: str, citations: list[dict], *, reason: str | None = None
+) -> dict:
     caveats = []
-    if not citations:
+    if reason:
+        caveats.append(reason)
+    elif not citations:
         caveats.append("No matching entities were found in the workspace.")
     else:
         caveats.append(
@@ -214,6 +218,32 @@ def _idk_response(question: str, citations: list[dict]) -> dict:
         "caveats": caveats,
         "suggested_actions": _suggested_actions([], idk=True, question=question),
     }
+
+
+def _is_idk_answer(answer: str) -> bool:
+    """Detect when a generated answer is effectively 'I do not know'.
+
+    The system prompt instructs the model to use the canonical IDK phrase.
+    Normalize any variant of that phrase (and common honest IDK hedges) to
+    the low-confidence IDK envelope so the UI never renders it as a grounded
+    answer with misleading citations.
+    """
+    if not answer:
+        return False
+    normalized = answer.strip().lower()
+    # Strip leading filler words and punctuation that models sometimes add.
+    normalized = normalized.lstrip(">- ").rstrip(".")
+    idk_phrases = [
+        "i don't have anything in the workspace that answers this",
+        "i do not have anything in the workspace that answers this",
+        "i don't have anything in the workspace",
+        "i do not have anything in the workspace",
+        "i don't know based on the workspace context",
+        "i do not know based on the workspace context",
+        "i don't have enough information in the workspace",
+        "i do not have enough information in the workspace",
+    ]
+    return any(phrase in normalized for phrase in idk_phrases)
 
 
 def _generate_answer(question: str, citations: list[dict]) -> str | None:
@@ -299,13 +329,24 @@ def ask_question(question: str, top_k: int = ASK_TOP_K) -> dict:
         answer = _generate_answer(question, citations) or _fallback_answer(
             question, citations
         )
-        response = {
-            "answer": answer,
-            "citations": citations,
-            "confidence": confidence,
-            "caveats": [],
-            "suggested_actions": _suggested_actions(citations, question=question),
-        }
+        if _is_idk_answer(answer):
+            # Retrieval returned something, but the model honestly could not
+            # ground an answer from it. Normalize to the canonical IDK
+            # envelope so the UI never shows this as a grounded answer with
+            # misleading citations.
+            response = _idk_response(
+                question,
+                citations,
+                reason="The retrieved context does not contain enough information to answer this question.",
+            )
+        else:
+            response = {
+                "answer": answer,
+                "citations": citations,
+                "confidence": confidence,
+                "caveats": [],
+                "suggested_actions": _suggested_actions(citations, question=question),
+            }
 
     _set_cached(cache_key, response)
     return response

@@ -98,6 +98,33 @@ def test_idk_response_for_empty_citations():
     assert any("matching" in c.lower() or "no matching" in c.lower() for c in result["caveats"])
 
 
+def test_idk_response_accepts_custom_reason():
+    result = v4_ask._idk_response("What?", [{"entity_id": "a", "snippet": "x", "relevance": 0.9}], reason="Context was misleading.")
+    assert result["answer"] == "I don't have anything in the workspace that answers this."
+    assert result["confidence"] == "low"
+    assert result["citations"] == []
+    assert any("misleading" in c.lower() for c in result["caveats"])
+
+
+def test_is_idk_answer_detects_canonical_phrase():
+    assert v4_ask._is_idk_answer("I don't have anything in the workspace that answers this.")
+
+
+def test_is_idk_answer_detects_variant():
+    assert v4_ask._is_idk_answer(
+        "> I do not have anything in the workspace that answers this question."
+    )
+
+
+def test_is_idk_answer_rejects_grounded_answer():
+    assert not v4_ask._is_idk_answer("Mary said the PR review looked good.")
+
+
+def test_is_idk_answer_rejects_empty():
+    assert not v4_ask._is_idk_answer("")
+    assert not v4_ask._is_idk_answer(None)
+
+
 if __name__ == "__main__":
     # Allow running without pytest as a smoke check
     test_empty_citations_is_low()
@@ -109,4 +136,9 @@ if __name__ == "__main__":
     test_exactly_at_weak_threshold_is_medium()
     test_idk_response_shape()
     test_idk_response_for_empty_citations()
+    test_idk_response_accepts_custom_reason()
+    test_is_idk_answer_detects_canonical_phrase()
+    test_is_idk_answer_detects_variant()
+    test_is_idk_answer_rejects_grounded_answer()
+    test_is_idk_answer_rejects_empty()
     print("All _compute_confidence + _idk_response unit tests passed.")
