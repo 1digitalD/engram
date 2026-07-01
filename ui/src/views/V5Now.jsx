@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { v4API } from '../api/v4Client';
 import { MOCKED_NOW_DATA } from './V5Now.fixtures';
 import styles from './V5Now.module.css';
@@ -186,8 +186,48 @@ export default function V5Now({ previewData }) {
     return () => { active = false; };
   }, [previewData]);
 
-  function handleAction() {
-    // Placeholder for action handlers; deep links handled by row link.
+  const navigate = useNavigate();
+  const [pendingAction, setPendingAction] = useState(null);
+
+  async function handleAction(item, action) {
+    if (!item?.id || !action?.key) return;
+    switch (action.key) {
+      case 'open':
+      case 'view':
+        navigate(`/entities/${item.id}`);
+        return;
+      case 'snooze': {
+        const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+        setPendingAction(action.key);
+        try {
+          await v4API.entities.update(item.id, { follow_up_at: tomorrow });
+          // Refresh the list by re-fetching
+          const today = await v4API.today();
+          setData(transformTodayResponse(today));
+        } catch (err) {
+          setError(err.message || 'Snooze failed');
+        } finally {
+          setPendingAction(null);
+        }
+        return;
+      }
+      case 'done': {
+        setPendingAction(action.key);
+        try {
+          await v4API.entities.update(item.id, { status: 'done' });
+          // Refresh the list by re-fetching
+          const today = await v4API.today();
+          setData(transformTodayResponse(today));
+        } catch (err) {
+          setError(err.message || 'Mark done failed');
+        } finally {
+          setPendingAction(null);
+        }
+        return;
+      }
+      default:
+        return;
+    }
   }
 
   const dateLabel = useMemo(() => new Date().toLocaleDateString('en-US', {
