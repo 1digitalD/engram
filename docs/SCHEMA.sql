@@ -260,12 +260,14 @@ BEGIN
     -- cause the test runner to hang indefinitely. The caller retries on timeout.
     SET LOCAL statement_timeout = '5s';
 
-    TRUNCATE TABLE
-        ai_suggestions,
-        change_batches,
-        entity_events,
-        entity_chunks,
-        entity_links,
+TRUNCATE TABLE
+    ai_suggestions,
+    app_settings,
+    change_batches,
+    decisions,
+    entity_events,
+    entity_chunks,
+    entity_links,
         entity_tags,
         jobs,
         tags,

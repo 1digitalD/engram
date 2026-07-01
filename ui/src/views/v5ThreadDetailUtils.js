@@ -144,10 +144,7 @@ export function buildNextActions(detail, entityType) {
       id: `blocker-${item.entity?.id}`,
       label: item.label || entityTitleLabel(item.entity),
       entity: item.entity,
-      buttons: [
-        { key: 'open', label: 'Open thread', action: 'open', href: pathForEntity(item.entity) },
-        { key: 'decide', label: 'Decide', action: 'decide', entityId: item.entity?.id },
-      ],
+      buttons: actionButtonsForTask(item),
     });
   });
 

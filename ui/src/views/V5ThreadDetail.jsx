@@ -5,6 +5,8 @@ import { v4API } from '../api/v4Client';
 import XGlyph from '../components/XGlyph';
 import CitationsList from '../components/CitationsList';
 import CitationEntitySheet from '../components/CitationEntitySheet';
+import { useCapture } from '../context/CaptureContext';
+import { useSummary } from '../context/SummaryContext';
 import { entityTitleLabel } from '../utils/entityDisplay';
 import styles from '../styles/v5.module.css';
 import {
@@ -94,7 +96,10 @@ function ThreadDetailContent({
   const references = buildReferences(detail, entity);
   const [longPressTarget, setLongPressTarget] = useState(null);
 
-  const longPress = useLongPress((target) => setLongPressTarget(target));
+  const longPress = useLongPress((target) => {
+    if (!target?.buttons?.length) return;
+    setLongPressTarget(target);
+  });
 
   const timelineEvents = useMemo(
     () => (events || []).filter((event) => event?.narration),
@@ -112,7 +117,10 @@ function ThreadDetailContent({
           {detail?.decisions_count ? (
             <>
               <span aria-hidden="true">·</span>
-              <span className={styles.countChip} title={`${detail.decisions_count} decision${detail.decisions_count === 1 ? '' : 's'}`}>
+              <span
+                className={styles.countChip}
+                title={`${detail.decisions_count} decision${detail.decisions_count === 1 ? '' : 's'}`}
+              >
                 {detail.decisions_count} decision{detail.decisions_count === 1 ? '' : 's'}
               </span>
             </>
@@ -143,26 +151,28 @@ function ThreadDetailContent({
               ) : null}
             </article>
           ))}
-          {nextActions.length > 0 ? nextActions.map((action) => (
-            <div
-              key={action.id}
-              className={styles.actionRow}
-              onTouchStart={(event) => longPress.onTouchStart(event, action)}
-              onTouchEnd={longPress.onTouchEnd}
-              onTouchMove={longPress.onTouchMove}
-              onMouseDown={(event) => longPress.onMouseDown(event, action)}
-              onMouseUp={longPress.onMouseUp}
-              onMouseLeave={longPress.onMouseLeave}
-              data-testid={`action-row-${action.id}`}
-            >
-              <div className={styles.actionLabel}>{action.label}</div>
-              <div className={styles.actionButtons}>
-                {action.buttons.map((button) => (
-                  <ActionButton key={button.key} button={button} onAction={onAction} />
-                ))}
+          {nextActions.length > 0 ? (
+            nextActions.map((action) => (
+              <div
+                key={action.id}
+                className={styles.actionRow}
+                onTouchStart={(event) => longPress.onTouchStart(event, action)}
+                onTouchEnd={longPress.onTouchEnd}
+                onTouchMove={longPress.onTouchMove}
+                onMouseDown={(event) => longPress.onMouseDown(event, action)}
+                onMouseUp={longPress.onMouseUp}
+                onMouseLeave={longPress.onMouseLeave}
+                data-testid={`action-row-${action.id}`}
+              >
+                <div className={styles.actionLabel}>{action.label}</div>
+                <div className={styles.actionButtons}>
+                  {action.buttons.map((button) => (
+                    <ActionButton key={button.key} button={button} onAction={onAction} />
+                  ))}
+                </div>
               </div>
-            </div>
-          )) : (
+            ))
+          ) : (
             <p className={styles.emptyHint}>No obvious next actions right now.</p>
           )}
         </section>
@@ -170,57 +180,64 @@ function ThreadDetailContent({
 
       <section className={styles.section} aria-labelledby="thread-timeline-label">
         <h2 id="thread-timeline-label" className={styles.sectionLabel}>Timeline</h2>
-        {timelineEvents.length > 0 ? timelineEvents.map((event) => (
-          <div
-            key={event.id}
-            className={styles.timelineRow}
-            onTouchStart={(touchEvent) => longPress.onTouchStart(touchEvent, {
-              label: event.narration,
-              buttons: [{ key: 'open', label: 'Copy narration', action: 'decide' }],
-            })}
-            onTouchEnd={longPress.onTouchEnd}
-            onTouchMove={longPress.onTouchMove}
-            data-testid={`timeline-row-${event.id}`}
-          >
-            <time className={styles.timelineDate} dateTime={event.created_at}>
-              {formatTimelineDate(event.created_at)}
-            </time>
-            <span className={styles.timelineGlyph} aria-hidden="true">
-              {timelineGlyph(event)}
-            </span>
-            <p className={styles.timelineText}>{event.narration}</p>
-          </div>
-        )) : (
+        {timelineEvents.length > 0 ? (
+          timelineEvents.map((event) => (
+            <div
+              key={event.id}
+              className={styles.timelineRow}
+              data-testid={`timeline-row-${event.id}`}
+            >
+              <time className={styles.timelineDate} dateTime={event.created_at}>
+                {formatTimelineDate(event.created_at)}
+              </time>
+              <span className={styles.timelineGlyph} aria-hidden="true">
+                {timelineGlyph(event)}
+              </span>
+              <p className={styles.timelineText}>{event.narration}</p>
+            </div>
+          ))
+        ) : (
           <p className={styles.emptyHint}>Nothing in the timeline yet.</p>
         )}
       </section>
 
       <section className={styles.section} aria-labelledby="thread-people-label">
         <h2 id="thread-people-label" className={styles.sectionLabel}>People</h2>
-        {people.length > 0 ? people.map((person) => (
-          <div key={person.id} className={styles.personRow}>
-            <XGlyph type="person" />
-            <Link to={pathForEntity(person.entity)} className={styles.personLink}>
-              <span className={styles.personName}>{entityTitleLabel(person.entity, { includeType: false })}</span>
-              <span className={styles.personMeta}>{person.relationship}{person.subtitle ? ` · ${person.subtitle}` : ''}</span>
-            </Link>
-          </div>
-        )) : (
+        {people.length > 0 ? (
+          people.map((person) => (
+            <div key={person.id} className={styles.personRow}>
+              <XGlyph type="person" />
+              <Link to={pathForEntity(person.entity)} className={styles.personLink}>
+                <span className={styles.personName}>
+                  {entityTitleLabel(person.entity, { includeType: false })}
+                </span>
+                <span className={styles.personMeta}>
+                  {person.relationship}
+                  {person.subtitle ? ` · ${person.subtitle}` : ''}
+                </span>
+              </Link>
+            </div>
+          ))
+        ) : (
           <p className={styles.emptyHint}>No people linked yet.</p>
         )}
       </section>
 
       <section className={styles.section} aria-labelledby="thread-related-label">
         <h2 id="thread-related-label" className={styles.sectionLabel}>Related threads</h2>
-        {relatedThreads.length > 0 ? relatedThreads.map((thread) => (
-          <div key={thread.id} className={styles.relatedRow}>
-            <XGlyph type={thread.entity.type} />
-            <Link to={pathForEntity(thread.entity)} className={styles.relatedLink}>
-              <span className={styles.relatedTitle}>{entityTitleLabel(thread.entity, { includeType: false })}</span>
-              <span className={styles.relatedMeta}>{thread.subtitle}</span>
-            </Link>
-          </div>
-        )) : (
+        {relatedThreads.length > 0 ? (
+          relatedThreads.map((thread) => (
+            <div key={thread.id} className={styles.relatedRow}>
+              <XGlyph type={thread.entity.type} />
+              <Link to={pathForEntity(thread.entity)} className={styles.relatedLink}>
+                <span className={styles.relatedTitle}>
+                  {entityTitleLabel(thread.entity, { includeType: false })}
+                </span>
+                <span className={styles.relatedMeta}>{thread.subtitle}</span>
+              </Link>
+            </div>
+          ))
+        ) : (
           <p className={styles.emptyHint}>No related threads yet.</p>
         )}
       </section>
@@ -259,7 +276,11 @@ function ThreadDetailContent({
                 }}
               />
             ))}
-            <button type="button" className={styles.inlineButton} onClick={() => setLongPressTarget(null)}>
+            <button
+              type="button"
+              className={styles.inlineButton}
+              onClick={() => setLongPressTarget(null)}
+            >
               Cancel
             </button>
           </div>
@@ -278,11 +299,14 @@ export default function V5ThreadDetail({
   const { id } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
+  const { openCapture } = useCapture();
+  const { refreshSummary } = useSummary();
   const [detail, setDetail] = useState(previewDetail);
   const [events, setEvents] = useState(previewEvents);
   const [canonicalText, setCanonicalText] = useState(previewCanonical);
   const [loading, setLoading] = useState(!previewDetail);
   const [error, setError] = useState('');
+  const [actionError, setActionError] = useState('');
   const [citationEntityId, setCitationEntityId] = useState(null);
 
   useEffect(() => {
@@ -327,26 +351,38 @@ export default function V5ThreadDetail({
   }, [id, routeType, previewDetail, previewEvents, previewCanonical, navigate, location.state]);
 
   const handleAction = useCallback(async (button) => {
-    if (button.action === 'done' && button.entityId) {
-      await v4API.entities.update(button.entityId, { status: 'done' });
-      const refreshed = await v4API.entities.detail(id);
-      setDetail(refreshed);
-      return;
+    setActionError('');
+    try {
+      if (button.action === 'done' && button.entityId) {
+        await v4API.entities.update(button.entityId, { status: 'done' });
+        const refreshed = await v4API.entities.detail(id);
+        setDetail(refreshed);
+        refreshSummary();
+        return;
+      }
+
+      if (button.action === 'remind' && button.entityId) {
+        const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+        await v4API.entities.update(button.entityId, { follow_up_at: tomorrow });
+        const refreshed = await v4API.entities.detail(id);
+        setDetail(refreshed);
+        refreshSummary();
+      }
+    } catch (err) {
+      setActionError(err?.message || 'Action failed');
     }
-    if (button.action === 'remind' && button.entityId) {
-      const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-      await v4API.entities.update(button.entityId, { follow_up_at: tomorrow });
-      const refreshed = await v4API.entities.detail(id);
-      setDetail(refreshed);
-    }
-  }, [id]);
+  }, [id, refreshSummary]);
 
   const handleCapture = useCallback(() => {
-    navigate('/', { state: { capture: true, threadId: detail?.entity?.id } });
-  }, [navigate, detail?.entity?.id]);
+    openCapture();
+  }, [openCapture]);
 
   if (loading) {
-    return <main className={styles.page} aria-busy="true"><p className={styles.loading}>Loading thread…</p></main>;
+    return (
+      <main className={styles.page} aria-busy="true">
+        <p className={styles.loading}>Loading thread…</p>
+      </main>
+    );
   }
 
   if (error || !detail?.entity) {
@@ -366,6 +402,7 @@ export default function V5ThreadDetail({
       >
         ← Back
       </Link>
+      {actionError ? <p className={styles.error} role="alert">{actionError}</p> : null}
       <ThreadDetailContent
         detail={detail}
         events={events}

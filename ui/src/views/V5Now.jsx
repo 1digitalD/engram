@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { v4API, friendlyApiError } from '../api/v4Client';
+import { useSummary } from '../context/SummaryContext';
 import { MOCKED_NOW_DATA } from './V5Now.fixtures';
 import styles from './V5Now.module.css';
 
@@ -20,10 +21,10 @@ function bandForScore(score) {
 
 function sentenceFor(item) {
   if (item.subject) return item.subject;
-  return `${item.title || 'Untitled'}`;
+  return item.title || 'Untitled';
 }
 
-function NowRow({ item, onAction }) {
+function NowRow({ item, onAction, actionsDisabled = false }) {
   const path = entityPath(item);
   const band = bandForScore(item.attention_score ?? 0);
   const actions = item.actions || [];
@@ -56,6 +57,7 @@ function NowRow({ item, onAction }) {
               type="button"
               className={`${styles.actionButton} ${action.primary ? styles.actionButtonPrimary : ''}`}
               onClick={() => onAction(item, action)}
+              disabled={actionsDisabled}
             >
               {action.label}
             </button>
@@ -66,17 +68,24 @@ function NowRow({ item, onAction }) {
   );
 }
 
-function Section({ title, items, onAction }) {
+function Section({ title, items, onAction, actionsDisabled = false }) {
   if (!items || items.length === 0) return null;
+
   return (
     <section className={styles.section} aria-label={title}>
       <h2 className={styles.sectionLabel}>
         {title}
         <span className={styles.sectionCount}>{items.length}</span>
       </h2>
+
       <div className={styles.rowList}>
         {items.map((item) => (
-          <NowRow key={item.id} item={item} onAction={onAction} />
+          <NowRow
+            key={item.id}
+            item={item}
+            onAction={onAction}
+            actionsDisabled={actionsDisabled}
+          />
         ))}
       </div>
     </section>
@@ -87,21 +96,22 @@ function transformTodayResponse(today) {
   const needs = [];
   const waiting = [];
   const ambient = [];
-
   const allEntities = [
-    ...(today.overdue || []).map((e) => ({ ...e, reason: 'overdue' })),
-    ...(today.due_today || []).map((e) => ({ ...e, reason: 'due today' })),
-    ...(today.delegations_quiet || []).map((e) => ({ ...e, reason: 'needs a nudge' })),
+    ...(today.overdue || []).map((entity) => ({ ...entity, reason: 'overdue' })),
+    ...(today.due_today || []).map((entity) => ({ ...entity, reason: 'due today' })),
+    ...(today.delegations_quiet || []).map((entity) => ({ ...entity, reason: 'needs a nudge' })),
     ...(today.dependency_interventions || []).map((item) => ({ ...item.entity, reason: item.label })),
   ];
 
   for (const entity of allEntities) {
     if (!entity) continue;
+
     const score = entity.attention?.score ?? entity.attention_score ?? 50;
     const project = (entity.projects || [])[0];
     const subject = entity.title
       ? `${entity.title}${entity.content ? ` — ${entity.content.slice(0, 120)}` : ''}`
       : 'Untitled item';
+
     const item = {
       id: entity.id,
       type: entity.type || 'task',
@@ -109,8 +119,8 @@ function transformTodayResponse(today) {
       when: entity.due_at
         ? new Date(entity.due_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
         : (entity.follow_up_at
-            ? new Date(entity.follow_up_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-            : 'No date'),
+          ? new Date(entity.follow_up_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+          : 'No date'),
       why_now: entity.reason || entity.attention?.reasons?.[0]?.label || 'Needs attention',
       thread: project
         ? { id: project.id, label: project.title, type: 'project' }
@@ -137,7 +147,7 @@ function transformTodayResponse(today) {
     ambient.push({
       id: entity.id,
       type: 'project',
-      subject: `${entity.title || 'Untitled project'} has had no activity in ${entity.stale_days} days.`,
+      subject: `${entity.title || 'Untitled project'} had no activity in ${entity.stale_days} days.`,
       when: 'Ambient',
       why_now: 'Stalled project context',
       thread: { id: entity.id, label: entity.title || 'Untitled', type: 'project' },
@@ -153,6 +163,9 @@ export default function V5Now({ previewData }) {
   const [data, setData] = useState(previewData || null);
   const [loading, setLoading] = useState(!previewData);
   const [error, setError] = useState('');
+  const [pendingAction, setPendingAction] = useState(null);
+  const navigate = useNavigate();
+  const { refreshSummary } = useSummary();
 
   useEffect(() => {
     if (previewData) {
@@ -183,14 +196,15 @@ export default function V5Now({ previewData }) {
       .finally(() => {
         if (active) setLoading(false);
       });
-    return () => { active = false; };
-  }, [previewData]);
 
-  const navigate = useNavigate();
-  const [pendingAction, setPendingAction] = useState(null);
+    return () => {
+      active = false;
+    };
+  }, [previewData]);
 
   async function handleAction(item, action) {
     if (!item?.id || !action?.key) return;
+
     switch (action.key) {
       case 'open':
       case 'view':
@@ -201,9 +215,9 @@ export default function V5Now({ previewData }) {
         setPendingAction(action.key);
         try {
           await v4API.entities.update(item.id, { follow_up_at: tomorrow });
-          // Refresh the list by re-fetching
           const today = await v4API.today();
           setData(transformTodayResponse(today));
+          refreshSummary();
         } catch (err) {
           setError(friendlyApiError(err, 'Snooze failed'));
         } finally {
@@ -215,9 +229,9 @@ export default function V5Now({ previewData }) {
         setPendingAction(action.key);
         try {
           await v4API.entities.update(item.id, { status: 'done' });
-          // Refresh the list by re-fetching
           const today = await v4API.today();
           setData(transformTodayResponse(today));
+          refreshSummary();
         } catch (err) {
           setError(friendlyApiError(err, 'Mark done failed'));
         } finally {
@@ -230,53 +244,56 @@ export default function V5Now({ previewData }) {
     }
   }
 
-  const dateLabel = useMemo(() => new Date().toLocaleDateString('en-US', {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-  }), []);
+  const hasItems = useMemo(
+    () => Boolean((data?.needs_you_now || []).length || (data?.waiting_on_you || []).length || (data?.ambient || []).length),
+    [data],
+  );
 
   if (loading) {
-    return <p className={styles.loading}>Loading now…</p>;
+    return (
+      <main className={styles.page} aria-busy="true">
+        <p className={styles.statusMessage}>Loading Now…</p>
+      </main>
+    );
   }
 
-  if (error) {
-    return <p className={styles.error}>{error}</p>;
+  if (error && !data) {
+    return (
+      <main className={styles.page}>
+        <p className={styles.error} role="alert">{error}</p>
+      </main>
+    );
   }
-
-  const hasItems = data
-    && (data.needs_you_now?.length || data.waiting_on_you?.length || data.ambient?.length);
 
   return (
     <main className={styles.page}>
       <header className={styles.header}>
-        <h1 className={styles.title}>{dateLabel}</h1>
+        <h1 className={styles.title}>Now</h1>
         <p className={styles.subtitle}>
           {hasItems
-            ? `${(data.needs_you_now?.length || 0) + (data.waiting_on_you?.length || 0)} items need your attention.`
+            ? `${(data?.needs_you_now?.length || 0) + (data?.waiting_on_you?.length || 0)} items need your attention.`
             : 'Nothing urgent. Use this time to plan ahead or capture notes.'}
         </p>
+        {error ? <p className={styles.error} role="alert">{error}</p> : null}
       </header>
 
       <Section
         title="Needs you now"
         items={data?.needs_you_now || []}
         onAction={handleAction}
-        accent="hot"
+        actionsDisabled={Boolean(pendingAction)}
       />
-
       <Section
         title="Waiting on you"
         items={data?.waiting_on_you || []}
         onAction={handleAction}
-        accent="warm"
+        actionsDisabled={Boolean(pendingAction)}
       />
-
       <Section
         title="Ambient"
         items={data?.ambient || []}
         onAction={handleAction}
-        accent="ambient"
+        actionsDisabled={Boolean(pendingAction)}
       />
 
       {!hasItems && (

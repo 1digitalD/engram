@@ -2,7 +2,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { v4API } from '../api/v4Client';
-import { CaptureProvider } from '../context/CaptureContext';
+import { CaptureProvider, useCapture } from '../context/CaptureContext';
 import V5Recall from './V5Recall';
 
 vi.mock('../api/v4Client', () => ({
@@ -79,6 +79,37 @@ describe('V5Recall', () => {
 
     fireEvent.keyDown(document, { key: 'Escape' });
     await waitFor(() => expect(onClose).toHaveBeenCalled());
+  });
+
+  it('opens capture with the current query instead of showing an ask action', async () => {
+    function CaptureObserver() {
+      const { open, initialContent } = useCapture();
+      return (
+        <div>
+          <span data-testid="capture-open">{open ? 'open' : 'closed'}</span>
+          <span data-testid="capture-content">{initialContent}</span>
+        </div>
+      );
+    }
+
+    render(
+      <MemoryRouter>
+        <CaptureProvider>
+          <CaptureObserver />
+          <V5Recall open onClose={vi.fn()} />
+        </CaptureProvider>
+      </MemoryRouter>,
+    );
+
+    fireEvent.change(screen.getByLabelText('Search terms'), { target: { value: 'mary follow-up' } });
+
+    const captureButton = await screen.findByRole('button', { name: /capture mary follow-up/i });
+    expect(screen.queryByRole('button', { name: /ask about mary follow-up/i })).not.toBeInTheDocument();
+
+    fireEvent.click(captureButton);
+
+    await waitFor(() => expect(screen.getByTestId('capture-open')).toHaveTextContent('open'));
+    expect(screen.getByTestId('capture-content')).toHaveTextContent('mary follow-up');
   });
 
   it('ignores stale responses from older queries', async () => {

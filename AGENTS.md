@@ -63,6 +63,9 @@ TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/b
 TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/unit/ -q
 TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/integration/ -q
 
+# Run backend pytest commands serially against the shared test DB.
+# Do not run multiple pytest processes in parallel unless each process has its own isolated database.
+
 # Frontend
 cd ui && npm test
 cd ui && npm run build

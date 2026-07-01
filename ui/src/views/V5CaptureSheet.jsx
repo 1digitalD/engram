@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import Sheet from '../components/Sheet';
 import { useCapture } from '../context/CaptureContext';
+import { useSummary } from '../context/SummaryContext';
 import { v4API, friendlyApiError } from '../api/v4Client';
 import { captureStream, formatCaptureStreamLabel } from '../utils/captureStream';
 import styles from './V5CaptureSheet.module.css';
@@ -24,7 +25,7 @@ function entityPath(type, id) {
 }
 
 function noteViewPath(note) {
-  if (!note?.id) return '/inbox';
+  if (!note?.id) return '/notes';
   return `/notes/${note.id}`;
 }
 
@@ -80,7 +81,7 @@ export function CaptureToast({ toast }) {
       <span>
         Saved · AI processing ({applied} applied, {suggested} suggested).
       </span>
-      <Link className={styles.toastLink} to={toast.viewPath || '/inbox'}>
+      <Link className={styles.toastLink} to={toast.viewPath || '/notes'}>
         View
       </Link>
     </div>
@@ -128,6 +129,7 @@ export default function V5CaptureSheet({
   const defaultAttachment = defaultAttachmentProp ?? captureCtx.defaultAttachment;
   const initialContent = captureCtx.initialContent ?? '';
   const showToast = captureCtx.showToast;
+  const { refreshSummary } = useSummary();
 
   const [content, setContent] = useState('');
   const [attachment, setAttachment] = useState(ATTACHMENT_NONE);
@@ -208,6 +210,7 @@ export default function V5CaptureSheet({
       }
       const applied = (result?.applied_changes || []).length;
       const suggested = (result?.suggestions || []).length;
+      refreshSummary();
       onSaved?.(result);
       onClose();
       if (showToast) {

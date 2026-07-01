@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { CaptureProvider } from '../context/CaptureContext';
-import V5CaptureSheet, { CAPTURE_PLACEHOLDER } from './V5CaptureSheet';
+import V5CaptureSheet, { CAPTURE_PLACEHOLDER, CaptureToast } from './V5CaptureSheet';
 
 vi.mock('../api/v4Client', () => ({
   v4API: {
@@ -50,6 +50,16 @@ describe('V5CaptureSheet', () => {
     renderSheet();
     expect(screen.getByLabelText('Capture text')).toHaveAttribute('placeholder', CAPTURE_PLACEHOLDER);
     expect(screen.queryByText(/AI will figure out what you mean/i)).not.toBeInTheDocument();
+  });
+
+  it('falls back to /notes for toast view links', () => {
+    render(
+      <MemoryRouter>
+        <CaptureToast toast={{ applied: 1, suggested: 0 }} />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole('link', { name: 'View' })).toHaveAttribute('href', '/notes');
   });
 
   it('auto-attaches when opened from a thread route', async () => {

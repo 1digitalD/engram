@@ -1,7 +1,11 @@
-import { useEffect, useState } from 'react';
-import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Navigate, Route, Routes } from 'react-router-dom';
 import styles from './App.module.css';
 import { v4API } from './api/v4Client';
+import TopBar from './components/TopBar';
+import { CaptureProvider, useCapture } from './context/CaptureContext';
+import { RecallProvider, useRecall } from './context/RecallContext';
+import { SummaryProvider } from './context/SummaryContext';
 import V5EntityList from './views/V5EntityList';
 import V5ThreadDetail from './views/V5ThreadDetail';
 import V5Threads from './views/V5Threads';
@@ -9,31 +13,29 @@ import V5Now from './views/V5Now';
 import V5Recall from './views/V5Recall';
 import V5RecallOpener from './views/V5RecallOpener';
 import V5Memory from './views/V5Memory';
-import TopBar from './components/TopBar';
-import { CaptureProvider, useCapture } from './context/CaptureContext';
-import { RecallProvider, useRecall } from './context/RecallContext';
 import V5CaptureSheet, { CaptureFab, CaptureToast } from './views/V5CaptureSheet';
 import V5AskSheet from './views/V5AskSheet';
 
 function AppShell() {
-  const location = useLocation();
   const { toast } = useCapture();
   const { open, openRecall, closeRecall } = useRecall();
   const [counts, setCounts] = useState({ today: 0, threads: undefined, recall: undefined });
   const [trustScore, setTrustScore] = useState(null);
   const [askOpen, setAskOpen] = useState(false);
+  const [summaryVersion, setSummaryVersion] = useState(0);
 
-  // Fetch lens counts once on mount; data doesn't change between
-  // navigations, so re-fetching on every route change is wasted work.
-  // (Was previously keyed on location.pathname; see audit B-015.)
+  const refreshSummary = useCallback(() => {
+    setSummaryVersion((version) => version + 1);
+  }, []);
+
+  const summaryContext = useMemo(() => ({ refreshSummary }), [refreshSummary]);
+
   useEffect(() => {
     let active = true;
+
     v4API.summary()
       .then((data) => {
         if (!active) return;
-        // /summary exposes threads_count. Recall is a search dialog with no
-        // meaningful count, so its pill is suppressed (undefined) instead of
-        // showing a false zero (audit B-010).
         setCounts({
           today: data?.today_count ?? 0,
           threads: data?.threads_count ?? 0,
@@ -41,17 +43,19 @@ function AppShell() {
         });
       })
       .catch(() => {
-        if (active) setCounts({ today: 0, threads: 0, recall: undefined });
+        if (active) {
+          setCounts({ today: 0, threads: 0, recall: undefined });
+        }
       });
-    return () => { active = false; };
-  }, []);
 
-  // Trust score derived from /metrics/trust's correction_rate:
-  // trust = (1 - correction_rate) * 100, rounded. Until the API exposes
-  // a dedicated trust_score, this gives a value the user can actually
-  // trust. (Was hard-coded to 87; see audit B-009.)
+    return () => {
+      active = false;
+    };
+  }, [summaryVersion]);
+
   useEffect(() => {
     let active = true;
+
     v4API.metrics.trust()
       .then((data) => {
         if (!active || data?.correction_rate == null) return;
@@ -59,10 +63,12 @@ function AppShell() {
         setTrustScore(score);
       })
       .catch(() => {
-        // Silent fallback — leave the chip hidden rather than show 87%
-        // (or some other arbitrary number) when we can't compute it.
+        // Leave the trust chip hidden when the metric is unavailable.
       });
-    return () => { active = false; };
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -72,51 +78,56 @@ function AppShell() {
         openRecall();
       }
     }
+
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [openRecall]);
 
   return (
-    <div className={styles.shell} data-v5="true">
-      <TopBar
-        onAsk={() => setAskOpen(true)}
-        onRecall={openRecall}
-        nowCount={counts.today}
-        threadsCount={counts.threads}
-        recallCount={counts.recall}
-        trustScore={trustScore}
-      />
-      <div className={styles.mainColumn}>
-        <div className={styles.routeViewport}>
-          <Routes>
-            <Route path="/" element={<Navigate to="/now" replace />} />
-            <Route path="/now" element={<V5Now />} />
-            <Route path="/threads" element={<V5Threads />} />
-            <Route path="/memory" element={<V5Memory />} />
-            <Route path="/recall" element={<V5RecallOpener />} />
-            <Route path="/entities/:id" element={<V5ThreadDetail />} />
-            <Route path="/notes" element={<V5EntityList type="note" />} />
-            <Route path="/notes/:id" element={<V5ThreadDetail type="note" />} />
-            <Route path="/projects" element={<V5EntityList type="project" />} />
-            <Route path="/projects/:id" element={<V5ThreadDetail type="project" />} />
-            <Route path="/tasks" element={<V5EntityList type="task" />} />
-            <Route path="/tasks/:id" element={<V5ThreadDetail type="task" />} />
-            <Route path="/areas" element={<V5EntityList type="area" />} />
-            <Route path="/areas/:id" element={<V5ThreadDetail type="area" />} />
-            <Route path="/people" element={<V5EntityList type="person" />} />
-            <Route path="/people/:id" element={<V5ThreadDetail type="person" />} />
-            <Route path="/resources" element={<V5EntityList type="resource" />} />
-            <Route path="/resources/:id" element={<V5ThreadDetail type="resource" />} />
-            <Route path="*" element={<Navigate to="/now" replace />} />
-          </Routes>
+    <SummaryProvider value={summaryContext}>
+      <div className={styles.shell} data-v5="true">
+        <TopBar
+          onAsk={() => setAskOpen(true)}
+          onRecall={openRecall}
+          nowCount={counts.today}
+          threadsCount={counts.threads}
+          recallCount={counts.recall}
+          trustScore={trustScore}
+        />
+
+        <div className={styles.mainColumn}>
+          <div className={styles.routeViewport}>
+            <Routes>
+              <Route path="/" element={<Navigate to="/now" replace />} />
+              <Route path="/now" element={<V5Now />} />
+              <Route path="/threads" element={<V5Threads />} />
+              <Route path="/memory" element={<V5Memory />} />
+              <Route path="/recall" element={<V5RecallOpener />} />
+              <Route path="/entities/:id" element={<V5ThreadDetail />} />
+              <Route path="/notes" element={<V5EntityList type="note" />} />
+              <Route path="/notes/:id" element={<V5ThreadDetail type="note" />} />
+              <Route path="/projects" element={<V5EntityList type="project" />} />
+              <Route path="/projects/:id" element={<V5ThreadDetail type="project" />} />
+              <Route path="/tasks" element={<V5EntityList type="task" />} />
+              <Route path="/tasks/:id" element={<V5ThreadDetail type="task" />} />
+              <Route path="/areas" element={<V5EntityList type="area" />} />
+              <Route path="/areas/:id" element={<V5ThreadDetail type="area" />} />
+              <Route path="/people" element={<V5EntityList type="person" />} />
+              <Route path="/people/:id" element={<V5ThreadDetail type="person" />} />
+              <Route path="/resources" element={<V5EntityList type="resource" />} />
+              <Route path="/resources/:id" element={<V5ThreadDetail type="resource" />} />
+              <Route path="*" element={<Navigate to="/now" replace />} />
+            </Routes>
+          </div>
         </div>
+
+        <CaptureFab />
+        <V5CaptureSheet />
+        <V5AskSheet open={askOpen} onClose={() => setAskOpen(false)} />
+        <CaptureToast toast={toast} />
+        <V5Recall open={open} onClose={closeRecall} />
       </div>
-      <CaptureFab />
-      <V5CaptureSheet />
-      <V5AskSheet open={askOpen} onClose={() => setAskOpen(false)} />
-      <CaptureToast toast={toast} />
-      <V5Recall open={open} onClose={closeRecall} />
-    </div>
+    </SummaryProvider>
   );
 }
 

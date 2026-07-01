@@ -8,7 +8,7 @@ import re
 import time as time_module
 
 from flask import Response, current_app, jsonify, request, stream_with_context
-from sqlalchemy import func, or_
+from sqlalchemy import func, or_, text
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.orm import selectinload
 
@@ -985,7 +985,7 @@ def _build_today_payload(now):
 
 @api_v4_bp.route("/today/review", methods=["POST"])
 def mark_today_reviewed():
-    now = datetime.now(timezone.utc)
+    now = db.session.execute(text("SELECT now()")).scalar_one()
     start_of_today = datetime.combine(now.date(), time.min, tzinfo=timezone.utc)
     last_reviewed_at = _set_app_setting("last_reviewed_at", now.isoformat())
     return jsonify({
@@ -1031,6 +1031,10 @@ def _needs_review_count():
     return _needs_review_query().count()
 
 
+def _pending_suggestions_count():
+    return db.session.query(AiSuggestion.id).filter(AiSuggestion.status == "pending").count()
+
+
 @api_v4_bp.route("/summary", methods=["GET"])
 def summary():
     now = datetime.now(timezone.utc)
@@ -1038,7 +1042,7 @@ def summary():
     return jsonify({
         "inbox_count": _needs_review_count(),
         "today_count": today_attention_count(today_payload),
-        "suggestions_count": _needs_review_count(),
+        "suggestions_count": _pending_suggestions_count(),
         "threads_count": len(_build_threads_payload(now)),
         "last_reviewed_at": today_payload["last_reviewed_at"],
         "reviewed_today": today_payload["reviewed_today"],

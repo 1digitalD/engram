@@ -2,7 +2,7 @@ import {
   useCallback, useEffect, useMemo, useRef, useState,
 } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Sparkles } from 'lucide-react';
+import { Plus, Search } from 'lucide-react';
 import Sheet from '../components/Sheet';
 import { v4API, friendlyApiError } from '../api/v4Client';
 import XGlyph from '../components/XGlyph';
@@ -149,10 +149,10 @@ export default function V5Recall({ open, onClose, initialQuery = '' }) {
                 onClose?.();
                 openCapture(query);
               }}
-              aria-label={`Ask about ${query}`}
+              aria-label={`Capture ${query}`}
             >
-              <Sparkles size={14} strokeWidth={2.2} aria-hidden="true" />
-              Ask
+              <Plus size={14} strokeWidth={2.2} aria-hidden="true" />
+              Capture
             </button>
           ) : null}
         </header>

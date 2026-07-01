@@ -52,7 +52,7 @@ def test_v4_summary_matches_today_and_inbox_counts(client, app):
     assert summary["today_count"] == today_attention_count(today_data)
     assert summary["today_count"] > 0
     assert summary["inbox_count"] == len(inbox_data["needs_review"])
-    assert summary["suggestions_count"] == summary["inbox_count"]
+    assert summary["suggestions_count"] == len(today_data["pending_suggestions"])
     assert summary["last_reviewed_at"] == today_data["last_reviewed_at"]
     assert summary["reviewed_today"] == today_data["reviewed_today"]
 

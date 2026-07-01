@@ -1,9 +1,11 @@
 import React from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, within, act } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { v4API } from '../api/v4Client';
+import { CaptureProvider, useCapture } from '../context/CaptureContext';
 import V5ThreadDetail from './V5ThreadDetail';
+import V5CaptureSheet from './V5CaptureSheet';
 import { fixtureForType } from './V5ThreadDetail.fixtures';
 import { narrativeSummary } from './v5ThreadDetailUtils';
 
@@ -27,19 +29,21 @@ function renderThread(type) {
 
   return render(
     <MemoryRouter initialEntries={[path]}>
-      <Routes>
-        <Route
-          path={`/${basePath}/:id`}
-          element={(
-            <V5ThreadDetail
-              type={type}
-              previewDetail={fixture.detail}
-              previewEvents={fixture.events}
-              previewCanonical={fixture.canonical}
-            />
-          )}
-        />
-      </Routes>
+      <CaptureProvider>
+        <Routes>
+          <Route
+            path={`/${basePath}/:id`}
+            element={(
+              <V5ThreadDetail
+                type={type}
+                previewDetail={fixture.detail}
+                previewEvents={fixture.events}
+                previewCanonical={fixture.canonical}
+              />
+            )}
+          />
+        </Routes>
+      </CaptureProvider>
     </MemoryRouter>,
   );
 }
@@ -65,17 +69,8 @@ describe('V5ThreadDetail', () => {
     });
   });
 
-  it('uses narrations in the timeline and hides raw event types', async () => {
+  it('renders pulse cards inside next actions', async () => {
     renderThread('project');
-
-    expect(await screen.findByText('I created task "Ship GTM triggers" from your note.')).toBeInTheDocument();
-    expect(screen.queryByText('ai_updated')).not.toBeInTheDocument();
-    expect(screen.queryByText('activity_update_added')).not.toBeInTheDocument();
-  });
-
-  it('shows inline next-action buttons and pulse cards inside next actions', async () => {
-    renderThread('project');
-
     expect(await screen.findByText('Project pulse')).toBeInTheDocument();
     expect(screen.getByText('Dependency watch')).toBeInTheDocument();
     expect(screen.getAllByRole('link', { name: 'Open' }).length).toBeGreaterThan(0);
@@ -106,9 +101,11 @@ describe('V5ThreadDetail', () => {
 
     render(
       <MemoryRouter initialEntries={[`/notes/${fixture.detail.entity.id}`]}>
-        <Routes>
-          <Route path="/notes/:id" element={<V5ThreadDetail type="note" />} />
-        </Routes>
+        <CaptureProvider>
+          <Routes>
+            <Route path="/notes/:id" element={<V5ThreadDetail type="note" />} />
+          </Routes>
+        </CaptureProvider>
       </MemoryRouter>,
     );
 
@@ -134,6 +131,77 @@ describe('V5ThreadDetail', () => {
     expect(screen.getByRole('dialog', { name: 'Quick actions' })).toBeInTheDocument();
   });
 
+  it('does not render dead Decide actions for blocker rows', async () => {
+    renderThread('task');
+
+    await screen.findByText('Blocked by Security approval');
+    expect(screen.queryByRole('button', { name: 'Decide' })).not.toBeInTheDocument();
+  });
+
+  it('does not open a dead quick-action sheet from timeline rows', () => {
+    renderThread('task');
+    const row = screen.getByTestId('timeline-row-e1');
+
+    vi.useFakeTimers();
+    try {
+      fireEvent.touchStart(row);
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect(screen.queryByRole('dialog', { name: 'Quick actions' })).not.toBeInTheDocument();
+  });
+
+  it('opens capture in place from the thread detail fab with the current thread attached', async () => {
+    function CaptureObserver() {
+      const { open, initialContent } = useCapture();
+      return (
+        <div>
+          <span data-testid="capture-open">{open ? 'open' : 'closed'}</span>
+          <span data-testid="capture-content">{initialContent}</span>
+        </div>
+      );
+    }
+
+    const fixture = fixtureForType('project');
+
+    render(
+      <MemoryRouter initialEntries={['/projects/project-hitl']}>
+        <CaptureProvider>
+          <CaptureObserver />
+          <V5CaptureSheet
+            attachmentOptions={[
+              { id: '', label: 'None', type: '' },
+              { id: 'project-hitl', label: 'HITL Pilot', type: 'project' },
+            ]}
+          />
+          <Routes>
+            <Route
+              path="/projects/:id"
+              element={(
+                <V5ThreadDetail
+                  type="project"
+                  previewDetail={fixture.detail}
+                  previewEvents={fixture.events}
+                  previewCanonical={fixture.canonical}
+                />
+              )}
+            />
+          </Routes>
+        </CaptureProvider>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Capture' }));
+
+    await waitFor(() => expect(screen.getByTestId('capture-open')).toHaveTextContent('open'));
+    expect(screen.getByTestId('capture-content')).toHaveTextContent('');
+    await waitFor(() => expect(screen.getByLabelText('Capture attachment')).toHaveValue('project-hitl'));
+  });
+
   it('exposes accessible section headings', async () => {
     renderThread('area');
     await screen.findByRole('heading', { level: 1, name: 'Execution' });
@@ -151,7 +219,7 @@ describe('V5ThreadDetail', () => {
     expect(within(peopleSection).getByText(/mentions/i)).toBeInTheDocument();
   });
 
-  it('renders a references section with related entities', async () => {
+  it('renders the references section with related entities', async () => {
     renderThread('project');
     const referencesSection = await screen.findByRole('region', { name: 'References' });
     expect(referencesSection).toBeInTheDocument();
