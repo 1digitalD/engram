@@ -168,10 +168,12 @@ def capture():
         )
 
     note = _create_capture_note(data, content, user_title)
+    thread_id = _capture_thread_id_from_data(data)
     applied_changes, suggestions, warnings = _run_capture_extraction(
         note,
         content,
         data.get("mode") or "auto",
+        thread_id=thread_id,
     )
     db.session.commit()
     return jsonify(_capture_result_payload(note, applied_changes, suggestions, warnings)), 201
@@ -180,6 +182,7 @@ def capture():
 def _capture_sse_stream(data, content, user_title):
     try:
         note = _create_capture_note(data, content, user_title)
+        thread_id = _capture_thread_id_from_data(data)
         yield _format_capture_sse_event(
             "reading",
             {"note_id": note.id, "title": note.title, "content_length": len(content)},
@@ -195,7 +198,7 @@ def _capture_sse_stream(data, content, user_title):
 
         extraction = {}
         try:
-            extraction = _run_basic_capture_extraction(note, mode) or {}
+            extraction = _run_basic_capture_extraction(note, mode, thread_id=thread_id) or {}
         except Exception as exc:
             warnings.append(str(exc))
             note.ai_status = "failed"
@@ -212,6 +215,7 @@ def _capture_sse_stream(data, content, user_title):
                 extraction_changes, extraction_suggestions = _reconcile_capture_candidates(
                     note,
                     extraction,
+                    thread_id=thread_id,
                 )
                 applied_changes.extend(extraction_changes)
                 suggestions.extend(extraction_suggestions)
@@ -262,14 +266,18 @@ def _create_capture_note(data, content, user_title):
     return note
 
 
-def _run_capture_extraction(note, content, mode):
+def _run_capture_extraction(note, content, mode, thread_id=None):
     applied_changes = []
     suggestions = []
     warnings = []
     applied_changes.extend(_apply_explicit_mentions(note, content))
     try:
-        result = _run_basic_capture_extraction(note, mode)
-        extraction_changes, extraction_suggestions = _reconcile_capture_candidates(note, result or {})
+        result = _run_basic_capture_extraction(note, mode, thread_id=thread_id)
+        extraction_changes, extraction_suggestions = _reconcile_capture_candidates(
+            note,
+            result or {},
+            thread_id=thread_id,
+        )
         applied_changes.extend(extraction_changes)
         suggestions.extend(extraction_suggestions)
     except Exception as exc:
@@ -1936,6 +1944,7 @@ def revert_event(event_id):
 
 DEFAULT_ACTIVITY_UPDATES_PAGE_SIZE = 30
 MAX_ACTIVITY_UPDATES_PAGE_SIZE = 100
+DETAIL_ACTIVITY_UPDATES_LIMIT = 5
 ACTIVITY_UPDATE_DEDUP_HOURS = 24
 NEAR_DUPLICATE_ACTIVITY_UPDATE_THRESHOLD = 0.85
 
@@ -1996,20 +2005,10 @@ def get_activity_updates(entity_id):
     limit = max(1, min(request.args.get("limit", DEFAULT_ACTIVITY_UPDATES_PAGE_SIZE, type=int), MAX_ACTIVITY_UPDATES_PAGE_SIZE))
     offset = max(0, request.args.get("offset", 0, type=int))
 
-    base_query = (
-        Entity.query.join(
-            EntityLink,
-            (EntityLink.source_entity_id == Entity.id) & (EntityLink.target_entity_id == entity_id),
-        )
-        .filter(
-            Entity.type == "note",
-            Entity.source == "activity_update",
-            EntityLink.relationship_type == "activity_update",
-        )
-    )
+    base_query = _activity_updates_query(entity_id)
     total = base_query.count()
     notes = (
-        base_query.order_by(Entity.updated_at.desc())
+        base_query.order_by(*_activity_updates_order())
         .offset(offset)
         .limit(limit)
         .all()
@@ -3183,13 +3182,16 @@ def _task_detail_sections(entity, links, related_entities):
         _section("resources", "Resources", _link_items(entity, links, related_entities, "outgoing", {"references", "related"}, {"resource"})),
         _section("blocking", "Blocking / Blocked By", _link_items(entity, links, related_entities, "both", {"blocks"}, {"task"})),
         _section("related_tasks", "Related Tasks", _link_items(entity, links, related_entities, "both", {"related"}, {"task"})),
-        _section("activity_updates", "Activity", _fetch_activity_updates(entity.id)),
+        _activity_updates_section(entity.id),
     ]
 
 
-def _fetch_activity_updates(entity_id, limit=5):
-    """Fetch recent activity update notes for an entity."""
-    updates = (
+def _activity_updates_order():
+    return (Entity.updated_at.desc(), Entity.id.desc())
+
+
+def _activity_updates_query(entity_id):
+    return (
         Entity.query.join(
             EntityLink,
             (EntityLink.source_entity_id == Entity.id) & (EntityLink.target_entity_id == entity_id),
@@ -3200,14 +3202,34 @@ def _fetch_activity_updates(entity_id, limit=5):
             EntityLink.relationship_type == "activity_update",
             Entity.lifecycle == "active",
         )
-        .order_by(Entity.updated_at.desc())
-        .limit(limit)
-        .all()
     )
-    return [
-        {"id": u.id, "title": u.title, "content": u.content or "", "updated_at": u.updated_at.isoformat() if u.updated_at else None}
-        for u in updates
-    ]
+
+
+def _serialize_activity_update(note):
+    return {
+        "id": note.id,
+        "title": note.title,
+        "content": note.content or "",
+        "updated_at": note.updated_at.isoformat() if note.updated_at else None,
+    }
+
+
+def _activity_updates_section(entity_id, limit=DETAIL_ACTIVITY_UPDATES_LIMIT):
+    base_query = _activity_updates_query(entity_id)
+    total = base_query.count()
+    notes = base_query.order_by(*_activity_updates_order()).limit(limit).all()
+    return {
+        "key": "activity_updates",
+        "title": "Activity",
+        "items": [_serialize_activity_update(note) for note in notes],
+        "meta": {"total": total, "limit": limit, "offset": 0},
+    }
+
+
+def _fetch_activity_updates(entity_id, limit=DETAIL_ACTIVITY_UPDATES_LIMIT):
+    """Fetch recent activity update notes for an entity."""
+    notes = _activity_updates_query(entity_id).order_by(*_activity_updates_order()).limit(limit).all()
+    return [_serialize_activity_update(note) for note in notes]
 
 
 def _project_detail_sections(entity, links, related_entities):
@@ -3228,7 +3250,7 @@ def _project_detail_sections(entity, links, related_entities):
         _section("people", "People", _link_items(entity, links, related_entities, "both", {"assigned_to", "mentions", "related"}, {"person"})),
         _section("related_projects", "Related Projects", _link_items(entity, links, related_entities, "both", {"related"}, {"project"})),
         _section("blocked_by_blocks", "Blocked By / Blocks", _link_items(entity, links, related_entities, "both", {"blocks"}, {"project"})),
-        _section("activity_updates", "Activity", _fetch_activity_updates(entity.id)),
+        _activity_updates_section(entity.id),
     ]
 
 
@@ -3239,7 +3261,7 @@ def _area_detail_sections(entity, links, related_entities):
         _section("notes", "Notes", _link_items(entity, links, related_entities, "both", {"related", "mentions"}, {"note"})),
         _section("resources", "Resources", _link_items(entity, links, related_entities, "both", {"references", "related"}, {"resource"})),
         _section("people", "People", _link_items(entity, links, related_entities, "both", {"mentions", "assigned_to", "related"}, {"person"})),
-        _section("activity_updates", "Activity", _fetch_activity_updates(entity.id)),
+        _activity_updates_section(entity.id),
     ]
 
 
@@ -3564,27 +3586,52 @@ def _activity_update_title(target):
     return f"Update: {target_title[:130]} ({today})"
 
 
-def _run_basic_capture_extraction(note, mode):
+def _capture_thread_id_from_data(data):
+    thread_id = _clean_text((data or {}).get("thread_id"))
+    if not thread_id:
+        return None
+    entity = db.session.get(Entity, thread_id)
+    if entity is None or entity.lifecycle == "deleted":
+        return None
+    return thread_id
+
+
+def _capture_thread_entity_dict(thread_id):
+    if not thread_id:
+        return None
+    entity = db.session.get(Entity, thread_id)
+    if entity is None or entity.lifecycle == "deleted":
+        return None
+    from services.v4_extraction import _thread_entity_dict
+    return _thread_entity_dict(entity)
+
+
+def _run_basic_capture_extraction(note, mode, thread_id=None):
     from services.v4_extraction import extract_capture_candidates
 
-    return extract_capture_candidates(note.content or "", mode=mode, exclude_note_id=note.id)
+    return extract_capture_candidates(
+        note.content or "",
+        mode=mode,
+        exclude_note_id=note.id,
+        thread_entity=_capture_thread_entity_dict(thread_id),
+    )
 
 
-def _extract_decision_candidates(note):
+def _extract_decision_candidates(note, thread_id=None):
     """Extract explicit-commitment decision candidates from a note.
 
-    Returns candidates with a resolved thread_id (linked project/person, or
-    the note itself as a fallback) and a high confidence value. These are
-    always turned into reviewable suggestions, never auto-created.
+    Returns candidates with a resolved thread_id (linked project/person, capture
+    thread attachment, or the note itself as a fallback) and a high confidence
+    value. These are always turned into reviewable suggestions, never auto-created.
     """
     from services.v4_decisions import extract_decisions_from_note
 
     candidates = extract_decisions_from_note(note.content or "")
     if not candidates:
         return []
-    thread_id = _decision_thread_id_for_note(note)
+    resolved_thread_id = thread_id or _decision_thread_id_for_note(note)
     for candidate in candidates:
-        candidate["thread_id"] = thread_id
+        candidate["thread_id"] = resolved_thread_id
         candidate["confidence"] = 0.9
     return candidates
 
@@ -3613,7 +3660,7 @@ def _valid_decided_by(value):
     return False
 
 
-def _reconcile_capture_candidates(note, extraction):
+def _reconcile_capture_candidates(note, extraction, thread_id=None):
     applied_changes = []
     suggestions = []
 
@@ -3720,13 +3767,20 @@ def _reconcile_capture_candidates(note, extraction):
 
     if all_candidates:
         from services.v4_reconciliation import reconcile_candidates
-        decisions = reconcile_candidates(all_candidates)
+        decisions = reconcile_candidates(all_candidates, thread_id=thread_id)
         for candidate, decision in zip(all_candidates, decisions):
-            _apply_reconciliation_decision(note, candidate, decision, applied_changes, suggestions)
+            _apply_reconciliation_decision(
+                note,
+                candidate,
+                decision,
+                applied_changes,
+                suggestions,
+                capture_thread_id=thread_id,
+            )
 
     # Decision extraction: explicit commitments always become reviewable
     # suggestions, never auto-created.
-    decision_candidates = _extract_decision_candidates(note)
+    decision_candidates = _extract_decision_candidates(note, thread_id=thread_id)
     for candidate in decision_candidates:
         _append_capture_suggestion(
             note,
@@ -3760,7 +3814,7 @@ def _reconcile_capture_candidates(note, extraction):
     return applied_changes, suggestions
 
 
-def _apply_reconciliation_decision(note, candidate, decision, applied_changes, suggestions):
+def _apply_reconciliation_decision(note, candidate, decision, applied_changes, suggestions, capture_thread_id=None):
     action = (decision.get("action") or "new").lower()
     candidate_confidence = _candidate_confidence(candidate)
     if action == "skip":
@@ -3811,6 +3865,10 @@ def _apply_reconciliation_decision(note, candidate, decision, applied_changes, s
             action = "new"
 
     if action == "progress_update":
+        if capture_thread_id:
+            # Thread-attached capture is extraction bias only; Add update is the
+            # explicit activity-update path (AU8).
+            return
         target_id = decision.get("target_id")
         target = db.session.get(Entity, target_id) if target_id else None
         if target is None:

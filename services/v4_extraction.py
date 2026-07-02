@@ -279,13 +279,34 @@ def _format_recent_context_block(notes):
     )
 
 
-def _build_system_prompt(exclude_note_id=None):
+def _format_thread_context_block(thread_entity):
+    if thread_entity is None:
+        return ""
+    summary = (thread_entity.get("content") or "").replace("\n", " ")[:200].strip()
+    title = thread_entity.get("title") or "Untitled"
+    entity_type = thread_entity.get("type") or "entity"
+    lines = [
+        "\n\nTHREAD_CONTEXT (user attached this capture to the current thread — bias only):",
+        f"The user is capturing while viewing: [{entity_type}] {title}",
+    ]
+    if summary:
+        lines.append(f"Summary: {summary}")
+    lines.append(
+        "Prefer interpreting progress or status remarks in this note as referring to "
+        "this thread when plausible. This is still a generic capture note, not an "
+        "automatic activity update."
+    )
+    return "\n".join(lines) + "\n"
+
+
+def _build_system_prompt(exclude_note_id=None, thread_entity=None):
     existing = _recent_existing_entities()
     context_notes = _recent_context_notes(exclude_note_id=exclude_note_id)
     return (
         SYSTEM_PROMPT_TEMPLATE
         + _format_existing_entities_block(existing)
         + _format_recent_context_block(context_notes)
+        + _format_thread_context_block(thread_entity)
     )
 
 
@@ -298,7 +319,18 @@ def normalize_candidates(payload: dict) -> dict:
     return _normalize_payload(payload)
 
 
-def extract_capture_candidates(content, mode="auto", exclude_note_id=None):
+def _thread_entity_dict(entity):
+    if entity is None:
+        return None
+    return {
+        "id": entity.id,
+        "type": entity.type,
+        "title": entity.title,
+        "content": entity.content,
+    }
+
+
+def extract_capture_candidates(content, mode="auto", exclude_note_id=None, thread_entity=None):
     """Return extraction candidates for a captured note.
 
     The function deliberately returns candidates only. Capture reconciliation
@@ -322,7 +354,7 @@ def extract_capture_candidates(content, mode="auto", exclude_note_id=None):
         temperature=0,
         response_format={"type": "json_object"},
         messages=[
-            {"role": "system", "content": _build_system_prompt(exclude_note_id=exclude_note_id)},
+            {"role": "system", "content": _build_system_prompt(exclude_note_id=exclude_note_id, thread_entity=thread_entity)},
             {"role": "user", "content": content[:12000]},
         ],
     )

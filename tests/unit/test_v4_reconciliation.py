@@ -41,3 +41,48 @@ def test_uncertain_decision_labeled_in_reason():
     assert v4_reconciliation.is_uncertain_decision({"action": "skip", "confidence": 0.9}) is True
     assert v4_reconciliation.is_uncertain_decision({"action": "new", "confidence": 0.7}, confidence=0.7) is True
     assert v4_reconciliation.is_uncertain_decision({"action": "new", "confidence": 0.91}, confidence=0.91) is False
+
+
+def test_enrich_candidates_biases_attached_thread_entity(client, app):
+    project = client.post(
+        "/api/v4/entities",
+        json={"type": "project", "title": "HITL Pilot", "content": "Pilot rollout"},
+    ).get_json()["data"]
+
+    candidates = [
+        {
+            "type": "project",
+            "title": "Parser fix shipped",
+            "evidence": "shipped parser fix for the pilot",
+            "confidence": 0.8,
+        }
+    ]
+    fake_vec = [[0.1] + [0.0] * 1535]
+
+    with patch("services.v4_reconciliation._embed_texts", return_value=fake_vec):
+        with app.app_context():
+            enriched = v4_reconciliation._enrich_candidates(candidates, thread_id=project["id"])
+
+    matches = enriched[0]["matches"]
+    thread_match = next((m for m in matches if m["id"] == project["id"]), None)
+    assert thread_match is not None
+    assert thread_match["score"] == 0.95
+    assert thread_match["title"] == "HITL Pilot"
+
+
+def test_enrich_candidates_applies_thread_bias_without_embeddings(client, app):
+    project = client.post(
+        "/api/v4/entities",
+        json={"type": "project", "title": "HITL Pilot", "content": "Pilot rollout"},
+    ).get_json()["data"]
+
+    candidates = [{"type": "project", "confidence": 0.8}]
+
+    with patch("services.v4_reconciliation._embed_texts", return_value=[]):
+        with app.app_context():
+            enriched = v4_reconciliation._enrich_candidates(candidates, thread_id=project["id"])
+
+    matches = enriched[0]["matches"]
+    thread_match = next((m for m in matches if m["id"] == project["id"]), None)
+    assert thread_match is not None
+    assert thread_match["score"] == 0.95

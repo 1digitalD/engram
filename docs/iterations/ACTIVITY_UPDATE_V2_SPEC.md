@@ -61,7 +61,7 @@ Active slice docs live in `docs/iterations/SLICE_AU*.md`. Continuity updates go 
 
 ### Backend capture
 
-- `POST /api/v4/capture` ignores `thread_id` for activity-update semantics.
+- `POST /api/v4/capture` passes `thread_id` into extraction and reconciliation as context bias; it still does not create activity updates.
 - Attached generic capture ≠ entity update.
 
 ### Backend activity update (direct POST)
@@ -191,7 +191,7 @@ Normalized result shape (introduced incrementally; POST stays backward compatibl
 | Entity types with Add update? | project, task, area only (matches API sections) |
 | Explicit status parsing in v2? | No — save + provenance + indexing + suggestions first |
 | Update #31 behavior? | Fix after core path; remove dead-end 409 before broad rollout |
-| Capture `thread_id` as extraction bias? | Separate later slice (AU6+) |
+| Capture `thread_id` as extraction bias? | **AU8** — bias extraction/reconciliation; no auto activity updates |
 
 ## Non-goals (first milestone)
 

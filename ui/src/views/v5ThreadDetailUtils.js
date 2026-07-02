@@ -30,6 +30,10 @@ export function buildActivityUpdates(detail) {
   return sectionItems(detail, 'activity_updates');
 }
 
+export function activityUpdatesMeta(detail) {
+  return detail?.sections?.find((section) => section.key === 'activity_updates')?.meta || null;
+}
+
 export function allSectionItems(detail) {
   return (detail?.sections || []).flatMap((section) => section.items || []);
 }

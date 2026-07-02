@@ -14,8 +14,10 @@ aligned with the active API.
 
 - Spec: `docs/iterations/ACTIVITY_UPDATE_V2_SPEC.md` (active)
 - Plan: `docs/iterations/ACTIVITY_UPDATE_V2_IMPLEMENTATION_PLAN.md` (Loopsmith slice index)
-- Slice docs: `docs/iterations/SLICE_AU0_characterization.md` … `SLICE_AU7_cap-and-dedup.md`
+- Slice docs: `docs/iterations/SLICE_AU0_characterization.md` … `SLICE_AU9_activity-load-more.md`
 - **Activity Update v2 (AU0–AU7):** complete (2026-07-02)
+- **AU8 (capture thread_id bias):** complete (2026-07-02)
+- **AU9 (activity load more):** complete (2026-07-02)
 
 Milestone AU0–AU5: characterize → index → provenance → trust policy → Add update UI → Activity section.
 Defer AU6 (capture attachment cleanup) and AU7 (cap/pagination) until core path is validated.

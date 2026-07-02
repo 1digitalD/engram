@@ -30,6 +30,8 @@ Validators run from the main repo path unless a task-specific harness explicitly
 | AU5 | `SLICE_AU5_activity-section.md` | low | **done** |
 | AU6 | `SLICE_AU6_capture-attachment-cleanup.md` | medium | **done** |
 | AU7 | `SLICE_AU7_cap-and-dedup.md` | medium | **done** |
+| AU8 | `SLICE_AU8_capture-thread-bias.md` | low | **done** |
+| AU9 | `SLICE_AU9_activity-load-more.md` | low | **done** |
 
 ## Recommended milestone
 

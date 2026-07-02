@@ -201,7 +201,7 @@ def _default_decision_for_candidate(candidate):
     }
 
 
-def reconcile_candidates(candidates):
+def reconcile_candidates(candidates, thread_id=None):
     """Return one decision dict per candidate (same order as input).
 
     Each candidate must have at least: type, title, confidence.
@@ -211,7 +211,7 @@ def reconcile_candidates(candidates):
     if not candidates:
         return []
 
-    enriched = _enrich_candidates(candidates)
+    enriched = _enrich_candidates(candidates, thread_id=thread_id)
     decisions = _call_model(enriched)
 
     # Pad / fill defaults so caller always gets len(candidates) decisions
@@ -258,12 +258,43 @@ def _build_match_document(candidate):
     return " ".join(parts)
 
 
-def _enrich_candidates(candidates):
+def _entity_match_entry(entity, score):
+    return {
+        "id": entity.id,
+        "title": entity.title,
+        "type": entity.type,
+        "status": entity.status,
+        "due_at": entity.due_at.isoformat() if entity.due_at else None,
+        "follow_up_at": entity.follow_up_at.isoformat() if entity.follow_up_at else None,
+        "content_preview": (entity.content or "")[:300],
+        "score": score,
+    }
+
+
+def _merge_thread_entity_bias(matches_by_id, thread_entity, entity_type):
+    if thread_entity is None or entity_type != thread_entity.type:
+        return matches_by_id
+    bias = _entity_match_entry(thread_entity, 0.95)
+    current = matches_by_id.get(thread_entity.id)
+    if current is None or bias["score"] > current["score"]:
+        matches_by_id[thread_entity.id] = bias
+    return matches_by_id
+
+
+def _enrich_candidates(candidates, thread_id=None):
     """Return enriched list [{candidate, matches}] using batched embeddings.
 
     Single _embed_texts call for all N candidates using composed match docs.
     Chunk set for each entity type loaded once and reused across candidates.
     """
+    thread_entity = None
+    if thread_id:
+        try:
+            from models import Entity
+            thread_entity = Entity.query.filter_by(id=thread_id).filter(Entity.lifecycle != "deleted").first()
+        except Exception:
+            thread_entity = None
+
     # --- Step 1: exact matches (no embedding needed) ---
     exact_by_index = {}
     for i, c in enumerate(candidates):
@@ -291,7 +322,10 @@ def _enrich_candidates(candidates):
         exact = exact_by_index.get(i, [])
 
         if not title or not entity_type or i >= len(vectors) or not vectors[i]:
-            enriched.append({"candidate": candidate, "matches": exact})
+            best = {m["id"]: m for m in exact}
+            best = _merge_thread_entity_bias(best, thread_entity, entity_type)
+            ranked = sorted(best.values(), key=lambda x: x["score"], reverse=True)
+            enriched.append({"candidate": candidate, "matches": ranked[:TOP_K]})
             continue
 
         vector = vectors[i]
@@ -306,6 +340,8 @@ def _enrich_candidates(candidates):
             current = best.get(chunk_entity_id)
             if current is None or score > current["score"]:
                 best[chunk_entity_id] = {**entity_data, "score": score}
+
+        best = _merge_thread_entity_bias(best, thread_entity, entity_type)
 
         ranked = sorted(best.values(), key=lambda x: x["score"], reverse=True)
         enriched.append({"candidate": candidate, "matches": ranked[:TOP_K]})

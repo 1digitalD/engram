@@ -31,3 +31,5 @@ static/index.html
 .codloop/
 .v2-overhaul-backup/
 backups/
+.serena/
+.tokensave/

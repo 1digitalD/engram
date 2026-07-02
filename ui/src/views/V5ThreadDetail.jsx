@@ -11,6 +11,7 @@ import { useSummary } from '../context/SummaryContext';
 import { entityTitleLabel } from '../utils/entityDisplay';
 import styles from '../styles/v5.module.css';
 import {
+  activityUpdatesMeta,
   buildActivityUpdates,
   buildNextActions,
   buildPeople,
@@ -25,6 +26,7 @@ import {
 } from './v5ThreadDetailUtils';
 
 const ACTIVITY_UPDATE_ENTITY_TYPES = new Set(['project', 'task', 'area']);
+const ACTIVITY_LOAD_MORE_PAGE_SIZE = 10;
 
 const UPDATE_PLACEHOLDERS = {
   project: 'What changed on this project?',
@@ -414,6 +416,10 @@ function ThreadDetailContent({
   onToggleUpdate,
   onUpdateChange,
   onUpdateSubmit,
+  activityUpdates = [],
+  activityHasMore = false,
+  activityLoadingMore = false,
+  onLoadMoreActivity = null,
 }) {
   const entity = detail.entity;
   const entityType = entity.type;
@@ -423,7 +429,6 @@ function ThreadDetailContent({
   const people = buildPeople(detail);
   const relatedThreads = buildRelatedThreads(detail, entity);
   const references = buildReferences(detail, entity);
-  const activityUpdates = buildActivityUpdates(detail);
   const showAddUpdate = ACTIVITY_UPDATE_ENTITY_TYPES.has(entityType);
   const [longPressTarget, setLongPressTarget] = useState(null);
 
@@ -505,6 +510,16 @@ function ThreadDetailContent({
               </Link>
             </article>
           ))}
+          {activityHasMore ? (
+            <button
+              type="button"
+              className={styles.inlineButton}
+              onClick={onLoadMoreActivity}
+              disabled={activityLoadingMore || !onLoadMoreActivity}
+            >
+              {activityLoadingMore ? 'Loading…' : 'Load more'}
+            </button>
+          ) : null}
         </section>
       ) : null}
 
@@ -689,6 +704,8 @@ export default function V5ThreadDetail({
   const [updateDraft, setUpdateDraft] = useState('');
   const [updateSaving, setUpdateSaving] = useState(false);
   const [updateError, setUpdateError] = useState('');
+  const [extraActivityUpdates, setExtraActivityUpdates] = useState([]);
+  const [activityLoadingMore, setActivityLoadingMore] = useState(false);
   const [citationEntityId, setCitationEntityId] = useState(null);
   const activeIdRef = useRef(id);
 
@@ -747,6 +764,43 @@ export default function V5ThreadDetail({
       cancelled = true;
     };
   }, [previewDetail, previewEvents, previewCanonical, reloadThread]);
+
+  useEffect(() => {
+    setExtraActivityUpdates([]);
+  }, [detail?.entity?.id, detail?.sections]);
+
+  const baseActivityUpdates = useMemo(
+    () => buildActivityUpdates(detail),
+    [detail],
+  );
+  const activityTotal = activityUpdatesMeta(detail)?.total ?? baseActivityUpdates.length;
+  const activityUpdates = useMemo(() => {
+    const seen = new Set();
+    const merged = [];
+    [...baseActivityUpdates, ...extraActivityUpdates].forEach((update) => {
+      if (!update?.id || seen.has(update.id)) return;
+      seen.add(update.id);
+      merged.push(update);
+    });
+    return merged;
+  }, [baseActivityUpdates, extraActivityUpdates]);
+  const activityHasMore = activityUpdates.length < activityTotal;
+
+  const handleLoadMoreActivity = useCallback(async () => {
+    if (!detail?.entity?.id || activityLoadingMore || !activityHasMore) return;
+    setActivityLoadingMore(true);
+    try {
+      const response = await v4API.activityUpdates.list(detail.entity.id, {
+        limit: ACTIVITY_LOAD_MORE_PAGE_SIZE,
+        offset: activityUpdates.length,
+      });
+      setExtraActivityUpdates((current) => [...current, ...(response?.data || [])]);
+    } catch (err) {
+      setActionError(friendlyApiError(err, 'Failed to load more activity'));
+    } finally {
+      setActivityLoadingMore(false);
+    }
+  }, [detail, activityLoadingMore, activityHasMore, activityUpdates.length]);
 
   useEffect(() => {
     if (!detail?.entity || editorOpen) return;
@@ -907,6 +961,10 @@ export default function V5ThreadDetail({
         onToggleUpdate={handleToggleUpdate}
         onUpdateChange={handleUpdateChange}
         onUpdateSubmit={handleUpdateSubmit}
+        activityUpdates={activityUpdates}
+        activityHasMore={activityHasMore}
+        activityLoadingMore={activityLoadingMore}
+        onLoadMoreActivity={handleLoadMoreActivity}
       />
       <CitationEntitySheet
         entityId={citationEntityId}

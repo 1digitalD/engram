@@ -1294,7 +1294,7 @@ def test_capture_progress_update_with_hallucinated_target_is_skipped(client, app
 
 
 def test_baseline_capture_with_thread_id_does_not_create_activity_update(client, app):
-    """AU6 may use thread_id as extraction context; today it is ignored for updates."""
+    """AU8: thread_id biases extraction/reconciliation but never creates activity updates."""
     project = client.post(
         "/api/v4/entities",
         json={"type": "project", "title": "HITL Pilot", "content": "Pilot rollout"},
@@ -1313,6 +1313,110 @@ def test_baseline_capture_with_thread_id_does_not_create_activity_update(client,
 
     updates = client.get(f"/api/v4/entities/{project['id']}/activity_updates").get_json()["data"]
     assert updates == []
+
+
+def test_capture_passes_thread_id_to_extraction_and_reconciliation(client):
+    project = client.post(
+        "/api/v4/entities",
+        json={"type": "project", "title": "HITL Pilot", "content": "Pilot rollout"},
+    ).get_json()["data"]
+
+    extraction = {
+        "entities": [
+            {
+                "type": "project",
+                "title": "HITL Pilot",
+                "confidence": 0.85,
+                "evidence": "parser fix for the pilot",
+            }
+        ]
+    }
+
+    with patch(
+        "services.v4_extraction.extract_capture_candidates",
+        return_value=extraction,
+    ) as mock_extract, patch(
+        "services.v4_reconciliation.reconcile_candidates",
+        return_value=[{"action": "skip", "confidence": 0.5, "reason": "test"}],
+    ) as mock_reconcile:
+        response = client.post(
+            "/api/v4/capture",
+            json={
+                "content": "Shipped parser fix for the pilot.",
+                "source": "ui",
+                "mode": "auto",
+                "thread_id": project["id"],
+            },
+        )
+
+    assert response.status_code == 201
+    thread_entity = mock_extract.call_args.kwargs.get("thread_entity")
+    assert thread_entity is not None
+    assert thread_entity["id"] == project["id"]
+    assert thread_entity["title"] == "HITL Pilot"
+    assert mock_reconcile.call_args.kwargs.get("thread_id") == project["id"]
+
+
+def test_capture_with_thread_id_skips_progress_update_activity_create(client, app):
+    project = client.post(
+        "/api/v4/entities",
+        json={"type": "project", "title": "HITL Pilot", "content": "Pilot rollout"},
+    ).get_json()["data"]
+
+    extraction = {
+        "entities": [
+            {
+                "type": "project",
+                "title": "HITL Pilot",
+                "content": "Shipped parser fix",
+                "confidence": 0.9,
+                "evidence": "Shipped parser fix for the pilot",
+            }
+        ]
+    }
+    decisions = [
+        {
+            "action": "progress_update",
+            "target_id": project["id"],
+            "update_text": "Shipped parser fix for the pilot",
+            "confidence": 0.92,
+            "reason": "progress on HITL Pilot",
+        }
+    ]
+
+    with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction), patch(
+        "services.v4_reconciliation.reconcile_candidates", return_value=decisions
+    ):
+        response = client.post(
+            "/api/v4/capture",
+            json={
+                "content": "Shipped parser fix for the pilot.",
+                "thread_id": project["id"],
+            },
+        )
+
+    assert response.status_code == 201
+    data = response.get_json()
+    assert all(change["type"] != "activity_update_added" for change in data["applied_changes"])
+    updates = client.get(f"/api/v4/entities/{project['id']}/activity_updates").get_json()["data"]
+    assert updates == []
+
+
+def test_extraction_prompt_includes_thread_context():
+    from services.v4_extraction import _build_system_prompt
+
+    thread = {
+        "id": "proj-1",
+        "type": "project",
+        "title": "HITL Pilot",
+        "content": "Pilot rollout for enterprise customers",
+    }
+    prompt = _build_system_prompt(thread_entity=thread)
+
+    assert "THREAD_CONTEXT" in prompt
+    assert "HITL Pilot" in prompt
+    assert "Pilot rollout for enterprise customers" in prompt
+    assert "bias only" in prompt.lower()
 
 
 def test_capture_progress_update_dedups_within_24h(client, app):

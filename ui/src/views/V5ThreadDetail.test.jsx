@@ -201,6 +201,70 @@ describe('V5ThreadDetail', () => {
     expect(within(activitySection).getByRole('link', { name: 'Open update' })).toHaveAttribute('href', '/notes/note-update-1');
   });
 
+  it('loads more activity updates when detail preview is truncated', async () => {
+    const fixture = fixtureForType('project');
+    const detailWithMore = {
+      ...fixture.detail,
+      sections: (fixture.detail.sections || []).map((section) => {
+        if (section.key !== 'activity_updates') return section;
+        return {
+          ...section,
+          meta: { total: 3, limit: 1, offset: 0 },
+          items: [section.items[0]],
+        };
+      }),
+    };
+
+    v4API.activityUpdates.list.mockResolvedValue({
+      data: [
+        {
+          id: 'note-update-2',
+          title: 'Update 2',
+          content: 'Parser fix shipped to staging.',
+          updated_at: '2026-06-21T14:00:00+00:00',
+        },
+        {
+          id: 'note-update-3',
+          title: 'Update 3',
+          content: 'Kickoff notes captured.',
+          updated_at: '2026-06-20T14:00:00+00:00',
+        },
+      ],
+      meta: { total: 3, limit: 10, offset: 1 },
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/projects/project-hitl']}>
+        <CaptureProvider>
+          <Routes>
+            <Route
+              path="/projects/:id"
+              element={(
+                <V5ThreadDetail
+                  type="project"
+                  previewDetail={detailWithMore}
+                  previewEvents={fixture.events}
+                  previewCanonical={fixture.canonical}
+                />
+              )}
+            />
+          </Routes>
+        </CaptureProvider>
+      </MemoryRouter>,
+    );
+
+    const activitySection = await screen.findByRole('region', { name: 'Activity' });
+    const loadMore = within(activitySection).getByRole('button', { name: 'Load more' });
+    fireEvent.click(loadMore);
+
+    await waitFor(() => expect(v4API.activityUpdates.list).toHaveBeenCalledWith(
+      'project-hitl',
+      { limit: 10, offset: 1 },
+    ));
+    expect(await within(activitySection).findByText('Parser fix shipped to staging.')).toBeInTheDocument();
+    expect(within(activitySection).queryByRole('button', { name: 'Load more' })).not.toBeInTheDocument();
+  });
+
   it('omits Activity section when no updates exist', async () => {
     const fixture = fixtureForType('project');
     const detailWithoutActivity = {

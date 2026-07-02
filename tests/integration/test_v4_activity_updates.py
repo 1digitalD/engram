@@ -212,6 +212,24 @@ def test_get_activity_updates_supports_pagination(client):
     assert body["meta"]["offset"] == 0
 
 
+def test_entity_detail_activity_section_includes_total_meta(client):
+    project = _create_entity(client, "project", "Meta project")
+
+    for i in range(6):
+        response = client.post(
+            f"/api/v4/entities/{project['id']}/activity_updates",
+            json={"content": f"Detail meta update {i}"},
+        )
+        assert response.status_code == 201
+
+    detail = client.get(f"/api/v4/entities/{project['id']}/detail").get_json()
+    section = next(item for item in detail["sections"] if item["key"] == "activity_updates")
+
+    assert section["meta"]["total"] == 6
+    assert section["meta"]["limit"] == 5
+    assert len(section["items"]) == 5
+
+
 def test_near_duplicate_activity_update_within_24h_is_skipped(client):
     project = _create_entity(client, "project", "Near dup")
 
