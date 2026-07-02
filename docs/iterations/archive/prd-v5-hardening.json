@@ -1,0 +1,187 @@
+{
+  "iteration": "v5-postphase3-hardening",
+  "goal": "Close the remaining trust, routing, and reliability gaps in the v5 redesign with thin, verifiable slices that can run cleanly through Loopsmith drain mode.",
+  "riskLevel": "medium",
+  "userProblem": "Phase 3 shipped the core v5 surfaces, but the app still has a few gaps between passing tests and behaving like a trustworthy personal workspace in normal use. The remaining issues are concentrated in Ask honesty, summary truthfulness, Recall stability, deterministic creation flows, and backend validation reliability.",
+  "whyNow": "These are the highest-leverage post-launch fixes because they affect trust, correctness, and the dependability of autonomous delivery itself. Closing them in thin slices reduces regression risk and improves the quality of future Loopsmith runs.",
+  "scope": {
+    "filesAffected": [
+      "services/v4_ask.py",
+      "api/v4_entities.py",
+      "tests/conftest.py",
+      "tests/integration/test_v4_ask.py",
+      "tests/integration/test_v4_threads.py",
+      "ui/src/App.jsx",
+      "ui/src/views/V5AskSheet.jsx",
+      "ui/src/views/V5Recall.jsx",
+      "ui/src/views/V5RecallOpener.jsx",
+      "ui/src/views/V5EntityList.jsx",
+      "ui/src/views/V5CaptureSheet.jsx",
+      "ui/src/**/*.test.*",
+      "EXECUTION-TRACKER.md",
+      "docs/iterations/ITERATION_17_V5_HARDENING.md"
+    ],
+    "routesAffected": [
+      "POST /api/v4/ask",
+      "GET /api/v4/summary",
+      "GET /api/v4/threads",
+      "/recall",
+      "/notes",
+      "/tasks",
+      "/projects",
+      "/people",
+      "/resources"
+    ],
+    "dataOrApiDependencies": [
+      "Summary counts must be derived from live v4 endpoints or omitted when unsupported.",
+      "Recall stability work must preserve existing search and detail navigation behavior.",
+      "Backend test isolation changes must continue to protect production data and keep TEST_DATABASE_URL pointed at the test database only."
+    ],
+    "writePathsAffected": [
+      "Ask response serialization",
+      "Summary payload shape",
+      "Optional typed entity creation or capture handoff payload shape",
+      "Test database reset path"
+    ]
+  },
+  "tasks": [
+    {
+      "id": "hardening-loop-reliability",
+      "title": "Stabilize the Loopsmith execution loop and backend test reset path",
+      "description": "Fix the backend test isolation path so focused and strict validation can run reliably without recurring deadlocks or indefinite hangs. Use the outcome to tighten the first-run validation for subsequent slices and document any loop-level learnings in the execution tracker.",
+      "risk": "medium",
+      "acceptanceCriteria": [
+        "A bounded readiness check for this repo completes without hanging indefinitely; if strict doctor still cannot fully pass, the blocker is made explicit and reproducible.",
+        "Backend test isolation no longer relies on the current deadlock-prone truncate path without mitigation.",
+        "Focused backend validation for the changed isolation path passes on the test database.",
+        "EXECUTION-TRACKER.md records the concrete Loopsmith/autonomy learnings from this slice so later runs inherit them."
+      ],
+      "validationCommands": [
+        "cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/unit/ -q",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/integration/test_v4_ask.py -q",
+        "timeout 20 python3 /Users/danish/.openclaw/agents/main/agent/codex-home/skills/loopsmith-coding/scripts/loopsmithctl.py doctor --repo /Volumes/lex1t/dev/shared/repos/engram --strict"
+      ],
+      "blocked": false,
+      "passes": true,
+      "attempts": 1,
+      "blockerReason": null,
+      "validationEvidence": "Cherry-picked slice commit onto main after pytest.ini fix; 389 backend tests pass."
+    },
+    {
+      "id": "hardening-ask-contract",
+      "title": "Normalize Ask responses to a single honest IDK contract",
+      "description": "Make Ask return the full low-confidence IDK envelope whenever the final answer is effectively 'I do not know', even if retrieval initially found weak or misleading context. Close the backend/frontend contract gap so the UI never renders an honest IDK as a grounded answer.",
+      "risk": "medium",
+      "acceptanceCriteria": [
+        "POST /api/v4/ask returns the canonical low-confidence IDK shape whenever the final answer has no grounded support.",
+        "The IDK shape does not include misleading citations.",
+        "Backend tests cover the case where retrieval returns weak context but final answer should still be IDK.",
+        "Frontend tests cover the rendered IDK state for that normalized response shape."
+      ],
+      "validationCommands": [
+        "cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/integration/test_v4_ask.py -q",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- V5AskSheet",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && curl -fsS -X POST http://localhost:5001/api/v4/ask -H 'Content-Type: application/json' -d '{\"question\":\"What did Danish decide about Phase 4 of the v5 redesign?\"}' | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d[\"confidence\"]==\"low\"; assert d[\"citations\"]==[]'"
+      ],
+      "blocked": false,
+      "passes": true,
+      "attempts": 1,
+      "blockerReason": null,
+      "validationEvidence": "Cherry-picked slice commit onto main after pytest.ini fix; 389 backend tests pass."
+    },
+    {
+      "id": "hardening-summary-counts",
+      "title": "Make top-bar counts truthful",
+      "description": "Replace hardcoded or placeholder top-bar counts with values derived from live API contracts, or suppress unsupported counts instead of showing false zeroes. The shell must not present false precision.",
+      "risk": "low",
+      "acceptanceCriteria": [
+        "GET /api/v4/summary exposes truthful count fields for the top bar or the UI hides unsupported pills.",
+        "App shell no longer hardcodes threads or recall counts to zero.",
+        "Frontend and backend tests cover the selected truthful behavior."
+      ],
+      "validationCommands": [
+        "cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/integration/test_v4_threads.py -q",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- App TopBar",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && curl -fsS http://localhost:5001/api/v4/summary | python3 -c 'import json,sys; d=json.load(sys.stdin); assert \"today_count\" in d'"
+      ],
+      "blocked": false,
+      "passes": true,
+      "attempts": 1,
+      "blockerReason": null,
+      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/integration/test_v4_threads.py -q\n.....                                                                    [100%]\n5 passed in 0.42s\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- App TopBar\n\n> engram-ui@0.0.0 test\n> node scripts/run-tests.mjs App TopBar\n\n\n RUN  v3.2.4 /Volumes/lex1t/dev/shared/repos/engram/ui\n\n \u2713 src/components/TopBar.test.jsx (5 tests) 70ms\n \u2713 src/App.test.jsx (8 tests) 164ms\n\n Test Files  2 passed (2)\n      Tests  13 passed (13)\n   Start at  12:11:08\n   Duration  877ms (transform 128ms, setup 99ms, collect 370ms, tests 234ms, environment 496ms, prepare 75ms)\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram && curl -fsS http://localhost:5001/api/v4/summary | python3 -c 'import json,sys; d=json.load(sys.stdin); assert \"today_count\" in d'"
+    },
+    {
+      "id": "hardening-recall-stability",
+      "title": "Harden Recall routing and async search behavior",
+      "description": "Replace the fragile Recall opener history shim with a route-safe pattern and prevent stale async search responses from overwriting newer ones. Preserve the overlay UX without relying on brittle browser history assumptions.",
+      "risk": "medium",
+      "acceptanceCriteria": [
+        "/recall behaves predictably on direct load, refresh, and in-app navigation.",
+        "Recall search ignores stale responses from older queries.",
+        "Focused UI tests cover both route behavior and async search ordering."
+      ],
+      "validationCommands": [
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- V5Recall V5RecallOpener",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build"
+      ],
+      "blocked": false,
+      "passes": true,
+      "attempts": 1,
+      "blockerReason": null,
+      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- V5Recall V5RecallOpener\n\n> engram-ui@0.0.0 test\n> node scripts/run-tests.mjs V5Recall V5RecallOpener\n\n\n RUN  v3.2.4 /Volumes/lex1t/dev/shared/repos/engram/ui\n\n \u2713 src/views/V5RecallOpener.test.jsx (3 tests) 22ms\n \u2713 src/views/V5Recall.test.jsx (5 tests) 297ms\n\n Test Files  2 passed (2)\n      Tests  8 passed (8)\n   Start at  12:20:40\n   Duration  935ms (transform 80ms, setup 105ms, collect 203ms, tests 319ms, environment 488ms, prepare 73ms)\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build\n\n> engram-ui@0.0.0 build\n> vite build\n\nvite v8.0.10 building client environment for production...\n\u001b[2K\ntransforming...\u2713 1773 modules transformed.\nrendering chunks...\ncomputing gzip size...\n../static/index.html                             1.95 kB \u2502 gzip:  0.86 kB\n../static/assets/index--4rWaywe.css             53.55 kB \u2502 gzip:  9.29 kB\n../static/assets/rolldown-runtime-jpDsebLB.js    0.56 kB \u2502 gzip:  0.36 kB\n../static/assets/vendor-_lNruhL-.js              3.56 kB \u2502 gzip:  1.57 kB\n../static/assets/vendor-icons-Ccngl9Uz.js       11.20 kB \u2502 gzip:  4.50 kB\n../static/assets/index-BgeWK7Dr.js              67.22 kB \u2502 gzip: 19.79 kB\n../static/assets/vendor-react-Q6R2TYE-.js      220.04 kB \u2502 gzip: 70.18 kB\n\n\u2713 built in 232ms"
+    },
+    {
+      "id": "hardening-new-flow",
+      "title": "Make entity-list New flows deterministic",
+      "description": "Align the New action on entity list screens with actual product intent. Either create the requested entity type directly or make the UI explicitly reflect a capture-first flow; do not leave the current semantic mismatch in place.",
+      "risk": "medium",
+      "acceptanceCriteria": [
+        "New on list screens matches the promised behavior for that entity type.",
+        "If creation remains capture-first, the UI copy and tests make that contract explicit.",
+        "Focused tests cover the selected creation path end to end at the component level."
+      ],
+      "validationCommands": [
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- V5EntityList V5CaptureSheet",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build"
+      ],
+      "blocked": false,
+      "passes": true,
+      "attempts": 1,
+      "blockerReason": null,
+      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- V5EntityList V5CaptureSheet\n\n> engram-ui@0.0.0 test\n> node scripts/run-tests.mjs V5EntityList V5CaptureSheet\n\n\n RUN  v3.2.4 /Volumes/lex1t/dev/shared/repos/engram/ui\n\n \u2713 src/views/V5CaptureSheet.test.jsx (5 tests) 76ms\n \u2713 src/views/V5EntityList.test.jsx (10 tests) 105ms\n\n Test Files  2 passed (2)\n      Tests  15 passed (15)\n   Start at  12:26:34\n   Duration  595ms (transform 75ms, setup 53ms, collect 266ms, tests 181ms, environment 254ms, prepare 63ms)\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build\n\n> engram-ui@0.0.0 build\n> vite build\n\nvite v8.0.10 building client environment for production...\n\u001b[2K\ntransforming...\u2713 1773 modules transformed.\nrendering chunks...\ncomputing gzip size...\n../static/index.html                             1.95 kB \u2502 gzip:  0.86 kB\n../static/assets/index--4rWaywe.css             53.55 kB \u2502 gzip:  9.29 kB\n../static/assets/rolldown-runtime-jpDsebLB.js    0.56 kB \u2502 gzip:  0.36 kB\n../static/assets/vendor-_lNruhL-.js              3.56 kB \u2502 gzip:  1.57 kB\n../static/assets/vendor-icons-Ccngl9Uz.js       11.20 kB \u2502 gzip:  4.50 kB\n../static/assets/index-BJpZ-l9d.js              67.22 kB \u2502 gzip: 19.76 kB\n../static/assets/vendor-react-Q6R2TYE-.js      220.04 kB \u2502 gzip: 70.18 kB\n\n\u2713 built in 145ms"
+    },
+    {
+      "id": "hardening-interaction-smoke",
+      "title": "Close the loop with smoke coverage and captured learnings",
+      "description": "Add the smallest high-signal interaction coverage needed to validate the repaired flows and record what improved or failed in the autonomous loop itself. This slice is where the app-level fixes are verified as a coherent user experience rather than isolated patches.",
+      "risk": "low",
+      "acceptanceCriteria": [
+        "Capture retry success-after-failure is covered by an automated test.",
+        "A focused smoke path covers Ask honest IDK, Recall open/search, and the entity-list New flow.",
+        "EXECUTION-TRACKER.md records the concrete Loopsmith/autonomous-delivery learnings from this hardening loop."
+      ],
+      "validationCommands": [
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- V5CaptureSheet V5AskSheet V5Recall V5EntityList",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build"
+      ],
+      "blocked": false,
+      "passes": true,
+      "attempts": 1,
+      "blockerReason": null,
+      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- V5CaptureSheet V5AskSheet V5Recall V5EntityList\n\n> engram-ui@0.0.0 test\n> node scripts/run-tests.mjs V5CaptureSheet V5AskSheet V5Recall V5EntityList\n\n\n RUN  v3.2.4 /Volumes/lex1t/dev/shared/repos/engram/ui\n\n \u2713 src/views/V5RecallOpener.test.jsx (3 tests) 31ms\n \u2713 src/views/V5CaptureSheet.test.jsx (6 tests) 97ms\n \u2713 src/views/V5EntityList.test.jsx (10 tests) 114ms\n \u2713 src/views/V5AskSheet.test.jsx (3 tests) 93ms\n \u2713 src/views/V5Recall.test.jsx (5 tests) 289ms\n\n Test Files  5 passed (5)\n      Tests  27 passed (27)\n   Start at  12:32:24\n   Duration  828ms (transform 178ms, setup 137ms, collect 734ms, tests 623ms, environment 770ms, prepare 147ms)\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build\n\n> engram-ui@0.0.0 build\n> vite build\n\nvite v8.0.10 building client environment for production...\n\u001b[2K\ntransforming...\u2713 1773 modules transformed.\nrendering chunks...\ncomputing gzip size...\n../static/index.html                             1.95 kB \u2502 gzip:  0.86 kB\n../static/assets/index--4rWaywe.css             53.55 kB \u2502 gzip:  9.29 kB\n../static/assets/rolldown-runtime-jpDsebLB.js    0.56 kB \u2502 gzip:  0.36 kB\n../static/assets/vendor-_lNruhL-.js              3.56 kB \u2502 gzip:  1.57 kB\n../static/assets/vendor-icons-Ccngl9Uz.js       11.20 kB \u2502 gzip:  4.50 kB\n../static/assets/index-BJpZ-l9d.js              67.22 kB \u2502 gzip: 19.76 kB\n../static/assets/vendor-react-Q6R2TYE-.js      220.04 kB \u2502 gzip: 70.18 kB\n\n\u2713 built in 122ms"
+    }
+  ],
+  "previousIteration": "v5-redesign-phase3-intelligence",
+  "previousIterationStatus": "completed",
+  "codingLoopPolicy": {
+    "primaryExecutor": "opencode",
+    "fallbackExecutors": [
+      "cursor",
+      "codex",
+      "claude"
+    ],
+    "platform": "openclaw",
+    "allowExecutorFallback": true,
+    "requireHumanForDependencies": true
+  }
+}
