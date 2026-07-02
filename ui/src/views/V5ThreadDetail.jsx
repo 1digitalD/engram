@@ -14,6 +14,8 @@ import styles from '../styles/v5.module.css';
 import {
   activityUpdatesMeta,
   buildActivityUpdates,
+  buildCurrentLoad,
+  buildMeetingPrep,
   buildNextActions,
   buildPeople,
   buildReferences,
@@ -480,6 +482,8 @@ function ThreadDetailContent({
   const entity = detail.entity;
   const entityType = entity.type;
   const summary = narrativeSummary(entity, canonicalText);
+  const meetingPrep = buildMeetingPrep(detail);
+  const currentLoad = buildCurrentLoad(detail);
   const nextActions = buildNextActions(detail);
   const signalCards = buildSignalCards(detail, entityType);
   const people = buildPeople(detail);
@@ -538,6 +542,71 @@ function ThreadDetailContent({
         <h2 id="thread-narrative-label" className={styles.sectionLabel}>Summary</h2>
         <p className={styles.narrative}>{summary}</p>
       </section>
+
+      {meetingPrep ? (
+        <section className={styles.section} aria-labelledby="thread-meeting-prep-label">
+          <h2 id="thread-meeting-prep-label" className={styles.sectionLabel}>Meeting prep</h2>
+          {meetingPrep.headline ? (
+            <p className={styles.narrative}>{meetingPrep.headline}</p>
+          ) : null}
+          {meetingPrep.agendaItems.map((item) => (
+            <article key={item.id} className={styles.signalCard} aria-label={item.title}>
+              <h3 className={styles.signalTitle}>
+                {item.entity ? (
+                  <Link to={pathForEntity(item.entity)}>
+                    {item.title}
+                  </Link>
+                ) : (
+                  item.title
+                )}
+              </h3>
+              {item.reason ? <p className={styles.signalBody}>{item.reason}</p> : null}
+            </article>
+          ))}
+          {meetingPrep.recentNotes.length > 0 ? (
+            <>
+              <h3 className={styles.sectionLabel}>Recent notes</h3>
+              {meetingPrep.recentNotes.map((note) => (
+                <article key={note.id} className={styles.activityRow}>
+                  <Link to={pathForEntity({ id: note.id, type: 'note' })} className={styles.relatedLink}>
+                    <span className={styles.relatedTitle}>{note.title}</span>
+                    {note.updatedAt ? (
+                      <time className={styles.relatedMeta} dateTime={note.updatedAt}>
+                        {formatTimelineDate(note.updatedAt)}
+                      </time>
+                    ) : null}
+                  </Link>
+                  {note.preview ? <p className={styles.activityText}>{note.preview}</p> : null}
+                </article>
+              ))}
+            </>
+          ) : null}
+        </section>
+      ) : null}
+
+      {currentLoad.length > 0 ? (
+        <section className={styles.section} aria-labelledby="thread-current-load-label">
+          <h2 id="thread-current-load-label" className={styles.sectionLabel}>Current load</h2>
+          {currentLoad.map((item) => (
+            <div key={item.id} className={styles.relatedRow}>
+              <XGlyph type="task" />
+              <Link to={pathForEntity(item.task)} className={styles.relatedLink}>
+                <span className={styles.relatedTitle}>
+                  {entityTitleLabel(item.task, { includeType: false })}
+                </span>
+                {item.lastHeardPreview ? (
+                  <span className={styles.relatedMeta}>{item.lastHeardPreview}</span>
+                ) : null}
+                {item.lastHeardAt ? (
+                  <time className={styles.relatedMeta} dateTime={item.lastHeardAt}>
+                    Last heard {formatTimelineDate(item.lastHeardAt)}
+                  </time>
+                ) : null}
+              </Link>
+            </div>
+          ))}
+        </section>
+      ) : null}
 
       {showAddUpdate ? (
         <>

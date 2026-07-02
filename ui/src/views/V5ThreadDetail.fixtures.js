@@ -167,6 +167,40 @@ export const threadDetailFixtures = {
         summary: { blocked_tasks: 0, external_blockers: 0, blocking_tasks: 0 },
         focus_items: [],
       },
+      current_load: [
+        {
+          task: { id: 't-review', type: 'task', title: 'Review PR #847', status: 'blocked' },
+          last_heard_at: '2026-06-22T14:00:00+00:00',
+          last_heard_preview: 'Mary said she would review by end of week.',
+        },
+      ],
+      meeting_prep: {
+        headline: 'Go in with 2 agenda topics and 1 recent note.',
+        counts: { agenda_items: 2, recent_notes: 1 },
+        agenda_items: [
+          {
+            kind: 'stuck',
+            title: 'Unblock Review PR #847',
+            reason: 'Blocked. Last heard: Mary said she would review by end of week.',
+            entity: { id: 't-review', type: 'task', title: 'Review PR #847', status: 'blocked' },
+          },
+          {
+            kind: 'quiet',
+            title: 'Ask for status on Send rollout update',
+            reason: 'No update in 9 days',
+            entity: { id: 't-rollout', type: 'task', title: 'Send rollout update', status: 'open' },
+          },
+        ],
+        recent_notes: [
+          {
+            id: 'note-mary-1on1',
+            type: 'note',
+            title: 'Mary 1:1 notes',
+            updated_at: '2026-06-20T11:00:00+00:00',
+            preview: 'Discuss HITL rollout blockers and support path.',
+          },
+        ],
+      },
     },
     events: sampleEvents,
     canonical: '# Mary Patel\n\nFinal reviewer for HITL pilot.',

@@ -267,6 +267,51 @@ function referenceSnippet(entity) {
   return '(no summary)';
 }
 
+export function buildMeetingPrep(detail) {
+  if (detail?.entity?.type !== 'person') return null;
+  const prep = detail?.meeting_prep;
+  if (!prep) return null;
+
+  const agendaItems = (prep.agenda_items || []).map((item) => ({
+    id: item.entity?.id || item.title,
+    kind: item.kind,
+    title: item.title,
+    reason: item.reason,
+    entity: item.entity,
+  }));
+
+  const recentNotes = (prep.recent_notes || []).map((note) => ({
+    id: note.id,
+    title: note.title,
+    preview: note.preview,
+    updatedAt: note.updated_at,
+  }));
+
+  if (!prep.headline && agendaItems.length === 0 && recentNotes.length === 0) {
+    return null;
+  }
+
+  return {
+    headline: prep.headline,
+    counts: prep.counts,
+    agendaItems,
+    recentNotes,
+  };
+}
+
+export function buildCurrentLoad(detail) {
+  if (detail?.entity?.type !== 'person') return [];
+  const load = detail?.current_load;
+  if (!Array.isArray(load) || load.length === 0) return [];
+
+  return load.map((item) => ({
+    id: item.task?.id,
+    task: item.task,
+    lastHeardAt: item.last_heard_at,
+    lastHeardPreview: item.last_heard_preview,
+  })).filter((item) => item.id);
+}
+
 export function buildReferences(detail, entity) {
   const references = [];
   const seen = new Set();

@@ -370,6 +370,21 @@ describe('V5ThreadDetail', () => {
     expect(screen.queryByRole('region', { name: 'Activity' })).not.toBeInTheDocument();
   });
 
+  it('renders meeting prep and current load on person detail', async () => {
+    renderThread('person');
+
+    const meetingPrepSection = await screen.findByRole('region', { name: 'Meeting prep' });
+    expect(within(meetingPrepSection).getByText('Go in with 2 agenda topics and 1 recent note.')).toBeInTheDocument();
+    expect(within(meetingPrepSection).getByText('Unblock Review PR #847')).toBeInTheDocument();
+    expect(within(meetingPrepSection).getByText(/Mary said she would review by end of week/)).toBeInTheDocument();
+    expect(within(meetingPrepSection).getByText('Mary 1:1 notes')).toBeInTheDocument();
+    expect(within(meetingPrepSection).getByText('Discuss HITL rollout blockers and support path.')).toBeInTheDocument();
+
+    const currentLoadSection = screen.getByRole('region', { name: 'Current load' });
+    expect(within(currentLoadSection).getByText('Review PR #847')).toBeInTheDocument();
+    expect(within(currentLoadSection).getByText(/Last heard/)).toBeInTheDocument();
+  });
+
   it('renders typed people relationships and reference citations', async () => {
     renderThread('project');
 
