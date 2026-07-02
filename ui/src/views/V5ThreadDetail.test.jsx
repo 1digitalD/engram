@@ -16,6 +16,10 @@ vi.mock('../api/v4Client', () => ({
       canonical: vi.fn(),
       update: vi.fn(),
     },
+    activityUpdates: {
+      create: vi.fn(),
+      list: vi.fn(),
+    },
   },
   friendlyApiError: (err, fallback) => err?.message || fallback || 'Something went wrong.',
 }));
@@ -66,6 +70,14 @@ describe('V5ThreadDetail', () => {
       expect(screen.getByRole('region', { name: 'People' })).toBeInTheDocument();
       expect(screen.getByRole('region', { name: 'Related threads' })).toBeInTheDocument();
       expect(screen.getByRole('region', { name: 'References' })).toBeInTheDocument();
+
+      if (['project', 'task', 'area'].includes(type)) {
+        expect(screen.getByRole('region', { name: 'Add update' })).toBeInTheDocument();
+        expect(screen.getByRole('region', { name: 'Activity' })).toBeInTheDocument();
+      } else {
+        expect(screen.queryByRole('region', { name: 'Add update' })).not.toBeInTheDocument();
+        expect(screen.queryByRole('region', { name: 'Activity' })).not.toBeInTheDocument();
+      }
     });
   });
 
@@ -92,7 +104,7 @@ describe('V5ThreadDetail', () => {
     expect(screen.queryByRole('dialog', { name: 'Quick actions' })).not.toBeInTheDocument();
   });
 
-  it('opens capture in place from thread detail with the current thread attached', async () => {
+  it('opens generic capture from thread detail without using activity update API', async () => {
     function CaptureObserver() {
       const { open, initialContent } = useCapture();
       return (
@@ -134,7 +146,90 @@ describe('V5ThreadDetail', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Capture' }));
     await waitFor(() => expect(screen.getByTestId('capture-open')).toHaveTextContent('open'));
     expect(screen.getByTestId('capture-content')).toHaveTextContent('');
-    await waitFor(() => expect(screen.getByLabelText('Capture attachment')).toHaveValue('project-hitl'));
+    await waitFor(() => expect(screen.getByLabelText('Capture thread context')).toHaveValue('project-hitl'));
+    expect(v4API.activityUpdates.create).not.toHaveBeenCalled();
+  });
+
+  it('submits Add update via activityUpdates.create and reloads thread detail', async () => {
+    const fixture = fixtureForType('project');
+    v4API.activityUpdates.create.mockResolvedValue({
+      data: { id: 'note-new-update', type: 'note', source: 'activity_update' },
+      suggestions: [],
+    });
+    v4API.entities.detail.mockResolvedValue(fixture.detail);
+    v4API.entities.events.mockResolvedValue({ data: fixture.events });
+    v4API.entities.canonical.mockResolvedValue({ canonical: fixture.canonical });
+
+    render(
+      <MemoryRouter initialEntries={['/projects/project-hitl']}>
+        <CaptureProvider>
+          <Routes>
+            <Route
+              path="/projects/:id"
+              element={(
+                <V5ThreadDetail
+                  type="project"
+                  previewDetail={null}
+                  previewEvents={null}
+                  previewCanonical=""
+                />
+              )}
+            />
+          </Routes>
+        </CaptureProvider>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => expect(v4API.entities.detail).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole('button', { name: 'Write update' }));
+    fireEvent.change(screen.getByLabelText('Update text'), {
+      target: { value: 'Shipped parser fix to design partners.' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save update' }));
+
+    await waitFor(() => expect(v4API.activityUpdates.create).toHaveBeenCalledWith(
+      'project-hitl',
+      'Shipped parser fix to design partners.',
+    ));
+    await waitFor(() => expect(v4API.entities.detail).toHaveBeenCalledTimes(2));
+  });
+
+  it('renders activity updates from detail sections', async () => {
+    renderThread('project');
+    const activitySection = await screen.findByRole('region', { name: 'Activity' });
+    expect(within(activitySection).getByText('Mary said she would review by end of week.')).toBeInTheDocument();
+    expect(within(activitySection).getByRole('link', { name: 'Open update' })).toHaveAttribute('href', '/notes/note-update-1');
+  });
+
+  it('omits Activity section when no updates exist', async () => {
+    const fixture = fixtureForType('project');
+    const detailWithoutActivity = {
+      ...fixture.detail,
+      sections: (fixture.detail.sections || []).filter((section) => section.key !== 'activity_updates'),
+    };
+
+    render(
+      <MemoryRouter initialEntries={['/projects/project-hitl']}>
+        <CaptureProvider>
+          <Routes>
+            <Route
+              path="/projects/:id"
+              element={(
+                <V5ThreadDetail
+                  type="project"
+                  previewDetail={detailWithoutActivity}
+                  previewEvents={fixture.events}
+                  previewCanonical={fixture.canonical}
+                />
+              )}
+            />
+          </Routes>
+        </CaptureProvider>
+      </MemoryRouter>,
+    );
+
+    await screen.findByRole('region', { name: 'Add update' });
+    expect(screen.queryByRole('region', { name: 'Activity' })).not.toBeInTheDocument();
   });
 
   it('renders typed people relationships and reference citations', async () => {
@@ -164,7 +259,25 @@ describe('V5ThreadDetail', () => {
     v4API.entities.events.mockResolvedValue({ data: fixture.events });
     v4API.entities.canonical.mockResolvedValue({ canonical: fixture.canonical });
 
-    renderThread('task');
+    render(
+      <MemoryRouter initialEntries={[`/tasks/${fixture.detail.entity.id}`]}>
+        <CaptureProvider>
+          <Routes>
+            <Route
+              path="/tasks/:id"
+              element={(
+                <V5ThreadDetail
+                  type="task"
+                  previewDetail={fixture.detail}
+                  previewEvents={fixture.events}
+                  previewCanonical={fixture.canonical}
+                />
+              )}
+            />
+          </Routes>
+        </CaptureProvider>
+      </MemoryRouter>,
+    );
 
     fireEvent.click(screen.getByRole('button', { name: /Edit details/i }));
     fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Updated task title' } });
@@ -183,45 +296,46 @@ describe('V5ThreadDetail', () => {
       }),
     ));
 
- await screen.findByText('Updated task title');
- });
- 
- it('routes fallback open thread actions to a related thread instead of the current task', async () => {
- const fixture = fixtureForType('task');
- const detail = {
- ...fixture.detail,
- entity: {
- ...fixture.detail.entity,
- follow_up_at: '2026-07-03T09:00:00Z',
- },
- sections: (fixture.detail.sections || []).filter((section) => section.key === 'project'),
- dependency_watch: {
- ...fixture.detail.dependency_watch,
- focus_items: [],
- },
- };
- 
- render(
- <MemoryRouter initialEntries={[`/tasks/${detail.entity.id}`]}>
- <CaptureProvider>
- <Routes>
- <Route
- path="/tasks/:id"
- element={(
- <V5ThreadDetail
- type="task"
- previewDetail={detail}
- previewEvents={fixture.events}
- previewCanonical={fixture.canonical}
- />
- )}
- />
- </Routes>
- </CaptureProvider>
- </MemoryRouter>,
- );
- 
- const openThreadLink = await screen.findByRole('link', { name: 'Open thread' });
- expect(openThreadLink).toHaveAttribute('href', '/projects/project-hitl');
- });
- });
+    await waitFor(() => expect(v4API.entities.detail).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1, name: 'Updated task title' })).toBeInTheDocument());
+  });
+
+  it('routes fallback open thread actions to a related thread instead of the current task', async () => {
+    const fixture = fixtureForType('task');
+    const detail = {
+      ...fixture.detail,
+      entity: {
+        ...fixture.detail.entity,
+        follow_up_at: '2026-07-03T09:00:00Z',
+      },
+      sections: (fixture.detail.sections || []).filter((section) => section.key === 'project'),
+      dependency_watch: {
+        ...fixture.detail.dependency_watch,
+        focus_items: [],
+      },
+    };
+
+    render(
+      <MemoryRouter initialEntries={[`/tasks/${detail.entity.id}`]}>
+        <CaptureProvider>
+          <Routes>
+            <Route
+              path="/tasks/:id"
+              element={(
+                <V5ThreadDetail
+                  type="task"
+                  previewDetail={detail}
+                  previewEvents={fixture.events}
+                  previewCanonical={fixture.canonical}
+                />
+              )}
+            />
+          </Routes>
+        </CaptureProvider>
+      </MemoryRouter>,
+    );
+
+    const openThreadLink = await screen.findByRole('link', { name: 'Open thread' });
+    expect(openThreadLink).toHaveAttribute('href', '/projects/project-hitl');
+  });
+});

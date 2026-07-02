@@ -22,7 +22,7 @@ requests and returns formatted text. It is write-enabled and has no separate per
 - `dismiss_suggestion(suggestion_id)` — dismiss AI suggestion without acting
 - `reconcile_suggestions(limit?)` — expire pending suggestions that no longer apply
 - `submit_candidates(note_id, summary?, tags?, entities?, links?)` — submit pre-extracted candidates, bypassing LLM extraction
-- `append_activity_update(entity_id, content)` — append an activity update note to a project, task, or area (summary context only; duplicates within 24h skipped; max 30 per entity)
+- `append_activity_update(entity_id, content)` — append an activity update note to a project, task, or area (exact duplicates within 24h skipped; near-duplicates flagged)
 
 ## Transport
 

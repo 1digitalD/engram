@@ -1934,7 +1934,57 @@ def revert_event(event_id):
     return jsonify({"data": event.to_dict()})
 
 
-MAX_ACTIVITY_UPDATES_PER_TARGET = 30
+DEFAULT_ACTIVITY_UPDATES_PAGE_SIZE = 30
+MAX_ACTIVITY_UPDATES_PAGE_SIZE = 100
+ACTIVITY_UPDATE_DEDUP_HOURS = 24
+NEAR_DUPLICATE_ACTIVITY_UPDATE_THRESHOLD = 0.85
+
+
+def _normalize_activity_update_content(content):
+    text = (content or "").strip().lower()
+    return re.sub(r"\s+", " ", text)
+
+
+def _activity_update_content_tokens(content):
+    return set(re.findall(r"[a-z0-9]+", _normalize_activity_update_content(content)))
+
+
+def _activity_update_content_similarity(left, right):
+    tokens_left = _activity_update_content_tokens(left)
+    tokens_right = _activity_update_content_tokens(right)
+    if not tokens_left or not tokens_right:
+        return 0.0
+    if tokens_left == tokens_right:
+        return 1.0
+    union = tokens_left | tokens_right
+    return len(tokens_left & tokens_right) / len(union)
+
+
+def _recent_activity_update_notes(target_id, hours=ACTIVITY_UPDATE_DEDUP_HOURS):
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+    return (
+        Entity.query.join(
+            EntityLink,
+            (EntityLink.source_entity_id == Entity.id) & (EntityLink.target_entity_id == target_id),
+        )
+        .filter(
+            Entity.type == "note",
+            Entity.source == "activity_update",
+            EntityLink.relationship_type == "activity_update",
+            Entity.updated_at >= cutoff,
+        )
+        .order_by(Entity.updated_at.desc())
+        .all()
+    )
+
+
+def _find_near_duplicate_activity_update(target, content):
+    for note in _recent_activity_update_notes(target.id):
+        if (note.content or "").strip() == (content or "").strip():
+            continue
+        if _activity_update_content_similarity(note.content, content) >= NEAR_DUPLICATE_ACTIVITY_UPDATE_THRESHOLD:
+            return note
+    return None
 
 
 @api_v4_bp.route("/entities/<entity_id>/activity_updates", methods=["GET"])
@@ -1943,7 +1993,10 @@ def get_activity_updates(entity_id):
     if target is None:
         return _error("entity not found", 404)
 
-    notes = (
+    limit = max(1, min(request.args.get("limit", DEFAULT_ACTIVITY_UPDATES_PAGE_SIZE, type=int), MAX_ACTIVITY_UPDATES_PAGE_SIZE))
+    offset = max(0, request.args.get("offset", 0, type=int))
+
+    base_query = (
         Entity.query.join(
             EntityLink,
             (EntityLink.source_entity_id == Entity.id) & (EntityLink.target_entity_id == entity_id),
@@ -1953,20 +2006,25 @@ def get_activity_updates(entity_id):
             Entity.source == "activity_update",
             EntityLink.relationship_type == "activity_update",
         )
-        .order_by(Entity.updated_at.desc())
-        .limit(MAX_ACTIVITY_UPDATES_PER_TARGET)
+    )
+    total = base_query.count()
+    notes = (
+        base_query.order_by(Entity.updated_at.desc())
+        .offset(offset)
+        .limit(limit)
         .all()
     )
-    return jsonify({"data": [note.to_dict() for note in notes]})
+    return jsonify({
+        "data": [note.to_dict() for note in notes],
+        "meta": {"total": total, "limit": limit, "offset": offset},
+    })
 
 
 def _create_activity_update_note(target, content, actor="user", confidence=None, evidence=None, source_note_id=None):
     """Create (or reuse) an activity-update note linked to `target`.
 
-    Returns (note_or_None, created_bool). Returns (existing, False) if an
-    identical update for this target was created within the last 24h.
-    Returns (None, False) if the target already has the maximum number of
-    activity updates.
+    Returns (note, created, skip_reason). skip_reason is set when created is
+    False: ``exact_duplicate`` or ``near_duplicate``.
     """
     existing = (
         Entity.query.join(
@@ -1978,27 +2036,16 @@ def _create_activity_update_note(target, content, actor="user", confidence=None,
             Entity.source == "activity_update",
             EntityLink.relationship_type == "activity_update",
             Entity.content == content,
-            Entity.updated_at >= datetime.now(timezone.utc) - timedelta(hours=24),
+            Entity.updated_at >= datetime.now(timezone.utc) - timedelta(hours=ACTIVITY_UPDATE_DEDUP_HOURS),
         )
         .first()
     )
     if existing is not None:
-        return existing, False
+        return existing, False, "exact_duplicate"
 
-    count = (
-        Entity.query.join(
-            EntityLink,
-            (EntityLink.source_entity_id == Entity.id) & (EntityLink.target_entity_id == target.id),
-        )
-        .filter(
-            Entity.type == "note",
-            Entity.source == "activity_update",
-            EntityLink.relationship_type == "activity_update",
-        )
-        .count()
-    )
-    if count >= MAX_ACTIVITY_UPDATES_PER_TARGET:
-        return None, False
+    near_duplicate = _find_near_duplicate_activity_update(target, content)
+    if near_duplicate is not None:
+        return near_duplicate, False, "near_duplicate"
 
     note = Entity(
         type="note",
@@ -2019,16 +2066,10 @@ def _create_activity_update_note(target, content, actor="user", confidence=None,
     )
     db.session.add(link)
 
-    old_updated = target.updated_at
     target.updated_at = datetime.now(timezone.utc)
     db.session.flush()
 
-    _write_event(
-        target,
-        "updated",
-        old_value={"updated_at": old_updated.isoformat() if old_updated else None},
-        new_value={"updated_at": target.updated_at.isoformat()},
-    )
+    event_source_note_id = source_note_id or note.id
     _write_event(
         target,
         "activity_update_added",
@@ -2036,10 +2077,10 @@ def _create_activity_update_note(target, content, actor="user", confidence=None,
         actor=actor,
         confidence=confidence,
         reason=evidence,
-        source_note_id=source_note_id,
+        source_note_id=event_source_note_id,
     )
-    _refresh_delegation_cadence(target, source_note_id=source_note_id, actor=actor)
-    return note, True
+    _refresh_delegation_cadence(target, source_note_id=event_source_note_id, actor=actor)
+    return note, True, None
 
 
 def _refresh_delegation_cadence(target, source_note_id=None, actor="user"):
@@ -2086,17 +2127,10 @@ def create_activity_update(entity_id):
     if not content:
         return _error("content is required")
 
-    # Snapshot follow_up_at before note creation: _refresh_delegation_cadence
-    # may set it for delegated tasks inside _create_activity_update_note.
-    follow_up_before = target.follow_up_at
-    note, created = _create_activity_update_note(target, content, actor="user")
-    if note is None:
-        return _error(
-            f"maximum {MAX_ACTIVITY_UPDATES_PER_TARGET} activity updates per entity",
-            409,
-        )
+    note, created, skip_reason = _create_activity_update_note(target, content, actor="user")
     if not created:
-        return jsonify({"data": note.to_dict(), "skipped": True, "reason": "duplicate within 24h"})
+        reason = "duplicate within 24h" if skip_reason == "exact_duplicate" else skip_reason or "duplicate"
+        return jsonify({"data": note.to_dict(), "skipped": True, "reason": reason})
 
     applied_mentions = _apply_explicit_mentions(note, content)
 
@@ -2109,7 +2143,6 @@ def create_activity_update(entity_id):
 
     # ── Follow-up date ──────────────────────────────────────────────────
     explicit_follow_up = extraction.get("follow_up_at")
-    delegation_updated = target.follow_up_at is not None and target.follow_up_at != follow_up_before
 
     if explicit_follow_up:
         old_follow_up = target.follow_up_at
@@ -2123,94 +2156,40 @@ def create_activity_update(entity_id):
             reason="extracted from activity update",
             source_note_id=note.id,
         )
-    elif target.type == "task" and not delegation_updated:
-        # No explicit date found, and delegation cadence didn't set one.
-        # Auto-set follow-up to 2 business days from now for tasks.
-        old_follow_up = target.follow_up_at
-        target.follow_up_at = _add_working_days(datetime.now(timezone.utc), 2)
-        _write_event(
-            target,
-            "ai_updated",
-            old_value={"follow_up_at": old_follow_up.isoformat() if old_follow_up else None},
-            new_value={"follow_up_at": target.follow_up_at.isoformat()},
-            actor="agent:activity-update",
-            reason="auto-set 2 business day follow-up",
-            source_note_id=note.id,
-        )
 
     # ── New tasks from update content ────────────────────────────────────
     for task_candidate in extraction.get("tasks") or []:
         confidence = task_candidate.get("confidence", 0.0)
-        if confidence >= AUTO_APPLY_CONFIDENCE:
-            new_task = _auto_create_entity(
-                "task",
-                task_candidate.get("title"),
-                content=task_candidate.get("content"),
-                due_at=task_candidate.get("due_at"),
-            )
-            if new_task:
-                found_existing = getattr(new_task, "_auto_create_found_existing", False)
-                # Link the new task to the target entity (derived_from).
-                _create_entity_link(
-                    new_task, target, "derived_from",
-                    confidence=confidence,
-                    evidence=task_candidate.get("title"),
-                    source="activity_update",
-                )
-                # Handle assignee if specified.
-                assignee_name = task_candidate.get("assigned_to")
-                if assignee_name:
-                    _apply_assignee(
-                        note, new_task, assignee_name,
-                        confidence=confidence,
-                        evidence=f"assigned in activity update: {assignee_name}",
-                        source="activity_update",
-                        actor="agent:activity-update",
-                    )
-                if not found_existing:
-                    _write_event(
-                        new_task,
-                        "created",
-                        new_value=new_task.to_dict(),
-                        actor="agent:activity-update",
-                        confidence=confidence,
-                        reason="extracted from activity update",
-                        source_note_id=note.id,
-                    )
-                    _queue_embed_job(new_task.id, "activity_update_task")
-                extracted_tasks.append({
-                    "entity_id": new_task.id,
-                    "title": new_task.title,
-                    "confidence": confidence,
-                    "auto_created": not found_existing,
-                })
-        else:
-            # Lower confidence: create a suggestion for the user to review.
-            suggestion = _create_suggestion(
-                note,
-                suggestion_type="create_task",
-                operation_type="create_new_entity",
-                payload={
-                    "type": "task",
-                    "title": task_candidate.get("title"),
-                    "content": task_candidate.get("content"),
-                    "due_at": task_candidate.get("due_at"),
-                    "assigned_to": task_candidate.get("assigned_to"),
-                    "evidence": task_candidate.get("title"),
-                    "target_entity_id": target.id,
-                    "relationship_type": "derived_from",
-                },
-                confidence=confidence,
-                reason=f"extracted from activity update: {task_candidate.get('title', '')[:80]}",
-            )
-            if suggestion:
-                suggestions.append(suggestion.to_dict())
-                extracted_tasks.append({
-                    "title": task_candidate.get("title"),
-                    "confidence": confidence,
-                    "auto_created": False,
-                    "suggestion_id": suggestion.id,
-                })
+        suggestion = _create_suggestion(
+            note,
+            suggestion_type="create_task",
+            operation_type="create_new_entity",
+            payload={
+                "type": "task",
+                "title": task_candidate.get("title"),
+                "content": task_candidate.get("content"),
+                "due_at": task_candidate.get("due_at"),
+                "assigned_to": task_candidate.get("assigned_to"),
+                "evidence": task_candidate.get("title"),
+                "target_entity_id": target.id,
+                "relationship_type": "derived_from",
+            },
+            confidence=confidence,
+            reason=f"extracted from activity update: {task_candidate.get('title', '')[:80]}",
+        )
+        if suggestion:
+            suggestions.append(suggestion.to_dict())
+            extracted_tasks.append({
+                "title": task_candidate.get("title"),
+                "confidence": confidence,
+                "auto_created": False,
+                "suggestion_id": suggestion.id,
+            })
+
+    _queue_embed_job(note.id, "activity_update")
+    from services.v4_summarization import queue_summarize_if_needed
+
+    queue_summarize_if_needed(target.id, has_existing_summary=bool(target.ai_summary))
 
     db.session.commit()
 
@@ -2219,7 +2198,7 @@ def create_activity_update(entity_id):
         "target": _load_entity(target.id).to_dict(),
         "extracted": {
             "follow_up_at": explicit_follow_up,
-            "follow_up_auto_set": explicit_follow_up is None and target.type == "task",
+            "follow_up_auto_set": False,
             "tasks": extracted_tasks,
         },
         "applied_mentions": applied_mentions,
@@ -3843,7 +3822,7 @@ def _apply_reconciliation_decision(note, candidate, decision, applied_changes, s
         update_text = _clean_text(decision.get("update_text")) or evidence
         if not update_text:
             return
-        au_note, created = _create_activity_update_note(
+        au_note, created, _skip_reason = _create_activity_update_note(
             target, update_text, actor="agent:v4-capture", confidence=confidence, evidence=evidence, source_note_id=note.id
         )
         if au_note is None:
@@ -3856,6 +3835,8 @@ def _apply_reconciliation_decision(note, candidate, decision, applied_changes, s
             "confidence": confidence,
             "created": created,
         })
+        if not created:
+            return
 
         new_status = (decision.get("fields") or {}).get("status")
         if new_status in VALID_STATUS.get(target.type, set()) and new_status != target.status:

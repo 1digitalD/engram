@@ -296,7 +296,7 @@ def submit_candidates(
     return format_capture_result(payload)
 
 
-@mcp.tool(description="Append an activity update note to a project, task, or area. Used for summary context. Duplicate content within 24h is skipped; max 30 updates per entity.")
+@mcp.tool(description="Append an activity update note to a project, task, or area. Exact duplicates within 24h and near-duplicates are skipped.")
 def append_activity_update(entity_id: str, content: str) -> str:
     payload = _api("POST", f"/entities/{entity_id}/activity_updates", json={"content": content})
     return format_activity_update(payload)

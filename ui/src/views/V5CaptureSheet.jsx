@@ -11,6 +11,8 @@ import styles from './V5CaptureSheet.module.css';
 
 export const CAPTURE_PLACEHOLDER = "Type anything. I'll suggest what I think it means; you can revert any of it after saving.";
 
+export const CAPTURE_ATTACHMENT_HINT = 'Links this note to the thread for context — not an activity update. Use Add update on the thread page to record progress.';
+
 const ATTACHMENT_NONE = { id: '', label: 'None', type: '' };
 
 function entityPath(type, id) {
@@ -245,11 +247,11 @@ export default function V5CaptureSheet({
       <div className={styles.captureSheet}>
         <header className={styles.header}>
           <h2 className={styles.title}>Quick capture</h2>
-          <div className={styles.attachmentWrap}>
-            <span>attached:</span>
+          <label className={styles.attachmentWrap}>
+            <span className={styles.attachmentLabel}>Thread context</span>
             <select
               className={styles.attachmentSelect}
-              aria-label="Capture attachment"
+              aria-label="Capture thread context"
               value={attachment.id}
               disabled={streaming}
               onChange={(event) => {
@@ -259,11 +261,11 @@ export default function V5CaptureSheet({
             >
               {attachmentOptions.map((opt) => (
                 <option key={opt.id || 'none'} value={opt.id}>
-                  {opt.label}
+                  {opt.id ? `${opt.label} (related link)` : opt.label}
                 </option>
               ))}
             </select>
-          </div>
+          </label>
         </header>
 
         <div className={styles.body}>
@@ -277,6 +279,9 @@ export default function V5CaptureSheet({
             rows={6}
             autoFocus
           />
+          {attachment.id ? (
+            <p className={styles.hint}>{CAPTURE_ATTACHMENT_HINT}</p>
+          ) : null}
           <p className={styles.hint}>
             After saving you can review applied changes and revert anything you disagree with.
           </p>

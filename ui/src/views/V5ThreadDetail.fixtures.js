@@ -78,6 +78,18 @@ export const threadDetailFixtures = {
             { entity: { id: 'project-engram', type: 'project', title: 'Engram itself', status: 'active' }, relationship: { relationship_type: 'related' } },
           ],
         },
+        {
+          key: 'activity_updates',
+          title: 'Activity',
+          items: [
+            {
+              id: 'note-update-1',
+              title: 'Update: HITL Pilot (2026-06-22)',
+              content: 'Mary said she would review by end of week.',
+              updated_at: '2026-06-22T14:00:00+00:00',
+            },
+          ],
+        },
       ],
       project_pulse: {
         headline: 'Focus this project on 1 stuck task and 1 overdue task.',
@@ -184,6 +196,18 @@ export const threadDetailFixtures = {
             { entity: { id: 'person-mary', type: 'person', title: 'Mary', status: 'active' }, relationship: { relationship_type: 'related' } },
           ],
         },
+        {
+          key: 'activity_updates',
+          title: 'Activity',
+          items: [
+            {
+              id: 'note-area-update-1',
+              title: 'Update: Execution (2026-06-20)',
+              content: 'Kicked off quarterly planning review.',
+              updated_at: '2026-06-20T11:00:00+00:00',
+            },
+          ],
+        },
       ],
     },
     events: sampleEvents.slice(1),
@@ -244,6 +268,18 @@ export const threadDetailFixtures = {
           title: 'Blocked By',
           items: [
             { entity: { id: 't-security', type: 'task', title: 'Security approval', status: 'open' }, relationship: { relationship_type: 'blocks' } },
+          ],
+        },
+        {
+          key: 'activity_updates',
+          title: 'Activity',
+          items: [
+            {
+              id: 'note-task-update-1',
+              title: 'Update: Review PR #847 (2026-06-21)',
+              content: 'Pinged Mary again about the review.',
+              updated_at: '2026-06-21T16:30:00+00:00',
+            },
           ],
         },
       ],

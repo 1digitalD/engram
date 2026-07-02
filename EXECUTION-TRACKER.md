@@ -3,16 +3,24 @@
 Fresh-agent handoff for the current v4 baseline. Use this to get oriented quickly,
 then read the active source docs before changing code.
 
-Last updated: 2026-07-01
+Last updated: 2026-07-02
 Branch: `main`
-Status: deploy/doc cleanup aligned to the current runtime; deploy smoke now checks
-the live `/now`, `/threads`, and `/memory` data paths through their backing `/api/v4`
-endpoints.
+Status: **Activity Update v2 shipped** (AU0–AU7, 2026-07-02). Milestone validation: 130 backend + 23 frontend tests green; Bugbot fix for capture skip/status regression applied pre-deploy.
 
 Runtime baseline: `/api/v4` only, fresh Postgres + pgvector schema, write-enabled MCP
 aligned with the active API.
 
-## Current hardening loop: Iteration 17 (2026-07-01)
+## Current hardening loop: Activity Update v2 (2026-07-02)
+
+- Spec: `docs/iterations/ACTIVITY_UPDATE_V2_SPEC.md` (active)
+- Plan: `docs/iterations/ACTIVITY_UPDATE_V2_IMPLEMENTATION_PLAN.md` (Loopsmith slice index)
+- Slice docs: `docs/iterations/SLICE_AU0_characterization.md` … `SLICE_AU7_cap-and-dedup.md`
+- **Activity Update v2 (AU0–AU7):** complete (2026-07-02)
+
+Milestone AU0–AU5: characterize → index → provenance → trust policy → Add update UI → Activity section.
+Defer AU6 (capture attachment cleanup) and AU7 (cap/pagination) until core path is validated.
+
+## Previous loop: Iteration 17 (2026-07-01)
 
 - Loopsmith runtime fully drained end-of-v5 Phase 3 work, with a new execution overlay
   created in `prd.json` for post-Phase-3 hardening slices.

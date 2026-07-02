@@ -302,11 +302,8 @@ def format_activity_update(payload):
 
     extracted = payload.get("extracted") or {}
     follow_up = extracted.get("follow_up_at")
-    auto_set = extracted.get("follow_up_auto_set")
     if follow_up:
         lines.append(f"Follow-up set to: {follow_up} (extracted from update)")
-    elif auto_set:
-        lines.append("Follow-up auto-set to 2 business days from now")
 
     tasks = extracted.get("tasks") or []
     if tasks:

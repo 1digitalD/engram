@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pytest
 from extensions import db
-from models import Entity, EntityEvent, EntityLink
+from models import Entity, EntityEvent, EntityLink, Job
 
 
 def _create_entity(client, entity_type, title):
@@ -164,22 +164,72 @@ def test_different_content_within_24h_is_allowed(client):
     assert response2.get_json().get("skipped") is not True
 
 
-def test_max_30_activity_updates_returns_409(client, app):
-    project = _create_entity(client, "project", "Epsilon")
+def test_long_lived_entity_allows_more_than_30_activity_updates(client, app):
+    project = _create_entity(client, "project", "Long lived")
 
-    for i in range(30):
+    for i in range(31):
         response = client.post(
             f"/api/v4/entities/{project['id']}/activity_updates",
             json={"content": f"Update number {i}"},
         )
         assert response.status_code == 201, f"Failed at update {i}"
 
-    response = client.post(
+    with app.app_context():
+        count = (
+            Entity.query.join(
+                EntityLink,
+                (EntityLink.source_entity_id == Entity.id) & (EntityLink.target_entity_id == project["id"]),
+            )
+            .filter(
+                Entity.type == "note",
+                Entity.source == "activity_update",
+                EntityLink.relationship_type == "activity_update",
+            )
+            .count()
+        )
+        assert count == 31
+
+
+def test_get_activity_updates_supports_pagination(client):
+    project = _create_entity(client, "project", "Paged")
+
+    for i in range(5):
+        response = client.post(
+            f"/api/v4/entities/{project['id']}/activity_updates",
+            json={"content": f"Paged update {i}"},
+        )
+        assert response.status_code == 201
+
+    response = client.get(
         f"/api/v4/entities/{project['id']}/activity_updates",
-        json={"content": "This should fail"},
+        query_string={"limit": 2, "offset": 0},
     )
-    assert response.status_code == 409
-    assert "30" in response.get_json()["error"]
+    assert response.status_code == 200
+    body = response.get_json()
+    assert len(body["data"]) == 2
+    assert body["meta"]["total"] == 5
+    assert body["meta"]["limit"] == 2
+    assert body["meta"]["offset"] == 0
+
+
+def test_near_duplicate_activity_update_within_24h_is_skipped(client):
+    project = _create_entity(client, "project", "Near dup")
+
+    response1 = client.post(
+        f"/api/v4/entities/{project['id']}/activity_updates",
+        json={"content": "Shipped parser fix to design partners today."},
+    )
+    assert response1.status_code == 201
+
+    response2 = client.post(
+        f"/api/v4/entities/{project['id']}/activity_updates",
+        json={"content": "Shipped the parser fix to design partners today!"},
+    )
+    assert response2.status_code == 200
+    body = response2.get_json()
+    assert body["skipped"] is True
+    assert body["reason"] == "near_duplicate"
+    assert body["data"]["id"] == response1.get_json()["data"]["id"]
 
 
 def test_archive_target_cascades_to_incoming_activity_updates(client, app):
@@ -260,9 +310,154 @@ def test_activity_note_detail_links_back_to_target(client, app):
     assert items[0]["relationship"]["relationship_type"] == "activity_update"
 
 
-def test_activity_update_exact_title_match_does_not_duplicate_task(client, app):
-    """An activity update that extracts an already-existing exact-title task
-    should link to the existing task instead of minting a duplicate."""
+# --- AU0 baseline: current behavior later slices will change ---
+
+
+def test_direct_activity_update_queues_embed_for_update_note(client, app):
+    project = _create_entity(client, "project", "Embed queue")
+
+    response = client.post(
+        f"/api/v4/entities/{project['id']}/activity_updates",
+        json={"content": "Shipped the parser fix."},
+    )
+    assert response.status_code == 201
+    note_id = response.get_json()["data"]["id"]
+
+    with app.app_context():
+        job = Job.query.filter_by(entity_id=note_id, job_type="embed").one()
+        assert job.payload["reason"] == "activity_update"
+
+
+def test_direct_activity_update_queues_target_summarize_job(client, app):
+    project = _create_entity(client, "project", "Summary queue")
+
+    response = client.post(
+        f"/api/v4/entities/{project['id']}/activity_updates",
+        json={"content": "Rolled out to design partners."},
+    )
+    assert response.status_code == 201
+
+    with app.app_context():
+        job = Job.query.filter_by(
+            entity_id=project["id"],
+            job_type="summarize",
+        ).one()
+        assert job.payload["entity_id"] == project["id"]
+
+
+def test_direct_activity_update_event_sets_source_note_id(client, app):
+    task = _create_entity(client, "task", "Provenance")
+
+    response = client.post(
+        f"/api/v4/entities/{task['id']}/activity_updates",
+        json={"content": "Waiting on review."},
+    )
+    assert response.status_code == 201
+    note_id = response.get_json()["data"]["id"]
+
+    with app.app_context():
+        update_event = EntityEvent.query.filter_by(
+            entity_id=task["id"],
+            event_type="activity_update_added",
+        ).one()
+        assert update_event.source_note_id == note_id
+        assert update_event.new_value["note_id"] == note_id
+
+
+def test_activity_update_does_not_write_bookkeeping_updated_event(client, app):
+    project = _create_entity(client, "project", "Timeline hygiene")
+
+    response = client.post(
+        f"/api/v4/entities/{project['id']}/activity_updates",
+        json={"content": "Scope narrowed to two teams."},
+    )
+    assert response.status_code == 201
+
+    with app.app_context():
+        event_types = {
+            e.event_type
+            for e in EntityEvent.query.filter_by(entity_id=project["id"]).all()
+        }
+        assert "activity_update_added" in event_types
+        assert "updated" not in event_types
+
+
+def test_task_update_without_explicit_date_does_not_auto_set_follow_up(client, app):
+    task = _create_entity(client, "task", "Follow-up policy")
+    assert task.get("follow_up_at") is None
+
+    response = client.post(
+        f"/api/v4/entities/{task['id']}/activity_updates",
+        json={"content": "Made progress on the rollout checklist."},
+    )
+    assert response.status_code == 201
+    body = response.get_json()
+    assert body["extracted"]["follow_up_auto_set"] is False
+
+    with app.app_context():
+        entity = db.session.get(Entity, task["id"])
+        assert entity.follow_up_at is None
+
+
+def test_extracted_task_from_activity_update_becomes_suggestion(client, app):
+    project = _create_entity(client, "project", "Task suggestion policy")
+    extraction = {
+        "follow_up_at": None,
+        "tasks": [
+            {
+                "title": "Ask Mary for rollout notes",
+                "content": None,
+                "due_at": None,
+                "assigned_to": "Mary",
+                "confidence": 0.9,
+            }
+        ],
+    }
+
+    with patch(
+        "services.v4_extraction.extract_dates_and_tasks_from_update",
+        return_value=extraction,
+    ):
+        response = client.post(
+            f"/api/v4/entities/{project['id']}/activity_updates",
+            json={"content": "Also ask Mary for rollout notes"},
+        )
+
+    assert response.status_code == 201
+    data = response.get_json()
+    assert len(data["suggestions"]) == 1
+    assert data["suggestions"][0]["suggestion_type"] == "create_task"
+    assert len(data["extracted"]["tasks"]) == 1
+    assert data["extracted"]["tasks"][0]["auto_created"] is False
+
+    with app.app_context():
+        assert Entity.query.filter_by(type="task", title="Ask Mary for rollout notes").count() == 0
+
+
+def test_activity_update_explicit_follow_up_date_is_applied(client, app):
+    task = _create_entity(client, "task", "Explicit follow-up")
+    extraction = {"follow_up_at": "2026-08-15", "tasks": []}
+
+    with patch(
+        "services.v4_extraction.extract_dates_and_tasks_from_update",
+        return_value=extraction,
+    ):
+        response = client.post(
+            f"/api/v4/entities/{task['id']}/activity_updates",
+            json={"content": "Follow up next Friday on rollout."},
+        )
+
+    assert response.status_code == 201
+    data = response.get_json()
+    assert data["extracted"]["follow_up_at"] == "2026-08-15"
+
+    with app.app_context():
+        entity = db.session.get(Entity, task["id"])
+        assert entity.follow_up_at is not None
+
+
+def test_activity_update_extracted_task_becomes_suggestion_not_duplicate(client, app):
+    """Matching an existing task title still goes to review — no silent link/create."""
     existing_task = _create_entity(client, "task", "Check due dates")
     project = _create_entity(client, "project", "Billing")
 
@@ -294,10 +489,11 @@ def test_activity_update_exact_title_match_does_not_duplicate_task(client, app):
     with app.app_context():
         assert Entity.query.filter_by(type="task", title="Check due dates").count() == 1
 
+    assert len(data["suggestions"]) == 1
     extracted = data["extracted"]["tasks"]
     assert len(extracted) == 1
-    assert extracted[0]["entity_id"] == existing_task["id"]
     assert extracted[0]["auto_created"] is False
+    assert "suggestion_id" in extracted[0]
 
     with app.app_context():
         assert EntityEvent.query.filter_by(

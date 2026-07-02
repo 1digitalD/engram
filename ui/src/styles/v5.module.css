@@ -313,6 +313,41 @@
 }
 .sectionHeader { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
 .detailChips { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.updateTextarea {
+  width: 100%;
+  min-height: 88px;
+  resize: vertical;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-solid);
+  color: var(--text);
+  padding: 10px 12px;
+  font: inherit;
+  line-height: 1.45;
+}
+.updateTextarea:focus {
+  outline: 2px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  outline-offset: 1px;
+}
+.updateComposer { display: flex; flex-direction: column; gap: var(--space-3); }
+.updateContext {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+.activityRow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border);
+}
+.activityRow:last-child { border-bottom: none; padding-bottom: 0; }
+.activityMeta { font-size: var(--text-sm); color: var(--text-muted); }
+.activityText { margin: 0; white-space: pre-wrap; }
+
 .editorForm { display: flex; flex-direction: column; gap: var(--space-4); }
 .editorGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--space-3); }
 .fieldStack { display: flex; flex-direction: column; gap: var(--space-2); }

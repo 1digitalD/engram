@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { CaptureProvider } from '../context/CaptureContext';
-import V5CaptureSheet, { CAPTURE_PLACEHOLDER, CaptureToast } from './V5CaptureSheet';
+import V5CaptureSheet, { CAPTURE_ATTACHMENT_HINT, CAPTURE_PLACEHOLDER, CaptureToast } from './V5CaptureSheet';
 
 vi.mock('../api/v4Client', () => ({
   v4API: {
@@ -65,7 +65,7 @@ describe('V5CaptureSheet', () => {
   it('auto-attaches when opened from a thread route', async () => {
     renderSheet('/projects/p1');
     await waitFor(() => {
-      expect(screen.getByLabelText('Capture attachment')).toHaveValue('p1');
+      expect(screen.getByLabelText('Capture thread context')).toHaveValue('p1');
     });
   });
 
@@ -128,6 +128,13 @@ describe('V5CaptureSheet', () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
+  it('shows honest thread-context copy when a thread is attached', async () => {
+    renderSheet('/projects/p1');
+    await waitFor(() => expect(screen.getByLabelText('Capture thread context')).toHaveValue('p1'));
+    expect(screen.getByText(CAPTURE_ATTACHMENT_HINT)).toBeInTheDocument();
+    expect(screen.queryByText(/activity update/i, { selector: 'option' })).not.toBeInTheDocument();
+  });
+
   it('passes thread_id when a project is attached', async () => {
     const captureFn = vi.fn(async () => ({
       source_note: { id: 'n1' },
@@ -138,7 +145,7 @@ describe('V5CaptureSheet', () => {
 
     renderSheet('/projects/p1', { captureFn });
 
-    await waitFor(() => expect(screen.getByLabelText('Capture attachment')).toHaveValue('p1'));
+    await waitFor(() => expect(screen.getByLabelText('Capture thread context')).toHaveValue('p1'));
 
     fireEvent.change(screen.getByLabelText('Capture text'), {
       target: { value: 'Status update' },

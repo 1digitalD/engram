@@ -1293,6 +1293,28 @@ def test_capture_progress_update_with_hallucinated_target_is_skipped(client, app
         assert Entity.query.filter_by(type="project").count() == 0
 
 
+def test_baseline_capture_with_thread_id_does_not_create_activity_update(client, app):
+    """AU6 may use thread_id as extraction context; today it is ignored for updates."""
+    project = client.post(
+        "/api/v4/entities",
+        json={"type": "project", "title": "HITL Pilot", "content": "Pilot rollout"},
+    ).get_json()["data"]
+
+    response = client.post(
+        "/api/v4/capture",
+        json={
+            "content": "Shipped parser fix for the pilot.",
+            "source": "ui",
+            "mode": "auto",
+            "thread_id": project["id"],
+        },
+    )
+    assert response.status_code == 201
+
+    updates = client.get(f"/api/v4/entities/{project['id']}/activity_updates").get_json()["data"]
+    assert updates == []
+
+
 def test_capture_progress_update_dedups_within_24h(client, app):
     project_response = client.post(
         "/api/v4/entities",
@@ -1330,6 +1352,56 @@ def test_capture_progress_update_dedups_within_24h(client, app):
     updates = client.get(f"/api/v4/entities/{project_id}/activity_updates").get_json()["data"]
     matching = [u for u in updates if u["content"] == "Shipped the HITL piece"]
     assert len(matching) == 1
+
+
+def test_capture_skipped_progress_update_does_not_auto_apply_status(client, app):
+    task_response = client.post(
+        "/api/v4/entities",
+        json={"type": "task", "title": "Build HITL piece", "content": "Task", "status": "in_progress"},
+    )
+    task_id = task_response.get_json()["data"]["id"]
+
+    extraction = {
+        "entities": [
+            {
+                "type": "task",
+                "title": "Build HITL piece",
+                "content": "Shipped the HITL piece",
+                "confidence": 0.9,
+                "evidence": "Shipped the HITL piece",
+            },
+        ]
+    }
+    decisions = [
+        {
+            "action": "progress_update",
+            "target_id": task_id,
+            "update_text": "Shipped the HITL piece",
+            "fields": {"status": "done"},
+            "confidence": 0.92,
+            "reason": "task delivered",
+        },
+    ]
+
+    with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction), patch(
+        "services.v4_reconciliation.reconcile_candidates", return_value=decisions
+    ):
+        first = client.post("/api/v4/capture", json={"content": "Standup notes 1"})
+        second = client.post("/api/v4/capture", json={"content": "Standup notes 2"})
+
+    assert first.status_code == 201
+    assert second.status_code == 201
+    second_data = second.get_json()
+
+    assert not any(c["type"] == "entity_updated" for c in second_data["applied_changes"])
+    activity_changes = [c for c in second_data["applied_changes"] if c["type"] == "activity_update_added"]
+    assert len(activity_changes) == 1
+    assert activity_changes[0]["created"] is False
+
+    with app.app_context():
+        from extensions import db
+        task = db.session.get(Entity, task_id)
+        assert task.status == "done"
 
 
 def test_capture_progress_update_with_high_confidence_status_auto_applies(client, app):

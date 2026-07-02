@@ -11,6 +11,7 @@ import { useSummary } from '../context/SummaryContext';
 import { entityTitleLabel } from '../utils/entityDisplay';
 import styles from '../styles/v5.module.css';
 import {
+  buildActivityUpdates,
   buildNextActions,
   buildPeople,
   buildReferences,
@@ -22,6 +23,14 @@ import {
   statusLabel,
   timelineGlyph,
 } from './v5ThreadDetailUtils';
+
+const ACTIVITY_UPDATE_ENTITY_TYPES = new Set(['project', 'task', 'area']);
+
+const UPDATE_PLACEHOLDERS = {
+  project: 'What changed on this project?',
+  task: 'Progress on this task…',
+  area: 'What is new in this area?',
+};
 
 const STATUS_OPTIONS = {
   note: ['active', 'processed', 'archived'],
@@ -298,6 +307,88 @@ function EntityAttributeEditor({
   );
 }
 
+function AddUpdateComposer({
+  entity,
+  open,
+  draft,
+  saving,
+  error,
+  onToggle,
+  onChange,
+  onSubmit,
+}) {
+  const placeholder = UPDATE_PLACEHOLDERS[entity?.type] || 'What changed?';
+
+  return (
+    <section className={styles.section} aria-labelledby="thread-add-update-label">
+      <div className={styles.sectionHeader}>
+        <h2 id="thread-add-update-label" className={styles.sectionLabel}>Add update</h2>
+        <button
+          type="button"
+          className={styles.inlineButton}
+          onClick={onToggle}
+          aria-expanded={open}
+        >
+          {open ? 'Hide' : 'Write update'}
+        </button>
+      </div>
+
+      {!open ? (
+        <p className={styles.emptyHint}>
+          Record progress on{' '}
+          <span className={styles.updateContext}>
+            {entityTitleLabel(entity, { includeType: false })}
+          </span>
+          .
+        </p>
+      ) : (
+        <form
+          className={styles.updateComposer}
+          onSubmit={(event) => {
+            event.preventDefault();
+            onSubmit();
+          }}
+        >
+          <p className={styles.updateContext}>
+            Updating:
+            {' '}
+            <strong>{entityTitleLabel(entity, { includeType: false })}</strong>
+          </p>
+          <label className={styles.fieldStack}>
+            <span className={styles.fieldLabel}>Update text</span>
+            <textarea
+              className={styles.updateTextarea}
+              aria-label="Update text"
+              placeholder={placeholder}
+              value={draft}
+              onChange={(event) => onChange(event.target.value)}
+              rows={4}
+            />
+          </label>
+          {error ? <p className={styles.error} role="alert">{error}</p> : null}
+          <div className={styles.editorActions}>
+            <button
+              type="button"
+              className={styles.inlineButton}
+              onClick={onToggle}
+              disabled={saving}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className={styles.inlineButtonPrimary}
+              disabled={!draft.trim() || saving}
+            >
+              {saving ? 'Saving…' : 'Save update'}
+            </button>
+          </div>
+        </form>
+      )}
+    </section>
+  );
+}
+
 function ThreadDetailContent({
   detail,
   events,
@@ -316,6 +407,13 @@ function ThreadDetailContent({
   onEditorCancel,
   showCaptureFab = true,
   showNextActions = true,
+  updateOpen = false,
+  updateDraft = '',
+  updateSaving = false,
+  updateError = '',
+  onToggleUpdate,
+  onUpdateChange,
+  onUpdateSubmit,
 }) {
   const entity = detail.entity;
   const entityType = entity.type;
@@ -325,6 +423,8 @@ function ThreadDetailContent({
   const people = buildPeople(detail);
   const relatedThreads = buildRelatedThreads(detail, entity);
   const references = buildReferences(detail, entity);
+  const activityUpdates = buildActivityUpdates(detail);
+  const showAddUpdate = ACTIVITY_UPDATE_ENTITY_TYPES.has(entityType);
   const [longPressTarget, setLongPressTarget] = useState(null);
 
   const longPress = useLongPress((target) => {
@@ -377,6 +477,36 @@ function ThreadDetailContent({
         <h2 id="thread-narrative-label" className={styles.sectionLabel}>Summary</h2>
         <p className={styles.narrative}>{summary}</p>
       </section>
+
+      {showAddUpdate ? (
+        <AddUpdateComposer
+          entity={entity}
+          open={updateOpen}
+          draft={updateDraft}
+          saving={updateSaving}
+          error={updateError}
+          onToggle={onToggleUpdate}
+          onChange={onUpdateChange}
+          onSubmit={onUpdateSubmit}
+        />
+      ) : null}
+
+      {activityUpdates.length > 0 ? (
+        <section className={styles.section} aria-labelledby="thread-activity-label">
+          <h2 id="thread-activity-label" className={styles.sectionLabel}>Activity</h2>
+          {activityUpdates.map((update) => (
+            <article key={update.id} className={styles.activityRow}>
+              <time className={styles.activityMeta} dateTime={update.updated_at}>
+                {formatTimelineDate(update.updated_at)}
+              </time>
+              <p className={styles.activityText}>{update.content}</p>
+              <Link to={pathForEntity({ id: update.id, type: 'note' })} className={styles.inlineButton}>
+                Open update
+              </Link>
+            </article>
+          ))}
+        </section>
+      ) : null}
 
       {showNextActions ? (
         <section className={styles.section} aria-labelledby="thread-next-actions-label">
@@ -555,6 +685,10 @@ export default function V5ThreadDetail({
   const [editorDraft, setEditorDraft] = useState(buildDraft(previewDetail?.entity));
   const [editorSaving, setEditorSaving] = useState(false);
   const [editorError, setEditorError] = useState('');
+  const [updateOpen, setUpdateOpen] = useState(false);
+  const [updateDraft, setUpdateDraft] = useState('');
+  const [updateSaving, setUpdateSaving] = useState(false);
+  const [updateError, setUpdateError] = useState('');
   const [citationEntityId, setCitationEntityId] = useState(null);
   const activeIdRef = useRef(id);
 
@@ -676,6 +810,41 @@ export default function V5ThreadDetail({
     openCapture();
   }, [openCapture]);
 
+  const handleToggleUpdate = useCallback(() => {
+    setUpdateError('');
+    setUpdateOpen((current) => !current);
+  }, []);
+
+  const handleUpdateChange = useCallback((value) => {
+    setUpdateError('');
+    setUpdateDraft(value);
+  }, []);
+
+  const handleUpdateSubmit = useCallback(async () => {
+    if (!detail?.entity || !updateDraft.trim()) return;
+    setUpdateSaving(true);
+    setUpdateError('');
+
+    try {
+      const result = await v4API.activityUpdates.create(detail.entity.id, updateDraft.trim());
+      if (result?.skipped) {
+        const message = result.reason === 'near_duplicate'
+          ? 'A very similar update was saved recently. Edit your text or open the existing update.'
+          : 'That exact update was already saved recently.';
+        setUpdateError(message);
+        return;
+      }
+      setUpdateDraft('');
+      setUpdateOpen(false);
+      await reloadThread();
+      refreshSummary();
+    } catch (err) {
+      setUpdateError(friendlyApiError(err, 'Failed to save update'));
+    } finally {
+      setUpdateSaving(false);
+    }
+  }, [detail, updateDraft, reloadThread, refreshSummary]);
+
   const editorDirty = useMemo(
     () => isDraftDirty(detail?.entity, editorDraft),
     [detail, editorDraft],
@@ -731,6 +900,13 @@ export default function V5ThreadDetail({
         onEditorChange={handleEditorChange}
         onEditorSave={handleEditorSave}
         onEditorCancel={handleEditorCancel}
+        updateOpen={updateOpen}
+        updateDraft={updateDraft}
+        updateSaving={updateSaving}
+        updateError={updateError}
+        onToggleUpdate={handleToggleUpdate}
+        onUpdateChange={handleUpdateChange}
+        onUpdateSubmit={handleUpdateSubmit}
       />
       <CitationEntitySheet
         entityId={citationEntityId}
