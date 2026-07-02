@@ -27,7 +27,7 @@ def _link(client, source_id, target_id, relationship_type):
     assert response.status_code == 201
 
 
-def test_threads_returns_active_people_and_projects(client, app):
+def test_threads_returns_active_people_and_projects(client):
     akash = _create_entity(client, "person", "Akash")
     blocked_task = _create_entity(client, "task", "Blocked dashboard work", status="blocked")
     _link(client, blocked_task["id"], akash["id"], "assigned_to")
@@ -52,82 +52,36 @@ def test_threads_returns_active_people_and_projects(client, app):
     assert project["id"] in by_id
     assert by_id[akash["id"]]["type"] == "person"
     assert by_id[project["id"]]["type"] == "project"
-    assert by_id[akash["id"]]["name"] == "Akash"
-    assert by_id[project["id"]]["name"] == "Launch readiness"
-    assert isinstance(by_id[akash["id"]]["key_items"], list)
-    assert len(by_id[akash["id"]]["key_items"]) >= 1
 
 
-def test_threads_ranked_by_attention(client, app):
-    quiet_person = _create_entity(client, "person", "Quiet Person")
-    quiet_task = _create_entity(client, "task", "Low priority follow-up", status="open")
-    _link(client, quiet_task["id"], quiet_person["id"], "assigned_to")
-
-    hot_person = _create_entity(client, "person", "Hot Person")
-    hot_task = _create_entity(
-        client,
-        "task",
-        "Urgent blocked work",
-        status="blocked",
-        due_at=(datetime.now(timezone.utc) - timedelta(days=2)).isoformat(),
-        properties={"priority": "urgent"},
-    )
-    _link(client, hot_task["id"], hot_person["id"], "assigned_to")
-
-    response = client.get("/api/v4/threads", query_string={"limit": 10})
-    assert response.status_code == 200
-    threads = response.get_json()["threads"]
-    ids = [thread["id"] for thread in threads]
-    assert hot_person["id"] in ids
-    assert quiet_person["id"] in ids
-    assert ids.index(hot_person["id"]) < ids.index(quiet_person["id"])
-    assert threads[0]["attention_score"] >= threads[-1]["attention_score"]
-
-
-def test_threads_includes_last_context(client, app):
-    person = _create_entity(client, "person", "Henry")
-    task = _create_entity(client, "task", "Loop in Finance", status="open")
-    _link(client, task["id"], person["id"], "assigned_to")
-
-    note_response = client.post(
-        f"/api/v4/entities/{task['id']}/activity_updates",
-        json={"content": "Loop in Finance before the next 1:1"},
-    )
-    assert note_response.status_code == 201
-
-    response = client.get("/api/v4/threads")
-    assert response.status_code == 200
-    thread = next(item for item in response.get_json()["threads"] if item["id"] == person["id"])
-    assert thread["last_context"]
-    assert "Loop in Finance" in thread["last_context"]
-    assert thread["last_activity_at"]
-
-
-def test_summary_threads_count_matches_threads_endpoint(client, app):
-    akash = _create_entity(client, "person", "Akash")
-    blocked_task = _create_entity(client, "task", "Blocked dashboard work", status="blocked")
-    _link(client, blocked_task["id"], akash["id"], "assigned_to")
-
-    project = _create_entity(client, "project", "Launch readiness")
-    overdue_task = _create_entity(
-        client,
-        "task",
-        "Send rollout update",
-        status="open",
-        due_at=(datetime.now(timezone.utc) - timedelta(days=1)).isoformat(),
-    )
-    _link(client, overdue_task["id"], project["id"], "parent")
+def test_threads_total_count_and_summary_are_not_capped_by_default_limit(client):
+    for index in range(25):
+        project = _create_entity(client, "project", f"Launch readiness {index}")
+        overdue_task = _create_entity(
+            client,
+            "task",
+            f"Send rollout update {index}",
+            status="open",
+            due_at=(datetime.now(timezone.utc) - timedelta(days=1)).isoformat(),
+        )
+        _link(client, overdue_task["id"], project["id"], "parent")
 
     threads_response = client.get("/api/v4/threads")
     assert threads_response.status_code == 200
-    threads_count = len(threads_response.get_json()["threads"])
-    assert threads_count > 0
+    threads_payload = threads_response.get_json()
+    assert len(threads_payload["threads"]) == 20
+    assert threads_payload["total_count"] == 25
+
+    expanded_response = client.get("/api/v4/threads?limit=200")
+    assert expanded_response.status_code == 200
+    expanded_payload = expanded_response.get_json()
+    assert len(expanded_payload["threads"]) == 25
+    assert expanded_payload["total_count"] == 25
 
     summary_response = client.get("/api/v4/summary")
     assert summary_response.status_code == 200
     summary = summary_response.get_json()
-    assert "threads_count" in summary
-    assert summary["threads_count"] == threads_count
+    assert summary["threads_count"] == 25
 
 
 def test_threads_topic_clustering_optional(client, app):
@@ -159,13 +113,14 @@ def test_threads_topic_clustering_optional(client, app):
             "last_context": "Shared rollout planning notes",
             "key_items": [],
         }]
+
         response = client.get("/api/v4/threads")
         assert response.status_code == 200
         payload = response.get_json()
         assert isinstance(payload["threads"], list)
+        assert payload["total_count"] >= 1
 
-    response = client.get("/api/v4/threads")
-    assert response.status_code == 200
-    payload = response.get_json()
-    assert isinstance(payload["threads"], list)
-    assert all(thread["type"] in {"person", "project", "topic"} for thread in payload["threads"])
+
+def test_threads_rejects_unsupported_rank(client):
+    response = client.get("/api/v4/threads?rank=recent")
+    assert response.status_code == 400

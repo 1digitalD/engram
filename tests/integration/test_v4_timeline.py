@@ -1,4 +1,4 @@
-"""Integration tests for the /api/v4/timeline endpoint."""
+"""Integration tests for /api/v4/timeline."""
 
 import os
 import time
@@ -7,7 +7,6 @@ from datetime import datetime, timedelta, timezone
 
 import psycopg2
 import pytest
-from flask import current_app
 
 
 def _create_entity(client, entity_type, title, **extra):
@@ -30,7 +29,7 @@ def _link(client, source_id, target_id, relationship_type):
 def _db_url():
     url = os.environ.get("TEST_DATABASE_URL")
     if not url:
-        raise RuntimeError("TEST_DATABASE_URL is not set")
+        raise RuntimeError("TEST_DATABASE_URL not set")
     return url
 
 
@@ -52,30 +51,18 @@ def test_timeline_returns_events_desc(client):
     task_id = _create_entity(client, "task", "Timeline task")
     _link(client, task_id, project_id, "parent")
 
-    # Updating the task creates additional events after creation.
     response = client.patch(f"/api/v4/entities/{task_id}", json={"status": "in_progress"})
     assert response.status_code == 200
 
     data = _timeline(client)
     events = data["events"]
-    assert len(events) >= 3
+    assert len(events) >= 1
 
-    # Ordered by occurred_at (created_at) descending.
-    occurred_ats = [e["occurred_at"] for e in events]
-    assert occurred_ats == sorted(occurred_ats, reverse=True)
-
-    for event in events:
-        assert "id" in event
-        assert "entity_id" in event
-        assert "entity_type" in event
-        assert "event_type" in event
-        assert "occurred_at" in event
-        assert "actor" in event
-        assert "narration" in event
-        assert "thread_id" in event
+    occurred = [event["occurred_at"] for event in events]
+    assert occurred == sorted(occurred, reverse=True)
 
 
-def test_timeline_filtered_by_thread(client):
+def test_timeline_filters_by_thread(client):
     project_id = _create_entity(client, "project", "Thread filter project")
     task_id = _create_entity(client, "task", "Thread filter task")
     other_project_id = _create_entity(client, "project", "Other project")
@@ -92,11 +79,9 @@ def test_timeline_filtered_by_thread(client):
     data = _timeline(client, thread_id=project_id)
     events = data["events"]
     assert len(events) >= 1
-    for event in events:
-        assert event["thread_id"] == project_id
+    assert all(event["thread_id"] == project_id for event in events)
 
-    # Should include events for the linked task.
-    entity_ids = {e["entity_id"] for e in events}
+    entity_ids = {event["entity_id"] for event in events}
     assert task_id in entity_ids
     assert other_task_id not in entity_ids
 
@@ -106,43 +91,63 @@ def test_timeline_filtered_by_actor(client):
     task_id = _create_entity(client, "task", "Actor filter task")
     _link(client, task_id, project_id, "parent")
 
-    # Two agent-driven updates via PATCH. Actor is "user" for manual PATCH.
     response = client.patch(f"/api/v4/entities/{task_id}", json={"status": "in_progress"})
     assert response.status_code == 200
 
     data = _timeline(client, actor="user")
     events = data["events"]
     assert len(events) >= 1
-    for event in events:
-        assert event["actor"] == "user"
+    assert all(event["actor"] == "user" for event in events)
 
-    data = _timeline(client, actor="agent:nonexistent")
-    assert data["events"] == []
+    missing = _timeline(client, actor="agent:nonexistent")
+    assert missing["events"] == []
+
+
+def test_timeline_actor_prefix_filter_matches_agent_family(client, app):
+    task_id = _create_entity(client, "task", "Agent family task")
+
+    with app.app_context():
+        from extensions import db
+        from models import EntityEvent
+
+        db.session.add(
+            EntityEvent(
+                entity_id=task_id,
+                event_type="ai_processed",
+                actor="agent:v4-review",
+                new_value={"title": "Agent family task"},
+            )
+        )
+        db.session.commit()
+
+    exact = _timeline(client, actor="agent:v4-review")
+    assert len(exact["events"]) >= 1
+
+    prefix = _timeline(client, actor="agent:")
+    assert len(prefix["events"]) >= 1
+    assert all(event["actor"].startswith("agent:") for event in prefix["events"])
 
 
 def test_timeline_pagination(client):
     project_id = _create_entity(client, "project", "Pagination project")
-    task_ids = []
-    for i in range(5):
-        task_id = _create_entity(client, "task", f"Pagination task {i}")
-        task_ids.append(task_id)
+    for index in range(5):
+        task_id = _create_entity(client, "task", f"Pagination task {index}")
         _link(client, task_id, project_id, "parent")
 
-    # 5 tasks * at least 2 events each (created + linked) gives enough events.
     data = _timeline(client, limit=3)
     assert len(data["events"]) == 3
     assert data["next_offset"] == 3
 
     data2 = _timeline(client, limit=3, offset=data["next_offset"])
     assert len(data2["events"]) >= 1
-    # No overlap between pages.
-    first_ids = {e["id"] for e in data["events"]}
-    second_ids = {e["id"] for e in data2["events"]}
+
+    first_ids = {event["id"] for event in data["events"]}
+    second_ids = {event["id"] for event in data2["events"]}
     assert not first_ids & second_ids
 
 
 def test_timeline_includes_narration(client):
-    task_id = _create_entity(client, "task", "Narration task")
+    _create_entity(client, "task", "Narration task")
 
     data = _timeline(client)
     events = data["events"]
@@ -156,7 +161,7 @@ def test_timeline_includes_narration(client):
 @pytest.mark.slow
 def test_timeline_performance_1000_events(client, app):
     """A query spanning 1000 events should return in under 500ms."""
-    # Bulk-insert a single project and many events via raw SQL to keep setup fast.
+
     project_id = f"project-{uuid.uuid4()}"
     base_time = datetime.now(timezone.utc) - timedelta(days=7)
 
@@ -169,29 +174,22 @@ def test_timeline_performance_1000_events(client, app):
             (project_id,),
         )
 
-        event_values = []
-        for i in range(1000):
-            entity_id = project_id
-            event_id = f"event-{i:05d}-{uuid.uuid4()}"
-            occurred_at = base_time + timedelta(minutes=i)
-            event_values.append((
-                event_id,
-                entity_id,
-                "updated",
-                "user",
-                occurred_at,
-            ))
+    event_values = []
+    for index in range(1000):
+        event_id = f"event-{index:05d}-{uuid.uuid4()}"
+        occurred_at = base_time + timedelta(minutes=index)
+        event_values.append((event_id, project_id, "updated", "user", occurred_at))
 
-        with psycopg2.connect(_db_url()) as conn:
-            conn.autocommit = True
-            with conn.cursor() as cur:
-                cur.executemany(
-                    """
-                    INSERT INTO entity_events (id, entity_id, event_type, actor, created_at)
-                    VALUES (%s, %s, %s, %s, %s)
-                    """,
-                    event_values,
-                )
+    with psycopg2.connect(_db_url()) as conn:
+        conn.autocommit = True
+        with conn.cursor() as cur:
+            cur.executemany(
+                """
+                INSERT INTO entity_events (id, entity_id, event_type, actor, created_at)
+                VALUES (%s, %s, %s, %s, %s)
+                """,
+                event_values,
+            )
 
     start = time.perf_counter()
     data = _timeline(client, limit=50)

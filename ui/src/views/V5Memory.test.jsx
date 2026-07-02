@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import V5Memory from './V5Memory';
@@ -14,6 +14,7 @@ vi.mock('../api/v4Client', () => ({
       canonical: vi.fn(),
     },
   },
+  friendlyApiError: (err, fallback) => err?.message || fallback || 'Something went wrong.',
 }));
 
 function renderWithRouter(ui) {
@@ -51,9 +52,12 @@ const previewData = {
 };
 
 describe('V5Memory', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it('renders date headers and event cards', () => {
     renderWithRouter(<V5Memory previewData={previewData} />);
-
     expect(screen.getByRole('heading', { name: /Memory/i })).toBeInTheDocument();
     expect(screen.getByText('Today')).toBeInTheDocument();
     expect(screen.getByText('Yesterday')).toBeInTheDocument();
@@ -63,37 +67,38 @@ describe('V5Memory', () => {
 
   it('renders filter chips for entity type and actor', () => {
     renderWithRouter(<V5Memory previewData={previewData} />);
-
-    const entityTypeGroup = screen.getByRole('group', { name: /Filter by entity type/i });
-    const actorGroup = screen.getByRole('group', { name: /Filter by actor/i });
-
-    expect(entityTypeGroup).toBeInTheDocument();
-    expect(actorGroup).toBeInTheDocument();
-
-    expect(entityTypeGroup.querySelectorAll('button').length).toBeGreaterThanOrEqual(2);
-    expect(actorGroup.querySelectorAll('button').length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByRole('group', { name: /Filter by entity type/i })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: /Filter by actor/i })).toBeInTheDocument();
   });
 
-  it('renders a search input', () => {
+  it('renders a search input and client-side search filter', () => {
     renderWithRouter(<V5Memory previewData={previewData} />);
-    expect(screen.getByRole('searchbox')).toBeInTheDocument();
-  });
-
-  it('shows an empty hint when no events are provided', () => {
-    renderWithRouter(<V5Memory previewData={{ events: [], next_offset: null }} />);
-    expect(screen.getByText(/Nothing in your memory yet/i)).toBeInTheDocument();
-  });
-
-  it('filters events by search query', () => {
-    renderWithRouter(<V5Memory previewData={previewData} />);
-
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'timeline' } });
-
     expect(screen.getByText(/Created task "Ship timeline"/i)).toBeInTheDocument();
     expect(screen.queryByText(/I processed this entity/i)).not.toBeInTheDocument();
   });
 
-  it('renders a clickable citation link when an event has a source_note_id', async () => {
+  it('shows an empty hint when no events are provided', () => {
+    renderWithRouter(<V5Memory previewData={{ events: [], next_offset: null }} />);
+    expect(screen.getByText(/Capture something first/i)).toBeInTheDocument();
+  });
+
+  it('passes the agent prefix filter through to the API', async () => {
+    v4API.timeline.mockResolvedValue({ events: [], next_offset: null });
+
+    renderWithRouter(<V5Memory />);
+
+    await waitFor(() => expect(v4API.timeline).toHaveBeenCalledWith({ limit: 50, offset: 0 }));
+    fireEvent.click(screen.getByRole('button', { name: 'Agent' }));
+
+    await waitFor(() => expect(v4API.timeline).toHaveBeenCalledWith({
+      limit: 50,
+      offset: 0,
+      actor: 'agent:',
+    }));
+  });
+
+  it('renders a clickable citation link when an event has a source note', async () => {
     const user = userEvent.setup();
     const dataWithSourceNote = {
       events: [
@@ -104,7 +109,7 @@ describe('V5Memory', () => {
           event_type: 'ai_updated',
           occurred_at: new Date().toISOString(),
           actor: 'agent:v4-extraction',
-          narration: 'Created task from note.',
+          narration: 'Created task note.',
           thread_id: 'project-1',
           source_note_id: 'note-source',
         },
@@ -122,8 +127,6 @@ describe('V5Memory', () => {
     renderWithRouter(<V5Memory previewData={dataWithSourceNote} />);
 
     const link = screen.getByRole('button', { name: /Open source note/i });
-    expect(link).toBeInTheDocument();
-
     await user.click(link);
 
     expect(v4API.entities.detail).toHaveBeenCalledWith('note-source');

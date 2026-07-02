@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Plus } from 'lucide-react';
-import { v4API } from '../api/v4Client';
+import { friendlyApiError, v4API } from '../api/v4Client';
 import XGlyph from '../components/XGlyph';
 import CitationsList from '../components/CitationsList';
 import CitationEntitySheet from '../components/CitationEntitySheet';
+import MarkdownEditor from '../components/MarkdownEditor';
 import { useCapture } from '../context/CaptureContext';
 import { useSummary } from '../context/SummaryContext';
 import { entityTitleLabel } from '../utils/entityDisplay';
@@ -21,6 +22,72 @@ import {
   statusLabel,
   timelineGlyph,
 } from './v5ThreadDetailUtils';
+
+const STATUS_OPTIONS = {
+  note: ['active', 'processed', 'archived'],
+  task: ['open', 'in_progress', 'waiting', 'blocked', 'done', 'cancelled'],
+  project: ['active', 'on_hold', 'completed', 'cancelled'],
+  area: ['active', 'archived'],
+  person: ['active', 'archived'],
+  resource: ['active', 'archived'],
+};
+
+const PRIORITY_OPTIONS = [
+  { value: '', label: 'None' },
+  { value: 'low', label: 'Low' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'high', label: 'High' },
+  { value: 'urgent', label: 'Urgent' },
+];
+
+function toLocalInput(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const pad = (number) => String(number).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function toIsoOrNull(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString();
+}
+
+function buildDraft(entity) {
+  return {
+    title: entity?.title || '',
+    content: entity?.content || '',
+    status: entity?.status || '',
+    due_at: toLocalInput(entity?.due_at),
+    follow_up_at: toLocalInput(entity?.follow_up_at),
+    priority: entity?.properties?.priority || '',
+  };
+}
+
+function buildUpdatePayload(entity, draft) {
+  const properties = { ...(entity?.properties || {}) };
+  if (draft.priority) {
+    properties.priority = draft.priority;
+  } else {
+    delete properties.priority;
+  }
+
+  return {
+    title: draft.title.trim() || entity?.title || '',
+    content: draft.content,
+    status: draft.status || entity?.status,
+    due_at: toIsoOrNull(draft.due_at),
+    follow_up_at: toIsoOrNull(draft.follow_up_at),
+    properties,
+  };
+}
+
+function isDraftDirty(entity, draft) {
+  const baseline = buildDraft(entity);
+  return Object.keys(baseline).some((key) => baseline[key] !== draft[key]);
+}
 
 function useLongPress(onLongPress, { delay = 500 } = {}) {
   const timerRef = useRef(null);
@@ -76,6 +143,147 @@ function ActionButton({ button, onAction }) {
   );
 }
 
+function EntityAttributeEditor({
+  entity,
+  open,
+  draft,
+  dirty,
+  saving,
+  error,
+  onToggle,
+  onChange,
+  onSave,
+  onCancel,
+}) {
+  const statuses = STATUS_OPTIONS[entity?.type] || ['active'];
+
+  return (
+    <section className={styles.section} aria-labelledby="thread-details-label">
+      <div className={styles.sectionHeader}>
+        <h2 id="thread-details-label" className={styles.sectionLabel}>Details</h2>
+        <button
+          type="button"
+          className={styles.inlineButton}
+          onClick={onToggle}
+          aria-expanded={open}
+        >
+          {open ? 'Hide editor' : 'Edit details'}
+        </button>
+      </div>
+
+      {!open ? (
+        <div className={styles.detailChips}>
+          <span className={styles.countChip}>status {statusLabel(entity?.status)}</span>
+          <span className={styles.countChip}>due {entity?.due_at ? formatTimelineDate(entity.due_at) : 'none'}</span>
+          <span className={styles.countChip}>follow up {entity?.follow_up_at ? formatTimelineDate(entity.follow_up_at) : 'none'}</span>
+          <span className={styles.countChip}>priority {(entity?.properties || {}).priority || 'none'}</span>
+        </div>
+      ) : (
+        <form
+          className={styles.editorForm}
+          onSubmit={(event) => {
+            event.preventDefault();
+            onSave();
+          }}
+        >
+          <div className={styles.editorGrid}>
+            <label className={styles.fieldStack}>
+              <span className={styles.fieldLabel}>Title</span>
+              <input
+                className={styles.textInput}
+                type="text"
+                value={draft.title}
+                onChange={(event) => onChange('title', event.target.value)}
+              />
+            </label>
+
+            <label className={styles.fieldStack}>
+              <span className={styles.fieldLabel}>Status</span>
+              <select
+                className={styles.selectInput}
+                value={draft.status}
+                onChange={(event) => onChange('status', event.target.value)}
+              >
+                {statuses.map((status) => (
+                  <option key={status} value={status}>
+                    {status.replace(/_/g, ' ')}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className={styles.fieldStack}>
+              <span className={styles.fieldLabel}>Due at</span>
+              <input
+                className={styles.textInput}
+                type="datetime-local"
+                value={draft.due_at}
+                onChange={(event) => onChange('due_at', event.target.value)}
+              />
+            </label>
+
+            <label className={styles.fieldStack}>
+              <span className={styles.fieldLabel}>Follow up at</span>
+              <input
+                className={styles.textInput}
+                type="datetime-local"
+                value={draft.follow_up_at}
+                onChange={(event) => onChange('follow_up_at', event.target.value)}
+              />
+            </label>
+
+            <label className={styles.fieldStack}>
+              <span className={styles.fieldLabel}>Priority</span>
+              <select
+                className={styles.selectInput}
+                value={draft.priority}
+                onChange={(event) => onChange('priority', event.target.value)}
+              >
+                {PRIORITY_OPTIONS.map((option) => (
+                  <option key={option.value || 'none'} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <label className={styles.fieldStack}>
+            <span className={styles.fieldLabel}>Content</span>
+            <MarkdownEditor
+              value={draft.content}
+              onChange={(value) => onChange('content', value)}
+              ariaLabel="Thread content"
+              minRows={6}
+              className={styles.editorMarkdown}
+            />
+          </label>
+
+          {error ? <p className={styles.error} role="alert">{error}</p> : null}
+
+          <div className={styles.editorActions}>
+            <button
+              type="button"
+              className={styles.inlineButton}
+              onClick={onCancel}
+              disabled={saving}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className={styles.inlineButtonPrimary}
+              disabled={!dirty || saving}
+            >
+              {saving ? 'Saving…' : 'Save changes'}
+            </button>
+          </div>
+        </form>
+      )}
+    </section>
+  );
+}
+
 function ThreadDetailContent({
   detail,
   events,
@@ -83,6 +291,15 @@ function ThreadDetailContent({
   onAction,
   onCapture,
   onOpenReference,
+  editorOpen,
+  editorDraft,
+  editorDirty,
+  editorSaving,
+  editorError,
+  onToggleEditor,
+  onEditorChange,
+  onEditorSave,
+  onEditorCancel,
   showCaptureFab = true,
   showNextActions = true,
 }) {
@@ -128,6 +345,19 @@ function ThreadDetailContent({
         </div>
         <h1 className={styles.title}>{entityTitleLabel(entity, { includeType: false })}</h1>
       </header>
+
+      <EntityAttributeEditor
+        entity={entity}
+        open={editorOpen}
+        draft={editorDraft}
+        dirty={editorDirty}
+        saving={editorSaving}
+        error={editorError}
+        onToggle={onToggleEditor}
+        onChange={onEditorChange}
+        onSave={onEditorSave}
+        onCancel={onEditorCancel}
+      />
 
       <section className={styles.section} aria-labelledby="thread-narrative-label">
         <h2 id="thread-narrative-label" className={styles.sectionLabel}>Summary</h2>
@@ -307,13 +537,36 @@ export default function V5ThreadDetail({
   const [loading, setLoading] = useState(!previewDetail);
   const [error, setError] = useState('');
   const [actionError, setActionError] = useState('');
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editorDraft, setEditorDraft] = useState(buildDraft(previewDetail?.entity));
+  const [editorSaving, setEditorSaving] = useState(false);
+  const [editorError, setEditorError] = useState('');
   const [citationEntityId, setCitationEntityId] = useState(null);
+
+  const reloadThread = useCallback(async () => {
+    const [detailResponse, eventsResponse, canonicalResponse] = await Promise.all([
+      v4API.entities.detail(id),
+      v4API.entities.events(id),
+      v4API.entities.canonical(id).catch(() => ({ canonical: '' })),
+    ]);
+
+    if (routeType && detailResponse?.entity?.type && detailResponse.entity.type !== routeType) {
+      navigate(pathForEntity(detailResponse.entity), { replace: true, state: location.state });
+      return null;
+    }
+
+    setDetail(detailResponse);
+    setEvents(eventsResponse?.data || []);
+    setCanonicalText(canonicalResponse?.canonical || '');
+    return detailResponse;
+  }, [id, routeType, navigate, location.state]);
 
   useEffect(() => {
     if (previewDetail) {
       setDetail(previewDetail);
       setEvents(previewEvents || []);
       setCanonicalText(previewCanonical || '');
+      setEditorDraft(buildDraft(previewDetail.entity));
       setLoading(false);
       return undefined;
     }
@@ -322,24 +575,13 @@ export default function V5ThreadDetail({
     setLoading(true);
     setError('');
 
-    Promise.all([
-      v4API.entities.detail(id),
-      v4API.entities.events(id),
-      v4API.entities.canonical(id).catch(() => ({ canonical: '' })),
-    ])
-      .then(([detailResponse, eventsResponse, canonicalResponse]) => {
-        if (cancelled) return;
-        const loadedDetail = detailResponse;
-        if (routeType && loadedDetail?.entity?.type && loadedDetail.entity.type !== routeType) {
-          navigate(pathForEntity(loadedDetail.entity), { replace: true, state: location.state });
-          return;
-        }
-        setDetail(loadedDetail);
-        setEvents(eventsResponse?.data || []);
-        setCanonicalText(canonicalResponse?.canonical || '');
+    reloadThread()
+      .then((loadedDetail) => {
+        if (cancelled || !loadedDetail) return;
+        setEditorDraft(buildDraft(loadedDetail.entity));
       })
       .catch((fetchError) => {
-        if (!cancelled) setError(fetchError.message || 'Failed to load thread');
+        if (!cancelled) setError(friendlyApiError(fetchError, 'Failed to load thread'));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -348,15 +590,19 @@ export default function V5ThreadDetail({
     return () => {
       cancelled = true;
     };
-  }, [id, routeType, previewDetail, previewEvents, previewCanonical, navigate, location.state]);
+  }, [previewDetail, previewEvents, previewCanonical, reloadThread]);
+
+  useEffect(() => {
+    if (!detail?.entity || editorOpen) return;
+    setEditorDraft(buildDraft(detail.entity));
+  }, [detail, editorOpen]);
 
   const handleAction = useCallback(async (button) => {
     setActionError('');
     try {
       if (button.action === 'done' && button.entityId) {
         await v4API.entities.update(button.entityId, { status: 'done' });
-        const refreshed = await v4API.entities.detail(id);
-        setDetail(refreshed);
+        await reloadThread();
         refreshSummary();
         return;
       }
@@ -364,18 +610,54 @@ export default function V5ThreadDetail({
       if (button.action === 'remind' && button.entityId) {
         const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
         await v4API.entities.update(button.entityId, { follow_up_at: tomorrow });
-        const refreshed = await v4API.entities.detail(id);
-        setDetail(refreshed);
+        await reloadThread();
         refreshSummary();
+        return;
       }
     } catch (err) {
-      setActionError(err?.message || 'Action failed');
+      setActionError(friendlyApiError(err, 'Action failed'));
     }
-  }, [id, refreshSummary]);
+  }, [reloadThread, refreshSummary]);
+
+  const handleEditorChange = useCallback((field, value) => {
+    setEditorError('');
+    setEditorDraft((current) => ({ ...current, [field]: value }));
+  }, []);
+
+  const handleEditorCancel = useCallback(() => {
+    setEditorDraft(buildDraft(detail?.entity));
+    setEditorError('');
+    setEditorOpen(false);
+  }, [detail]);
+
+  const handleEditorSave = useCallback(async () => {
+    if (!detail?.entity) return;
+    setEditorSaving(true);
+    setEditorError('');
+
+    try {
+      await v4API.entities.update(detail.entity.id, buildUpdatePayload(detail.entity, editorDraft));
+      const refreshed = await reloadThread();
+      if (refreshed?.entity) {
+        setEditorDraft(buildDraft(refreshed.entity));
+      }
+      setEditorOpen(false);
+      refreshSummary();
+    } catch (err) {
+      setEditorError(friendlyApiError(err, 'Failed to save details'));
+    } finally {
+      setEditorSaving(false);
+    }
+  }, [detail, editorDraft, reloadThread, refreshSummary]);
 
   const handleCapture = useCallback(() => {
     openCapture();
   }, [openCapture]);
+
+  const editorDirty = useMemo(
+    () => isDraftDirty(detail?.entity, editorDraft),
+    [detail, editorDraft],
+  );
 
   if (loading) {
     return (
@@ -410,6 +692,23 @@ export default function V5ThreadDetail({
         onAction={handleAction}
         onCapture={handleCapture}
         onOpenReference={(citation) => setCitationEntityId(citation.entity_id)}
+        editorOpen={editorOpen}
+        editorDraft={editorDraft}
+        editorDirty={editorDirty}
+        editorSaving={editorSaving}
+        editorError={editorError}
+        onToggleEditor={() => {
+          setEditorError('');
+          setEditorOpen((current) => {
+            if (!current && detail?.entity) {
+              setEditorDraft(buildDraft(detail.entity));
+            }
+            return !current;
+          });
+        }}
+        onEditorChange={handleEditorChange}
+        onEditorSave={handleEditorSave}
+        onEditorCancel={handleEditorCancel}
       />
       <CitationEntitySheet
         entityId={citationEntityId}

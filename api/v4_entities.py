@@ -351,7 +351,10 @@ def timeline():
     if to_dt:
         query = query.filter(EntityEvent.created_at <= to_dt)
     if actor:
-        query = query.filter(EntityEvent.actor == actor)
+        if actor.endswith(":"):
+            query = query.filter(EntityEvent.actor.like(f"{actor}%"))
+        else:
+            query = query.filter(EntityEvent.actor == actor)
     if entity_type:
         query = query.filter(Entity.type == entity_type)
     if thread_id:
@@ -1043,7 +1046,7 @@ def summary():
         "inbox_count": _needs_review_count(),
         "today_count": today_attention_count(today_payload),
         "suggestions_count": _pending_suggestions_count(),
-        "threads_count": len(_build_threads_payload(now)),
+    "threads_count": len(_all_threads_payload(now)),
         "last_reviewed_at": today_payload["last_reviewed_at"],
         "reviewed_today": today_payload["reviewed_today"],
         "stale_projects_count": (
@@ -1061,7 +1064,8 @@ def threads():
         return _error("unsupported rank; only 'attention' is supported", 400)
     limit = max(1, min(request.args.get("limit", 20, type=int), 200))
     now = datetime.now(timezone.utc)
-    return jsonify({"threads": _build_threads_payload(now, limit=limit)})
+    all_threads = _all_threads_payload(now)
+    return jsonify({"threads": all_threads[:limit], "total_count": len(all_threads)})
 
 
 @api_v4_bp.route("/inbox", methods=["GET"])
@@ -5106,7 +5110,7 @@ def _topic_thread_name(notes):
     return "Untitled topic"
 
 
-def _topic_threads(now, *, limit=20):
+def _topic_threads(now, *, limit=None):
     """Best-effort topic clusters from orphan notes with embeddings."""
     started = time_module.monotonic()
 
@@ -5206,7 +5210,7 @@ def _topic_threads(now, *, limit=20):
                     )[:3]
                 ],
             })
-            if len(threads) >= limit:
+            if limit is not None and len(threads) >= limit:
                 break
         return threads
     except Exception as exc:
@@ -5214,9 +5218,14 @@ def _topic_threads(now, *, limit=20):
         return []
 
 
-def _build_threads_payload(now, *, limit=20):
-    threads = _people_threads(now) + _project_threads(now) + _topic_threads(now, limit=limit)
+def _all_threads_payload(now):
+    threads = _people_threads(now) + _project_threads(now) + _topic_threads(now, limit=None)
     threads.sort(key=lambda thread: thread["attention_score"], reverse=True)
+    return threads
+
+
+def _build_threads_payload(now, *, limit=20):
+    threads = _all_threads_payload(now)
     return threads[:limit]
 
 

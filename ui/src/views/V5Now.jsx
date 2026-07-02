@@ -7,10 +7,21 @@ import styles from './V5Now.module.css';
 
 const USE_MOCKED_DATA = false;
 
-function entityPath(item) {
-  if (item.thread?.type === 'person') return `/people/${item.thread.id}`;
-  if (item.thread?.type) return `/${item.thread.type}s/${item.thread.id}`;
-  return `/entities/${item.id}`;
+function routeForEntity(type, id) {
+  if (!type || !id) return '/now';
+  if (type === 'person') return `/people/${id}`;
+  return `/${type}s/${id}`;
+}
+
+function itemPath(item) {
+  return routeForEntity(item.type, item.id);
+}
+
+function threadPath(item) {
+  if (item.thread?.type && item.thread?.id) {
+    return routeForEntity(item.thread.type, item.thread.id);
+  }
+  return itemPath(item);
 }
 
 function bandForScore(score) {
@@ -25,13 +36,14 @@ function sentenceFor(item) {
 }
 
 function NowRow({ item, onAction, actionsDisabled = false }) {
-  const path = entityPath(item);
+  const detailPath = itemPath(item);
+  const parentThreadPath = threadPath(item);
   const band = bandForScore(item.attention_score ?? 0);
   const actions = item.actions || [];
 
   return (
     <article className={`${styles.row} ${band}`}>
-      <Link to={path} className={styles.sentence}>
+      <Link to={detailPath} className={styles.sentence}>
         {sentenceFor(item)}
       </Link>
 
@@ -42,7 +54,7 @@ function NowRow({ item, onAction, actionsDisabled = false }) {
         {item.thread ? (
           <>
             <span className={styles.metaDot}>·</span>
-            <Link to={path} className={styles.threadChip}>
+            <Link to={parentThreadPath} className={styles.threadChip}>
               {item.thread.label}
             </Link>
           </>
@@ -208,7 +220,7 @@ export default function V5Now({ previewData }) {
     switch (action.key) {
       case 'open':
       case 'view':
-        navigate(`/entities/${item.id}`);
+        navigate(itemPath(item));
         return;
       case 'snooze': {
         const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();

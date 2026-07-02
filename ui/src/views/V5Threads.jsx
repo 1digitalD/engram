@@ -19,6 +19,7 @@ function groupThreads(threads) {
 
 export default function V5Threads() {
   const [threads, setThreads] = useState([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -26,20 +27,26 @@ export default function V5Threads() {
     let active = true;
     setLoading(true);
     setError('');
-    v4API.threads({ rank: 'attention', limit: 20 })
+
+    v4API.threads({ rank: 'attention', limit: 200 })
       .then((data) => {
         if (!active) return;
         setThreads(data?.threads || []);
+        setTotalCount(data?.total_count ?? (data?.threads || []).length);
       })
       .catch((err) => {
         if (!active) return;
         setError(friendlyApiError(err, 'Failed to load threads'));
         setThreads([]);
+        setTotalCount(0);
       })
       .finally(() => {
         if (active) setLoading(false);
       });
-    return () => { active = false; };
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   const grouped = useMemo(() => groupThreads(threads), [threads]);
@@ -52,11 +59,16 @@ export default function V5Threads() {
     return <p className={pageStyles.errorMessage}>{error}</p>;
   }
 
+  const showingPartial = totalCount > threads.length;
+
   return (
     <div className={pageStyles.page}>
       <div className={pageStyles.headerRow}>
-        <span className={pageStyles.title}>Threads · {threads.length} active</span>
-        <span className={pageStyles.subtitle}>ranked by attention ↓</span>
+        <span className={pageStyles.title}>Threads · {totalCount} active</span>
+        <span className={pageStyles.subtitle}>
+          ranked by attention
+          {showingPartial ? ` · showing ${threads.length}` : ' ↓'}
+        </span>
       </div>
 
       {grouped.hot.length ? (
@@ -84,7 +96,7 @@ export default function V5Threads() {
       {grouped.ambient.length ? (
         <>
           <div className={pageStyles.sectionLabel}>ambient</div>
-          <div className={pageStyles.ambientGrid}>
+          <div className={pageStyles.list}>
             {grouped.ambient.map((thread) => (
               <V5EntityRow key={thread.id} thread={thread} variant="ambient" />
             ))}
@@ -92,7 +104,7 @@ export default function V5Threads() {
         </>
       ) : null}
 
-      {!threads.length ? (
+      {threads.length === 0 ? (
         <p className={pageStyles.statusMessage}>No active threads yet.</p>
       ) : null}
     </div>

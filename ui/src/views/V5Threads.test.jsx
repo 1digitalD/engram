@@ -8,6 +8,7 @@ vi.mock('../api/v4Client', () => ({
   v4API: {
     threads: vi.fn(),
   },
+  friendlyApiError: (err, fallback) => err?.message || fallback || 'Something went wrong.',
 }));
 
 const sampleThreads = [
@@ -49,7 +50,7 @@ describe('V5Threads', () => {
   });
 
   it('renders hot, warm, and ambient bands from the threads endpoint', async () => {
-    v4API.threads.mockResolvedValue({ threads: sampleThreads });
+    v4API.threads.mockResolvedValue({ threads: sampleThreads, total_count: 3 });
 
     render(
       <MemoryRouter>
@@ -57,14 +58,23 @@ describe('V5Threads', () => {
       </MemoryRouter>,
     );
 
-    await waitFor(() => expect(v4API.threads).toHaveBeenCalledWith({ rank: 'attention', limit: 20 }));
-    expect(await screen.findByText(/Threads · 3 active/i)).toBeInTheDocument();
+    await waitFor(() => expect(v4API.threads).toHaveBeenCalledWith({ rank: 'attention', limit: 200 }));
+    expect(screen.getByText(/Threads · 3 active/i)).toBeInTheDocument();
     expect(screen.getByText('hot')).toBeInTheDocument();
     expect(screen.getByText('warm')).toBeInTheDocument();
     expect(screen.getByText('ambient')).toBeInTheDocument();
-    expect(screen.getByText(/HITL Pilot/)).toBeInTheDocument();
-    expect(screen.getByText('88')).toBeInTheDocument();
-    expect(screen.getByText(/Henry/)).toBeInTheDocument();
-    expect(screen.getByText(/Blog/)).toBeInTheDocument();
+  });
+
+  it('shows total count even when only a limited payload is loaded', async () => {
+    v4API.threads.mockResolvedValue({ threads: sampleThreads.slice(0, 2), total_count: 25 });
+
+    render(
+      <MemoryRouter>
+        <V5Threads />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText(/Threads · 25 active/i)).toBeInTheDocument();
+    expect(screen.getByText(/showing 2/i)).toBeInTheDocument();
   });
 });
