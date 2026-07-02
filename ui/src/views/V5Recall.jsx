@@ -2,7 +2,7 @@ import {
   useCallback, useEffect, useMemo, useRef, useState,
 } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search } from 'lucide-react';
+import { Plus, Search, Sparkles } from 'lucide-react';
 import Sheet from '../components/Sheet';
 import { v4API, friendlyApiError } from '../api/v4Client';
 import XGlyph from '../components/XGlyph';
@@ -75,7 +75,7 @@ function useRecallSearch(query) {
   return { results, loading, error };
 }
 
-export default function V5Recall({ open, onClose, initialQuery = '' }) {
+export default function V5Recall({ open, onClose, onAsk, initialQuery = '' }) {
   const navigate = useNavigate();
   const { openCapture } = useCapture();
   const [query, setQuery] = useState(initialQuery);
@@ -132,7 +132,7 @@ export default function V5Recall({ open, onClose, initialQuery = '' }) {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Search or ask…"
+              placeholder="Search your workspace"
               aria-label="Search terms"
               className={styles.input}
               autoComplete="off"
@@ -167,7 +167,20 @@ export default function V5Recall({ open, onClose, initialQuery = '' }) {
           ) : null}
 
           {!loading && !error && query.trim() && flatResults.length === 0 ? (
-            <p className={styles.message}>No results for "{query.trim()}".</p>
+            <div className={styles.emptyState}>
+              <p className={styles.message}>No results for "{query.trim()}".</p>
+              <button
+                type="button"
+                className={styles.handoffButton}
+                onClick={() => {
+                  onClose?.();
+                  onAsk?.();
+                }}
+              >
+                <Sparkles size={14} strokeWidth={2.2} aria-hidden="true" />
+                Open Ask Engram
+              </button>
+            </div>
           ) : null}
 
           {!loading && !query.trim() ? (

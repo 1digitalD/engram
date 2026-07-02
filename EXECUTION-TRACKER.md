@@ -84,3 +84,4 @@ All 6 prd tasks passed. See archived `docs/iterations/archive/prd-v5-hardening.j
 - 2026-07-02T22:41:02.617279+00:00 ui-04-now-full-today accepted via cursor
 - 2026-07-02T22:42:26.816202+00:00 ui-05-meeting-prep accepted via cursor
 - 2026-07-02T22:43:50.416230+00:00 ui-06-honest-follow-up-actions accepted via cursor
+- 2026-07-02T22:50:30.120585+00:00 ui-07-recall-copy accepted via opencode

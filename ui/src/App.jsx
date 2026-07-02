@@ -142,7 +142,7 @@ function AppShell() {
         <V5AskSheet open={askOpen} onClose={() => setAskOpen(false)} />
         <CaptureToast toast={toast} onOpenReview={openReview} />
         <V5ReviewSheet open={reviewOpen} onClose={closeReview} />
-        <V5Recall open={open} onClose={closeRecall} />
+        <V5Recall open={open} onClose={closeRecall} onAsk={() => setAskOpen(true)} />
       </div>
     </SummaryProvider>
   );
