@@ -352,7 +352,8 @@ def timeline():
         query = query.filter(EntityEvent.created_at <= to_dt)
     if actor:
         if actor.endswith(":"):
-            query = query.filter(EntityEvent.actor.like(f"{actor}%"))
+            escaped_actor = actor.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            query = query.filter(EntityEvent.actor.like(f"{escaped_actor}%", escape="\\"))
         else:
             query = query.filter(EntityEvent.actor == actor)
     if entity_type:
@@ -5222,11 +5223,6 @@ def _all_threads_payload(now):
     threads = _people_threads(now) + _project_threads(now) + _topic_threads(now, limit=None)
     threads.sort(key=lambda thread: thread["attention_score"], reverse=True)
     return threads
-
-
-def _build_threads_payload(now, *, limit=20):
-    threads = _all_threads_payload(now)
-    return threads[:limit]
 
 
 def _project_pulse(tasks, latest_update, now=None):

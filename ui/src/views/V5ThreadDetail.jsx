@@ -67,21 +67,35 @@ function buildDraft(entity) {
 }
 
 function buildUpdatePayload(entity, draft) {
-  const properties = { ...(entity?.properties || {}) };
-  if (draft.priority) {
-    properties.priority = draft.priority;
-  } else {
-    delete properties.priority;
+  const baseline = buildDraft(entity);
+  const payload = {};
+
+  if (draft.title !== baseline.title) {
+    payload.title = draft.title.trim() || entity?.title || '';
+  }
+  if (draft.content !== baseline.content) {
+    payload.content = draft.content;
+  }
+  if (draft.status !== baseline.status) {
+    payload.status = draft.status || entity?.status;
+  }
+  if (draft.due_at !== baseline.due_at) {
+    payload.due_at = toIsoOrNull(draft.due_at);
+  }
+  if (draft.follow_up_at !== baseline.follow_up_at) {
+    payload.follow_up_at = toIsoOrNull(draft.follow_up_at);
+  }
+  if (draft.priority !== baseline.priority) {
+    const properties = { ...(entity?.properties || {}) };
+    if (draft.priority) {
+      properties.priority = draft.priority;
+    } else {
+      delete properties.priority;
+    }
+    payload.properties = properties;
   }
 
-  return {
-    title: draft.title.trim() || entity?.title || '',
-    content: draft.content,
-    status: draft.status || entity?.status,
-    due_at: toIsoOrNull(draft.due_at),
-    follow_up_at: toIsoOrNull(draft.follow_up_at),
-    properties,
-  };
+  return payload;
 }
 
 function isDraftDirty(entity, draft) {
@@ -542,13 +556,21 @@ export default function V5ThreadDetail({
   const [editorSaving, setEditorSaving] = useState(false);
   const [editorError, setEditorError] = useState('');
   const [citationEntityId, setCitationEntityId] = useState(null);
+  const activeIdRef = useRef(id);
+
+  useEffect(() => {
+    activeIdRef.current = id;
+  }, [id]);
 
   const reloadThread = useCallback(async () => {
+    const requestId = id;
     const [detailResponse, eventsResponse, canonicalResponse] = await Promise.all([
       v4API.entities.detail(id),
       v4API.entities.events(id),
       v4API.entities.canonical(id).catch(() => ({ canonical: '' })),
     ]);
+
+    if (activeIdRef.current !== requestId) return null;
 
     if (routeType && detailResponse?.entity?.type && detailResponse.entity.type !== routeType) {
       navigate(pathForEntity(detailResponse.entity), { replace: true, state: location.state });

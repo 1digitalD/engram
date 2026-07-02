@@ -168,16 +168,20 @@ export function buildNextActions(detail, entityType) {
     });
   });
 
- if (actions.length === 0 && detail?.entity?.follow_up_at) {
- pushAction({
- id: 'follow-up',
- label: `Follow up on ${entityTitleLabel(detail.entity)}`,
- buttons: [
- { key: 'remind', label: 'Send reminder', action: 'remind', entityId: detail.entity.id },
- { key: 'open', label: 'Open thread', action: 'open', href: pathForEntity(primaryThreadTarget(detail)) },
- ],
- });
- }
+  if (actions.length === 0 && detail?.entity?.follow_up_at) {
+    const threadTarget = primaryThreadTarget(detail);
+    const buttons = [
+      { key: 'remind', label: 'Send reminder', action: 'remind', entityId: detail.entity.id },
+    ];
+    if (threadTarget && threadTarget.id !== detail.entity.id) {
+      buttons.push({ key: 'open', label: 'Open thread', action: 'open', href: pathForEntity(threadTarget) });
+    }
+    pushAction({
+      id: 'follow-up',
+      label: `Follow up on ${entityTitleLabel(detail.entity)}`,
+      buttons,
+    });
+  }
 
   return actions.slice(0, 3);
 }
@@ -226,16 +230,16 @@ export function buildRelatedThreads(detail, entity) {
     });
   });
 
- return [...unique.values()]
- .sort((a, b) => b.score - a.score)
- .slice(0, 6);
+  return [...unique.values()]
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 6);
 }
 
 function primaryThreadTarget(detail) {
- const entity = detail?.entity;
- if (!entity) return null;
- if (THREAD_TYPES.has(entity.type)) return entity;
- return buildRelatedThreads(detail, entity)[0]?.entity || entity;
+  const entity = detail?.entity;
+  if (!entity) return null;
+  if (THREAD_TYPES.has(entity.type)) return entity;
+  return buildRelatedThreads(detail, entity)[0]?.entity || entity;
 }
 
 export function statusLabel(status) {
