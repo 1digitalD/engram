@@ -356,3 +356,36 @@
 .textInput:focus, .selectInput:focus { outline: 2px solid color-mix(in srgb, var(--accent) 30%, transparent); outline-offset: 1px; }
 .editorMarkdown { border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface-solid); }
 .editorActions { display: flex; justify-content: flex-end; gap: var(--space-2); }
+.outcomePanel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+.outcomeHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  font-size: var(--text-sm);
+}
+.outcomeList {
+  margin: 0;
+  padding-left: var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+.outcomeCount {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text);
+}
+.outcomePlaceholder {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}

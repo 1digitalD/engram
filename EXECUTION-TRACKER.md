@@ -78,3 +78,4 @@ All 6 prd tasks passed. See archived `docs/iterations/archive/prd-v5-hardening.j
 - Backup before deploy: `bash scripts/backup_prod.sh`
 - Backend tests serial on port 5433
 - Frontend: `cd ui && npm test && npm run build`
+- 2026-07-02T22:05:51.027347+00:00 ui-02-update-outcome-panel accepted via opencode

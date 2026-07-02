@@ -4,7 +4,11 @@
   "riskLevel": "medium",
   "userProblem": "V5 ships core surfaces but Add update does not alter visible entity metadata, suggestions have no review UI, Capture renders twice on entity pages, and Now underuses the today API. Capture progress_update semantics were disabled on entity routes (AU8) without equivalent logic on the Add update path.",
   "whyNow": "Daily-use friction blocks trust in Engram as an operating surface. This iteration also stress-tests Loopsmith drain + LCS + Cursor overseer on a real full-stack scenario.",
-  "skills": ["tdd", "incremental-implementation", "git-workflow"],
+  "skills": [
+    "tdd",
+    "incremental-implementation",
+    "git-workflow"
+  ],
   "doubt": false,
   "scope": {
     "filesAffected": [
@@ -39,7 +43,7 @@
     "dataOrApiDependencies": [
       "Tests must use TEST_DATABASE_URL on port 5433 only.",
       "Activity update new tasks remain suggestions per AU3 trust policy.",
-      "No schema migrations in M1–M3 unless explicitly added in a slice."
+      "No schema migrations in M1\u2013M3 unless explicitly added in a slice."
     ],
     "writePathsAffected": [
       "Activity update extraction and mutation policy",
@@ -53,7 +57,10 @@
       "title": "Remove duplicate Capture FAB on thread detail",
       "description": "Entity detail pages render two Capture FABs: global CaptureFab in App.jsx and a local FAB in V5ThreadDetail. Remove the thread-detail FAB (showCaptureFab=false or delete local FAB). Global CaptureFab plus CaptureContext defaultAttachment must still pre-attach the current entity when capturing from entity routes.",
       "kind": "fix",
-      "skills": ["tdd", "git-workflow"],
+      "skills": [
+        "tdd",
+        "git-workflow"
+      ],
       "risk": "low",
       "dependencies": [],
       "acceptanceCriteria": [
@@ -77,9 +84,15 @@
       "title": "Show Add update applied/suggested outcomes in UI",
       "description": "V5ThreadDetail handleUpdateSubmit ignores activityUpdates.create response (extracted, suggestions, target). After save, show a dismissible outcome panel: applied follow-up/status changes when present, suggested tasks with count and titles, link placeholder for review sheet (UI-03). Reload detail so Details chips reflect updated follow_up_at.",
       "kind": "code",
-      "skills": ["tdd", "incremental-implementation", "git-workflow"],
+      "skills": [
+        "tdd",
+        "incremental-implementation",
+        "git-workflow"
+      ],
       "risk": "medium",
-      "dependencies": ["ui-01-duplicate-fab"],
+      "dependencies": [
+        "ui-01-duplicate-fab"
+      ],
       "acceptanceCriteria": [
         "Successful Add update shows applied vs suggested summary when API returns them.",
         "Reloaded entity detail reflects updated follow_up_at in Details chips when API applied it.",
@@ -91,19 +104,25 @@
         "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build"
       ],
       "blocked": false,
-      "passes": false,
-      "attempts": 0,
+      "passes": true,
+      "attempts": 1,
       "blockerReason": null,
-      "validationEvidence": null
+      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- V5ThreadDetail\n\n> engram-ui@0.0.0 test\n> node scripts/run-tests.mjs V5ThreadDetail\n\n\n RUN  v3.2.4 /Volumes/lex1t/dev/shared/repos/engram/ui\n\n \u2713 src/views/V5ThreadDetail.test.jsx (17 tests) 414ms\n\n Test Files  1 passed (1)\n      Tests  17 passed (17)\n   Start at  15:05:49\n   Duration  1.24s (transform 118ms, setup 49ms, collect 275ms, tests 414ms, environment 266ms, prepare 56ms)\n\nnpm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\nnpm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build\n\n> engram-ui@0.0.0 build\n> vite build\n\nvite v8.0.10 building client environment for production...\n\u001b[2K\ntransforming...\u2713 1835 modules transformed.\nrendering chunks...\ncomputing gzip size...\n../static/index.html                             1.95 kB \u2502 gzip:   0.86 kB\n../static/assets/index-DYuNRQId.css             60.27 kB \u2502 gzip:  10.37 kB\n../static/assets/rolldown-runtime-jpDsebLB.js    0.56 kB \u2502 gzip:   0.36 kB\n../static/assets/vendor-icons-CULm09Em.js        3.77 kB \u2502 gzip:   1.72 kB\n../static/assets/index-DH66Py09.js              83.61 kB \u2502 gzip:  24.50 kB\n../static/assets/vendor-react-CRYOerXQ.js      230.07 kB \u2502 gzip:  73.01 kB\n../static/assets/vendor-DgoxB5Ss.js            433.38 kB \u2502 gzip: 136.23 kB\n\n\u2713 built in 197ms\nnpm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options."
     },
     {
       "id": "ui-03-suggestions-review",
       "title": "V5 suggestions review sheet and shell badge",
       "description": "Restore review surface for pending AI suggestions (V4 removed). New V5ReviewSheet: list pending suggestions, accept/dismiss via v4API.suggestions. Top-bar badge from summary.suggestions_count. Capture toast links to review when suggested > 0. Wire App.jsx to read suggestions_count from GET /api/v4/summary.",
       "kind": "code",
-      "skills": ["tdd", "incremental-implementation", "git-workflow"],
+      "skills": [
+        "tdd",
+        "incremental-implementation",
+        "git-workflow"
+      ],
       "risk": "medium",
-      "dependencies": ["ui-02-update-outcome-panel"],
+      "dependencies": [
+        "ui-02-update-outcome-panel"
+      ],
       "acceptanceCriteria": [
         "Badge or entry point visible when suggestions_count > 0.",
         "Review sheet lists pending suggestions and accept/dismiss work against test API mocks.",
@@ -126,9 +145,15 @@
       "title": "Activity update status extraction and mutation policy",
       "description": "Extend extract_dates_and_tasks_from_update to include optional status (done, waiting, blocked, in_progress). In create_activity_update, auto-apply status when explicit and confidence >= AUTO_APPLY_CONFIDENCE (mirror capture progress_update); else emit update_task suggestion. New tasks remain suggestions only (AU3). Add characterization tests including done-for-now language.",
       "kind": "code",
-      "skills": ["tdd", "incremental-implementation", "git-workflow"],
+      "skills": [
+        "tdd",
+        "incremental-implementation",
+        "git-workflow"
+      ],
       "risk": "medium",
-      "dependencies": ["ui-02-update-outcome-panel"],
+      "dependencies": [
+        "ui-02-update-outcome-panel"
+      ],
       "acceptanceCriteria": [
         "Activity update extraction schema includes status field.",
         "Explicit done language can close task (auto-apply or high-confidence path) with tests.",
@@ -150,9 +175,15 @@
       "title": "Follow-up routing for closure and spin-off tasks",
       "description": "When update sets status done/cancelled, do not apply follow_up_at to target entity. When follow-up language refers to new work (e.g. security review), put due_at/follow_up_at on task suggestion payload instead of parent. Update extraction prompt with closure + spin-off example. Integration test for user scenario: done + new task + follow up next week.",
       "kind": "code",
-      "skills": ["tdd", "incremental-implementation", "git-workflow"],
+      "skills": [
+        "tdd",
+        "incremental-implementation",
+        "git-workflow"
+      ],
       "risk": "medium",
-      "dependencies": ["au10-status-extraction"],
+      "dependencies": [
+        "au10-status-extraction"
+      ],
       "acceptanceCriteria": [
         "Done task update does not receive parent follow_up_at when spin-off task carries the date.",
         "Explicit follow-up on open task still updates target (existing behavior preserved).",
@@ -173,9 +204,15 @@
       "title": "Now view uses full /api/v4/today payload",
       "description": "Extend V5Now transformTodayResponse to surface blocked_tasks, waiting_tasks, overdue_follow_ups, follow_ups, recent_notes, pending_suggestions row, and new_since_yesterday_count from summary where useful. Preserve three-band layout (needs / waiting / ambient).",
       "kind": "code",
-      "skills": ["tdd", "incremental-implementation", "git-workflow"],
+      "skills": [
+        "tdd",
+        "incremental-implementation",
+        "git-workflow"
+      ],
       "risk": "medium",
-      "dependencies": ["ui-03-suggestions-review"],
+      "dependencies": [
+        "ui-03-suggestions-review"
+      ],
       "acceptanceCriteria": [
         "Now renders at least blocked/waiting and follow-up buckets when API returns them.",
         "Pending suggestions row links to review sheet when UI-03 shipped.",
@@ -197,7 +234,10 @@
       "title": "Render meeting prep and current load on person detail",
       "description": "Backend person detail includes meeting_prep and current_load but UI ignores them. Add buildMeetingPrep/buildCurrentLoad in v5ThreadDetailUtils and render sections on person detail after Summary.",
       "kind": "code",
-      "skills": ["tdd", "git-workflow"],
+      "skills": [
+        "tdd",
+        "git-workflow"
+      ],
       "risk": "low",
       "dependencies": [],
       "acceptanceCriteria": [
@@ -221,7 +261,10 @@
       "title": "Honest Snooze and reminder action labels",
       "description": "Snooze, Send reminder, and remind emoji actions all set follow_up_at to now+24h without explaining that. Rename to honest labels (e.g. Follow up tomorrow) and add title/tooltip documenting behavior until date picker ships.",
       "kind": "fix",
-      "skills": ["tdd", "git-workflow"],
+      "skills": [
+        "tdd",
+        "git-workflow"
+      ],
       "risk": "low",
       "dependencies": [],
       "acceptanceCriteria": [
@@ -244,7 +287,10 @@
       "title": "Recall honest copy and Ask handoff",
       "description": "Recall placeholder says Search or ask but only searches. Change placeholder to Search your workspace; on empty results offer Open Ask Engram button that opens V5AskSheet.",
       "kind": "fix",
-      "skills": ["tdd", "git-workflow"],
+      "skills": [
+        "tdd",
+        "git-workflow"
+      ],
       "risk": "low",
       "dependencies": [],
       "acceptanceCriteria": [
@@ -267,7 +313,10 @@
       "title": "Memory UX: hide thread UUID filter and reduce noise",
       "description": "Remove or hide raw Thread ID filter in V5Memory. Add client-side filter to hide repetitive bookkeeping narrations (optional toggle). Keep server timeline contract unchanged.",
       "kind": "code",
-      "skills": ["tdd", "git-workflow"],
+      "skills": [
+        "tdd",
+        "git-workflow"
+      ],
       "risk": "low",
       "dependencies": [],
       "acceptanceCriteria": [
@@ -290,7 +339,11 @@
       "title": "Decisions section on thread detail",
       "description": "Thread detail shows decisions_count chip but no list. Add Decisions section using GET /api/v4/decisions?thread_id= and optional manual record via POST /api/v4/decisions.",
       "kind": "code",
-      "skills": ["tdd", "incremental-implementation", "git-workflow"],
+      "skills": [
+        "tdd",
+        "incremental-implementation",
+        "git-workflow"
+      ],
       "risk": "low",
       "dependencies": [],
       "acceptanceCriteria": [
@@ -313,7 +366,10 @@
       "title": "Collapse empty thread detail sections",
       "description": "People, Related threads, and References sections always render with emptyHint paragraphs. Omit sections entirely when item count is zero to reduce scroll noise.",
       "kind": "fix",
-      "skills": ["tdd", "git-workflow"],
+      "skills": [
+        "tdd",
+        "git-workflow"
+      ],
       "risk": "low",
       "dependencies": [],
       "acceptanceCriteria": [

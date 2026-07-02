@@ -196,6 +196,69 @@ describe('V5ThreadDetail', () => {
     await waitFor(() => expect(v4API.entities.detail).toHaveBeenCalledTimes(2));
   });
 
+  it('shows applied and suggested outcomes after a successful update', async () => {
+    const fixture = fixtureForType('project');
+    const updatedEntity = {
+      ...fixture.detail.entity,
+      follow_up_at: '2026-07-10T09:00:00Z',
+    };
+    const updatedDetail = { ...fixture.detail, entity: updatedEntity };
+
+    v4API.activityUpdates.create.mockResolvedValue({
+      data: { id: 'note-new-update', type: 'note', source: 'activity_update' },
+      target: updatedEntity,
+      extracted: { follow_up_at: '2026-07-10T09:00:00Z', tasks: [] },
+      suggestions: [
+        { id: 's1', suggestion_type: 'create_task', payload: { title: 'Schedule design review' } },
+        { id: 's2', suggestion_type: 'create_task', payload: { title: 'Notify stakeholders' } },
+      ],
+    });
+    v4API.entities.detail
+      .mockResolvedValueOnce(fixture.detail)
+      .mockResolvedValueOnce(updatedDetail);
+    v4API.entities.events.mockResolvedValue({ data: fixture.events });
+    v4API.entities.canonical.mockResolvedValue({ canonical: fixture.canonical });
+
+    render(
+      <MemoryRouter initialEntries={['/projects/project-hitl']}>
+        <CaptureProvider>
+          <Routes>
+            <Route
+              path="/projects/:id"
+              element={(
+                <V5ThreadDetail
+                  type="project"
+                  previewDetail={null}
+                  previewEvents={null}
+                  previewCanonical=""
+                />
+              )}
+            />
+          </Routes>
+        </CaptureProvider>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => expect(v4API.entities.detail).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole('button', { name: 'Write update' }));
+    fireEvent.change(screen.getByLabelText('Update text'), {
+      target: { value: 'Shipped parser fix to design partners.' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save update' }));
+
+    await waitFor(() => expect(v4API.activityUpdates.create).toHaveBeenCalled());
+    expect(await screen.findByText('2 suggested tasks')).toBeInTheDocument();
+    expect(screen.getByText('Schedule design review')).toBeInTheDocument();
+    expect(screen.getByText('Notify stakeholders')).toBeInTheDocument();
+    expect(screen.getByText(/Follow-up set to/)).toBeInTheDocument();
+
+    const detailsSection = screen.getByRole('region', { name: 'Details' });
+    expect(within(detailsSection).getByText(/Jul 10/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss update outcome' }));
+    await waitFor(() => expect(screen.queryByText('2 suggested tasks')).not.toBeInTheDocument());
+  });
+
   it('renders activity updates from detail sections', async () => {
     renderThread('project');
     const activitySection = await screen.findByRole('region', { name: 'Activity' });

@@ -391,6 +391,52 @@ function AddUpdateComposer({
   );
 }
 
+function UpdateOutcomePanel({ outcome, onDismiss }) {
+  if (!outcome) return null;
+  const { applied = [], suggestions = [] } = outcome;
+  const hasApplied = applied.length > 0;
+  const hasSuggestions = suggestions.length > 0;
+  if (!hasApplied && !hasSuggestions) return null;
+
+  return (
+    <div className={styles.outcomePanel} role="status" aria-live="polite">
+      <div className={styles.outcomeHeader}>
+        <strong>Update processed</strong>
+        <button
+          type="button"
+          className={styles.inlineButton}
+          onClick={onDismiss}
+          aria-label="Dismiss update outcome"
+        >
+          Dismiss
+        </button>
+      </div>
+      {hasApplied ? (
+        <ul className={styles.outcomeList}>
+          {applied.map((change, index) => (
+            <li key={index}>{change.message}</li>
+          ))}
+        </ul>
+      ) : null}
+      {hasSuggestions ? (
+        <div className={styles.outcomeSuggestions}>
+          <p className={styles.outcomeCount}>
+            {suggestions.length} suggested task{suggestions.length === 1 ? '' : 's'}
+          </p>
+          <ul className={styles.outcomeList}>
+            {suggestions.map((suggestion, index) => (
+              <li key={suggestion.id || index}>
+                {suggestion.payload?.title || suggestion.title || 'Untitled suggestion'}
+              </li>
+            ))}
+          </ul>
+          <span className={styles.outcomePlaceholder}>Review suggestions (UI-03)</span>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function ThreadDetailContent({
   detail,
   events,
@@ -416,6 +462,8 @@ function ThreadDetailContent({
   onToggleUpdate,
   onUpdateChange,
   onUpdateSubmit,
+  updateOutcome = null,
+  onDismissUpdateOutcome,
   activityUpdates = [],
   activityHasMore = false,
   activityLoadingMore = false,
@@ -484,16 +532,22 @@ function ThreadDetailContent({
       </section>
 
       {showAddUpdate ? (
-        <AddUpdateComposer
-          entity={entity}
-          open={updateOpen}
-          draft={updateDraft}
-          saving={updateSaving}
-          error={updateError}
-          onToggle={onToggleUpdate}
-          onChange={onUpdateChange}
-          onSubmit={onUpdateSubmit}
-        />
+        <>
+          <AddUpdateComposer
+            entity={entity}
+            open={updateOpen}
+            draft={updateDraft}
+            saving={updateSaving}
+            error={updateError}
+            onToggle={onToggleUpdate}
+            onChange={onUpdateChange}
+            onSubmit={onUpdateSubmit}
+          />
+          <UpdateOutcomePanel
+            outcome={updateOutcome}
+            onDismiss={onDismissUpdateOutcome}
+          />
+        </>
       ) : null}
 
       {activityUpdates.length > 0 ? (
@@ -704,6 +758,7 @@ export default function V5ThreadDetail({
   const [updateDraft, setUpdateDraft] = useState('');
   const [updateSaving, setUpdateSaving] = useState(false);
   const [updateError, setUpdateError] = useState('');
+  const [updateOutcome, setUpdateOutcome] = useState(null);
   const [extraActivityUpdates, setExtraActivityUpdates] = useState([]);
   const [activityLoadingMore, setActivityLoadingMore] = useState(false);
   const [citationEntityId, setCitationEntityId] = useState(null);
@@ -874,12 +929,17 @@ export default function V5ThreadDetail({
     setUpdateDraft(value);
   }, []);
 
+  const handleDismissUpdateOutcome = useCallback(() => {
+    setUpdateOutcome(null);
+  }, []);
+
   const handleUpdateSubmit = useCallback(async () => {
     if (!detail?.entity || !updateDraft.trim()) return;
     setUpdateSaving(true);
     setUpdateError('');
 
     try {
+      const previousEntity = detail.entity;
       const result = await v4API.activityUpdates.create(detail.entity.id, updateDraft.trim());
       if (result?.skipped) {
         const message = result.reason === 'near_duplicate'
@@ -890,6 +950,20 @@ export default function V5ThreadDetail({
       }
       setUpdateDraft('');
       setUpdateOpen(false);
+
+      const target = result?.target || previousEntity;
+      const applied = [];
+      if (target.status && target.status !== previousEntity.status) {
+        applied.push({ message: `Status updated to ${statusLabel(target.status)}` });
+      }
+      if (target.follow_up_at !== previousEntity.follow_up_at) {
+        applied.push({ message: `Follow-up set to ${formatTimelineDate(target.follow_up_at)}` });
+      }
+      setUpdateOutcome({
+        applied,
+        suggestions: result?.suggestions || [],
+      });
+
       await reloadThread();
       refreshSummary();
     } catch (err) {
@@ -961,6 +1035,8 @@ export default function V5ThreadDetail({
         onToggleUpdate={handleToggleUpdate}
         onUpdateChange={handleUpdateChange}
         onUpdateSubmit={handleUpdateSubmit}
+        updateOutcome={updateOutcome}
+        onDismissUpdateOutcome={handleDismissUpdateOutcome}
         activityUpdates={activityUpdates}
         activityHasMore={activityHasMore}
         activityLoadingMore={activityLoadingMore}
