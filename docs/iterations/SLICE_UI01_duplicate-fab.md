@@ -3,7 +3,7 @@
 > **V5 Productivity & Trust**
 > **Task id:** `ui-01-duplicate-fab`
 > **Risk:** low
-> **Status:** Pending
+> **Status:** Done (overseer canary, 2026-07-02)
 
 ## Goal
 
@@ -31,4 +31,6 @@ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build
 
 <!-- Loopsmith / overseer fills in on completion -->
 
-**Acceptance met:** [ ] yes / [ ] no
+**Acceptance met:** [x] yes
+
+**Commit:** pending overseer commit for UI-01 code change

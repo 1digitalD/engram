@@ -67,10 +67,10 @@
         "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build"
       ],
       "blocked": false,
-      "passes": false,
-      "attempts": 0,
+      "passes": true,
+      "attempts": 1,
       "blockerReason": null,
-      "validationEvidence": null
+      "validationEvidence": "Overseer canary (Loopsmith blocked on dirty repo pre-commit): showCaptureFab=false on thread detail; CaptureFab remains global in App. npm test -- V5ThreadDetail App: 24 passed."
     },
     {
       "id": "ui-02-update-outcome-panel",

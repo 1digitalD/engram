@@ -4,7 +4,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { v4API } from '../api/v4Client';
 import { CaptureProvider, useCapture } from '../context/CaptureContext';
 import V5ThreadDetail from './V5ThreadDetail';
-import V5CaptureSheet from './V5CaptureSheet';
+import V5CaptureSheet, { CaptureFab } from './V5CaptureSheet';
 import { fixtureForType } from './V5ThreadDetail.fixtures';
 
 vi.mock('../api/v4Client', () => ({
@@ -125,6 +125,7 @@ describe('V5ThreadDetail', () => {
               { id: 'project-hitl', label: 'HITL Pilot', type: 'project' },
             ]}
           />
+          <CaptureFab />
           <Routes>
             <Route
               path="/projects/:id"
@@ -142,7 +143,9 @@ describe('V5ThreadDetail', () => {
       </MemoryRouter>,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Capture' }));
+    expect(screen.getAllByRole('button', { name: /^(Capture|Open capture)$/i })).toHaveLength(1);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open capture' }));
     await waitFor(() => expect(screen.getByTestId('capture-open')).toHaveTextContent('open'));
     expect(screen.getByTestId('capture-content')).toHaveTextContent('');
     await waitFor(() => expect(screen.getByLabelText('Capture thread context')).toHaveValue('project-hitl'));

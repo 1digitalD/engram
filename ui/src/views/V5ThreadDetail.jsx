@@ -965,6 +965,7 @@ export default function V5ThreadDetail({
         activityHasMore={activityHasMore}
         activityLoadingMore={activityLoadingMore}
         onLoadMoreActivity={handleLoadMoreActivity}
+        showCaptureFab={false}
       />
       <CitationEntitySheet
         entityId={citationEntityId}

@@ -5,7 +5,7 @@ then read the active source docs before changing code.
 
 Last updated: 2026-07-02
 Branch: `main`
-Status: **Iteration 18 bootstrapped** — V5 Productivity & Trust Loop. Loopsmith canary: `ui-01-duplicate-fab`.
+Status: **Iteration 18 in progress** — UI-01 done (overseer canary). Loopsmith drain ready for UI-02+.
 
 Runtime baseline: `/api/v4` only, fresh Postgres + pgvector schema, write-enabled MCP
 aligned with the active API.
@@ -23,7 +23,7 @@ aligned with the active API.
 
 | Milestone | Tasks | Status |
 |-----------|-------|--------|
-| M1 Trust fixes | UI-01, UI-02, UI-03 | pending |
+| M1 Trust fixes | UI-01, UI-02, UI-03 | UI-01 done |
 | M2 Activity intelligence | AU10, AU11 | pending |
 | M3 Daily surface | UI-04 – UI-07 | pending |
 | M4 Polish | UI-08 – UI-10 | pending |
