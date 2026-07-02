@@ -328,10 +328,10 @@
         "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build"
       ],
       "blocked": false,
-      "passes": false,
-      "attempts": 0,
+      "passes": true,
+      "attempts": 1,
       "blockerReason": null,
-      "validationEvidence": null
+      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- V5Memory\n\n> engram-ui@0.0.0 test\n> node scripts/run-tests.mjs V5Memory\n\n\n RUN  v3.2.4 /Volumes/lex1t/dev/shared/repos/engram/ui\n\n \u2713 src/views/V5Memory.test.jsx (8 tests) 125ms\n\n Test Files  1 passed (1)\n      Tests  8 passed (8)\n   Start at  15:54:06\n   Duration  966ms (transform 110ms, setup 49ms, collect 292ms, tests 125ms, environment 275ms, prepare 38ms)\n\nnpm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\nnpm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build\n\n> engram-ui@0.0.0 build\n> vite build\n\nvite v8.0.10 building client environment for production...\n\u001b[2K\ntransforming...\u2713 1840 modules transformed.\nrendering chunks...\ncomputing gzip size...\n../static/index.html                             1.95 kB \u2502 gzip:   0.86 kB\n../static/assets/index-CNWemEuX.css             63.35 kB \u2502 gzip:  10.74 kB\n../static/assets/rolldown-runtime-jpDsebLB.js    0.56 kB \u2502 gzip:   0.36 kB\n../static/assets/vendor-icons-CULm09Em.js        3.77 kB \u2502 gzip:   1.72 kB\n../static/assets/index-Dsdhubi6.js              92.59 kB \u2502 gzip:  26.60 kB\n../static/assets/vendor-react-CRYOerXQ.js      230.07 kB \u2502 gzip:  73.01 kB\n../static/assets/vendor-DgoxB5Ss.js            433.38 kB \u2502 gzip: 136.23 kB\n\n\u2713 built in 198ms\nnpm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options."
     },
     {
       "id": "ui-09-decisions-section",
