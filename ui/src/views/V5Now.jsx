@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { v4API, friendlyApiError } from '../api/v4Client';
 import { useReview } from '../context/ReviewContext';
 import { useSummary } from '../context/SummaryContext';
+import { FOLLOW_UP_24H_TITLE, FOLLOW_UP_TOMORROW_LABEL } from '../utils/followUpActions';
 import { getTodayActionItems } from '../utils/today';
 import { MOCKED_NOW_DATA } from './V5Now.fixtures';
 import styles from './V5Now.module.css';
@@ -77,6 +78,7 @@ function NowRow({ item, onAction, actionsDisabled = false }) {
               className={`${styles.actionButton} ${action.primary ? styles.actionButtonPrimary : ''}`}
               onClick={() => onAction(item, action)}
               disabled={actionsDisabled}
+              title={action.title}
             >
               {action.label}
             </button>
@@ -145,7 +147,7 @@ function mapEntityToNowItem(entity, reason) {
       : { id: entity.id, label: entity.title || 'Untitled', type: entity.type || 'task' },
     actions: [
       { key: 'open', label: 'Open', primary: true },
-      { key: 'snooze', label: 'Snooze' },
+      { key: 'snooze', label: FOLLOW_UP_TOMORROW_LABEL, title: FOLLOW_UP_24H_TITLE },
       { key: 'done', label: 'Done' },
     ],
     attention_score: score,
@@ -316,7 +318,7 @@ export default function V5Now({ previewData }) {
           setData(transformTodayResponse(today));
           refreshSummary();
         } catch (err) {
-          setError(friendlyApiError(err, 'Snooze failed'));
+          setError(friendlyApiError(err, 'Follow-up update failed'));
         } finally {
           setPendingAction(null);
         }

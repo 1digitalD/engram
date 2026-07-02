@@ -7,6 +7,7 @@ import { SummaryProvider } from '../context/SummaryContext';
 import V5Now, { transformTodayResponse } from './V5Now';
 import V5ReviewSheet from './V5ReviewSheet';
 import { MOCKED_NOW_DATA } from './V5Now.fixtures';
+import { FOLLOW_UP_24H_TITLE, FOLLOW_UP_TOMORROW_LABEL } from '../utils/followUpActions';
 
 vi.mock('../api/v4Client', () => ({
   v4API: {
@@ -82,6 +83,23 @@ describe('transformTodayResponse', () => {
     );
     expect(data.needs_you_now.find((item) => item.id === 'task-blocked')?.why_now).toBe('blocked');
     expect(data.waiting_on_you.find((item) => item.id === 'task-waiting')?.why_now).toBe('waiting');
+  });
+
+  it('uses honest follow-up labels for snooze actions', () => {
+    const today = {
+      blocked_tasks: [{
+        id: 'task-blocked',
+        type: 'task',
+        title: 'Blocked task',
+        attention: { score: 80 },
+      }],
+    };
+
+    const item = transformTodayResponse(today).needs_you_now.find((row) => row.id === 'task-blocked');
+    const snooze = item?.actions?.find((action) => action.key === 'snooze');
+
+    expect(snooze?.label).toBe(FOLLOW_UP_TOMORROW_LABEL);
+    expect(snooze?.title).toBe(FOLLOW_UP_24H_TITLE);
   });
 
   it('adds recent notes to ambient and a pending suggestions row', () => {
@@ -189,6 +207,9 @@ describe('V5Now', () => {
     expect(screen.getAllByText(/Ping vendor about contract/i).length).toBeGreaterThan(0);
     expect(screen.getByText('blocked')).toBeInTheDocument();
     expect(screen.getByText('overdue follow-up')).toBeInTheDocument();
+    screen.getAllByRole('button', { name: FOLLOW_UP_TOMORROW_LABEL }).forEach((button) => {
+      expect(button).toHaveAttribute('title', FOLLOW_UP_24H_TITLE);
+    });
   });
 
   it('opens the review sheet from the pending suggestions row', async () => {

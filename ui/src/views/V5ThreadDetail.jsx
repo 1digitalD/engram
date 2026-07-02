@@ -164,6 +164,7 @@ function ActionButton({ button, onAction }) {
       type="button"
       className={button.action === 'done' ? styles.inlineButtonPrimary : styles.inlineButton}
       aria-label={button.label}
+      title={button.title}
       onClick={() => onAction(button)}
     >
       {button.label}

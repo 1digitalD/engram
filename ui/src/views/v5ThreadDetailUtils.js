@@ -99,12 +99,23 @@ function openTasksFromDetail(detail) {
   return items;
 }
 
+import {
+  BUMP_FOLLOW_UP_LABEL,
+  FOLLOW_UP_24H_TITLE,
+} from '../utils/followUpActions';
+
 function actionButtonsForTask(item) {
   const entity = item.entity;
   return [
     { key: 'open', label: 'Open', action: 'open', href: pathForEntity(entity) },
     { key: 'done', label: '✓', action: 'done', entityId: entity.id },
-    { key: 'remind', label: '👋', action: 'remind', entityId: entity.id },
+    {
+      key: 'remind',
+      label: BUMP_FOLLOW_UP_LABEL,
+      action: 'remind',
+      entityId: entity.id,
+      title: FOLLOW_UP_24H_TITLE,
+    },
   ];
 }
 
@@ -179,7 +190,13 @@ export function buildNextActions(detail) {
   if (actions.length === 0 && detail?.entity?.follow_up_at) {
     const threadTarget = primaryThreadTarget(detail);
     const buttons = [
-      { key: 'remind', label: 'Send reminder', action: 'remind', entityId: detail.entity.id },
+      {
+        key: 'remind',
+        label: BUMP_FOLLOW_UP_LABEL,
+        action: 'remind',
+        entityId: detail.entity.id,
+        title: FOLLOW_UP_24H_TITLE,
+      },
     ];
     if (threadTarget && threadTarget.id !== detail.entity.id) {
       buttons.push({ key: 'open', label: 'Open thread', action: 'open', href: pathForEntity(threadTarget) });

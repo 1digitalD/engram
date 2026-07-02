@@ -7,6 +7,7 @@ import { ReviewProvider } from '../context/ReviewContext';
 import V5ThreadDetail from './V5ThreadDetail';
 import V5CaptureSheet, { CaptureFab } from './V5CaptureSheet';
 import { fixtureForType } from './V5ThreadDetail.fixtures';
+import { BUMP_FOLLOW_UP_LABEL, FOLLOW_UP_24H_TITLE } from '../utils/followUpActions';
 
 vi.mock('../api/v4Client', () => ({
   v4API: {
@@ -93,6 +94,15 @@ describe('V5ThreadDetail', () => {
     renderThread('task');
     await screen.findByText('Blocked by Security approval');
     expect(screen.queryByRole('button', { name: 'Decide' })).not.toBeInTheDocument();
+  });
+
+  it('shows honest follow-up labels on next-action remind buttons', async () => {
+    renderThread('task');
+    const remindButtons = await screen.findAllByRole('button', { name: BUMP_FOLLOW_UP_LABEL });
+    expect(remindButtons.length).toBeGreaterThan(0);
+    remindButtons.forEach((button) => {
+      expect(button).toHaveAttribute('title', FOLLOW_UP_24H_TITLE);
+    });
   });
 
   it('does not open the quick-action sheet from timeline rows', () => {
@@ -490,5 +500,8 @@ describe('V5ThreadDetail', () => {
 
     const openThreadLink = await screen.findByRole('link', { name: 'Open thread' });
     expect(openThreadLink).toHaveAttribute('href', '/projects/project-hitl');
+
+    const remindButton = screen.getByRole('button', { name: BUMP_FOLLOW_UP_LABEL });
+    expect(remindButton).toHaveAttribute('title', FOLLOW_UP_24H_TITLE);
   });
 });
