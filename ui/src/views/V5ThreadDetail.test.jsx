@@ -81,7 +81,12 @@ describe('V5ThreadDetail', () => {
       expect(screen.getByRole('region', { name: 'Details' })).toBeInTheDocument();
       expect(screen.getByRole('region', { name: 'Summary' })).toBeInTheDocument();
       expect(screen.getByRole('region', { name: 'Timeline' })).toBeInTheDocument();
-      expect(screen.getByRole('region', { name: 'People' })).toBeInTheDocument();
+
+      if (type !== 'resource') {
+        expect(screen.getByRole('region', { name: 'People' })).toBeInTheDocument();
+      } else {
+        expect(screen.queryByRole('region', { name: 'People' })).not.toBeInTheDocument();
+      }
       expect(screen.getByRole('region', { name: 'Related threads' })).toBeInTheDocument();
       expect(screen.getByRole('region', { name: 'References' })).toBeInTheDocument();
 
@@ -93,6 +98,42 @@ describe('V5ThreadDetail', () => {
         expect(screen.queryByRole('region', { name: 'Activity' })).not.toBeInTheDocument();
       }
     });
+  });
+
+  it('omits People, Related threads, and References sections when empty', async () => {
+    const fixture = fixtureForType('project');
+    const emptyDetail = {
+      ...fixture.detail,
+      sections: [],
+    };
+
+    render(
+      <MemoryRouter initialEntries={['/projects/project-hitl']}>
+        <ThreadProviders>
+          <Routes>
+            <Route
+              path="/projects/:id"
+              element={(
+                <V5ThreadDetail
+                  type="project"
+                  previewDetail={emptyDetail}
+                  previewEvents={fixture.events}
+                  previewCanonical={fixture.canonical}
+                />
+              )}
+            />
+          </Routes>
+        </ThreadProviders>
+      </MemoryRouter>,
+    );
+
+    await screen.findByRole('heading', { level: 1, name: fixture.detail.entity.title });
+    expect(screen.queryByRole('region', { name: 'People' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Related threads' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'References' })).not.toBeInTheDocument();
+    expect(screen.queryByText('No people linked yet.')).not.toBeInTheDocument();
+    expect(screen.queryByText('No related threads yet.')).not.toBeInTheDocument();
+    expect(screen.queryByText('No references yet.')).not.toBeInTheDocument();
   });
 
   it('does not render dead Decide actions on blocker rows', async () => {

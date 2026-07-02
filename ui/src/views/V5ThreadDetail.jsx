@@ -802,10 +802,10 @@ function ThreadDetailContent({
         )}
       </section>
 
-      <section className={styles.section} aria-labelledby="thread-people-label">
-        <h2 id="thread-people-label" className={styles.sectionLabel}>People</h2>
-        {people.length > 0 ? (
-          people.map((person) => (
+      {people.length > 0 ? (
+        <section className={styles.section} aria-labelledby="thread-people-label">
+          <h2 id="thread-people-label" className={styles.sectionLabel}>People</h2>
+          {people.map((person) => (
             <div key={person.id} className={styles.personRow}>
               <XGlyph type="person" />
               <Link to={pathForEntity(person.entity)} className={styles.personLink}>
@@ -818,16 +818,14 @@ function ThreadDetailContent({
                 </span>
               </Link>
             </div>
-          ))
-        ) : (
-          <p className={styles.emptyHint}>No people linked yet.</p>
-        )}
-      </section>
+          ))}
+        </section>
+      ) : null}
 
-      <section className={styles.section} aria-labelledby="thread-related-label">
-        <h2 id="thread-related-label" className={styles.sectionLabel}>Related threads</h2>
-        {relatedThreads.length > 0 ? (
-          relatedThreads.map((thread) => (
+      {relatedThreads.length > 0 ? (
+        <section className={styles.section} aria-labelledby="thread-related-label">
+          <h2 id="thread-related-label" className={styles.sectionLabel}>Related threads</h2>
+          {relatedThreads.map((thread) => (
             <div key={thread.id} className={styles.relatedRow}>
               <XGlyph type={thread.entity.type} />
               <Link to={pathForEntity(thread.entity)} className={styles.relatedLink}>
@@ -837,20 +835,16 @@ function ThreadDetailContent({
                 <span className={styles.relatedMeta}>{thread.subtitle}</span>
               </Link>
             </div>
-          ))
-        ) : (
-          <p className={styles.emptyHint}>No related threads yet.</p>
-        )}
-      </section>
+          ))}
+        </section>
+      ) : null}
 
-      <section className={styles.section} aria-labelledby="thread-references-label">
-        <h2 id="thread-references-label" className={styles.sectionLabel}>References</h2>
-        {references.length > 0 ? (
+      {references.length > 0 ? (
+        <section className={styles.section} aria-labelledby="thread-references-label">
+          <h2 id="thread-references-label" className={styles.sectionLabel}>References</h2>
           <CitationsList citations={references} onOpen={onOpenReference} />
-        ) : (
-          <p className={styles.emptyHint}>No references yet.</p>
-        )}
-      </section>
+        </section>
+      ) : null}
 
       {showCaptureFab ? (
         <button

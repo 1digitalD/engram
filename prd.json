@@ -381,10 +381,10 @@
         "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build"
       ],
       "blocked": false,
-      "passes": false,
-      "attempts": 0,
+      "passes": true,
+      "attempts": 1,
       "blockerReason": null,
-      "validationEvidence": null
+      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- V5ThreadDetail\n\n> engram-ui@0.0.0 test\n> node scripts/run-tests.mjs V5ThreadDetail\n\n\n RUN  v3.2.4 /Volumes/lex1t/dev/shared/repos/engram/ui\n\n \u2713 src/views/V5ThreadDetail.test.jsx (22 tests) 507ms\n\n Test Files  1 passed (1)\n      Tests  22 passed (22)\n   Start at  16:05:32\n   Duration  1.43s (transform 138ms, setup 49ms, collect 307ms, tests 507ms, environment 324ms, prepare 59ms)\n\nnpm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\nnpm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\nstderr | src/views/V5ThreadDetail.test.jsx > V5ThreadDetail > does not open the quick-action sheet from timeline rows\nAn update to V5ThreadDetail inside a test was not wrapped in act(...).\n\nWhen testing, code that causes React state updates should be wrapped into act(...):\n\nact(() => {\n  /* fire events that update state */\n});\n/* assert on the output */\n\nThis ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build\n\n> engram-ui@0.0.0 build\n> vite build\n\nvite v8.0.10 building client environment for production...\n\u001b[2K\ntransforming...\u2713 1840 modules transformed.\nrendering chunks...\ncomputing gzip size...\n../static/index.html                             1.95 kB \u2502 gzip:   0.86 kB\n../static/assets/index-CNWemEuX.css             63.35 kB \u2502 gzip:  10.74 kB\n../static/assets/rolldown-runtime-jpDsebLB.js    0.56 kB \u2502 gzip:   0.36 kB\n../static/assets/vendor-icons-CULm09Em.js        3.77 kB \u2502 gzip:   1.72 kB\n../static/assets/index-BJMT5Pcq.js              95.17 kB \u2502 gzip:  27.22 kB\n../static/assets/vendor-react-CRYOerXQ.js      230.07 kB \u2502 gzip:  73.01 kB\n../static/assets/vendor-DgoxB5Ss.js            433.38 kB \u2502 gzip: 136.23 kB\n\n\u2713 built in 197ms\nnpm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options."
     }
   ],
   "previousIteration": "v5-postphase3-hardening",
