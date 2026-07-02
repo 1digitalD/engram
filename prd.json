@@ -137,7 +137,7 @@
       "blocked": false,
       "passes": true,
       "attempts": 2,
-      "blockerReason": null,
+      "blockerReason": null
     },
     {
       "id": "au10-status-extraction",
