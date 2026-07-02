@@ -511,7 +511,21 @@ ACTIVITY_UPDATE_SYSTEM_PROMPT = """You are a lightweight extraction engine for a
 3. NEW TASKS: Any new actionable items mentioned in the update that are NOT the same as the update itself.
    Examples: "Need to update the docs too" → task, "Priya will handle the deployment" → task assigned to Priya.
    Each task should have a title (concise, starts with verb, ≤10 words), optional content, optional due date,
-   optional assignee name. Return empty list if no new tasks are mentioned.
+   optional follow_up_at (when the follow-up date refers to that new work), optional assignee name.
+   Return empty list if no new tasks are mentioned.
+
+FOLLOW-UP ROUTING:
+- Top-level follow_up_at is for checking back on the entity being updated.
+- When the update closes the entity (status done/cancelled) AND introduces new work, put the follow-up
+  date on the new task (due_at or follow_up_at), NOT on the top-level follow_up_at for the closing entity.
+- When follow-up language clearly refers to new work ("follow up next week on security review"), attach
+  the date to that task instead of the top-level follow_up_at.
+
+Example — closure + spin-off:
+Update: "This is done for now. Need to clear security review before launch — follow up next week on that."
+→ status: "done", confidence: 0.9, follow_up_at: null,
+  tasks: [{title: "Clear security review", follow_up_at: "YYYY-MM-DD", confidence: 0.88}]
+(where YYYY-MM-DD is ~7 days from today)
 
 Return JSON only. No prose, no markdown fences.
 
@@ -524,6 +538,7 @@ Schema:
     "title": "concise task title",
     "content": "optional detail",
     "due_at": "YYYY-MM-DD" or null,
+    "follow_up_at": "YYYY-MM-DD" or null,
     "assigned_to": "person name" or null,
     "confidence": 0.0
   }]
@@ -605,6 +620,7 @@ def _normalize_activity_tasks(items):
             "title": title[:160],
             "content": _text(item.get("content")),
             "due_at": _date(item.get("due_at")),
+            "follow_up_at": _date(item.get("follow_up_at")),
             "assigned_to": _text(item.get("assigned_to")),
             "confidence": _confidence(item.get("confidence")),
         })

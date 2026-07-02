@@ -2184,8 +2184,21 @@ def create_activity_update(entity_id):
 
     # ── Follow-up date ──────────────────────────────────────────────────
     explicit_follow_up = extraction.get("follow_up_at")
+    task_candidates = extraction.get("tasks") or []
 
-    if explicit_follow_up:
+    closing_statuses = (
+        {"done", "cancelled"} if target.type == "task" else {"completed", "cancelled"}
+    )
+    target_is_closing = (
+        extracted_status in closing_statuses
+        or target.status in closing_statuses
+    )
+    route_follow_up_to_tasks = bool(explicit_follow_up and task_candidates)
+    apply_follow_up_to_target = bool(
+        explicit_follow_up and not target_is_closing and not route_follow_up_to_tasks
+    )
+
+    if apply_follow_up_to_target:
         old_follow_up = target.follow_up_at
         target.follow_up_at = _parse_iso_date(explicit_follow_up)
         _write_event(
@@ -2199,8 +2212,13 @@ def create_activity_update(entity_id):
         )
 
     # ── New tasks from update content ────────────────────────────────────
-    for task_candidate in extraction.get("tasks") or []:
+    for task_candidate in task_candidates:
         confidence = task_candidate.get("confidence", 0.0)
+        task_follow_up = task_candidate.get("follow_up_at")
+        task_due_at = task_candidate.get("due_at")
+        if route_follow_up_to_tasks and explicit_follow_up and not task_follow_up and not task_due_at:
+            task_follow_up = explicit_follow_up
+
         suggestion = _create_suggestion(
             note,
             suggestion_type="create_task",
@@ -2209,7 +2227,8 @@ def create_activity_update(entity_id):
                 "type": "task",
                 "title": task_candidate.get("title"),
                 "content": task_candidate.get("content"),
-                "due_at": task_candidate.get("due_at"),
+                "due_at": task_due_at,
+                "follow_up_at": task_follow_up,
                 "assigned_to": task_candidate.get("assigned_to"),
                 "evidence": task_candidate.get("title"),
                 "target_entity_id": target.id,

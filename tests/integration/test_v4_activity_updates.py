@@ -621,3 +621,53 @@ def test_activity_update_security_review_becomes_task_suggestion(client, app):
 
     with app.app_context():
         assert Entity.query.filter_by(type="task", title="Clear security review").count() == 0
+
+
+def test_activity_update_done_with_spin_off_routes_follow_up_to_suggestion(client, app):
+    """Closing an task with new work: follow-up date belongs on the spin-off suggestion."""
+    task = _create_entity(client, "task", "Launch billing")
+    follow_up_date = (datetime.now(timezone.utc) + timedelta(days=7)).strftime("%Y-%m-%d")
+    extraction = {
+        "status": "done",
+        "confidence": 0.92,
+        "follow_up_at": follow_up_date,
+        "tasks": [
+            {
+                "title": "Clear security review",
+                "content": None,
+                "due_at": None,
+                "follow_up_at": None,
+                "assigned_to": None,
+                "confidence": 0.88,
+            }
+        ],
+    }
+
+    with patch(
+        "services.v4_extraction.extract_dates_and_tasks_from_update",
+        return_value=extraction,
+    ):
+        response = client.post(
+            f"/api/v4/entities/{task['id']}/activity_updates",
+            json={
+                "content": (
+                    "This is done for now. Need to clear security review before launch "
+                    "— follow up next week on that."
+                ),
+            },
+        )
+
+    assert response.status_code == 201
+    data = response.get_json()
+    assert data["extracted"]["status"] == "done"
+    assert data["extracted"]["status_auto_applied"] is True
+    assert data["extracted"]["follow_up_at"] == follow_up_date
+    assert len(data["suggestions"]) == 1
+    assert data["suggestions"][0]["suggestion_type"] == "create_task"
+    assert data["suggestions"][0]["payload"]["follow_up_at"] == follow_up_date
+    assert data["suggestions"][0]["payload"]["title"] == "Clear security review"
+
+    with app.app_context():
+        entity = db.session.get(Entity, task["id"])
+        assert entity.status == "done"
+        assert entity.follow_up_at is None

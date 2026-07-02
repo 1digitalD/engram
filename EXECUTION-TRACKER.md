@@ -80,3 +80,4 @@ All 6 prd tasks passed. See archived `docs/iterations/archive/prd-v5-hardening.j
 - Frontend: `cd ui && npm test && npm run build`
 - 2026-07-02T22:05:51.027347+00:00 ui-02-update-outcome-panel accepted via opencode
 - 2026-07-02T22:33:44.232614+00:00 au10-status-extraction accepted via cursor
+- 2026-07-02T22:35:20.042541+00:00 au11-follow-up-routing accepted via cursor
