@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { v4API } from '../api/v4Client';
 import { CaptureProvider, useCapture } from '../context/CaptureContext';
+import { ReviewProvider } from '../context/ReviewContext';
 import V5ThreadDetail from './V5ThreadDetail';
 import V5CaptureSheet, { CaptureFab } from './V5CaptureSheet';
 import { fixtureForType } from './V5ThreadDetail.fixtures';
@@ -25,6 +26,14 @@ vi.mock('../api/v4Client', () => ({
 
 const entityTypes = ['project', 'person', 'area', 'resource', 'task', 'note'];
 
+function ThreadProviders({ children }) {
+  return (
+    <CaptureProvider>
+      <ReviewProvider>{children}</ReviewProvider>
+    </CaptureProvider>
+  );
+}
+
 function renderThread(type) {
   const fixture = fixtureForType(type);
   const basePath = type === 'person' ? 'people' : `${type}s`;
@@ -32,7 +41,7 @@ function renderThread(type) {
 
   return render(
     <MemoryRouter initialEntries={[path]}>
-      <CaptureProvider>
+      <ThreadProviders>
         <Routes>
           <Route
             path={`/${basePath}/:id`}
@@ -46,7 +55,7 @@ function renderThread(type) {
             )}
           />
         </Routes>
-      </CaptureProvider>
+      </ThreadProviders>
     </MemoryRouter>,
   );
 }
@@ -117,7 +126,7 @@ describe('V5ThreadDetail', () => {
     const fixture = fixtureForType('project');
     render(
       <MemoryRouter initialEntries={['/projects/project-hitl']}>
-        <CaptureProvider>
+        <ThreadProviders>
           <CaptureObserver />
           <V5CaptureSheet
             attachmentOptions={[
@@ -139,7 +148,7 @@ describe('V5ThreadDetail', () => {
               )}
             />
           </Routes>
-        </CaptureProvider>
+        </ThreadProviders>
       </MemoryRouter>,
     );
 
@@ -164,7 +173,7 @@ describe('V5ThreadDetail', () => {
 
     render(
       <MemoryRouter initialEntries={['/projects/project-hitl']}>
-        <CaptureProvider>
+        <ThreadProviders>
           <Routes>
             <Route
               path="/projects/:id"
@@ -178,7 +187,7 @@ describe('V5ThreadDetail', () => {
               )}
             />
           </Routes>
-        </CaptureProvider>
+        </ThreadProviders>
       </MemoryRouter>,
     );
 
@@ -221,7 +230,7 @@ describe('V5ThreadDetail', () => {
 
     render(
       <MemoryRouter initialEntries={['/projects/project-hitl']}>
-        <CaptureProvider>
+        <ThreadProviders>
           <Routes>
             <Route
               path="/projects/:id"
@@ -235,7 +244,7 @@ describe('V5ThreadDetail', () => {
               )}
             />
           </Routes>
-        </CaptureProvider>
+        </ThreadProviders>
       </MemoryRouter>,
     );
 
@@ -300,7 +309,7 @@ describe('V5ThreadDetail', () => {
 
     render(
       <MemoryRouter initialEntries={['/projects/project-hitl']}>
-        <CaptureProvider>
+        <ThreadProviders>
           <Routes>
             <Route
               path="/projects/:id"
@@ -314,7 +323,7 @@ describe('V5ThreadDetail', () => {
               )}
             />
           </Routes>
-        </CaptureProvider>
+        </ThreadProviders>
       </MemoryRouter>,
     );
 
@@ -339,7 +348,7 @@ describe('V5ThreadDetail', () => {
 
     render(
       <MemoryRouter initialEntries={['/projects/project-hitl']}>
-        <CaptureProvider>
+        <ThreadProviders>
           <Routes>
             <Route
               path="/projects/:id"
@@ -353,7 +362,7 @@ describe('V5ThreadDetail', () => {
               )}
             />
           </Routes>
-        </CaptureProvider>
+        </ThreadProviders>
       </MemoryRouter>,
     );
 
@@ -390,7 +399,7 @@ describe('V5ThreadDetail', () => {
 
     render(
       <MemoryRouter initialEntries={[`/tasks/${fixture.detail.entity.id}`]}>
-        <CaptureProvider>
+        <ThreadProviders>
           <Routes>
             <Route
               path="/tasks/:id"
@@ -404,7 +413,7 @@ describe('V5ThreadDetail', () => {
               )}
             />
           </Routes>
-        </CaptureProvider>
+        </ThreadProviders>
       </MemoryRouter>,
     );
 
@@ -446,7 +455,7 @@ describe('V5ThreadDetail', () => {
 
     render(
       <MemoryRouter initialEntries={[`/tasks/${detail.entity.id}`]}>
-        <CaptureProvider>
+        <ThreadProviders>
           <Routes>
             <Route
               path="/tasks/:id"
@@ -460,7 +469,7 @@ describe('V5ThreadDetail', () => {
               )}
             />
           </Routes>
-        </CaptureProvider>
+        </ThreadProviders>
       </MemoryRouter>,
     );
 

@@ -122,6 +122,40 @@
   line-height: 1;
 }
 
+.reviewButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-out);
+}
+
+.reviewButton:hover {
+  background: var(--hover);
+}
+
+.reviewCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+  color: white;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+}
+
 .trustChip {
   display: inline-flex;
   align-items: center;
@@ -208,6 +242,10 @@
   }
 
   .askLabel {
+    display: none;
+  }
+
+  .reviewLabel {
     display: none;
   }
 

@@ -53,11 +53,30 @@ describe('TopBar', () => {
 
   it('renders count pills for supported lenses and hides unsupported ones', () => {
     renderWithRouter(
-      <TopBar trustScore={87} onAsk={() => {}} onRecall={() => {}} nowCount={3} threadsCount={7} />,
+      <TopBar
+        trustScore={87}
+        onAsk={() => {}}
+        onRecall={() => {}}
+        onReview={() => {}}
+        nowCount={3}
+        threadsCount={7}
+        suggestionsCount={5}
+      />,
     );
 
     expect(screen.getByRole('link', { name: /Now/i })).toHaveTextContent('3');
     expect(screen.getByRole('link', { name: /Threads/i })).toHaveTextContent('7');
     expect(screen.getByRole('button', { name: /Recall/i })).not.toHaveTextContent(/\d/);
+    expect(screen.getByRole('button', { name: /Review 5 pending suggestions/i })).toBeInTheDocument();
+  });
+
+  it('calls onReview when the review badge is clicked', () => {
+    const onReview = vi.fn();
+    renderWithRouter(
+      <TopBar trustScore={87} onAsk={() => {}} onReview={onReview} suggestionsCount={2} />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Review 2 pending suggestions/i }));
+    expect(onReview).toHaveBeenCalledTimes(1);
   });
 });

@@ -2,7 +2,7 @@
 
 > **Task id:** `ui-03-suggestions-review`
 > **Risk:** medium
-> **Status:** Pending
+> **Status:** Done (overseer)
 
 ## Goal
 
@@ -32,4 +32,6 @@ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build
 
 ## Results
 
-**Acceptance met:** [ ] yes / [ ] no
+**Acceptance met:** [x] yes / [ ] no
+
+Delivered by overseer after OpenCode launch stalled on ui-03 attempt a010. Added `ReviewContext`, `V5ReviewSheet`, top-bar Review badge from `suggestions_count`, capture toast Review action, and add-update outcome link. 43 frontend tests + 19 integration tests pass; build OK.

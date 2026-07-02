@@ -74,9 +74,11 @@ export default function TopBar({
   trustScore = null,
   onAsk,
   onRecall,
+  onReview,
   nowCount,
   threadsCount,
   recallCount,
+  suggestionsCount = 0,
 }) {
   const location = useLocation();
   const [theme, setTheme] = useState(getInitialTheme);
@@ -156,6 +158,18 @@ export default function TopBar({
         <span className={styles.askLabel}>Ask</span>
         <span className={styles.askGlyph} aria-hidden="true">✦</span>
       </button>
+
+      {suggestionsCount > 0 && onReview ? (
+        <button
+          type="button"
+          className={styles.reviewButton}
+          onClick={onReview}
+          aria-label={`Review ${suggestionsCount} pending suggestion${suggestionsCount === 1 ? '' : 's'}`}
+        >
+          <span className={styles.reviewLabel}>Review</span>
+          <span className={styles.reviewCount}>{suggestionsCount}</span>
+        </button>
+      ) : null}
 
       {trustScore != null && <TrustChip score={trustScore} />}
 

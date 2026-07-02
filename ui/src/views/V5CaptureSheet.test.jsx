@@ -62,6 +62,18 @@ describe('V5CaptureSheet', () => {
     expect(screen.getByRole('link', { name: 'View' })).toHaveAttribute('href', '/notes');
   });
 
+  it('offers a review action when suggestions were returned', () => {
+    const onOpenReview = vi.fn();
+    render(
+      <MemoryRouter>
+        <CaptureToast toast={{ applied: 1, suggested: 2 }} onOpenReview={onOpenReview} />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Review' }));
+    expect(onOpenReview).toHaveBeenCalledTimes(1);
+  });
+
   it('auto-attaches when opened from a thread route', async () => {
     renderSheet('/projects/p1');
     await waitFor(() => {

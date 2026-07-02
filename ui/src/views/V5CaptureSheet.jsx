@@ -74,7 +74,7 @@ async function loadAttachmentOptions(defaultAttachment) {
   return options;
 }
 
-export function CaptureToast({ toast }) {
+export function CaptureToast({ toast, onOpenReview }) {
   if (!toast) return null;
   const applied = toast.applied ?? 0;
   const suggested = toast.suggested ?? 0;
@@ -83,6 +83,15 @@ export function CaptureToast({ toast }) {
       <span>
         Saved · AI processing ({applied} applied, {suggested} suggested).
       </span>
+      {suggested > 0 && onOpenReview ? (
+        <button
+          type="button"
+          className={styles.toastAction}
+          onClick={onOpenReview}
+        >
+          Review
+        </button>
+      ) : null}
       <Link className={styles.toastLink} to={toast.viewPath || '/notes'}>
         View
       </Link>

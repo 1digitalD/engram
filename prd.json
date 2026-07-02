@@ -135,10 +135,9 @@
         "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build"
       ],
       "blocked": false,
-      "passes": false,
-      "attempts": 0,
+      "passes": true,
+      "attempts": 2,
       "blockerReason": null,
-      "validationEvidence": null
     },
     {
       "id": "au10-status-extraction",

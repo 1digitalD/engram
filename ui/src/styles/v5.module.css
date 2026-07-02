@@ -385,7 +385,14 @@
   font-weight: 600;
   color: var(--text);
 }
-.outcomePlaceholder {
+.outcomeLink {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
   font-size: var(--text-sm);
-  color: var(--text-muted);
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
 }

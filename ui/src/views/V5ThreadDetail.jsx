@@ -7,6 +7,7 @@ import CitationsList from '../components/CitationsList';
 import CitationEntitySheet from '../components/CitationEntitySheet';
 import MarkdownEditor from '../components/MarkdownEditor';
 import { useCapture } from '../context/CaptureContext';
+import { useReview } from '../context/ReviewContext';
 import { useSummary } from '../context/SummaryContext';
 import { entityTitleLabel } from '../utils/entityDisplay';
 import styles from '../styles/v5.module.css';
@@ -392,6 +393,7 @@ function AddUpdateComposer({
 }
 
 function UpdateOutcomePanel({ outcome, onDismiss }) {
+  const { openReview } = useReview();
   if (!outcome) return null;
   const { applied = [], suggestions = [] } = outcome;
   const hasApplied = applied.length > 0;
@@ -430,7 +432,13 @@ function UpdateOutcomePanel({ outcome, onDismiss }) {
               </li>
             ))}
           </ul>
-          <span className={styles.outcomePlaceholder}>Review suggestions (UI-03)</span>
+          <button
+            type="button"
+            className={styles.outcomeLink}
+            onClick={openReview}
+          >
+            Review suggestions
+          </button>
         </div>
       ) : null}
     </div>
