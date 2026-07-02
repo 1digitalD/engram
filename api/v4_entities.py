@@ -2139,6 +2139,48 @@ def create_activity_update(entity_id):
     extraction = extract_dates_and_tasks_from_update(content)
     extracted_tasks = []
     suggestions = []
+    extracted_status = extraction.get("status")
+    status_confidence = extraction.get("confidence", 0.0)
+    status_auto_applied = False
+
+    # ── Status change ───────────────────────────────────────────────────
+    if (
+        extracted_status
+        and extracted_status in VALID_STATUS.get(target.type, set())
+        and extracted_status != target.status
+    ):
+        if status_confidence >= AUTO_APPLY_CONFIDENCE:
+            old_status = target.status
+            target.status = extracted_status
+            status_auto_applied = True
+            _write_event(
+                target,
+                "ai_updated",
+                old_value={"status": old_status},
+                new_value={"status": extracted_status},
+                actor="agent:activity-update",
+                confidence=status_confidence,
+                reason="extracted from activity update",
+                source_note_id=note.id,
+            )
+            _queue_embed_job(target.id, "activity_update_auto_status")
+        else:
+            suggestion = _create_suggestion(
+                note,
+                suggestion_type=f"update_{target.type}",
+                operation_type="update_entity",
+                payload={
+                    "target_entity_id": target.id,
+                    "target_type": target.type,
+                    "title": target.title,
+                    "fields": {"status": extracted_status},
+                    "evidence": content[:200],
+                },
+                confidence=status_confidence,
+                reason=f"extracted status from activity update: {extracted_status}",
+            )
+            if suggestion:
+                suggestions.append(suggestion.to_dict())
 
     # ── Follow-up date ──────────────────────────────────────────────────
     explicit_follow_up = extraction.get("follow_up_at")
@@ -2196,6 +2238,8 @@ def create_activity_update(entity_id):
         "data": _load_entity(note.id).to_dict(),
         "target": _load_entity(target.id).to_dict(),
         "extracted": {
+            "status": extracted_status,
+            "status_auto_applied": status_auto_applied,
             "follow_up_at": explicit_follow_up,
             "follow_up_auto_set": False,
             "tasks": extracted_tasks,

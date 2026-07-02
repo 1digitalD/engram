@@ -494,15 +494,21 @@ def _intent(value):
 
 # ── Lightweight activity-update extraction ────────────────────────────────────
 
-ACTIVITY_UPDATE_SYSTEM_PROMPT = """You are a lightweight extraction engine for activity/progress updates on tasks and projects. Your ONLY job is to extract two things:
+ACTIVITY_UPDATE_SYSTEM_PROMPT = """You are a lightweight extraction engine for activity/progress updates on tasks and projects. Your ONLY job is to extract three things:
 
-1. FOLLOW-UP DATES: Any explicit date, day, or time frame when the next follow-up or check-in should happen.
+1. STATUS: Optional status change implied about the entity being updated.
+   Examples: "done for now" / "shipped" / "finished" → done, "waiting on infra" → waiting,
+   "blocked by security review" → blocked, "started working on this" → in_progress.
+   Return null if no status change is implied. Include a top-level confidence (0.0–1.0) for the status
+   extraction when status is non-null.
+
+2. FOLLOW-UP DATES: Any explicit date, day, or time frame when the next follow-up or check-in should happen.
    Examples: "review next Friday" → next Friday's date, "circle back in 3 days" → 3 days from now,
    "follow up June 15" → 2026-06-15, "check in 2 weeks" → 2 weeks from now.
    Return as ISO 8601 date string (YYYY-MM-DD). Use today's date as context for relative dates.
    Return null if no follow-up date is mentioned.
 
-2. NEW TASKS: Any new actionable items mentioned in the update that are NOT the same as the update itself.
+3. NEW TASKS: Any new actionable items mentioned in the update that are NOT the same as the update itself.
    Examples: "Need to update the docs too" → task, "Priya will handle the deployment" → task assigned to Priya.
    Each task should have a title (concise, starts with verb, ≤10 words), optional content, optional due date,
    optional assignee name. Return empty list if no new tasks are mentioned.
@@ -511,6 +517,8 @@ Return JSON only. No prose, no markdown fences.
 
 Schema:
 {
+  "status": "done" | "waiting" | "blocked" | "in_progress" | null,
+  "confidence": 0.0,
   "follow_up_at": "YYYY-MM-DD" or null,
   "tasks": [{
     "title": "concise task title",
@@ -522,24 +530,38 @@ Schema:
 }"""
 
 
+ACTIVITY_UPDATE_STATUSES = {"done", "waiting", "blocked", "in_progress"}
+
+
+def _normalize_activity_status(value):
+    normalized = _text(value)
+    if not normalized:
+        return None
+    normalized = normalized.lower().replace("-", "_").replace(" ", "_")
+    if normalized in ACTIVITY_UPDATE_STATUSES:
+        return normalized
+    return None
+
+
 def extract_dates_and_tasks_from_update(content, today_iso=None):
     """Lightweight extraction for activity-update content.
 
-    Returns {"follow_up_at": "YYYY-MM-DD"|None, "tasks": [...]}.
+    Returns {"status": str|None, "confidence": float, "follow_up_at": "YYYY-MM-DD"|None, "tasks": [...]}.
     Uses a cheaper/faster model than the full capture extraction.
     """
+    empty = {"status": None, "confidence": 0.0, "follow_up_at": None, "tasks": []}
     if not content or not content.strip():
-        return {"follow_up_at": None, "tasks": []}
+        return empty
 
     try:
         from flask import current_app
         if current_app.config.get("TESTING") and os.getenv("ENGRAM_ALLOW_TEST_AI") != "1":
-            return {"follow_up_at": None, "tasks": []}
+            return empty
     except RuntimeError:
         pass
 
     if not os.getenv("OPENAI_API_KEY"):
-        return {"follow_up_at": None, "tasks": []}
+        return empty
 
     from datetime import date
     today = today_iso or date.today().isoformat()
@@ -560,9 +582,12 @@ def extract_dates_and_tasks_from_update(content, today_iso=None):
         result = json.loads(raw)
     except Exception as exc:
         logger.warning("activity-update extraction failed: %s", exc)
-        return {"follow_up_at": None, "tasks": []}
+        return empty
 
+    status = _normalize_activity_status(result.get("status"))
     return {
+        "status": status,
+        "confidence": _confidence(result.get("confidence")) if status else 0.0,
         "follow_up_at": _date(result.get("follow_up_at")),
         "tasks": _normalize_activity_tasks(result.get("tasks") or []),
     }

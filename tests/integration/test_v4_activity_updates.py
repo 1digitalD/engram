@@ -517,3 +517,107 @@ def test_activity_update_extracted_task_becomes_suggestion_not_duplicate(client,
         assert EntityEvent.query.filter_by(
             entity_id=existing_task["id"], event_type="created"
         ).count() == 1
+
+
+def test_activity_update_done_for_now_closes_task(client, app):
+    task = _create_entity(client, "task", "Ship parser fix")
+    extraction = {
+        "status": "done",
+        "confidence": 0.92,
+        "follow_up_at": None,
+        "tasks": [],
+    }
+
+    with patch(
+        "services.v4_extraction.extract_dates_and_tasks_from_update",
+        return_value=extraction,
+    ):
+        response = client.post(
+            f"/api/v4/entities/{task['id']}/activity_updates",
+            json={"content": "This is done for now — shipped to design partners."},
+        )
+
+    assert response.status_code == 201
+    data = response.get_json()
+    assert data["extracted"]["status"] == "done"
+    assert data["extracted"]["status_auto_applied"] is True
+    assert data["suggestions"] == []
+
+    with app.app_context():
+        entity = db.session.get(Entity, task["id"])
+        assert entity.status == "done"
+        event = (
+            EntityEvent.query.filter_by(entity_id=task["id"], event_type="ai_updated")
+            .order_by(EntityEvent.created_at.desc())
+            .first()
+        )
+        assert event is not None
+        assert event.old_value == {"status": "open"}
+        assert event.new_value == {"status": "done"}
+
+
+def test_activity_update_low_confidence_status_becomes_suggestion(client, app):
+    task = _create_entity(client, "task", "Waiting on infra")
+    extraction = {
+        "status": "waiting",
+        "confidence": 0.55,
+        "follow_up_at": None,
+        "tasks": [],
+    }
+
+    with patch(
+        "services.v4_extraction.extract_dates_and_tasks_from_update",
+        return_value=extraction,
+    ):
+        response = client.post(
+            f"/api/v4/entities/{task['id']}/activity_updates",
+            json={"content": "Still waiting on infra team."},
+        )
+
+    assert response.status_code == 201
+    data = response.get_json()
+    assert data["extracted"]["status"] == "waiting"
+    assert data["extracted"]["status_auto_applied"] is False
+    assert len(data["suggestions"]) == 1
+    assert data["suggestions"][0]["suggestion_type"] == "update_task"
+    assert data["suggestions"][0]["payload"]["fields"] == {"status": "waiting"}
+
+    with app.app_context():
+        entity = db.session.get(Entity, task["id"])
+        assert entity.status == "open"
+
+
+def test_activity_update_security_review_becomes_task_suggestion(client, app):
+    task = _create_entity(client, "task", "Launch billing")
+    extraction = {
+        "status": None,
+        "confidence": 0.0,
+        "follow_up_at": None,
+        "tasks": [
+            {
+                "title": "Clear security review",
+                "content": None,
+                "due_at": None,
+                "assigned_to": None,
+                "confidence": 0.88,
+            }
+        ],
+    }
+
+    with patch(
+        "services.v4_extraction.extract_dates_and_tasks_from_update",
+        return_value=extraction,
+    ):
+        response = client.post(
+            f"/api/v4/entities/{task['id']}/activity_updates",
+            json={"content": "Need to clear security review before launch."},
+        )
+
+    assert response.status_code == 201
+    data = response.get_json()
+    assert len(data["suggestions"]) == 1
+    assert data["suggestions"][0]["suggestion_type"] == "create_task"
+    assert data["extracted"]["tasks"][0]["auto_created"] is False
+
+    with app.app_context():
+        assert Entity.query.filter_by(type="task", title="Clear security review").count() == 0
