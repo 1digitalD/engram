@@ -3,8 +3,7 @@
  * States: empty, typing, streaming.
  * Attachments: none, thread, project.
  */
-/* eslint-disable import/no-extraneous-dependencies */
-import React, { useState } from 'react';
+import { useState } from 'react';
 import V5CaptureSheet, { CAPTURE_PLACEHOLDER } from './V5CaptureSheet';
 
 const attachmentOptions = [

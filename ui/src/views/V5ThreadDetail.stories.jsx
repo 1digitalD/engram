@@ -1,4 +1,3 @@
-import React from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import V5ThreadDetail from './V5ThreadDetail';
 import { fixtureForType, threadDetailFixtures } from './V5ThreadDetail.fixtures';

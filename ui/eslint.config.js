@@ -22,4 +22,20 @@ export default defineConfig([
       'react-hooks/purity': 'off',
     },
   },
+  {
+    files: [
+      'src/context/**/*.{js,jsx}',
+      'src/components/CitationsList.jsx',
+      'src/components/XGlyph.jsx',
+    ],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+    },
+  },
+  {
+    files: ['**/*.stories.{js,jsx}'],
+    rules: {
+      'no-unused-vars': 'off',
+    },
+  },
 ])

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import { friendlyApiError, v4API } from '../api/v4Client';
@@ -424,7 +424,7 @@ function ThreadDetailContent({
   const entity = detail.entity;
   const entityType = entity.type;
   const summary = narrativeSummary(entity, canonicalText);
-  const nextActions = buildNextActions(detail, entityType);
+  const nextActions = buildNextActions(detail);
   const signalCards = buildSignalCards(detail, entityType);
   const people = buildPeople(detail);
   const relatedThreads = buildRelatedThreads(detail, entity);

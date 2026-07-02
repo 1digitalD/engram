@@ -97,7 +97,7 @@ describe('CitationEntitySheet', () => {
               setOpen(false);
             }}
           />
-        </div>,
+        </div>
       );
     }
 
@@ -142,8 +142,6 @@ describe('CitationEntitySheet', () => {
     });
 
     it('does not throw if trigger element is no longer in the DOM at close time', async () => {
-      const user = userEvent.setup();
-
       const { rerender } = render(
         <div>
           <button type="button" data-testid="trigger-button">

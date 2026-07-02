@@ -137,7 +137,7 @@ export function buildSignalCards(detail, entityType) {
   return cards;
 }
 
-export function buildNextActions(detail, entityType) {
+export function buildNextActions(detail) {
   const actions = [];
   const seen = new Set();
 

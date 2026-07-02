@@ -144,12 +144,6 @@ export default function V5Memory({ previewData }) {
   const touchStartY = useRef(null);
   const observerTarget = useRef(null);
 
-  const filters = useMemo(() => ({
-    entity_type: entityType,
-    actor: actorFilter,
-    thread_id: threadId,
-  }), [entityType, actorFilter, threadId]);
-
   const hasActiveFilters = entityType || actorFilter || threadId || search;
 
   const loadEvents = useCallback(async (offset = 0, append = false) => {
@@ -196,7 +190,7 @@ export default function V5Memory({ previewData }) {
   useEffect(() => {
     if (previewData) return;
     loadEvents(0, false);
-  }, [entityType, actorFilter, threadId]);
+  }, [entityType, actorFilter, threadId, loadEvents, previewData]);
 
   useEffect(() => {
     if (previewData) return;
