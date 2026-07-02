@@ -5,7 +5,7 @@ then read the active source docs before changing code.
 
 Last updated: 2026-07-02
 Branch: `main`
-Status: **Iteration 18 in progress** — M1 complete (UI-01 overseer, UI-02 Loopsmith, UI-03 overseer). Next: `au10-status-extraction`.
+Status: **Iteration 18 in progress** — M1 + M2 done (5/12). **Drain running** UI-04 → UI-10.
 
 Runtime baseline: `/api/v4` only, fresh Postgres + pgvector schema, write-enabled MCP
 aligned with the active API.
@@ -24,9 +24,9 @@ aligned with the active API.
 | Milestone | Tasks | Status |
 |-----------|-------|--------|
 | M1 Trust fixes | UI-01, UI-02, UI-03 | done |
-| M2 Activity intelligence | AU10, AU11 | pending |
-| M3 Daily surface | UI-04 – UI-07 | pending |
-| M4 Polish | UI-08 – UI-10 | pending |
+| M2 Activity intelligence | AU10, AU11 | done |
+| M3 Daily surface | UI-04 – UI-07 | drain in progress |
+| M4 Polish | UI-08 – UI-10 | drain in progress |
 
 ### Delivery model
 
