@@ -21,6 +21,10 @@ vi.mock('../api/v4Client', () => ({
       create: vi.fn(),
       list: vi.fn(),
     },
+    decisions: {
+      list: vi.fn(),
+      create: vi.fn(),
+    },
   },
   friendlyApiError: (err, fallback) => err?.message || fallback || 'Something went wrong.',
 }));
@@ -64,6 +68,7 @@ function renderThread(type) {
 describe('V5ThreadDetail', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    v4API.decisions.list.mockResolvedValue({ data: [] });
   });
 
   entityTypes.forEach((type) => {
@@ -503,5 +508,65 @@ describe('V5ThreadDetail', () => {
 
     const remindButton = screen.getByRole('button', { name: BUMP_FOLLOW_UP_LABEL });
     expect(remindButton).toHaveAttribute('title', FOLLOW_UP_24H_TITLE);
+  });
+
+  it('renders decisions section with fetched decisions', async () => {
+    const fixture = fixtureForType('project');
+    v4API.decisions.list.mockResolvedValue({
+      data: [
+        {
+          id: 'd1',
+          statement: 'Use PostgreSQL for the v4 schema',
+          context: 'Architecture review',
+          decided_at: '2026-06-20T10:00:00+00:00',
+          decided_by: 'user',
+        },
+        {
+          id: 'd2',
+          statement: 'Ship HITL piece by Friday',
+          decided_at: '2026-06-22T14:00:00+00:00',
+          decided_by: 'agent:v4-capture',
+        },
+      ],
+    });
+
+    renderThread('project');
+
+    const section = await screen.findByRole('region', { name: 'Decisions' });
+    expect(within(section).getByText('Use PostgreSQL for the v4 schema')).toBeInTheDocument();
+    expect(within(section).getByText('Architecture review')).toBeInTheDocument();
+    expect(within(section).getByText('Ship HITL piece by Friday')).toBeInTheDocument();
+    expect(v4API.decisions.list).toHaveBeenCalledWith({ thread_id: fixture.detail.entity.id });
+
+    const chip = screen.getByRole('link', { name: '2 decisions' });
+    expect(chip).toHaveAttribute('href', '#decisions-section');
+  });
+
+  it('records a decision via POST /api/v4/decisions and refreshes the list', async () => {
+    v4API.decisions.list.mockResolvedValue({ data: [] });
+    v4API.decisions.create.mockResolvedValue({
+      data: {
+        id: 'd-new',
+        thread_id: 'project-hitl',
+        statement: 'Use Vite for the build',
+        decided_by: 'user',
+      },
+    });
+
+    renderThread('project');
+
+    const section = await screen.findByRole('region', { name: 'Decisions' });
+    fireEvent.click(within(section).getByRole('button', { name: 'Record decision' }));
+    fireEvent.change(within(section).getByLabelText('Decision statement'), {
+      target: { value: 'Use Vite for the build' },
+    });
+    fireEvent.click(within(section).getByRole('button', { name: 'Save decision' }));
+
+    await waitFor(() => expect(v4API.decisions.create).toHaveBeenCalledWith({
+      thread_id: 'project-hitl',
+      statement: 'Use Vite for the build',
+      decided_by: 'user',
+    }));
+    await waitFor(() => expect(v4API.decisions.list).toHaveBeenCalledTimes(2));
   });
 });

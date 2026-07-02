@@ -86,3 +86,4 @@ All 6 prd tasks passed. See archived `docs/iterations/archive/prd-v5-hardening.j
 - 2026-07-02T22:43:50.416230+00:00 ui-06-honest-follow-up-actions accepted via cursor
 - 2026-07-02T22:50:30.120585+00:00 ui-07-recall-copy accepted via opencode
 - 2026-07-02T22:54:08.012460+00:00 ui-08-memory-digest accepted via opencode
+- 2026-07-02T23:02:55.342522+00:00 ui-09-decisions-section accepted via opencode

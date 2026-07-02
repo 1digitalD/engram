@@ -479,6 +479,14 @@ function ThreadDetailContent({
   activityHasMore = false,
   activityLoadingMore = false,
   onLoadMoreActivity = null,
+  decisions = [],
+  decisionFormOpen = false,
+  decisionDraft = '',
+  decisionSaving = false,
+  decisionError = '',
+  onToggleDecisionForm,
+  onDecisionChange,
+  onDecisionSubmit,
 }) {
   const entity = detail.entity;
   const entityType = entity.type;
@@ -514,12 +522,13 @@ function ThreadDetailContent({
           {detail?.decisions_count ? (
             <>
               <span aria-hidden="true">·</span>
-              <span
+              <a
+                href="#decisions-section"
                 className={styles.countChip}
                 title={`${detail.decisions_count} decision${detail.decisions_count === 1 ? '' : 's'}`}
               >
                 {detail.decisions_count} decision{detail.decisions_count === 1 ? '' : 's'}
-              </span>
+              </a>
             </>
           ) : null}
         </div>
@@ -543,6 +552,77 @@ function ThreadDetailContent({
         <h2 id="thread-narrative-label" className={styles.sectionLabel}>Summary</h2>
         <p className={styles.narrative}>{summary}</p>
       </section>
+
+      {detail?.decisions_count || decisionFormOpen ? (
+        <section id="decisions-section" className={styles.section} aria-labelledby="thread-decisions-label">
+          <div className={styles.sectionHeader}>
+            <h2 id="thread-decisions-label" className={styles.sectionLabel}>Decisions</h2>
+            <button
+              type="button"
+              className={styles.inlineButton}
+              onClick={onToggleDecisionForm}
+              aria-expanded={decisionFormOpen}
+            >
+              {decisionFormOpen ? 'Cancel' : 'Record decision'}
+            </button>
+          </div>
+
+          {decisionFormOpen ? (
+            <form
+              className={styles.updateComposer}
+              onSubmit={(event) => {
+                event.preventDefault();
+                onDecisionSubmit();
+              }}
+            >
+              <label className={styles.fieldStack}>
+                <span className={styles.fieldLabel}>Decision statement</span>
+                <textarea
+                  className={styles.updateTextarea}
+                  aria-label="Decision statement"
+                  placeholder="What was decided?"
+                  value={decisionDraft}
+                  onChange={(event) => onDecisionChange(event.target.value)}
+                  rows={3}
+                />
+              </label>
+              {decisionError ? <p className={styles.error} role="alert">{decisionError}</p> : null}
+              <div className={styles.editorActions}>
+                <button
+                  type="button"
+                  className={styles.inlineButton}
+                  onClick={onToggleDecisionForm}
+                  disabled={decisionSaving}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className={styles.inlineButtonPrimary}
+                  disabled={!decisionDraft.trim() || decisionSaving}
+                >
+                  {decisionSaving ? 'Saving…' : 'Save decision'}
+                </button>
+              </div>
+            </form>
+          ) : null}
+
+          {decisions.length > 0 ? (
+            decisions.map((decision) => (
+              <article key={decision.id} className={styles.signalCard} aria-label={`Decision: ${decision.statement}`}>
+                <h3 className={styles.signalTitle}>{decision.statement}</h3>
+                {decision.context ? <p className={styles.signalBody}>{decision.context}</p> : null}
+                <p className={styles.signalMeta}>
+                  {formatTimelineDate(decision.decided_at)}
+                  {decision.decided_by ? ` · ${decision.decided_by}` : null}
+                </p>
+              </article>
+            ))
+          ) : (
+            <p className={styles.emptyHint}>No decisions recorded yet.</p>
+          )}
+        </section>
+      ) : null}
 
       {meetingPrep ? (
         <section className={styles.section} aria-labelledby="thread-meeting-prep-label">
@@ -840,6 +920,11 @@ export default function V5ThreadDetail({
   const [extraActivityUpdates, setExtraActivityUpdates] = useState([]);
   const [activityLoadingMore, setActivityLoadingMore] = useState(false);
   const [citationEntityId, setCitationEntityId] = useState(null);
+  const [decisions, setDecisions] = useState([]);
+  const [decisionFormOpen, setDecisionFormOpen] = useState(false);
+  const [decisionDraft, setDecisionDraft] = useState('');
+  const [decisionSaving, setDecisionSaving] = useState(false);
+  const [decisionError, setDecisionError] = useState('');
   const activeIdRef = useRef(id);
 
   useEffect(() => {
@@ -901,6 +986,25 @@ export default function V5ThreadDetail({
   useEffect(() => {
     setExtraActivityUpdates([]);
   }, [detail?.entity?.id, detail?.sections]);
+
+  useEffect(() => {
+    if (!detail?.entity?.id) return undefined;
+    let cancelled = false;
+    setDecisions([]);
+
+    v4API.decisions.list({ thread_id: detail.entity.id })
+      .then((response) => {
+        if (cancelled) return;
+        setDecisions(response?.data || []);
+      })
+      .catch((err) => {
+        if (!cancelled) setActionError(friendlyApiError(err, 'Failed to load decisions'));
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [detail?.entity?.id]);
 
   const baseActivityUpdates = useMemo(
     () => buildActivityUpdates(detail),
@@ -1011,6 +1115,42 @@ export default function V5ThreadDetail({
     setUpdateOutcome(null);
   }, []);
 
+  const handleToggleDecisionForm = useCallback(() => {
+    setDecisionError('');
+    setDecisionFormOpen((current) => !current);
+  }, []);
+
+  const handleDecisionChange = useCallback((value) => {
+    setDecisionError('');
+    setDecisionDraft(value);
+  }, []);
+
+  const handleDecisionSubmit = useCallback(async () => {
+    if (!detail?.entity || !decisionDraft.trim()) return;
+    setDecisionSaving(true);
+    setDecisionError('');
+
+    try {
+      await v4API.decisions.create({
+        thread_id: detail.entity.id,
+        statement: decisionDraft.trim(),
+        decided_by: 'user',
+      });
+      setDecisionDraft('');
+      setDecisionFormOpen(false);
+      setDetail((current) => ({
+        ...current,
+        decisions_count: (current?.decisions_count || 0) + 1,
+      }));
+      const response = await v4API.decisions.list({ thread_id: detail.entity.id });
+      setDecisions(response?.data || []);
+    } catch (err) {
+      setDecisionError(friendlyApiError(err, 'Failed to record decision'));
+    } finally {
+      setDecisionSaving(false);
+    }
+  }, [detail, decisionDraft]);
+
   const handleUpdateSubmit = useCallback(async () => {
     if (!detail?.entity || !updateDraft.trim()) return;
     setUpdateSaving(true);
@@ -1120,6 +1260,14 @@ export default function V5ThreadDetail({
         activityLoadingMore={activityLoadingMore}
         onLoadMoreActivity={handleLoadMoreActivity}
         showCaptureFab={false}
+        decisions={decisions}
+        decisionFormOpen={decisionFormOpen}
+        decisionDraft={decisionDraft}
+        decisionSaving={decisionSaving}
+        decisionError={decisionError}
+        onToggleDecisionForm={handleToggleDecisionForm}
+        onDecisionChange={handleDecisionChange}
+        onDecisionSubmit={handleDecisionSubmit}
       />
       <CitationEntitySheet
         entityId={citationEntityId}
