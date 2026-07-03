@@ -360,6 +360,53 @@ def test_task_signal_intent_still_uses_full_reconciliation(client, app):
     assert [s["suggestion_type"] for s in data["suggestions"]] == ["create_task"]
 
 
+def test_thread_attached_progress_update_decision_creates_activity_update(client, app):
+    """Scenario 7 (SQ-06): reconciliation progress_update decisions are no longer
+    dropped for thread-attached captures."""
+    project = _create_entity(client, "project", "HITL Pilot", "Pilot rollout")
+
+    extraction = {
+        "intent": "task_signal",
+        "intent_confidence": 0.9,
+        "entities": [
+            {
+                "type": "project",
+                "title": "HITL Pilot",
+                "content": "Shipped parser fix",
+                "confidence": 0.9,
+                "evidence": "Shipped parser fix for the pilot",
+            }
+        ],
+    }
+    decisions = [
+        {
+            "action": "progress_update",
+            "target_id": project["id"],
+            "update_text": "Shipped parser fix for the pilot",
+            "confidence": 0.92,
+            "reason": "progress on HITL Pilot",
+        }
+    ]
+
+    with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction), patch(
+        "services.v4_reconciliation.reconcile_candidates", return_value=decisions
+    ):
+        response = client.post(
+            "/api/v4/capture",
+            json={"content": "Shipped parser fix for the pilot.", "thread_id": project["id"]},
+        )
+
+    assert response.status_code == 201
+    data = response.get_json()
+    au_changes = [c for c in data["applied_changes"] if c["type"] == "activity_update_added"]
+    assert len(au_changes) == 1
+    assert au_changes[0]["target_entity_id"] == project["id"]
+
+    updates = client.get(f"/api/v4/entities/{project['id']}/activity_updates").get_json()["data"]
+    assert len(updates) == 1
+    assert updates[0]["content"] == "Shipped parser fix for the pilot"
+
+
 def test_stream_capture_routes_update_intent_same_as_single_shot(client, app):
     """Scenario 8: the SSE path shares the intent-routing branch."""
     task = _create_entity(client, "task", "Ship parser fix")

@@ -1364,7 +1364,9 @@ def test_capture_passes_thread_id_to_extraction_and_reconciliation(client):
     assert mock_reconcile.call_args.kwargs.get("thread_id") == project["id"]
 
 
-def test_capture_with_thread_id_skips_progress_update_activity_create(client, app):
+def test_capture_with_thread_id_applies_progress_update_activity_create(client, app):
+    """SQ-06: thread-attached captures no longer drop progress_update decisions
+    (supersedes the old AU8 skip rule)."""
     project = client.post(
         "/api/v4/entities",
         json={"type": "project", "title": "HITL Pilot", "content": "Pilot rollout"},
@@ -1404,9 +1406,12 @@ def test_capture_with_thread_id_skips_progress_update_activity_create(client, ap
 
     assert response.status_code == 201
     data = response.get_json()
-    assert all(change["type"] != "activity_update_added" for change in data["applied_changes"])
+    au_changes = [c for c in data["applied_changes"] if c["type"] == "activity_update_added"]
+    assert len(au_changes) == 1
+    assert au_changes[0]["target_entity_id"] == project["id"]
     updates = client.get(f"/api/v4/entities/{project['id']}/activity_updates").get_json()["data"]
-    assert updates == []
+    assert len(updates) == 1
+    assert updates[0]["content"] == "Shipped parser fix for the pilot"
 
 
 def test_extraction_prompt_includes_thread_context():

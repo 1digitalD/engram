@@ -4143,7 +4143,6 @@ def _reconcile_capture_candidates(note, extraction, thread_id=None):
                 decision,
                 applied_changes,
                 suggestions,
-                capture_thread_id=thread_id,
             )
 
     # Decision extraction: explicit commitments always become reviewable
@@ -4182,7 +4181,7 @@ def _reconcile_capture_candidates(note, extraction, thread_id=None):
     return applied_changes, suggestions
 
 
-def _apply_reconciliation_decision(note, candidate, decision, applied_changes, suggestions, capture_thread_id=None):
+def _apply_reconciliation_decision(note, candidate, decision, applied_changes, suggestions):
     action = (decision.get("action") or "new").lower()
     candidate_confidence = _candidate_confidence(candidate)
     if action == "skip":
@@ -4233,10 +4232,8 @@ def _apply_reconciliation_decision(note, candidate, decision, applied_changes, s
             action = "new"
 
     if action == "progress_update":
-        if capture_thread_id:
-            # Thread-attached capture is extraction bias only; Add update is the
-            # explicit activity-update path (AU8).
-            return
+        # SQ-06: thread-attached captures used to silently drop these decisions
+        # (old AU8 rule); they now behave exactly like unattached ones.
         target_id = decision.get("target_id")
         target = db.session.get(Entity, target_id) if target_id else None
         if target is None:
