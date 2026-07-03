@@ -50,6 +50,20 @@ Same Loopsmith slice discipline as Activity Update v2:
 - **LCS enabled** via `loopsmithctl-lcs.sh` wrapper (PREAMBLE + TDD skills in executor prompts).
 - **Retrospective** after M1–M3 complete (Loopsmith + product learnings).
 
+## Deploy gates
+
+Deploy is **not** a per-slice Loopsmith task. Each iteration plan declares when production deploy runs (varies by project and cycle).
+
+Record in the plan:
+
+| Field | Example (Iteration 18) |
+|-------|-------------------------|
+| **Gates** | After M2 (backend behavior); after iteration complete (full stack) |
+| **Manual smoke** | M2 activity-update scenario before first backend deploy |
+| **Command** | `bash scripts/backup_prod.sh` then `./scripts/engram-deploy.sh` |
+
+Iteration 18: M2 smoke was planned before first deploy; actual deploy ran once after full drain (5:29 PM). Prefer **M2 deploy** when backend slices land mid-cycle.
+
 ## End-to-end validation (after M1 + M2)
 
 1. Entity detail: exactly one Capture entry point.

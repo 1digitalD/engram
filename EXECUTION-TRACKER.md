@@ -3,14 +3,44 @@
 Fresh-agent handoff for the current v4 baseline. Use this to get oriented quickly,
 then read the active source docs before changing code.
 
-Last updated: 2026-07-02
+Last updated: 2026-07-03
 Branch: `main`
-Status: **Iteration 18 in progress** — M1 + M2 done (5/12). **Drain running** UI-04 → UI-10.
+Status: **Iteration 19 in progress** — M0-M2 (SQ-00..SQ-06) shipped via direct sub-agent
+worktrees 2026-07-02/03; M3-M4 (SQ-07..SQ-11) running via Loopsmith drain.
 
 Runtime baseline: `/api/v4` only, fresh Postgres + pgvector schema, write-enabled MCP
 aligned with the active API.
 
-## Current loop: Iteration 18 — V5 Productivity & Trust (2026-07-02)
+## Current loop: Iteration 19 — Signal Quality & Capture Intelligence (2026-07-02)
+
+- Contract/Plan: `docs/iterations/ITERATION_19_SIGNAL_QUALITY_PLAN.md`
+- Loopsmith overlay: `prd.json` (iteration `v5-signal-quality-loop`, SQ-07..SQ-11 only)
+- Archived prd: `docs/iterations/archive/prd-v5-productivity.json`
+
+### Milestones
+
+| Milestone | Slices | Status |
+|-----------|--------|--------|
+| M0 Model reallocation | SQ-00 | done (`.env`, not in git) |
+| M1 Broken trust primitives | SQ-01, SQ-02, SQ-03, SQ-04 | done (`8433f2cb`, `5c986f5c`, `dd448bca`, `feaf3b15`) |
+| M2 Route by intent | SQ-05, SQ-06 | done (`88d4f53d`, `4c991732`) |
+| M3 Precision extraction | SQ-07, SQ-08, SQ-09 | running via Loopsmith drain |
+| M4 Learning loop | SQ-10, SQ-11 | queued behind M3 |
+
+M0-M2 were delivered directly via `Agent` tool sub-agents in isolated git worktrees
+(TDD, fast-forward merge to main), not via Loopsmith — orchestrated inline per explicit
+instruction rather than through `prd.json`. M3-M4 use the standard Loopsmith + LCS drain
+pattern below, with tasks chained serially (`dependencies`) since they share
+`api/v4_entities.py`.
+
+### Known pre-existing failures (not in scope)
+
+- `tests/integration/test_v4_search.py::test_semantic_search_with_mocked_embeddings`,
+  `::test_semantic_search_filters_weak_matches`, `::test_hybrid_search_uses_rrf` — fail
+  identically on unmodified main (environmental/pgvector quirk), confirmed via
+  stash-and-rerun during SQ-02. Do not attempt to fix as part of Iteration 19.
+
+## Previous loop: Iteration 18 — V5 Productivity & Trust (2026-07-02) — complete
 
 - Contract: `docs/iterations/ITERATION_18_V5_PRODUCTIVITY_LOOP.md`
 - Plan: `docs/iterations/V5_PRODUCTIVITY_IMPLEMENTATION_PLAN.md`
@@ -25,15 +55,21 @@ aligned with the active API.
 |-----------|-------|--------|
 | M1 Trust fixes | UI-01, UI-02, UI-03 | done |
 | M2 Activity intelligence | AU10, AU11 | done |
-| M3 Daily surface | UI-04 – UI-07 | drain in progress |
-| M4 Polish | UI-08 – UI-10 | drain in progress |
+| M3 Daily surface | UI-04 – UI-07 | done |
+| M4 Polish | UI-08 – UI-10 | done |
+
+### Iteration 18 outcome
+
+- Drain completed 2026-07-02 (UI-04→UI-10 in one clean-tree drain after M1–M2).
+- Head: `76db4896` (ui-10). Deploy after iteration: backup `engram_20260702_172910.sql`.
+- Retrospective: harness + product notes captured in chat; LCS/Loopsmith improvements queued.
 
 ### Delivery model
 
 - **Loopsmith drain** runs slices from `prd.json` in isolated worktrees.
 - **LCS** via `loopsmithctl-lcs.sh` (PREAMBLE + TDD skills).
-- **Cursor overseer** monitors status, fixes harness drift, manual smoke after M2.
-- **Retrospective** planned after M1–M3 drain completes.
+- **Cursor overseer** monitors status, fixes harness drift, manual smoke at plan deploy gates, **takeover via pause-and-resume only** (see Harness notes).
+- **Retrospective** done (2026-07-02).
 
 ### Overseer commands
 
@@ -54,6 +90,9 @@ bash .../loopsmithctl-lcs.sh host-run --repo .../engram --drain
 - UI tasks: `coding-loop-policy.yaml` sets `executorLaunchTimeoutSeconds: 1800`.
 - Tests: `TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test` only.
 - Recovery: `bash scripts/loopsmith_recover.sh /Volumes/lex1t/dev/shared/repos/engram inspect`
+- **Overseer takeover (policy A):** pause drain — do not implement product code on `main` in parallel with an active attempt on the same `task-id`. Wait for attempt to finish/fail, or `reset-state`; land overseer commit; mark task `passes: true` in `prd.json`; resume drain.
+- **Deploy gates:** defined per iteration in the plan (milestone and/or end-of-cycle); not per slice. See `V5_PRODUCTIVITY_IMPLEMENTATION_PLAN.md` § Deploy gates.
+- **Loopsmith wrapper:** must resolve `LOOPSMITHCTL` portably (not OpenClaw-specific); any agent uses the same LCS wrapper.
 
 ## Previous loop: Activity Update v2 (2026-07-02) — complete
 
