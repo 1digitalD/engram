@@ -22,9 +22,9 @@ aligned with the active API.
 | UI-CTX-02 Backend task context | **done + deployed** | backup `engram_20260703_162711.sql` |
 | UI-CTX-03 Detail + Recall chips | **done + deployed** | same deploy |
 | UI-CTX-04 Assignee chips | **done** | merged into UI-CTX-03 |
-| UI-CTX-05 List metadata | **done + deployed** | backup `engram_20260703_1631xx.sql` |
-| UI-CTX-06 Shared row chrome | **done + deployed** | glyph circles + type borders |
-| UI-CTX-07 Project parent area | **done + deployed** | `_attach_project_context` |
+| UI-CTX-05 List metadata | **done + deployed** | backup `engram_20260703_163114.sql` |
+| UI-CTX-06 Shared row chrome | **done + deployed** | same deploy |
+| UI-CTX-07 Project parent area | **done + deployed** | same deploy |
 | UI-CTX-08 TopBar nav | **deferred** | user: leave TopBar as-is |
 
 ## Previous loop: Iteration 19 — Signal Quality & Capture Intelligence (2026-07-02) — complete
