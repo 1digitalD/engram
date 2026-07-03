@@ -5,13 +5,14 @@ then read the active source docs before changing code.
 
 Last updated: 2026-07-03
 Branch: `main`
-Status: **Iteration 19 in progress** — M0-M2 (SQ-00..SQ-06) shipped via direct sub-agent
-worktrees 2026-07-02/03; M3-M4 (SQ-07..SQ-11) running via Loopsmith drain.
+Status: **Iteration 19 complete** — M0-M2 (SQ-00..SQ-06) shipped via direct sub-agent
+worktrees 2026-07-02/03; M3-M4 (SQ-07..SQ-11) shipped via Loopsmith drain 2026-07-03.
+Full backend + UI suites green.
 
 Runtime baseline: `/api/v4` only, fresh Postgres + pgvector schema, write-enabled MCP
 aligned with the active API.
 
-## Current loop: Iteration 19 — Signal Quality & Capture Intelligence (2026-07-02)
+## Previous loop: Iteration 19 — Signal Quality & Capture Intelligence (2026-07-02) — complete
 
 - Contract/Plan: `docs/iterations/ITERATION_19_SIGNAL_QUALITY_PLAN.md`
 - Loopsmith overlay: `prd.json` (iteration `v5-signal-quality-loop`, SQ-07..SQ-11 only)
@@ -24,21 +25,25 @@ aligned with the active API.
 | M0 Model reallocation | SQ-00 | done (`.env`, not in git) |
 | M1 Broken trust primitives | SQ-01, SQ-02, SQ-03, SQ-04 | done (`8433f2cb`, `5c986f5c`, `dd448bca`, `feaf3b15`) |
 | M2 Route by intent | SQ-05, SQ-06 | done (`88d4f53d`, `4c991732`) |
-| M3 Precision extraction | SQ-07, SQ-08, SQ-09 | running via Loopsmith drain |
-| M4 Learning loop | SQ-10, SQ-11 | queued behind M3 |
+| M3 Precision extraction | SQ-07, SQ-08, SQ-09 | done (`7a98e70e`, `3a3046f3`, `4ef7078c`) |
+| M4 Learning loop | SQ-10, SQ-11 | done (`16ef2906`, `741b0607`) |
 
 M0-M2 were delivered directly via `Agent` tool sub-agents in isolated git worktrees
 (TDD, fast-forward merge to main), not via Loopsmith — orchestrated inline per explicit
-instruction rather than through `prd.json`. M3-M4 use the standard Loopsmith + LCS drain
-pattern below, with tasks chained serially (`dependencies`) since they share
-`api/v4_entities.py`.
+instruction rather than through `prd.json`. M3-M4 used the standard Loopsmith + LCS drain
+pattern (run-id `20260703T160154Z-f9737036`), with tasks chained serially (`dependencies`)
+since they share `api/v4_entities.py`. Each slice was independently code-reviewed against
+its `prd.json` acceptanceCriteria after landing.
 
-### Known pre-existing failures (not in scope)
+### Final validation (2026-07-03, post-drain)
 
-- `tests/integration/test_v4_search.py::test_semantic_search_with_mocked_embeddings`,
-  `::test_semantic_search_filters_weak_matches`, `::test_hybrid_search_uses_rrf` — fail
-  identically on unmodified main (environmental/pgvector quirk), confirmed via
-  stash-and-rerun during SQ-02. Do not attempt to fix as part of Iteration 19.
+- Backend: `TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test
+  ./venv/bin/pytest -q` → 472 passed, 20 skipped, 0 failed.
+- UI: `cd ui && npm test` → 147 passed. `npm run build` → succeeds.
+- The 3 tests previously flagged as pre-existing failures (`test_v4_search.py` —
+  `test_semantic_search_with_mocked_embeddings`, `test_semantic_search_filters_weak_matches`,
+  `test_hybrid_search_uses_rrf`) now pass; the underlying pgvector/schema quirk appears to
+  have cleared after repeated schema rebuilds during the drain. No longer a known issue.
 
 ## Previous loop: Iteration 18 — V5 Productivity & Trust (2026-07-02) — complete
 
