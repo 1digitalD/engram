@@ -1,6 +1,7 @@
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { v4API } from '../api/v4Client';
 import { CaptureProvider, useCapture } from '../context/CaptureContext';
 import { ReviewProvider } from '../context/ReviewContext';
@@ -25,6 +26,7 @@ vi.mock('../api/v4Client', () => ({
       list: vi.fn(),
       create: vi.fn(),
     },
+    mentions: vi.fn(),
   },
   friendlyApiError: (err, fallback) => err?.message || fallback || 'Something went wrong.',
 }));
@@ -65,10 +67,18 @@ function renderThread(type) {
   );
 }
 
+async function typeUpdate(text) {
+  const field = screen.getByLabelText('Update text');
+  field.focus();
+  const user = userEvent.setup();
+  await user.type(field, text, { skipClick: true });
+}
+
 describe('V5ThreadDetail', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     v4API.decisions.list.mockResolvedValue({ data: [] });
+    v4API.mentions.mockResolvedValue({ results: {} });
   });
 
   entityTypes.forEach((type) => {
@@ -249,9 +259,7 @@ describe('V5ThreadDetail', () => {
 
     await waitFor(() => expect(v4API.entities.detail).toHaveBeenCalled());
     fireEvent.click(screen.getByRole('button', { name: 'Write update' }));
-    fireEvent.change(screen.getByLabelText('Update text'), {
-      target: { value: 'Shipped parser fix to design partners.' },
-    });
+    await typeUpdate('Shipped parser fix to design partners.');
     fireEvent.click(screen.getByRole('button', { name: 'Save update' }));
 
     await waitFor(() => expect(v4API.activityUpdates.create).toHaveBeenCalledWith(
@@ -259,6 +267,63 @@ describe('V5ThreadDetail', () => {
       'Shipped parser fix to design partners.',
     ));
     await waitFor(() => expect(v4API.entities.detail).toHaveBeenCalledTimes(2));
+  });
+
+  it('renders the mention-enabled markdown editor for update text', async () => {
+    renderThread('project');
+    await screen.findByRole('region', { name: 'Add update' });
+    fireEvent.click(screen.getByRole('button', { name: 'Write update' }));
+    const field = screen.getByLabelText('Update text');
+    expect(field.closest('[data-testid="markdown-editor"]')).not.toBeNull();
+  });
+
+  it('submits a mention picked with @ as a markdown link', async () => {
+    const fixture = fixtureForType('project');
+    v4API.mentions.mockResolvedValue({
+      results: { person: [{ id: 'person-henry', title: 'Henry', path: '/people/person-henry' }] },
+    });
+    v4API.activityUpdates.create.mockResolvedValue({
+      data: { id: 'note-new-update', type: 'note', source: 'activity_update' },
+      suggestions: [],
+    });
+    v4API.entities.detail.mockResolvedValue(fixture.detail);
+    v4API.entities.events.mockResolvedValue({ data: fixture.events });
+    v4API.entities.canonical.mockResolvedValue({ canonical: fixture.canonical });
+
+    render(
+      <MemoryRouter initialEntries={['/projects/project-hitl']}>
+        <ThreadProviders>
+          <Routes>
+            <Route
+              path="/projects/:id"
+              element={(
+                <V5ThreadDetail
+                  type="project"
+                  previewDetail={null}
+                  previewEvents={null}
+                  previewCanonical=""
+                />
+              )}
+            />
+          </Routes>
+        </ThreadProviders>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => expect(v4API.entities.detail).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole('button', { name: 'Write update' }));
+    await typeUpdate('Ping @Henry');
+
+    // The @ trigger opens the mention picker; picking Henry replaces the
+    // query with a markdown link that must reach the API unchanged.
+    const option = await screen.findByRole('button', { name: 'Henry' });
+    fireEvent.mouseDown(option);
+    fireEvent.click(screen.getByRole('button', { name: 'Save update' }));
+
+    await waitFor(() => expect(v4API.activityUpdates.create).toHaveBeenCalledWith(
+      'project-hitl',
+      'Ping [Henry](/people/person-henry)',
+    ));
   });
 
   it('shows applied and suggested outcomes after a successful update', async () => {
@@ -306,9 +371,7 @@ describe('V5ThreadDetail', () => {
 
     await waitFor(() => expect(v4API.entities.detail).toHaveBeenCalled());
     fireEvent.click(screen.getByRole('button', { name: 'Write update' }));
-    fireEvent.change(screen.getByLabelText('Update text'), {
-      target: { value: 'Shipped parser fix to design partners.' },
-    });
+    await typeUpdate('Shipped parser fix to design partners.');
     fireEvent.click(screen.getByRole('button', { name: 'Save update' }));
 
     await waitFor(() => expect(v4API.activityUpdates.create).toHaveBeenCalled());

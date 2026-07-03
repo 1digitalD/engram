@@ -362,13 +362,14 @@ function AddUpdateComposer({
           </p>
           <label className={styles.fieldStack}>
             <span className={styles.fieldLabel}>Update text</span>
-            <textarea
-              className={styles.updateTextarea}
-              aria-label="Update text"
-              placeholder={placeholder}
+            <MarkdownEditor
+              className={styles.editorMarkdown}
               value={draft}
-              onChange={(event) => onChange(event.target.value)}
-              rows={4}
+              onChange={onChange}
+              ariaLabel="Update text"
+              placeholder={placeholder}
+              editable={!saving}
+              minRows={4}
             />
           </label>
           {error ? <p className={styles.error} role="alert">{error}</p> : null}

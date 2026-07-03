@@ -313,6 +313,8 @@
 }
 .sectionHeader { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
 .detailChips { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+/* Still used by the Decisions section's plain textarea (ui-09). The Add
+   update composer now uses MarkdownEditor (.editorMarkdown) instead. */
 .updateTextarea {
   width: 100%;
   min-height: 88px;
