@@ -152,10 +152,10 @@
       "validationCommands": [
         "cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/integration/test_v4_suggestions.py -q"
       ],
-      "blocked": false,
+      "blocked": true,
       "passes": true,
-      "attempts": 1,
-      "blockerReason": null,
+      "attempts": 2,
+      "blockerReason": "Executor completed without producing repository changes.",
       "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/integration/test_v4_suggestions.py -q\n......................                                                   [100%]\n22 passed in 1.69s"
     },
     {
