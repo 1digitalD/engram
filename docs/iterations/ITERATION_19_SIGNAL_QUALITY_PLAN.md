@@ -65,6 +65,9 @@ Recommended order: M0 (minutes) → M1 → M2 → M3 → M4.
 M2 is the behavior change that fixes the user's dominant daily pattern; M1 restores
 already-promised behavior and should ship first.
 
+**Delivery note (2026-07-03):** Iteration complete. Loopsmith overlay archived to
+`docs/iterations/archive/prd-v5-signal-quality.json`; root `prd.json` is an idle stub.
+
 ---
 
 ## Slice specifications
@@ -85,7 +88,7 @@ this task now" as a 0.90-confidence decision despite the prompt requiring named 
 - Volume is ~5–10 captures/day; cost delta is negligible vs. trust cost of wrong decisions.
 
 **Acceptance:**
-- [ ] Golden-set eval (SQ-03 harness or a fixture set of ~15 real anonymized captures) shows
+- [x] Golden-set eval (SQ-03 harness or a fixture set of ~15 real anonymized captures) shows
       reconciliation decisions unchanged-or-better; decision extraction no longer fires on
       closure language.
 
@@ -107,11 +110,11 @@ and draft state. Ensure output is markdown text (mention links `[Title](/tasks/<
 passed unchanged to `capture`/`activity_updates.create`.
 
 **Acceptance:**
-- [ ] Typing `@` in capture sheet opens person picker; `[[` opens entity picker
-- [ ] Same in Add update composer
-- [ ] Submitting content with a mention creates a `mentions` relationship with confidence 1.0
+- [x] Typing `@` in capture sheet opens person picker; `[[` opens entity picker
+- [x] Same in Add update composer
+- [x] Submitting content with a mention creates a `mentions` relationship with confidence 1.0
       (integration test exists — extend to activity-update path if missing)
-- [ ] `cd ui && npm test -- V5CaptureSheet V5ThreadDetail` passes
+- [x] `cd ui && npm test -- V5CaptureSheet V5ThreadDetail` passes
 
 **Validation:**
 ```bash
@@ -132,9 +135,9 @@ status is `done`/`cancelled` (the closure case the prompt already handles). Remo
 "any task candidates exist" condition.
 
 **Acceptance:**
-- [ ] Open task + top-level follow-up + unrelated new task → follow-up applied to target
-- [ ] Closure + spin-off scenario (AU11 test) still passes unchanged
-- [ ] `follow_up_auto_set` in the response reflects what actually happened
+- [x] Open task + top-level follow-up + unrelated new task → follow-up applied to target
+- [x] Closure + spin-off scenario (AU11 test) still passes unchanged
+- [x] `follow_up_auto_set` in the response reflects what actually happened
       (currently hardcoded `False` — also fix here, it's the same response block)
 
 **Validation:**
@@ -156,9 +159,9 @@ expected outcomes (entities created/suggested, target statuses, follow-ups). Scr
 precision/recall per capture and a summary table. Not a CI gate — a decision tool.
 
 **Acceptance:**
-- [ ] `ENGRAM_ALLOW_TEST_AI=1 pytest tests/eval/test_capture_golden.py -q` runs against
+- [x] `ENGRAM_ALLOW_TEST_AI=1 pytest tests/eval/test_capture_golden.py -q` runs against
       live OpenAI and reports per-fixture pass/fail
-- [ ] Documented in the slice doc how to add fixtures
+- [x] Documented in the slice doc how to add fixtures
 
 ---
 
@@ -173,8 +176,8 @@ deliverable/date; reject statements matching closure patterns (`close|done|finis
 against the update target). Keep decisions suggest-only (already true).
 
 **Acceptance:**
-- [ ] "We can close this task now." produces no decision suggestion
-- [ ] "Dan will deliver the wireframes by 2026-07-15." still produces one
+- [x] "We can close this task now." produces no decision suggestion
+- [x] "Dan will deliver the wireframes by 2026-07-15." still produces one
 
 ---
 
@@ -205,13 +208,13 @@ intent), branch:
   extraction path.
 
 **Acceptance:**
-- [ ] Fixture: "Had 3 sessions… We can close this task now." attached to a task →
+- [x] Fixture: "Had 3 sessions… We can close this task now." attached to a task →
       task status `done` (or update_task suggestion), NO create_task suggestion
-- [ ] Same text unattached, content names the task ("the coaching pilot") →
+- [x] Same text unattached, content names the task ("the coaching pilot") →
       resolved via embedding search, same outcome
-- [ ] Same text unattached and unresolvable → single `update_unresolved` suggestion
-- [ ] Meeting-transcript fixture still produces entity/link candidates (full path intact)
-- [ ] Golden eval (SQ-03) shows no regression on non-update fixtures
+- [x] Same text unattached and unresolvable → single `update_unresolved` suggestion
+- [x] Meeting-transcript fixture still produces entity/link candidates (full path intact)
+- [x] Golden eval (SQ-03) shows no regression on non-update fixtures
 
 **Validation:**
 ```bash
@@ -233,10 +236,10 @@ the early return). Non-update intents keep current behavior (note + links). Remo
 `CAPTURE_ATTACHMENT_HINT` copy accordingly.
 
 **Acceptance:**
-- [ ] Capture "shipped it, done" attached to a task → status applied or suggested,
+- [x] Capture "shipped it, done" attached to a task → status applied or suggested,
       identical to Add update with the same text
-- [ ] Attached capture of a reference/note intent → unchanged current behavior
-- [ ] AU8 regression tests updated deliberately (this supersedes the AU8 non-goal)
+- [x] Attached capture of a reference/note intent → unchanged current behavior
+- [x] AU8 regression tests updated deliberately (this supersedes the AU8 non-goal)
 
 ---
 
@@ -262,10 +265,10 @@ meeting logistics become task candidates. Confidence doesn't separate keepers fr
   `V5ReviewSheet`).
 
 **Acceptance:**
-- [ ] Golden meeting fixture: stance fragments and logistics no longer proposed;
+- [x] Golden meeting fixture: stance fragments and logistics no longer proposed;
       real action items still are (precision up, recall on true tasks held)
-- [ ] Review sheet renders grouped meeting suggestions with accept-all
-- [ ] Dismissal rate measurable via SQ-11 data going forward
+- [x] Review sheet renders grouped meeting suggestions with accept-all
+- [x] Dismissal rate measurable via SQ-11 data going forward
 
 ---
 
@@ -283,8 +286,8 @@ becomes a person.
   (Alternative if too aggressive: add `person` to `SUGGEST_ONLY_CREATION_TYPES`.)
 
 **Acceptance:**
-- [ ] Transcript fixture with 6 names, 2 assignees → ≤2 person creations, others linked/skipped
-- [ ] "Priya" in a note with existing "Priya Dhandapani" links, doesn't create
+- [x] Transcript fixture with 6 names, 2 assignees → ≤2 person creations, others linked/skipped
+- [x] "Priya" in a note with existing "Priya Dhandapani" links, doesn't create
 
 ---
 
@@ -313,8 +316,8 @@ dismissal time, or compute lazily and cache in payload). Similarity ≥ ~0.85 wi
 suggestion_type → suppress. Keep the exact-fingerprint fast path.
 
 **Acceptance:**
-- [ ] Reworded duplicate of a dismissed suggestion within 30 days is not re-created
-- [ ] Genuinely different task about the same person still proposed
+- [x] Reworded duplicate of a dismissed suggestion within 30 days is not re-created
+- [x] Genuinely different task about the same person still proposed
 
 ---
 
@@ -327,8 +330,8 @@ suggestion_type → suppress. Keep the exact-fingerprint fast path.
   quote from the candidate (`evidence` field) so rows are judgeable at a glance.
 
 **Acceptance:**
-- [ ] Dismiss with reason persists; GET /suggestions returns it
-- [ ] Suggestion rows show evidence quotes when present
+- [x] Dismiss with reason persists; GET /suggestions returns it
+- [x] Suggestion rows show evidence quotes when present
 
 ---
 
@@ -354,5 +357,5 @@ Targets: suggestion acceptance ≥ 60% (from 24%); agent-created deletion rate �
 
 Same Loopsmith + LCS pattern as Iteration 18. SQ-05/SQ-06/SQ-07 are medium-risk backend
 slices — run one at a time with the golden eval (SQ-03) before/after. M0 is a manual env
-change + deploy, no loop needed. Do NOT overwrite `prd.json` until this plan is reviewed;
-archive the Iteration 18 overlay first (`docs/iterations/archive/prd-v5-productivity.json`).
+change + deploy, no loop needed. Archive completed overlay to
+`docs/iterations/archive/` before standing up the next `prd.json`.

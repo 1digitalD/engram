@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import importlib
-import os
 
 import pytest
 
@@ -10,6 +9,7 @@ CHAT_MODEL_ENV_VARS = (
     "OPENAI_EXTRACTION_MODEL",
     "OPENAI_ACTIVITY_UPDATE_MODEL",
     "OPENAI_RECONCILIATION_MODEL",
+    "OPENAI_DECISION_MODEL",
     "OPENAI_SUMMARIZATION_MODEL",
     "OPENAI_BRIEF_MODEL",
 )
@@ -17,6 +17,7 @@ CHAT_MODEL_ENV_VARS = (
 SERVICE_MODULES = (
     "services.v4_extraction",
     "services.v4_reconciliation",
+    "services.v4_decisions",
     "services.v4_summarization",
     "services.v4_brief",
 )
@@ -41,11 +42,12 @@ def test_chat_model_defaults_to_gpt_5_4_nano(monkeypatch):
     _clear_chat_model_env(monkeypatch)
     _reload_services()
 
-    from services import v4_extraction, v4_reconciliation, v4_summarization, v4_brief
+    from services import v4_brief, v4_decisions, v4_extraction, v4_reconciliation, v4_summarization
 
     assert v4_extraction.EXTRACTION_MODEL == "gpt-5.4-nano"
     assert v4_extraction.ACTIVITY_UPDATE_EXTRACTION_MODEL == "gpt-5.4-nano"
     assert v4_reconciliation.RECONCILIATION_MODEL == "gpt-5.4-nano"
+    assert v4_decisions.DECISION_EXTRACTION_MODEL == "gpt-5.4-nano"
     assert v4_summarization.SUMMARIZATION_MODEL == "gpt-5.4-nano"
     assert v4_brief.BRIEF_MODEL == "gpt-5.4-nano"
 
@@ -55,6 +57,7 @@ def test_chat_model_env_overrides_win(monkeypatch):
         "OPENAI_EXTRACTION_MODEL": "o3-mini",
         "OPENAI_ACTIVITY_UPDATE_MODEL": "o3-mini",
         "OPENAI_RECONCILIATION_MODEL": "gpt-4o",
+        "OPENAI_DECISION_MODEL": "gpt-4o",
         "OPENAI_SUMMARIZATION_MODEL": "gpt-4o",
         "OPENAI_BRIEF_MODEL": "o1",
     }
@@ -62,11 +65,12 @@ def test_chat_model_env_overrides_win(monkeypatch):
         monkeypatch.setenv(var, value)
     _reload_services()
 
-    from services import v4_extraction, v4_reconciliation, v4_summarization, v4_brief
+    from services import v4_brief, v4_decisions, v4_extraction, v4_reconciliation, v4_summarization
 
     assert v4_extraction.EXTRACTION_MODEL == overrides["OPENAI_EXTRACTION_MODEL"]
     assert v4_extraction.ACTIVITY_UPDATE_EXTRACTION_MODEL == overrides["OPENAI_ACTIVITY_UPDATE_MODEL"]
     assert v4_reconciliation.RECONCILIATION_MODEL == overrides["OPENAI_RECONCILIATION_MODEL"]
+    assert v4_decisions.DECISION_EXTRACTION_MODEL == overrides["OPENAI_DECISION_MODEL"]
     assert v4_summarization.SUMMARIZATION_MODEL == overrides["OPENAI_SUMMARIZATION_MODEL"]
     assert v4_brief.BRIEF_MODEL == overrides["OPENAI_BRIEF_MODEL"]
 

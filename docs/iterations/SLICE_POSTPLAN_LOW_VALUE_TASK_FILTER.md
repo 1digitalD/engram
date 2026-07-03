@@ -29,14 +29,8 @@ does not clutter the review queue.
 
 ## Validation
 
-- `PYTHONPATH=. TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test /Volumes/lex1t/dev/shared/repos/engram/venv/bin/pytest tests/integration/test_v4_capture_extraction.py -q`
-  - Passed: 45 tests
-- `PYTHONPATH=. /Volumes/lex1t/dev/shared/repos/engram/venv/bin/python -m py_compile api/v4_entities.py services/v4_extraction.py tests/integration/test_v4_capture_extraction.py`
-  - Passed
-- Full backend suite:
-  - Currently surfaces three unrelated semantic-search failures in
-    `tests/integration/test_v4_search.py`
-  - Those failures are outside this slice and need follow-up before merge
+- `TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/integration/test_v4_capture_extraction.py -q` — passes (merged via SQ-09).
+- Full backend suite green as of 2026-07-03 (483 passed, 20 skipped).
 
 ## Notes
 

@@ -33,4 +33,4 @@ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build
 
 **Acceptance met:** [x] yes
 
-**Commit:** pending overseer commit for UI-01 code change
+**Commit:** `35e7683c` (Iteration 18 M1 canary)

@@ -13,6 +13,10 @@ def resolve_chat_model(env_var: str, default: str = "gpt-5.4-nano") -> str:
     """Return the model name to use for a chat-completion service.
 
     Reads the named environment variable. If unset or empty, falls back to
-    ``default`` (canonical v4 default: gpt-5.4-nano).
+    ``default`` (code default: gpt-5.4-nano).
+
+    Production policy (SQ-00, set in ``.env`` / ``.env.example``): override
+    extraction, reconciliation, activity-update, decision, and brief paths to
+    ``gpt-5.4-mini``; keep summarization on ``gpt-5.4-nano``.
     """
     return os.getenv(env_var, default) or default

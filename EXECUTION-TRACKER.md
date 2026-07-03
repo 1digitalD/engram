@@ -5,9 +5,9 @@ then read the active source docs before changing code.
 
 Last updated: 2026-07-03
 Branch: `main`
-Status: **Iteration 19 complete** — M0-M2 (SQ-00..SQ-06) shipped via direct sub-agent
-worktrees 2026-07-02/03; M3-M4 (SQ-07..SQ-11) shipped via Loopsmith drain 2026-07-03.
-Full backend + UI suites green.
+Status: **Iteration 19 complete + post-review hardening deployed** — SQ-00..SQ-11
+shipped 2026-07-02/03; Bugbot review fixes merged (`7ca1a146`, PR #7) and deployed
+2026-07-03 (`backup engram_20260703_114953.sql`). Full backend + UI suites green.
 
 Runtime baseline: `/api/v4` only, fresh Postgres + pgvector schema, write-enabled MCP
 aligned with the active API.
@@ -15,7 +15,7 @@ aligned with the active API.
 ## Previous loop: Iteration 19 — Signal Quality & Capture Intelligence (2026-07-02) — complete
 
 - Contract/Plan: `docs/iterations/ITERATION_19_SIGNAL_QUALITY_PLAN.md`
-- Loopsmith overlay: `prd.json` (iteration `v5-signal-quality-loop`, SQ-07..SQ-11 only)
+- Loopsmith overlay: archived `docs/iterations/archive/prd-v5-signal-quality.json` (was `prd.json`, iteration `v5-signal-quality-loop`)
 - Archived prd: `docs/iterations/archive/prd-v5-productivity.json`
 
 ### Milestones
@@ -114,7 +114,7 @@ All 6 prd tasks passed. See archived `docs/iterations/archive/prd-v5-hardening.j
 | `AGENTS.md` | Repo-wide working rules |
 | `docs/V4_PRINCIPLES.md` | Product and architecture rules |
 | `docs/V4_WORLD_MODEL_PLAN.md` | Active implementation plan |
-| `prd.json` | Loopsmith task graph (Iteration 19 — complete, archive before next loop) |
+| `prd.json` | Loopsmith idle stub (no active loop; last overlay archived) |
 | `EXECUTION-TRACKER.md` | This file |
 
 ## Deploy + Validation Baseline
@@ -140,3 +140,15 @@ All 6 prd tasks passed. See archived `docs/iterations/archive/prd-v5-hardening.j
 - 2026-07-03T17:45:54.269108+00:00 sq-10-semantic-dismissal-memory accepted via opencode
 - 2026-07-03T18:01:44.723132+00:00 sq-11-dismissal-reasons accepted via opencode
 - 2026-07-03T18:07:23.327702+00:00 sq-11-dismissal-reasons accepted via opencode
+
+## Post-Iteration 19 review fix (2026-07-03)
+
+- PR [#7](https://github.com/1digitalD/engram/pull/7): Bugbot-driven capture/suggestion hardening (negated status guard, update_unresolved dedup apply, task-cap structural ranking, semantic-memory cap overflow, intent-route decisions, work-carrying persons).
+- Deploy: `backup engram_20260703_114953.sql` → `./scripts/engram-deploy.sh` (smoke green).
+
+## Known tech debt (carry forward)
+
+- `api/v4_entities.py` (~7k lines): capture, reconciliation apply, and suggestion paths remain monolithic; split when the next loop touches this area heavily.
+- Post-Iteration 19 prod metrics not yet re-run (acceptance rate / agent-deletion SQL in `ITERATION_19_SIGNAL_QUALITY_PLAN.md` § Measurement).
+- Replay eval last run 2026-06-30 (`docs/iterations/replay_results/`); re-run after the next extraction change.
+- Code-default chat model is `gpt-5.4-nano`; prod `.env` overrides judgment paths to `-mini` (SQ-00). `.env.example` documents the intended prod policy.
