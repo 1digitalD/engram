@@ -123,11 +123,11 @@ def test_resolved_review_note_reenters_inbox_when_new_suggestion_is_created(clie
             "links": [],
             "entities": [{
                 "type": "task",
-                "title": "Follow up later",
+                "title": "Follow up with Henry later",
                 "content": "Keep an eye on this",
                 "due_at": None,
                 "follow_up_at": None,
-                "assigned_to": None,
+                "assigned_to": "Henry",
                 "confidence": 0.61,
                 "evidence": "follow up later",
             }],

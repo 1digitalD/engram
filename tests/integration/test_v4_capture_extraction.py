@@ -136,43 +136,77 @@ def test_capture_stream_error_event(client, app):
         assert note is None
 
 
-def test_capture_auto_creates_high_confidence_task(client, app):
+def test_capture_auto_creates_structurally_strong_task(client, app):
+    """SQ-07: a task with owner, deliverable title, date, and resolvable target
+    auto-creates when confidence is high enough."""
+    project = client.post(
+        "/api/v4/entities", json={"type": "project", "title": "Rollout", "content": "Project"}
+    ).get_json()["data"]
     extraction = {
+        "links": [
+            {
+                "target_type": "project",
+                "title": "Rollout",
+                "relationship_type": "related",
+                "confidence": 0.95,
+                "evidence": "rollout project",
+            }
+        ],
         "entities": [
             {
                 "type": "task",
-                "title": "Follow up on rollout",
+                "title": "Follow up with Henry on rollout",
                 "content": "Ask Henry for rollout status.",
+                "assigned_to": "Henry",
+                "due_at": "2026-07-10",
                 "confidence": 0.91,
                 "evidence": "ask Henry about rollout",
             }
-        ]
+        ],
     }
+    decisions = [
+        {
+            "action": "link",
+            "target_id": project["id"],
+            "relationship_type": "related",
+            "confidence": 0.95,
+            "reason": "existing project",
+        },
+        {
+            "action": "new",
+            "relationship_type": "derived_from",
+            "confidence": 0.91,
+            "reason": "new task",
+        },
+    ]
 
-    with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction):
-        response = client.post("/api/v4/capture", json={"content": "Need to ask Henry about rollout"})
+    with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction), \
+         patch("services.v4_reconciliation.reconcile_candidates", return_value=decisions):
+        response = client.post("/api/v4/capture", json={"content": "Need to ask Henry about rollout by Friday"})
 
     assert response.status_code == 201
     data = response.get_json()
-    assert data["applied_changes"] == []
-    assert len(data["suggestions"]) == 1
-    suggestion = data["suggestions"][0]
-    assert suggestion["suggestion_type"] == "create_task"
-    assert suggestion["confidence"] == 0.91
-    assert suggestion["payload"]["title"] == "Follow up on rollout"
+    assert any(
+        c["type"] == "entity_created" and c["entity_type"] == "task"
+        for c in data["applied_changes"]
+    )
+    assert data["suggestions"] == []
 
     with app.app_context():
-        assert Entity.query.filter_by(type="task").count() == 0
-        assert AiSuggestion.query.filter_by(suggestion_type="create_task").count() == 1
+        assert Entity.query.filter_by(type="task").count() == 1
+        assert AiSuggestion.query.filter_by(suggestion_type="create_task").count() == 0
 
 
 def test_capture_high_confidence_task_goes_to_review_queue(client, app):
+    """SQ-07: a high-confidence task with only partial structural signals is
+    surfaced for review rather than auto-created."""
     extraction = {
         "entities": [
             {
                 "type": "task",
-                "title": "Follow up on rollout",
+                "title": "Follow up with Henry on rollout",
                 "content": "Ask Henry for rollout status.",
+                "assigned_to": "Henry",
                 "confidence": 0.95,
                 "evidence": "ask Henry about rollout",
             }
@@ -235,13 +269,14 @@ def test_capture_task_suggestion_includes_relationship_and_assigned_to(client, a
     assert payload["assigned_to"] == "Henry"
 
 
-def test_capture_auto_created_task_uses_task_to_note_derived_from_link(client, app):
+def test_capture_suggested_task_uses_task_to_note_derived_from_link_on_accept(client, app):
     extraction = {
         "entities": [
             {
                 "type": "task",
-                "title": "Follow up on rollout",
+                "title": "Follow up with Henry on rollout",
                 "content": "Ask Henry for rollout status.",
+                "assigned_to": "Henry",
                 "confidence": 0.91,
                 "evidence": "ask Henry about rollout",
             }
@@ -265,7 +300,7 @@ def test_capture_auto_created_task_uses_task_to_note_derived_from_link(client, a
     assert accept.status_code == 200
 
     with app.app_context():
-        task = Entity.query.filter_by(type="task", title="Follow up on rollout").one()
+        task = Entity.query.filter_by(type="task", title="Follow up with Henry on rollout").one()
         link = EntityLink.query.filter_by(
             source_entity_id=task.id,
             target_entity_id=note_id,
@@ -507,8 +542,9 @@ def test_capture_uses_reconciliation_confidence_for_auto_apply_gate(client, app)
         "entities": [
             {
                 "type": "task",
-                "title": "Follow up on rollout",
+                "title": "Follow up with Henry on rollout",
                 "content": "Ask Henry for rollout status.",
+                "assigned_to": "Henry",
                 "confidence": 0.95,
                 "evidence": "ask Henry about rollout",
             }
@@ -520,7 +556,7 @@ def test_capture_uses_reconciliation_confidence_for_auto_apply_gate(client, app)
             "target_id": None,
             "fields": {},
             "relationship_type": "derived_from",
-            "confidence": 0.42,
+            "confidence": 0.55,
             "reason": "match confidence is too low for auto-apply",
         }
     ]
@@ -536,7 +572,7 @@ def test_capture_uses_reconciliation_confidence_for_auto_apply_gate(client, app)
     assert data["applied_changes"] == []
     assert len(data["suggestions"]) == 1
     assert data["suggestions"][0]["operation_type"] == "create_entity"
-    assert data["suggestions"][0]["confidence"] == 0.42
+    assert data["suggestions"][0]["confidence"] == 0.55
 
     with app.app_context():
         assert Entity.query.filter_by(type="task").count() == 0
@@ -1044,6 +1080,7 @@ def test_capture_reuses_existing_pending_suggestion_instead_of_creating_duplicat
             {
                 "type": "task",
                 "title": "Follow up with Henry",
+                "assigned_to": "Henry",
                 "confidence": 0.55,
                 "evidence": "follow up with Henry",
             }
@@ -1069,6 +1106,7 @@ def test_capture_suppresses_recently_dismissed_duplicate_suggestion(client, app)
             {
                 "type": "task",
                 "title": "Follow up with Henry",
+                "assigned_to": "Henry",
                 "confidence": 0.55,
                 "evidence": "follow up with Henry",
             }
@@ -2078,6 +2116,7 @@ def test_revert_created_entity_marks_lifecycle_deleted(client, app):
                 "type": "task",
                 "title": "Write release notes",
                 "content": "Need to write release notes",
+                "assigned_to": "Henry",
                 "confidence": 0.9,
                 "evidence": "Need to write release notes",
             },
@@ -2125,6 +2164,70 @@ def test_revert_created_entity_marks_lifecycle_deleted(client, app):
 def test_revert_unknown_event_returns_404(client, app):
     response = client.post("/api/v4/events/does-not-exist/revert")
     assert response.status_code == 404
+
+
+def test_capture_drops_stance_and_logistics_tasks_but_keeps_real_action_items(client, app):
+    """SQ-07: meeting-transcript stance fragments and logistics are not proposed
+    as tasks; real action items with owner + deliverable still are."""
+    extraction = {
+        "entities": [
+            # Stance / logistics / restatements — should be dropped.
+            {"type": "task", "title": "Endorse L2 priority", "confidence": 0.92, "evidence": "Endorse L2 priority"},
+            {"type": "task", "title": "Treat L3 as deliberate defer", "confidence": 0.91, "evidence": "Treat L3 as deliberate defer"},
+            {"type": "task", "title": "Name L3 defer explicitly on slide 5", "confidence": 0.9, "evidence": "Name L3 defer explicitly on slide 5"},
+            {"type": "task", "title": "Attend all hands in Vancouver", "confidence": 0.95, "evidence": "Attend all hands"},
+            {"type": "task", "title": "Prioritize L2 work over L3", "confidence": 0.93, "evidence": "Prioritize L2"},
+            # Real action items — should be suggested (owner + deliverable).
+            {
+                "type": "task",
+                "title": "Ship the L2 rollout plan doc",
+                "assigned_to": "Akash",
+                "confidence": 0.91,
+                "evidence": "Akash to ship the L2 rollout plan doc by Friday",
+            },
+            {
+                "type": "task",
+                "title": "Follow up with legal on vendor contract",
+                "assigned_to": "Priya",
+                "confidence": 0.9,
+                "evidence": "Priya to follow up with legal",
+            },
+            {
+                "type": "task",
+                "title": "Schedule the customer migration call",
+                "assigned_to": "Sam",
+                "confidence": 0.9,
+                "evidence": "Sam to schedule the migration call",
+            },
+        ]
+    }
+
+    with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction):
+        response = client.post("/api/v4/capture", json={"content": "Weekly platform sync notes"})
+
+    assert response.status_code == 201
+    data = response.get_json()
+    suggested_titles = {
+        s["payload"]["title"]
+        for s in data["suggestions"]
+        if s["suggestion_type"] == "create_task"
+    }
+
+    assert "Ship the L2 rollout plan doc" in suggested_titles
+    assert "Follow up with legal on vendor contract" in suggested_titles
+    assert "Schedule the customer migration call" in suggested_titles
+
+    forbidden = {
+        "Endorse L2 priority",
+        "Treat L3 as deliberate defer",
+        "Name L3 defer explicitly on slide 5",
+        "Attend all hands in Vancouver",
+        "Prioritize L2 work over L3",
+    }
+    assert forbidden.isdisjoint(suggested_titles), f"forbidden tasks proposed: {forbidden & suggested_titles}"
+
+    with app.app_context():
+        assert Entity.query.filter_by(type="task").count() == 0
 
 
 def test_capture_assigns_delegation_sets_follow_up_at_cadence(client, app):
@@ -2409,6 +2512,7 @@ def test_capture_medium_confidence_task_marked_uncertain(client, app):
             {
                 "type": "task",
                 "title": "Follow up with Akash about Q3",
+                "assigned_to": "Akash",
                 "confidence": 0.7,
                 "evidence": "follow up with Akash about Q3",
             }
@@ -2482,6 +2586,7 @@ def test_capture_medium_confidence_task_marked_uncertain(client, app):
             {
                 "type": "task",
                 "title": "Follow up with Akash about Q3",
+                "assigned_to": "Akash",
                 "confidence": 0.7,
                 "evidence": "follow up with Akash about Q3",
             }

@@ -336,6 +336,7 @@ def test_task_signal_intent_still_uses_full_reconciliation(client, app):
             {
                 "type": "task",
                 "title": "Draft rollout plan",
+                "assigned_to": "Henry",
                 "confidence": 0.9,
                 "evidence": "draft the rollout plan",
             }

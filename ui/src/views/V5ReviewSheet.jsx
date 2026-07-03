@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Sheet from '../components/Sheet';
 import { v4API, friendlyApiError } from '../api/v4Client';
 import { useSummary } from '../context/SummaryContext';
@@ -16,12 +16,17 @@ export function suggestionTitle(row) {
   return row?.payload?.title || row?.title || 'Untitled suggestion';
 }
 
+function groupKey(row) {
+  return row?.payload?.group_id || null;
+}
+
 export default function V5ReviewSheet({ open, onClose }) {
   const { refreshSummary } = useSummary();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [busyId, setBusyId] = useState(null);
+  const [busyGroup, setBusyGroup] = useState(null);
 
   const loadSuggestions = useCallback(async () => {
     setLoading(true);
@@ -42,10 +47,28 @@ export default function V5ReviewSheet({ open, onClose }) {
       setRows([]);
       setError('');
       setBusyId(null);
+      setBusyGroup(null);
       return;
     }
     loadSuggestions();
   }, [open, loadSuggestions]);
+
+  const { grouped, ungrouped } = useMemo(() => {
+    const groupedMap = new Map();
+    const ungroupedRows = [];
+    for (const row of rows) {
+      const key = groupKey(row);
+      if (key) {
+        if (!groupedMap.has(key)) {
+          groupedMap.set(key, []);
+        }
+        groupedMap.get(key).push(row);
+      } else {
+        ungroupedRows.push(row);
+      }
+    }
+    return { grouped: groupedMap, ungrouped: ungroupedRows };
+  }, [rows]);
 
   async function handleAccept(id) {
     setBusyId(id);
@@ -75,6 +98,60 @@ export default function V5ReviewSheet({ open, onClose }) {
     }
   }
 
+  async function handleAcceptGroup(groupRows) {
+    const key = groupKey(groupRows[0]);
+    setBusyGroup(key);
+    setError('');
+    const ids = groupRows.map((row) => row.id);
+    try {
+      await Promise.all(ids.map((id) => v4API.suggestions.accept(id)));
+      setRows((prev) => prev.filter((row) => !ids.includes(row.id)));
+      refreshSummary();
+    } catch (err) {
+      setError(friendlyApiError(err, 'Could not accept all suggestions.'));
+    } finally {
+      setBusyGroup(null);
+    }
+  }
+
+  function renderCard(row, options = {}) {
+    const evidence = row.reason || row.payload?.evidence;
+    const sourceTitle = row.source_note_title;
+    const disabled = busyId === row.id || options.disabled;
+    return (
+      <li key={row.id} className={styles.card}>
+        <div className={styles.cardHeader}>
+          <h3 className={styles.cardTitle}>{suggestionTitle(row)}</h3>
+          <span className={styles.cardType}>{formatSuggestionType(row.suggestion_type)}</span>
+        </div>
+        {sourceTitle ? (
+          <p className={styles.cardMeta}>From: {sourceTitle}</p>
+        ) : null}
+        {evidence ? (
+          <p className={styles.cardEvidence}>{evidence}</p>
+        ) : null}
+        <div className={styles.actions}>
+          <button
+            type="button"
+            className={styles.buttonSecondary}
+            disabled={disabled}
+            onClick={() => handleDismiss(row.id)}
+          >
+            Dismiss
+          </button>
+          <button
+            type="button"
+            className={styles.buttonPrimary}
+            disabled={disabled}
+            onClick={() => handleAccept(row.id)}
+          >
+            Accept
+          </button>
+        </div>
+      </li>
+    );
+  }
+
   return (
     <Sheet open={open} onClose={onClose} ariaLabel="Review suggestions" mobileBottomSheet>
       <div className={styles.reviewSheet}>
@@ -93,43 +170,31 @@ export default function V5ReviewSheet({ open, onClose }) {
             <p className={styles.empty}>No pending suggestions.</p>
           ) : (
             <ul className={styles.list} aria-label="Pending suggestions">
-              {rows.map((row) => {
-                const evidence = row.reason || row.payload?.evidence;
-                const sourceTitle = row.source_note_title;
-                const disabled = busyId === row.id;
+              {Array.from(grouped.entries()).map(([key, groupRows]) => {
+                const count = groupRows.length;
+                const disabled = busyGroup === key;
                 return (
-                  <li key={row.id} className={styles.card}>
-                    <div className={styles.cardHeader}>
-                      <h3 className={styles.cardTitle}>{suggestionTitle(row)}</h3>
-                      <span className={styles.cardType}>{formatSuggestionType(row.suggestion_type)}</span>
-                    </div>
-                    {sourceTitle ? (
-                      <p className={styles.cardMeta}>From: {sourceTitle}</p>
-                    ) : null}
-                    {evidence ? (
-                      <p className={styles.cardEvidence}>{evidence}</p>
-                    ) : null}
-                    <div className={styles.actions}>
-                      <button
-                        type="button"
-                        className={styles.buttonSecondary}
-                        disabled={disabled}
-                        onClick={() => handleDismiss(row.id)}
-                      >
-                        Dismiss
-                      </button>
+                  <li key={key} className={styles.group}>
+                    <div className={styles.groupHeader}>
+                      <span className={styles.groupTitle}>
+                        {count} action {count === 1 ? 'item' : 'items'} from this note
+                      </span>
                       <button
                         type="button"
                         className={styles.buttonPrimary}
                         disabled={disabled}
-                        onClick={() => handleAccept(row.id)}
+                        onClick={() => handleAcceptGroup(groupRows)}
                       >
-                        Accept
+                        Accept all
                       </button>
                     </div>
+                    <ul className={styles.groupList}>
+                      {groupRows.map((row) => renderCard(row, { disabled }))}
+                    </ul>
                   </li>
                 );
               })}
+              {ungrouped.map((row) => renderCard(row))}
             </ul>
           )}
         </div>

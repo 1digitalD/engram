@@ -29,8 +29,9 @@ Analyze the note below and return JSON with metadata, link candidates, and entit
 RULES:
 - Return JSON only. No prose, no markdown fences.
 - Do NOT re-extract the source note itself as an entity or link candidate.
-- Be exhaustive: extract every actionable item, person, project, area, and resource mentioned.
-- Prefer over-extraction — the reconciliation layer decides what to apply.
+- Be exhaustive for PEOPLE, PROJECTS, AREAS, and RESOURCES — extract every mentioned item.
+- For TASKS, prefer precision over recall: only emit candidates that pass the positive test in \
+the TASKS rule below. The reconciliation layer cannot fix garbage candidates.
 - Confidence: 0.9+ explicit/unambiguous, 0.7–0.9 strongly implied, 0.5–0.7 inferred, <0.5 speculative.
 - DEDUPE WITHIN THIS NOTE: each real-world entity must appear at most ONCE across the entire \
 output (combining the `links` and `entities` arrays). If a person, project, area, or resource \
@@ -50,22 +51,38 @@ uses for "project" and "area". When extracting NEW projects or areas, follow the
 (scope, specificity, phrasing) as these examples.
 
 TASKS — DEDICATED RULE (highest priority extraction):
-Tasks are routinely missed when prompts are vague. Apply ALL of the following:
+A task candidate must pass a positive test BEFORE it is emitted:
+  (a) It names a concrete deliverable or next action, AND
+  (b) it has an owner who is the user or someone the user must chase.
+
+Apply ALL of the following:
   1. Any section titled "Action Items", "Action items", "Tasks", "TODO", "To do", "Next Steps", \
 "Next steps", "Follow-ups", or "Follow ups" — every bullet (or sub-bullet) inside it is a separate \
-task candidate, but only if it describes a concrete next action.
-  2. Any bullet formatted as "Name:" or "Name —" followed by an action description is a task. \
-The Name is the assignee; emit `assigned_to: "<Name>"` and also emit the Name as a `person` candidate.
+task candidate, BUT only if it passes the positive test above.
+  2. Any bullet formatted as "Name:" or "Name —" followed by an action description is a task ONLY \
+if the action is concrete and the user must chase the owner. Emit `assigned_to: "<Name>"` and also \
+emit the Name as a `person` candidate.
   3. Any sentence that begins with an imperative verb ("Ship", "Draft", "Send", "Schedule", \
 "Define", "Review", "Build"), or contains "needs to", "will", "should", "TODO", "follow up with", \
 "remind me", "let's", or "we should" describes a task only when it names a concrete next step, \
 owner, or deliverable. Ignore hedged, tentative, or purely reflective language.
   4. Do NOT collapse multiple actions into a single task. "Ask Henry and follow up with Priya" is \
 two tasks. "Draft the doc and share by Friday" is one task with a due date; "Draft the doc; then \
-review with the team" is two tasks. When in doubt, split.
+review with the team" is two tasks.
   5. Keep task titles specific and concrete (≤10 words, starts with a verb, sentence case). \
 Prefer the most actionable phrasing; avoid tentative wording like "maybe", "possibly", "could", \
 "consider", or "think about". Put extra detail in `content`, not the title.
+
+EXPLICITLY EXCLUDE from task extraction:
+  - Meeting logistics: attend, schedule, hold, book, reserve, or calendar-blocking that has no \
+deliverable the user owns. Examples: "Attend all hands in Vancouver", "Schedule the Q3 review", \
+"Hold a parking-lot session".
+  - Stance fragments: endorse, agree, defer, revisit, prioritize, favor, support, or "treat X as Y" \
+when they restate a discussion position rather than assign work. Examples: "Endorse L2 priority", \
+"Treat L3 as deliberate defer", "Name L3 defer explicitly on slide 5".
+  - Restatements of discussion positions: "We should prioritize L2 over L3", "The team agreed to \
+defer", "Revisit next quarter".
+  - Calendar/location logistics with no action owner or deliverable.
 
 ENTITY TYPES — use exactly these strings:
   "task"     — See dedicated TASKS rule above. Be selective about tentative phrasing: prefer \

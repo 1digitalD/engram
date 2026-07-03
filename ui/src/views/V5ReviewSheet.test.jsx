@@ -31,6 +31,32 @@ const SAMPLE_ROWS = [
   },
 ];
 
+const GROUPED_ROWS = [
+  {
+    id: 'g1',
+    suggestion_type: 'create_task',
+    source_note_title: 'Weekly sync',
+    payload: { title: 'Ship L2 rollout plan', group_id: 'note-1' },
+  },
+  {
+    id: 'g2',
+    suggestion_type: 'create_task',
+    source_note_title: 'Weekly sync',
+    payload: { title: 'Follow up with legal', group_id: 'note-1' },
+  },
+  {
+    id: 'g3',
+    suggestion_type: 'create_task',
+    source_note_title: 'Weekly sync',
+    payload: { title: 'Schedule migration call', group_id: 'note-1' },
+  },
+  {
+    id: 's3',
+    suggestion_type: 'create_task',
+    payload: { title: 'Ungrouped task' },
+  },
+];
+
 function renderSheet(props = {}) {
   const refreshSummary = vi.fn();
   const view = render(
@@ -88,5 +114,49 @@ describe('V5ReviewSheet', () => {
     fireEvent.click(dismissButtons[1]);
     await waitFor(() => expect(v4API.suggestions.dismiss).toHaveBeenCalledWith('s2'));
     await waitFor(() => expect(screen.queryByText('Launch pilot')).not.toBeInTheDocument());
+  });
+
+  it('renders grouped suggestions with accept-all control', async () => {
+    v4API.suggestions.list.mockResolvedValue({ data: GROUPED_ROWS, meta: { total: 4 } });
+    renderSheet();
+
+    expect(await screen.findByText('3 action items from this note')).toBeInTheDocument();
+    expect(screen.getByText('Ship L2 rollout plan')).toBeInTheDocument();
+    expect(screen.getByText('Follow up with legal')).toBeInTheDocument();
+    expect(screen.getByText('Schedule migration call')).toBeInTheDocument();
+    expect(screen.getByText('Ungrouped task')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Accept all' })).toBeInTheDocument();
+  });
+
+  it('accepts all grouped suggestions and refreshes summary', async () => {
+    v4API.suggestions.list.mockResolvedValue({ data: GROUPED_ROWS, meta: { total: 4 } });
+    const { refreshSummary } = renderSheet();
+
+    await screen.findByText('3 action items from this note');
+    fireEvent.click(screen.getByRole('button', { name: 'Accept all' }));
+
+    await waitFor(() => expect(v4API.suggestions.accept).toHaveBeenCalledTimes(3));
+    expect(v4API.suggestions.accept).toHaveBeenCalledWith('g1');
+    expect(v4API.suggestions.accept).toHaveBeenCalledWith('g2');
+    expect(v4API.suggestions.accept).toHaveBeenCalledWith('g3');
+
+    await waitFor(() => expect(screen.queryByText('Ship L2 rollout plan')).not.toBeInTheDocument());
+    expect(screen.queryByText('Follow up with legal')).not.toBeInTheDocument();
+    expect(screen.queryByText('Schedule migration call')).not.toBeInTheDocument();
+    expect(screen.getByText('Ungrouped task')).toBeInTheDocument();
+    expect(refreshSummary).toHaveBeenCalled();
+  });
+
+  it('still supports per-row dismiss within a group', async () => {
+    v4API.suggestions.list.mockResolvedValue({ data: GROUPED_ROWS, meta: { total: 4 } });
+    renderSheet();
+
+    await screen.findByText('Ship L2 rollout plan');
+    const groupRow = screen.getByText('Ship L2 rollout plan').closest('li');
+    fireEvent.click(within(groupRow).getByRole('button', { name: 'Dismiss' }));
+
+    await waitFor(() => expect(v4API.suggestions.dismiss).toHaveBeenCalledWith('g1'));
+    await waitFor(() => expect(screen.queryByText('Ship L2 rollout plan')).not.toBeInTheDocument());
+    expect(screen.getByText('Follow up with legal')).toBeInTheDocument();
   });
 });

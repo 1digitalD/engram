@@ -87,7 +87,14 @@ AUTO_CREATE_ENTITY_CONFIDENCE = 0.85
 LOW_CONFIDENCE_THRESHOLD = 0.5
 RISKY_ENTITY_CREATION_TYPES = {"task", "project", "area", "resource", "person"}
 # Types that must never be auto-created from capture — always reviewed.
-SUGGEST_ONLY_CREATION_TYPES = {"project", "area", "task"}
+SUGGEST_ONLY_CREATION_TYPES = {"project", "area"}
+# SQ-07: task auto-create/suggest gate. A task candidate must pass structural
+# checks before confidence is consulted; confidence is a tiebreaker, not the gate.
+# Score interpretation (documented inline in _task_structural_score):
+#   4 checks passed: eligible for auto-create if confidence is high enough, else suggest.
+#   2-3 checks passed: suggest if confidence is above the low threshold, else drop.
+#   0-1 checks passed: drop (meeting logistics, stance fragments, restatements).
+TASK_SUGGESTION_CAP_PER_NOTE = 8
 # Reconciliation similarity at or above which a "new" decision is treated as
 # a potential duplicate and routed to the review queue instead of auto-created.
 NEAR_DUPLICATE_SCORE = 0.75
@@ -4171,6 +4178,11 @@ def _reconcile_capture_candidates(note, extraction, thread_id=None):
             reason=f"Explicit commitment detected: {candidate.get('statement')}",
         )
 
+    # SQ-07: cap task suggestions per note and group survivors under the note id
+    # so the review sheet can render "N action items from this note" with an
+    # accept-all control.
+    _cap_and_group_task_suggestions(note, suggestions)
+
     # Reconciliation ran to completion — mark the note as AI-processed regardless
     # of whether extraction produced a summary. Previously notes with empty
     # extraction stayed `ai_status="pending"` forever, polluting the Needs review
@@ -4436,7 +4448,7 @@ def _apply_reconciliation_decision(note, candidate, decision, applied_changes, s
         and _task_candidate_looks_tentative(candidate)
     ):
         return
-    if _can_auto_create_entity(entity_type, confidence, top_match_score):
+    if _can_auto_create_entity(entity_type, confidence, top_match_score, note=note, candidate=candidate, decision=decision):
         entity = _auto_create_entity(
             entity_type=entity_type,
             title=title,
@@ -4510,6 +4522,10 @@ def _apply_reconciliation_decision(note, candidate, decision, applied_changes, s
                     reason=decision.get("reason"),
                 )
     else:
+        # SQ-07: tasks must pass the structural suggest gate; otherwise they are
+        # dropped as noise (logistics, stance fragments, restatements).
+        if entity_type == "task" and not _task_suggest_ok(note, candidate, decision, confidence):
+            return
         _append_capture_suggestion(
             note,
             candidate,
@@ -6277,6 +6293,55 @@ def _task_candidate_looks_tentative(candidate):
     return title.startswith(tentative_prefixes)
 
 
+def _cap_and_group_task_suggestions(note, suggestions):
+    """Cap create_task suggestions per note and tag survivors with group_id.
+
+    Long meeting notes can produce many task candidates. We keep the best
+    TASK_SUGGESTION_CAP_PER_NOTE candidates (structural score, then confidence)
+    and mark them as a group so the review sheet can render them with an
+    accept-all control.
+    """
+    task_rows = [(i, row) for i, row in enumerate(suggestions) if row.get("suggestion_type") == "create_task"]
+    if not task_rows:
+        return
+
+    kept = task_rows
+    if len(task_rows) > TASK_SUGGESTION_CAP_PER_NOTE:
+        # Confidence is the tiebreaker when we have more candidates than slots.
+        task_rows.sort(key=lambda item: item[1].get("confidence") or 0.0, reverse=True)
+        kept = task_rows[:TASK_SUGGESTION_CAP_PER_NOTE]
+    kept_ids = {row["id"] for _, row in kept}
+
+    note_id_str = str(note.id)
+    for suggestion_id in kept_ids:
+        suggestion = db.session.get(AiSuggestion, suggestion_id)
+        if suggestion is None or suggestion.status != "pending":
+            continue
+        payload = dict(suggestion.payload or {})
+        payload["group_id"] = note_id_str
+        suggestion.payload = payload
+        flag_modified(suggestion, "payload")
+
+    # Drop any task suggestions that did not make the cap from the DB and the
+    # response list. Use "dismissed" so they don't reappear as duplicates.
+    dropped = [(i, row) for i, row in task_rows if row["id"] not in kept_ids]
+    for _i, row in dropped:
+        suggestion = db.session.get(AiSuggestion, row["id"])
+        if suggestion is not None and suggestion.status == "pending":
+            suggestion.status = "dismissed"
+            suggestion.resolved_at = datetime.utcnow()
+
+    # Update the in-memory dicts and remove dropped rows.
+    kept_set = {i for i, _ in kept}
+    for i, row in task_rows:
+        if i in kept_set:
+            payload = row.get("payload") or {}
+            payload["group_id"] = note_id_str
+            row["payload"] = payload
+
+    suggestions[:] = [row for i, row in enumerate(suggestions) if i in kept_set or row.get("suggestion_type") != "create_task"]
+
+
 def _expire_stale_suggestion_if_needed(suggestion):
     source_note = db.session.get(Entity, suggestion.source_entity_id)
     payload = suggestion.payload or {}
@@ -6437,7 +6502,142 @@ def _recently_resolved_duplicate(fingerprint, confidence):
     return next_confidence <= previous_confidence + 0.05
 
 
-def _can_auto_create_entity(entity_type, confidence, top_match_score=0.0):
+# SQ-07: structural task-extraction gate. A task candidate must have both
+# (a) a concrete deliverable/next-action and (b) an owner the user chases.
+# We approximate this with four checklist signals; confidence only breaks ties.
+_TASK_DELIVERABLE_VERBS = {
+    "ship", "draft", "send", "schedule", "define", "review", "build", "write",
+    "document", "follow", "follow up", "followup", "confirm", "complete",
+    "finish", "deliver", "prepare", "update", "fix", "resolve", "close",
+    "clear", "get", "obtain", "share", "publish", "deploy", "release",
+    "test", "verify", "check", "ask", "tell", "remind", "call", "meet",
+    "discuss", "align", "drive", "lead", "own", "take", "handle", "manage",
+    "coordinate", "facilitate", "organize", "create", "make", "produce",
+    "submit", "present", "report", "investigate", "research", "analyze",
+    "decide", "approve", "sign", "negotiate", "finalize", "review", "revise",
+    "edit", "proofread", "circulate", "distribute", "design", "plan",
+    "implement", "develop", "code", "migrate", "integrate", "configure",
+    "setup", "set", "refactor", "rewrite", "rework", "consolidate",
+    "streamline", "simplify", "automate", "enable", "disable", "restore",
+    "backfill", "reconcile", "validate", "benchmark", "measure", "track",
+}
+# Imperatives that look like deliverables but are actually logistics/stance.
+# "schedule" is deliberately excluded from this list: scheduling a specific,
+# named call or deliverable is a real action item (e.g. "Schedule the customer
+# migration call"), whereas generic meeting logistics are excluded by the prompt.
+_TASK_LOGISTICS_VERBS = {
+    "attend", "hold", "book", "reserve", "block", "endorse",
+    "agree", "defer", "revisit", "prioritize", "favour", "favor", "support",
+}
+
+
+def _title_has_deliverable_shape(title):
+    """True if the title starts with an action verb followed by an object."""
+    if not title:
+        return False
+    words = title.lower().strip("-–:;• ").split()
+    if not words:
+        return False
+    # Tentative prefix cancels deliverable shape.
+    if words[0] in {"maybe", "possibly", "perhaps", "might", "could", "consider"}:
+        return False
+    first = words[0].rstrip(",")
+    if first in _TASK_LOGISTICS_VERBS:
+        return False
+    if first in _TASK_DELIVERABLE_VERBS:
+        return len(words) >= 2
+    # Recognize "follow up" / "follow-up" as a compound verb.
+    if first in {"follow", "follow-up"} and len(words) >= 2 and words[1] in {"up", "with", "on"}:
+        return len(words) >= 3
+    return False
+
+
+def _task_has_owner(candidate):
+    """True if the candidate has an explicit assignee."""
+    return bool(_clean_text(_candidate_value(candidate, "assigned_to")))
+
+
+def _task_has_date(candidate):
+    """True if the candidate carries a due or follow-up date."""
+    return bool(
+        _candidate_value(candidate, "due_at") or _candidate_value(candidate, "follow_up_at")
+    )
+
+
+def _task_target_resolvable(note, candidate, decision):
+    """True if the task can be attached to an existing project/area or note project link."""
+    # Reconciliation found a near-match existing task/project/area.
+    if (decision.get("top_match_score") or 0.0) >= NEAR_DUPLICATE_SCORE:
+        return True
+    # Candidate itself carries a project/area relationship.
+    related = (_candidate_value(candidate, "parent") or _candidate_value(candidate, "project"))
+    if related:
+        return True
+    # Source note already links to a project the task could inherit.
+    if note is not None:
+        note_project_links = EntityLink.query.filter(
+            EntityLink.source_entity_id == note.id,
+            EntityLink.relationship_type.in_(["parent", "related"]),
+        ).join(Entity, Entity.id == EntityLink.target_entity_id).filter(
+            Entity.type == "project"
+        ).first()
+        if note_project_links is not None:
+            return True
+    return False
+
+
+def _task_structural_score(note, candidate, decision):
+    """Return 0-4 structural quality score for a task candidate.
+
+    SQ-07 checklist:
+      1. has_owner: assigned_to is present.
+      2. has_deliverable_title: verb + object shape (not logistics/stance).
+      3. has_date: due_at or follow_up_at present.
+      4. target_resolvable: existing near-match, explicit parent project, or
+         source note already links to a project.
+    """
+    score = 0
+    if _task_has_owner(candidate):
+        score += 1
+    if _title_has_deliverable_shape(_candidate_value(candidate, "title")):
+        score += 1
+    if _task_has_date(candidate):
+        score += 1
+    if _task_target_resolvable(note, candidate, decision):
+        score += 1
+    return score
+
+
+def _task_auto_create_ok(note, candidate, decision, confidence):
+    """SQ-07: structural score gate for auto-creating a task.
+
+    Confidence is a tiebreaker: candidates with a perfect structural score
+    (4/4) may auto-create if they are also high-confidence. Candidates with
+    a strong-but-imperfect score (3/4) are surfaced for review. Lower scores
+    are dropped as noise (logistics, stance fragments, restatements).
+    """
+    score = _task_structural_score(note, candidate, decision)
+    if score == 4:
+        return confidence >= AUTO_CREATE_ENTITY_CONFIDENCE
+    return False
+
+
+def _task_suggest_ok(note, candidate, decision, confidence):
+    """SQ-07: structural score gate for suggesting a task.
+
+    A candidate must have at least half the structural signals to be worth
+    a review slot; confidence only breaks ties when capping. Score 2-3 goes
+    to the review queue, score 4 goes to auto-create and is excluded here.
+    """
+    score = _task_structural_score(note, candidate, decision)
+    if score < 2:
+        return False
+    if score == 4:
+        return confidence < AUTO_CREATE_ENTITY_CONFIDENCE
+    return confidence >= LOW_CONFIDENCE_THRESHOLD
+
+
+def _can_auto_create_entity(entity_type, confidence, top_match_score=0.0, note=None, candidate=None, decision=None):
     if entity_type not in RISKY_ENTITY_CREATION_TYPES:
         return False
     # Projects and areas are low-volume and expensive to dedupe after the
@@ -6448,6 +6648,9 @@ def _can_auto_create_entity(entity_type, confidence, top_match_score=0.0):
     # a sibling, regardless of how confident the model is that this is "new".
     if (top_match_score or 0.0) >= NEAR_DUPLICATE_SCORE:
         return False
+    # SQ-07: tasks use a structural score gate; confidence is a tiebreaker.
+    if entity_type == "task":
+        return _task_auto_create_ok(note, candidate, decision or {}, confidence)
     if confidence < LOW_CONFIDENCE_THRESHOLD:
         return False
     return confidence >= AUTO_CREATE_ENTITY_CONFIDENCE

@@ -127,3 +127,4 @@ All 6 prd tasks passed. See archived `docs/iterations/archive/prd-v5-hardening.j
 - 2026-07-02T22:54:08.012460+00:00 ui-08-memory-digest accepted via opencode
 - 2026-07-02T23:02:55.342522+00:00 ui-09-decisions-section accepted via opencode
 - 2026-07-02T23:05:34.066365+00:00 ui-10-collapse-empty-sections accepted via opencode
+- 2026-07-03T16:24:55.538327+00:00 sq-07-precision-task-extraction accepted via opencode
