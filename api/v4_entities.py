@@ -2955,6 +2955,15 @@ def _resolve_update_unresolved_suggestion(suggestion):
     })
 
 
+VALID_DISMISS_REASONS = {
+    "not a task",
+    "not mine",
+    "duplicate",
+    "wrong target",
+    "other",
+}
+
+
 @api_v4_bp.route("/suggestions/<suggestion_id>/dismiss", methods=["POST"])
 def dismiss_suggestion(suggestion_id):
     suggestion = db.session.get(AiSuggestion, suggestion_id)
@@ -2963,14 +2972,26 @@ def dismiss_suggestion(suggestion_id):
     if suggestion.status != "pending":
         return _error("suggestion is not pending", 409)
 
+    data = request.get_json(silent=True) or {}
+    dismiss_reason = data.get("dismiss_reason")
+    if dismiss_reason is not None and dismiss_reason not in VALID_DISMISS_REASONS:
+        return _error(
+            "dismiss_reason must be one of: " + ", ".join(sorted(VALID_DISMISS_REASONS))
+        )
+
     suggestion.status = "dismissed"
     suggestion.resolved_at = datetime.utcnow()
+    payload = dict(suggestion.payload or {})
+    if dismiss_reason:
+        payload["dismiss_reason"] = dismiss_reason
+        suggestion.payload = payload
+        flag_modified(suggestion, "payload")
     source_entity = db.session.get(Entity, suggestion.source_entity_id)
     if source_entity is not None:
         _write_event(
             source_entity,
             "suggestion_dismissed",
-            new_value={"suggestion_id": suggestion.id},
+            new_value={"suggestion_id": suggestion.id, "dismiss_reason": dismiss_reason},
             actor="agent:v4-review",
             confidence=suggestion.confidence,
             reason=suggestion.reason,
@@ -4498,7 +4519,7 @@ def _apply_reconciliation_decision(note, candidate, decision, applied_changes, s
         return
     content = _candidate_value(candidate, "content")
     top_match_score = decision.get("top_match_score") or 0.0
-    suggestion_reason = _capture_suggestion_reason(decision, confidence, uncertain=uncertain)
+    suggestion_reason = _capture_suggestion_reason(decision, confidence, uncertain=uncertain, evidence=evidence)
 
     # SQ-08 person hygiene: bare person mentions must either match an existing
     # person or carry work in this note. A near-duplicate existing person is
@@ -6396,14 +6417,14 @@ def _inbox_sort_key(note, pending_suggestion_count, mode):
     return (intent_rank, created_rank, timestamp_rank)
 
 
-def _capture_suggestion_reason(decision, confidence, uncertain=False):
+def _capture_suggestion_reason(decision, confidence, uncertain=False, evidence=None):
     from services.v4_reconciliation import (
         UNCERTAIN_SUGGESTION_REASON,
         is_uncertain_decision,
     )
 
     if uncertain or is_uncertain_decision(decision, confidence=confidence):
-        return UNCERTAIN_SUGGESTION_REASON
+        return evidence or UNCERTAIN_SUGGESTION_REASON
     return decision.get("reason")
 
 

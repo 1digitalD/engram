@@ -107,13 +107,60 @@ describe('V5ReviewSheet', () => {
     expect(refreshSummary).toHaveBeenCalled();
   });
 
-  it('dismisses a suggestion', async () => {
+  it('dismisses a suggestion without a reason', async () => {
     renderSheet();
 
-    const dismissButtons = await screen.findAllByRole('button', { name: 'Dismiss' });
-    fireEvent.click(dismissButtons[1]);
+    await screen.findByText('Launch pilot');
+    const card = screen.getByText('Launch pilot').closest('li');
+    fireEvent.click(within(card).getByRole('button', { name: 'Dismiss' }));
+    fireEvent.click(await within(card).findByRole('button', { name: 'no reason' }));
     await waitFor(() => expect(v4API.suggestions.dismiss).toHaveBeenCalledWith('s2'));
     await waitFor(() => expect(screen.queryByText('Launch pilot')).not.toBeInTheDocument());
+  });
+
+  it('shows the evidence quote in the row when present', async () => {
+    v4API.suggestions.list.mockResolvedValue({
+      data: [
+        {
+          id: 's-evidence',
+          suggestion_type: 'create_task',
+          source_note_title: 'Standup note',
+          payload: { title: 'Schedule design review', evidence: 'follow up with design tomorrow' },
+        },
+      ],
+      meta: { total: 1 },
+    });
+    renderSheet();
+
+    expect(await screen.findByText('follow up with design tomorrow')).toBeInTheDocument();
+  });
+
+  it('lets the user pick a dismiss reason', async () => {
+    renderSheet();
+
+    await screen.findByText('Launch pilot');
+    const card = screen.getByText('Launch pilot').closest('li');
+    fireEvent.click(within(card).getByRole('button', { name: 'Dismiss' }));
+
+    const reasonButton = await within(card).findByRole('button', { name: 'not mine' });
+    fireEvent.click(reasonButton);
+
+    await waitFor(() => expect(v4API.suggestions.dismiss).toHaveBeenCalledWith('s2', { dismiss_reason: 'not mine' }));
+    await waitFor(() => expect(screen.queryByText('Launch pilot')).not.toBeInTheDocument());
+  });
+
+  it('cancels the dismiss reason picker', async () => {
+    renderSheet();
+
+    await screen.findByText('Launch pilot');
+    const card = screen.getByText('Launch pilot').closest('li');
+    fireEvent.click(within(card).getByRole('button', { name: 'Dismiss' }));
+
+    const cancelButton = await within(card).findByRole('button', { name: 'Cancel' });
+    fireEvent.click(cancelButton);
+
+    expect(v4API.suggestions.dismiss).not.toHaveBeenCalled();
+    expect(within(card).getByRole('button', { name: 'Dismiss' })).toBeInTheDocument();
   });
 
   it('renders grouped suggestions with accept-all control', async () => {
@@ -154,6 +201,7 @@ describe('V5ReviewSheet', () => {
     await screen.findByText('Ship L2 rollout plan');
     const groupRow = screen.getByText('Ship L2 rollout plan').closest('li');
     fireEvent.click(within(groupRow).getByRole('button', { name: 'Dismiss' }));
+    fireEvent.click(await within(groupRow).findByRole('button', { name: 'no reason' }));
 
     await waitFor(() => expect(v4API.suggestions.dismiss).toHaveBeenCalledWith('g1'));
     await waitFor(() => expect(screen.queryByText('Ship L2 rollout plan')).not.toBeInTheDocument());

@@ -2760,7 +2760,7 @@ def test_capture_medium_confidence_task_marked_uncertain(client, app):
     data = response.get_json()
     assert len(data["suggestions"]) == 1
     assert data["suggestions"][0]["suggestion_type"] == "create_task"
-    assert data["suggestions"][0]["reason"] == "AI was not sure about this"
+    assert data["suggestions"][0]["reason"] == "follow up with Akash about Q3"
 
     with app.app_context():
         assert Entity.query.filter_by(type="task").count() == 0
@@ -2834,7 +2834,7 @@ def test_capture_medium_confidence_task_marked_uncertain(client, app):
     data = response.get_json()
     assert len(data["suggestions"]) == 1
     assert data["suggestions"][0]["suggestion_type"] == "create_task"
-    assert data["suggestions"][0]["reason"] == "AI was not sure about this"
+    assert data["suggestions"][0]["reason"] == "follow up with Akash about Q3"
 
     with app.app_context():
         assert Entity.query.filter_by(type="task").count() == 0

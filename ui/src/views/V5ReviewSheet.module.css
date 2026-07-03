@@ -180,3 +180,49 @@
 .groupList .card {
   background: var(--surface2);
 }
+
+.dismissReasons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.dismissReasonLabel {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.dismissReasonList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.dismissReasonButton,
+.dismissReasonCancel {
+  padding: 4px 10px;
+  border-radius: var(--radius-md);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-secondary);
+}
+
+.dismissReasonButton:hover:not(:disabled),
+.dismissReasonCancel:hover:not(:disabled) {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.dismissReasonButton:disabled,
+.dismissReasonCancel:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.dismissReasonCancel {
+  margin-left: auto;
+}

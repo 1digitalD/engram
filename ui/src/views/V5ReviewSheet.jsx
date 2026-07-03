@@ -20,6 +20,14 @@ function groupKey(row) {
   return row?.payload?.group_id || null;
 }
 
+const DISMISS_REASONS = [
+  'not a task',
+  'not mine',
+  'duplicate',
+  'wrong target',
+  'other',
+];
+
 export default function V5ReviewSheet({ open, onClose }) {
   const { refreshSummary } = useSummary();
   const [rows, setRows] = useState([]);
@@ -27,6 +35,7 @@ export default function V5ReviewSheet({ open, onClose }) {
   const [error, setError] = useState('');
   const [busyId, setBusyId] = useState(null);
   const [busyGroup, setBusyGroup] = useState(null);
+  const [dismissReasonId, setDismissReasonId] = useState(null);
 
   const loadSuggestions = useCallback(async () => {
     setLoading(true);
@@ -48,6 +57,7 @@ export default function V5ReviewSheet({ open, onClose }) {
       setError('');
       setBusyId(null);
       setBusyGroup(null);
+      setDismissReasonId(null);
       return;
     }
     loadSuggestions();
@@ -84,12 +94,17 @@ export default function V5ReviewSheet({ open, onClose }) {
     }
   }
 
-  async function handleDismiss(id) {
+  async function handleDismiss(id, reason) {
     setBusyId(id);
     setError('');
     try {
-      await v4API.suggestions.dismiss(id);
+      if (reason) {
+        await v4API.suggestions.dismiss(id, { dismiss_reason: reason });
+      } else {
+        await v4API.suggestions.dismiss(id);
+      }
       setRows((prev) => prev.filter((row) => row.id !== id));
+      setDismissReasonId(null);
       refreshSummary();
     } catch (err) {
       setError(friendlyApiError(err, 'Could not dismiss suggestion.'));
@@ -118,6 +133,7 @@ export default function V5ReviewSheet({ open, onClose }) {
     const evidence = row.reason || row.payload?.evidence;
     const sourceTitle = row.source_note_title;
     const disabled = busyId === row.id || options.disabled;
+    const choosingReason = dismissReasonId === row.id;
     return (
       <li key={row.id} className={styles.card}>
         <div className={styles.cardHeader}>
@@ -130,24 +146,59 @@ export default function V5ReviewSheet({ open, onClose }) {
         {evidence ? (
           <p className={styles.cardEvidence}>{evidence}</p>
         ) : null}
-        <div className={styles.actions}>
-          <button
-            type="button"
-            className={styles.buttonSecondary}
-            disabled={disabled}
-            onClick={() => handleDismiss(row.id)}
-          >
-            Dismiss
-          </button>
-          <button
-            type="button"
-            className={styles.buttonPrimary}
-            disabled={disabled}
-            onClick={() => handleAccept(row.id)}
-          >
-            Accept
-          </button>
-        </div>
+        {choosingReason ? (
+          <div className={styles.dismissReasons}>
+            <span className={styles.dismissReasonLabel}>Dismiss reason:</span>
+            <div className={styles.dismissReasonList} role="group" aria-label="Dismiss reason">
+              {DISMISS_REASONS.map((reason) => (
+                <button
+                  key={reason}
+                  type="button"
+                  className={styles.dismissReasonButton}
+                  disabled={disabled}
+                  onClick={() => handleDismiss(row.id, reason)}
+                >
+                  {reason}
+                </button>
+              ))}
+              <button
+                type="button"
+                className={styles.dismissReasonButton}
+                disabled={disabled}
+                onClick={() => handleDismiss(row.id)}
+              >
+                no reason
+              </button>
+            </div>
+            <button
+              type="button"
+              className={styles.dismissReasonCancel}
+              disabled={disabled}
+              onClick={() => setDismissReasonId(null)}
+            >
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <div className={styles.actions}>
+            <button
+              type="button"
+              className={styles.buttonSecondary}
+              disabled={disabled}
+              onClick={() => setDismissReasonId(row.id)}
+            >
+              Dismiss
+            </button>
+            <button
+              type="button"
+              className={styles.buttonPrimary}
+              disabled={disabled}
+              onClick={() => handleAccept(row.id)}
+            >
+              Accept
+            </button>
+          </div>
+        )}
       </li>
     );
   }

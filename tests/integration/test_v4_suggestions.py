@@ -538,6 +538,58 @@ def test_dismiss_suggestion_does_not_mutate_entities(client, app):
         assert EntityEvent.query.filter_by(entity_id=note_id, event_type="suggestion_dismissed").count() == 1
 
 
+def test_dismiss_suggestion_stores_reason(client, app):
+    note_id = _create_note(app)
+    suggestion_id = _create_suggestion(
+        app,
+        note_id,
+        "create_task",
+        {
+            "type": "task",
+            "title": "Not my task",
+            "source_entity_id": note_id,
+            "evidence": "follow up",
+        },
+    )
+
+    response = client.post(
+        f"/api/v4/suggestions/{suggestion_id}/dismiss",
+        json={"dismiss_reason": "not mine"},
+    )
+
+    assert response.status_code == 200
+    data = response.get_json()["data"]
+    assert data["status"] == "dismissed"
+    assert data["payload"]["dismiss_reason"] == "not mine"
+
+    list_response = client.get("/api/v4/suggestions?status=all")
+    row = next((r for r in list_response.get_json()["data"] if r["id"] == suggestion_id), None)
+    assert row["payload"]["dismiss_reason"] == "not mine"
+
+
+def test_dismiss_suggestion_rejects_invalid_reason(client, app):
+    note_id = _create_note(app)
+    suggestion_id = _create_suggestion(
+        app,
+        note_id,
+        "create_task",
+        {
+            "type": "task",
+            "title": "Task",
+            "source_entity_id": note_id,
+        },
+    )
+
+    response = client.post(
+        f"/api/v4/suggestions/{suggestion_id}/dismiss",
+        json={"dismiss_reason": "bogus"},
+    )
+
+    assert response.status_code == 400
+    with app.app_context():
+        assert db.session.get(AiSuggestion, suggestion_id).status == "pending"
+
+
 def test_reconcile_suggestions_expires_stale_link_existing_suggestion(client, app):
     note_id = _create_note(app)
     with app.app_context():
