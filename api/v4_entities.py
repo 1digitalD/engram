@@ -4140,6 +4140,16 @@ def _reconcile_capture_candidates(note, extraction, thread_id=None):
             deduped[seen[key]] = cand
     all_candidates = deduped
 
+    # SQ-08: identify people who carry work in this note (assignees / delegation
+    # targets / follow-up owners). Bare mentions without an existing match are
+    # dropped instead of auto-created.
+    work_carrying_persons = set()
+    for cand in all_candidates:
+        if _candidate_value(cand, "type") in {"task", "project"}:
+            assignee = _candidate_value(cand, "assigned_to")
+            if assignee:
+                work_carrying_persons.add(assignee)
+
     if all_candidates:
         from services.v4_reconciliation import reconcile_candidates
         decisions = reconcile_candidates(all_candidates, thread_id=thread_id)
@@ -4150,6 +4160,7 @@ def _reconcile_capture_candidates(note, extraction, thread_id=None):
                 decision,
                 applied_changes,
                 suggestions,
+                work_carrying_persons=work_carrying_persons,
             )
 
     # Decision extraction: explicit commitments always become reviewable
@@ -4193,7 +4204,7 @@ def _reconcile_capture_candidates(note, extraction, thread_id=None):
     return applied_changes, suggestions
 
 
-def _apply_reconciliation_decision(note, candidate, decision, applied_changes, suggestions):
+def _apply_reconciliation_decision(note, candidate, decision, applied_changes, suggestions, work_carrying_persons=None):
     action = (decision.get("action") or "new").lower()
     candidate_confidence = _candidate_confidence(candidate)
     if action == "skip":
@@ -4442,6 +4453,52 @@ def _apply_reconciliation_decision(note, candidate, decision, applied_changes, s
     content = _candidate_value(candidate, "content")
     top_match_score = decision.get("top_match_score") or 0.0
     suggestion_reason = _capture_suggestion_reason(decision, confidence, uncertain=uncertain)
+
+    # SQ-08 person hygiene: bare person mentions must either match an existing
+    # person or carry work in this note. A near-duplicate existing person is
+    # linked instead of creating a duplicate; a bare mention with no match and
+    # no associated work is dropped silently.
+    if entity_type == "person":
+        if top_match_score >= NEAR_DUPLICATE_SCORE and decision.get("top_match_id"):
+            target = db.session.get(Entity, decision.get("top_match_id"))
+            if target is not None:
+                if confidence >= AUTO_APPLY_CONFIDENCE:
+                    link_source, link_target = _candidate_link_endpoints(note, target, relationship_type)
+                    link = _create_entity_link(link_source, link_target, relationship_type, confidence, evidence)
+                    if link is not None:
+                        applied_changes.append({
+                            "type": "relationship_added",
+                            "target_entity_id": target.id,
+                            "relationship_type": relationship_type,
+                            "confidence": confidence,
+                        })
+                        _write_event(note, "relationship_added", new_value=link.to_dict(), actor="agent:v4-capture", confidence=confidence, reason=evidence, source_note_id=note.id)
+                else:
+                    _append_capture_suggestion(
+                        note,
+                        candidate,
+                        action="link",
+                        entity_type=target.type,
+                        relationship_type=relationship_type,
+                        confidence=confidence,
+                        evidence=evidence,
+                        suggestions=suggestions,
+                        suggestion_type="link_existing",
+                        operation_type="link_existing",
+                        payload={
+                            "source_entity_id": note.id,
+                            "target_entity_id": target.id,
+                            "target_type": target.type,
+                            "title": target.title,
+                            "relationship_type": relationship_type,
+                            "evidence": evidence,
+                        },
+                        reason=decision.get("reason"),
+                    )
+                return
+        if not _person_carries_work(title, work_carrying_persons):
+            return
+
     if (
         entity_type == "task"
         and confidence < AUTO_CREATE_ENTITY_CONFIDENCE
@@ -6084,11 +6141,81 @@ def _create_entity_link(source_entity, target_entity, relationship_type, confide
 
 
 def _find_existing_entity(entity_type, title):
+    if entity_type == "person":
+        return _find_existing_person(title)
     return Entity.query.filter(
         Entity.type == entity_type,
         func.lower(Entity.title) == title.lower(),
         Entity.lifecycle != "deleted",
     ).first()
+
+
+def _find_existing_person(title):
+    """Find an active person by exact, unique first-name, or unique substring match.
+
+    A bare first-name mention ("Priya") resolves to "Priya Dhandapani" only
+    when the match is unambiguous. If multiple people share the same first
+    name, no automatic link is made — the caller should create a new entity or
+    surface the mention for review.
+    """
+    title_lower = (title or "").strip().lower()
+    if not title_lower:
+        return None
+
+    persons = Entity.query.filter(
+        Entity.type == "person",
+        Entity.lifecycle == "active",
+    ).all()
+
+    exact_match = None
+    first_name_matches = []
+    substring_matches = []
+
+    for person in persons:
+        person_title_lower = (person.title or "").strip().lower()
+        if not person_title_lower:
+            continue
+        if person_title_lower == title_lower:
+            exact_match = person
+            break
+        words = person_title_lower.split()
+        if words and words[0] == title_lower:
+            first_name_matches.append(person)
+        elif title_lower in person_title_lower:
+            substring_matches.append(person)
+
+    if exact_match is not None:
+        return exact_match
+    if len(first_name_matches) == 1:
+        return first_name_matches[0]
+    if not first_name_matches and len(substring_matches) == 1:
+        return substring_matches[0]
+    return None
+
+
+def _person_carries_work(title, work_carrying_persons):
+    """Return True if a person candidate matches a work-carrying name.
+
+    Work-carrying names come from task/project candidates with an assigned_to
+    value in the same note. Matching tolerates first-name and substring overlap
+    so that "Priya" is considered work-carrying when a task is assigned to
+    "Priya Dhandapani".
+    """
+    if not title or not work_carrying_persons:
+        return False
+    title_lower = title.strip().lower()
+    for name in work_carrying_persons:
+        name_lower = (name or "").strip().lower()
+        if not name_lower:
+            continue
+        if title_lower == name_lower:
+            return True
+        name_words = name_lower.split()
+        if name_words and name_words[0] == title_lower:
+            return True
+        if title_lower in name_lower or name_lower in title_lower:
+            return True
+    return False
 
 
 def _default_relationship_type(entity_type):

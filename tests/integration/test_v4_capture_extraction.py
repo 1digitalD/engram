@@ -416,7 +416,9 @@ def test_capture_reuses_existing_ai_person_assignee_without_recreating_it(client
         assert EntityEvent.query.filter_by(entity_id=person_id, event_type="created").count() == 0
 
 
-def test_capture_auto_creates_high_confidence_person(client, app):
+def test_capture_drops_bare_high_confidence_person_with_no_work(client, app):
+    """SQ-08: a bare person mention with no associated work is not auto-created,
+    regardless of how confident the extractor is."""
     extraction = {
         "entities": [
             {
@@ -434,17 +436,16 @@ def test_capture_auto_creates_high_confidence_person(client, app):
     assert response.status_code == 201
     data = response.get_json()
     assert data["suggestions"] == []
-    entity_created = next((c for c in data["applied_changes"] if c["type"] == "entity_created"), None)
-    assert entity_created is not None
-    assert entity_created["entity_type"] == "person"
-    assert entity_created["title"] == "Henry"
+    assert data["applied_changes"] == []
 
     with app.app_context():
-        assert Entity.query.filter_by(type="person").count() == 1
+        assert Entity.query.filter_by(type="person").count() == 0
         assert AiSuggestion.query.filter_by(suggestion_type="create_person").count() == 0
 
 
-def test_capture_suggests_entity_below_auto_create_threshold(client, app):
+def test_capture_drops_bare_person_below_auto_create_threshold(client, app):
+    """SQ-08: a bare person mention below the auto-create threshold is dropped,
+    not surfaced as a create_person suggestion."""
     extraction = {
         "entities": [
             {
@@ -462,12 +463,226 @@ def test_capture_suggests_entity_below_auto_create_threshold(client, app):
     assert response.status_code == 201
     data = response.get_json()
     assert data["applied_changes"] == []
-    assert len(data["suggestions"]) == 1
-    assert data["suggestions"][0]["suggestion_type"] == "create_person"
+    assert data["suggestions"] == []
 
     with app.app_context():
         assert Entity.query.filter_by(type="person").count() == 0
-        assert AiSuggestion.query.filter_by(suggestion_type="create_person").count() == 1
+        assert AiSuggestion.query.filter_by(suggestion_type="create_person").count() == 0
+
+
+def test_capture_links_bare_first_name_to_existing_full_name(client, app):
+    """SQ-08: a bare first-name mention resolves to an existing full-name person
+    instead of creating a duplicate."""
+    existing = client.post(
+        "/api/v4/entities",
+        json={"type": "person", "title": "Priya Dhandapani"},
+    ).get_json()["data"]
+
+    extraction = {
+        "entities": [
+            {
+                "type": "person",
+                "title": "Priya",
+                "confidence": 0.91,
+                "evidence": "Priya flagged the rollout doc",
+            }
+        ]
+    }
+    decisions = [
+        {
+            "action": "new",
+            "relationship_type": "mentions",
+            "confidence": 0.91,
+            "reason": "looks like a new person",
+            "top_match_score": 0.92,
+            "top_match_id": existing["id"],
+            "top_match_title": "Priya Dhandapani",
+        }
+    ]
+
+    with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction), patch(
+        "services.v4_reconciliation.reconcile_candidates", return_value=decisions
+    ):
+        response = client.post("/api/v4/capture", json={"content": "Priya flagged the rollout doc"})
+
+    assert response.status_code == 201
+    data = response.get_json()
+    assert not any(
+        c.get("type") == "entity_created" and c.get("entity_type") == "person"
+        for c in data["applied_changes"]
+    )
+    assert {
+        "type": "relationship_added",
+        "target_entity_id": existing["id"],
+        "relationship_type": "mentions",
+        "confidence": 0.91,
+    } in data["applied_changes"]
+
+    with app.app_context():
+        assert Entity.query.filter_by(type="person").count() == 1
+        note_id = data["source_note"]["id"]
+        EntityLink.query.filter_by(
+            source_entity_id=note_id,
+            target_entity_id=existing["id"],
+            relationship_type="mentions",
+        ).one()
+
+
+def test_capture_first_name_assignee_links_to_existing_full_name(client, app):
+    """SQ-08: a task assigned to a first name links to the existing full-name
+    person instead of creating a bare first-name duplicate."""
+    existing = client.post(
+        "/api/v4/entities",
+        json={"type": "person", "title": "Priya Dhandapani"},
+    ).get_json()["data"]
+    project = client.post(
+        "/api/v4/entities",
+        json={"type": "project", "title": "Rollout"},
+    ).get_json()["data"]
+
+    extraction = {
+        "links": [
+            {
+                "target_type": "project",
+                "title": "Rollout",
+                "relationship_type": "related",
+                "confidence": 0.95,
+                "evidence": "rollout project",
+            }
+        ],
+        "entities": [
+            {
+                "type": "task",
+                "title": "Review the rollout doc",
+                "content": "Priya will review the rollout doc before Friday.",
+                "assigned_to": "Priya",
+                "due_at": "2026-07-10",
+                "confidence": 0.91,
+                "evidence": "Priya: review the rollout doc",
+            }
+        ],
+    }
+    decisions = [
+        {
+            "action": "link",
+            "target_id": project["id"],
+            "relationship_type": "related",
+            "confidence": 0.95,
+            "reason": "existing project",
+        },
+        {
+            "action": "new",
+            "relationship_type": "derived_from",
+            "confidence": 0.91,
+            "reason": "new task",
+        },
+    ]
+
+    with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction), patch(
+        "services.v4_reconciliation.reconcile_candidates", return_value=decisions
+    ):
+        response = client.post("/api/v4/capture", json={"content": "Priya: review the rollout doc by Friday"})
+
+    assert response.status_code == 201
+    data = response.get_json()
+    with app.app_context():
+        assert Entity.query.filter_by(type="person").count() == 1
+        task = Entity.query.filter_by(type="task").one()
+        EntityLink.query.filter_by(
+            source_entity_id=task.id,
+            target_entity_id=existing["id"],
+            relationship_type="assigned_to",
+        ).one()
+
+
+def test_capture_auto_creates_person_who_carries_work(client, app):
+    """SQ-08: a person who is the assignee/delegation target of a task in the
+    same note may still be auto-created when no existing match is found."""
+    extraction = {
+        "entities": [
+            {
+                "type": "task",
+                "title": "Review the rollout doc",
+                "assigned_to": "Henry",
+                "confidence": 0.91,
+                "evidence": "Henry: review the rollout doc",
+            },
+            {
+                "type": "person",
+                "title": "Henry",
+                "confidence": 0.91,
+                "evidence": "Henry: review the rollout doc",
+            },
+        ]
+    }
+
+    with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction):
+        response = client.post("/api/v4/capture", json={"content": "Henry: review the rollout doc"})
+
+    assert response.status_code == 201
+    data = response.get_json()
+    assert any(
+        c.get("type") == "entity_created" and c.get("entity_type") == "person" and c.get("title") == "Henry"
+        for c in data["applied_changes"]
+    )
+
+    with app.app_context():
+        assert Entity.query.filter_by(type="person", title="Henry").count() == 1
+
+
+def test_capture_transcript_six_names_two_assignees_creates_at_most_two_people(client, app):
+    """SQ-08: a transcript with many bare name mentions plus a couple of action
+    items should not mint a person entity for every name. Only the assignees
+    (or people with an existing match) are created/linked; the rest are dropped."""
+    existing_priya = client.post(
+        "/api/v4/entities",
+        json={"type": "person", "title": "Priya Dhandapani"},
+    ).get_json()["data"]
+
+    extraction = {
+        "entities": [
+            {
+                "type": "task",
+                "title": "Ship the L2 rollout plan doc",
+                "assigned_to": "Akash",
+                "confidence": 0.91,
+                "evidence": "Akash to ship the L2 rollout plan doc by Friday",
+            },
+            {
+                "type": "task",
+                "title": "Follow up with legal on vendor contract",
+                "assigned_to": "Priya",
+                "confidence": 0.91,
+                "evidence": "Priya to follow up with legal on the vendor contract",
+            },
+            {"type": "person", "title": "Akash", "confidence": 0.88, "evidence": "Akash to ship"},
+            {"type": "person", "title": "Priya", "confidence": 0.88, "evidence": "Priya to follow up"},
+            {"type": "person", "title": "Sam", "confidence": 0.85, "evidence": "Sam mentioned"},
+            {"type": "person", "title": "Vignesh", "confidence": 0.85, "evidence": "Vignesh mentioned"},
+            {"type": "person", "title": "Kurt", "confidence": 0.85, "evidence": "Kurt mentioned"},
+            {"type": "person", "title": "David", "confidence": 0.85, "evidence": "David mentioned"},
+        ]
+    }
+
+    with patch("services.v4_extraction.extract_capture_candidates", return_value=extraction):
+        response = client.post(
+            "/api/v4/capture",
+            json={"content": "Platform sync with Akash, Priya, Sam, Vignesh, Kurt, David"},
+        )
+
+    assert response.status_code == 201
+    data = response.get_json()
+    person_creates = [
+        c for c in data["applied_changes"]
+        if c.get("type") == "entity_created" and c.get("entity_type") == "person"
+    ]
+    assert len(person_creates) <= 2, f"expected <=2 person creates, got {len(person_creates)}: {person_creates}"
+
+    with app.app_context():
+        people = Entity.query.filter_by(type="person").all()
+        assert len(people) <= 2
+        # Priya should have been linked to the existing full-name person, not created.
+        assert any(p.id == existing_priya["id"] for p in people)
 
 
 def test_capture_suppresses_tentative_low_value_task(client, app):
@@ -852,6 +1067,13 @@ def test_duplicate_candidates_within_capture_are_deduped(client, app):
             },
         ],
         "entities": [
+            {
+                "type": "task",
+                "title": "Draft the RFC",
+                "assigned_to": "Tomoko Watanabe",
+                "confidence": 0.92,
+                "evidence": "Tomoko Watanabe will draft the RFC",
+            },
             {
                 "type": "person",
                 "title": "Tomoko Watanabe",
