@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { v4API, friendlyApiError } from '../api/v4Client';
 import EntityContextChips from '../components/EntityContextChips';
+import EntityGlyphCircle from '../components/EntityGlyphCircle';
 import { useReview } from '../context/ReviewContext';
 import { useSummary } from '../context/SummaryContext';
 import { FOLLOW_UP_24H_TITLE, FOLLOW_UP_TOMORROW_LABEL } from '../utils/followUpActions';
@@ -49,14 +50,20 @@ function NowRow({ item, onAction, actionsDisabled = false }) {
   const showTaskContext = item.type === 'task' && hasTaskContext(item);
 
   return (
-    <article className={`${styles.row} ${band}`}>
-      {detailPath ? (
-        <Link to={detailPath} className={styles.sentence}>
-          {sentenceFor(item)}
-        </Link>
-      ) : (
-        <p className={styles.sentence}>{sentenceFor(item)}</p>
-      )}
+    <article
+      className={`${styles.row} ${band}`}
+      data-entity-type={item.type}
+    >
+      <div className={styles.rowHead}>
+        <EntityGlyphCircle type={item.type} />
+        {detailPath ? (
+          <Link to={detailPath} className={styles.sentence}>
+            {sentenceFor(item)}
+          </Link>
+        ) : (
+          <p className={styles.sentence}>{sentenceFor(item)}</p>
+        )}
+      </div>
 
       <div className={styles.meta}>
         {item.when ? <span>{item.when}</span> : null}

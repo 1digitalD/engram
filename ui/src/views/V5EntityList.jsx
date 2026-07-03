@@ -3,9 +3,11 @@ import { Link } from 'react-router-dom';
 import { Plus, Search } from 'lucide-react';
 import { v4API, friendlyApiError } from '../api/v4Client';
 import EntityContextChips from '../components/EntityContextChips';
-import XGlyph from '../components/XGlyph';
+import EntityGlyphCircle from '../components/EntityGlyphCircle';
 import { useCapture } from '../context/CaptureContext';
 import { hasTaskContext } from '../utils/entityContext';
+import { dueUrgencyClass, statusPillVariant } from '../utils/entityRowChrome';
+import { listRowSecondaryMeta } from '../utils/listMetadata';
 import { entityTitleLabel } from '../utils/entityDisplay';
 import styles from './V5EntityList.module.css';
 
@@ -68,34 +70,61 @@ function statusMeta(entity) {
   return parts.join(' · ');
 }
 
+function hasProjectContext(entity) {
+  return entity?.type === 'project' && (entity.areas?.length > 0);
+}
+
 function EntityListRow({ entity, type }) {
   const meta = statusMeta(entity);
-  const showContext = type === 'task' && hasTaskContext(entity);
+  const showTaskContext = type === 'task' && hasTaskContext(entity);
+  const showProjectContext = type === 'project' && hasProjectContext(entity);
+  const secondaryMeta = listRowSecondaryMeta(entity, type);
+  const statusVariant = statusPillVariant(entity.status);
+  const dueUrgency = dueUrgencyClass(entity);
 
   return (
     <li className={styles.listItem}>
-      <article className={styles.row}>
+      <article
+        className={`${styles.row} ${styles[`rowType${entity.type?.charAt(0).toUpperCase()}${entity.type?.slice(1)}`] || ''} ${dueUrgency ? styles[dueUrgency] : ''}`}
+        data-entity-type={entity.type}
+      >
         <Link to={detailPath(entity)} className={styles.rowMainLink}>
-          <XGlyph type={entity.type} className={styles.rowGlyph} />
+          <EntityGlyphCircle type={entity.type} />
           <div className={styles.rowMain}>
             <span className={styles.rowTitle}>
               {entityTitleLabel(entity, { includeType: false })}
             </span>
-            {meta && !showContext ? (
+            {meta && !showTaskContext && !showProjectContext && !secondaryMeta ? (
               <span className={styles.rowMeta}>{meta}</span>
             ) : null}
+            {secondaryMeta && !showTaskContext && !showProjectContext && type !== 'project' ? (
+              <span className={styles.rowMeta}>{secondaryMeta}</span>
+            ) : null}
           </div>
-          {meta && showContext ? (
+          {meta && showTaskContext ? (
+            <span className={`${styles.rowBadge} ${styles[`status${statusVariant.charAt(0).toUpperCase()}${statusVariant.slice(1)}`] || ''}`}>
+              {meta}
+            </span>
+          ) : null}
+          {meta && showProjectContext ? (
             <span className={styles.rowBadge}>{meta}</span>
           ) : null}
+          {secondaryMeta && type === 'project' ? (
+            <span className={styles.loadBadge}>{secondaryMeta}</span>
+          ) : null}
         </Link>
-        {showContext ? (
+        {showTaskContext ? (
           <div className={styles.rowFooter}>
             <EntityContextChips
               projects={entity.projects}
               areas={entity.areas}
               people={entity.people}
             />
+          </div>
+        ) : null}
+        {showProjectContext ? (
+          <div className={styles.rowFooter}>
+            <EntityContextChips areas={entity.areas} />
           </div>
         ) : null}
       </article>

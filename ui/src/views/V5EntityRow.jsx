@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import XGlyph from '../components/XGlyph';
+import EntityGlyphCircle from '../components/EntityGlyphCircle';
 import styles from './V5EntityRow.module.css';
 
 function formatAttention(score) {
@@ -37,9 +37,9 @@ export default function V5EntityRow({ thread, variant = 'row' }) {
 
   if (variant === 'ambient') {
     return (
-      <Link to={detailPath} className={styles.ambientCard}>
+      <Link to={detailPath} className={styles.ambientCard} data-entity-type={thread.type}>
         <div className={styles.ambientHead}>
-          <XGlyph type={thread.type} />
+          <EntityGlyphCircle type={thread.type} />
           <span>{thread.name}</span>
         </div>
         <div className={styles.ambientBody}>
@@ -57,10 +57,10 @@ export default function V5EntityRow({ thread, variant = 'row' }) {
       : styles.rowDefault;
 
   return (
-    <Link to={detailPath} className={`${styles.row} ${bandClass}`}>
+    <Link to={detailPath} className={`${styles.row} ${bandClass}`} data-entity-type={thread.type}>
       <div className={styles.rowMain}>
         <div className={styles.sentence}>
-          <XGlyph type={thread.type} />
+          <EntityGlyphCircle type={thread.type} />
           <span>{thread.name}</span>
         </div>
         {meta ? <div className={styles.meta}>{meta}</div> : null}

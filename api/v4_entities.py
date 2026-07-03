@@ -648,6 +648,7 @@ def list_entities():
 
     rows = query.order_by(Entity.updated_at.desc(), Entity.created_at.desc()).limit(limit).all()
     _attach_project_task_counts(rows)
+    _attach_project_context(rows)
     _attach_task_context(rows)
     _attach_compact_link_counts(rows)
     return jsonify({"data": [row.to_dict() for row in rows]})
@@ -3593,6 +3594,32 @@ def _attach_project_task_counts(entities):
     for entity in entities:
         if entity.type == "project":
             entity._task_counts = counts_by_project.get(entity.id, {"open": 0, "total": 0})
+
+
+def _attach_project_context(entities):
+    """Attach parent area refs to project rows."""
+    project_ids = [entity.id for entity in entities if entity.type == "project"]
+    if not project_ids:
+        return
+
+    project_areas = {project_id: [] for project_id in project_ids}
+    rows = (
+        db.session.query(EntityLink.source_entity_id, Entity.id, Entity.title)
+        .join(Entity, Entity.id == EntityLink.target_entity_id)
+        .filter(
+            EntityLink.relationship_type == "parent",
+            EntityLink.source_entity_id.in_(project_ids),
+            Entity.type == "area",
+            Entity.lifecycle == "active",
+        )
+        .all()
+    )
+    for project_id, area_id, area_title in rows:
+        project_areas.setdefault(project_id, []).append({"id": area_id, "title": area_title})
+
+    for entity in entities:
+        if entity.type == "project":
+            entity._areas = project_areas.get(entity.id, [])
 
 
 def _attach_task_context(entities):

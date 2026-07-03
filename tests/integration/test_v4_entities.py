@@ -552,8 +552,26 @@ def test_task_rows_carry_parent_context_entities(client, app):
     assert row["areas"] == [{"id": area["id"], "title": "Execution"}]
     assert row["people"] == [{"id": person["id"], "title": "Priya"}]
 
-    # Projects themselves don't get the field populated
+    # Projects themselves don't get task-context fields populated
     project_rows = client.get("/api/v4/entities?type=project").get_json()["data"]
     assert all(r["projects"] == [] for r in project_rows)
-    assert all(r["areas"] == [] for r in project_rows)
     assert all(r["people"] == [] for r in project_rows)
+
+
+def test_project_rows_carry_parent_area_context(client, app):
+    from extensions import db
+    from models import EntityLink
+
+    area = client.post("/api/v4/entities", json={"type": "area", "title": "Execution"}).get_json()["data"]
+    project = client.post("/api/v4/entities", json={"type": "project", "title": "Memory Lookup"}).get_json()["data"]
+    with app.app_context():
+        db.session.add(EntityLink(
+            source_entity_id=project["id"],
+            target_entity_id=area["id"],
+            relationship_type="parent",
+        ))
+        db.session.commit()
+
+    rows = client.get("/api/v4/entities?type=project").get_json()["data"]
+    row = next(r for r in rows if r["id"] == project["id"])
+    assert row["areas"] == [{"id": area["id"], "title": "Execution"}]

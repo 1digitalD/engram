@@ -66,6 +66,78 @@ describe('V5EntityList', () => {
     expect(screen.getByRole('link', { name: /Execution/i })).toHaveAttribute('href', '/areas/a1');
   });
 
+  it('shows open task badge on project rows', async () => {
+    v4API.entities.list.mockResolvedValue({
+      data: [
+        {
+          id: 'p1',
+          type: 'project',
+          title: 'Memory Lookup',
+          status: 'active',
+          task_counts: { open: 3, total: 5 },
+        },
+      ],
+    });
+
+    render(
+      <MemoryRouter>
+        <CaptureProvider>
+          <V5EntityList type="project" />
+        </CaptureProvider>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('3 open')).toBeInTheDocument();
+  });
+
+  it('shows linked count summary on area rows', async () => {
+    v4API.entities.list.mockResolvedValue({
+      data: [
+        {
+          id: 'a1',
+          type: 'area',
+          title: 'Execution',
+          status: 'active',
+          linked_counts: { tasks: 3, projects: 2, notes: 0 },
+        },
+      ],
+    });
+
+    render(
+      <MemoryRouter>
+        <CaptureProvider>
+          <V5EntityList type="area" />
+        </CaptureProvider>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('3 tasks · 2 projects')).toBeInTheDocument();
+  });
+
+  it('shows parent area chip on project rows', async () => {
+    v4API.entities.list.mockResolvedValue({
+      data: [
+        {
+          id: 'p1',
+          type: 'project',
+          title: 'Memory Lookup',
+          status: 'active',
+          areas: [{ id: 'a1', title: 'Execution' }],
+        },
+      ],
+    });
+
+    render(
+      <MemoryRouter>
+        <CaptureProvider>
+          <V5EntityList type="project" />
+        </CaptureProvider>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('link', { name: /Execution/i })).toHaveAttribute('href', '/areas/a1');
+  });
+
   it('filters entities by search query', async () => {
     v4API.entities.list.mockResolvedValue({
       data: [

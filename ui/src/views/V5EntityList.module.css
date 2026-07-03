@@ -111,10 +111,26 @@
   flex-direction: column;
   gap: var(--space-1);
   border: 1px solid var(--border-faint);
+  border-left: 2px solid transparent;
   border-radius: var(--radius-md);
   background: var(--surface);
   transition: background-color var(--duration-fast) var(--ease-out),
               border-color var(--duration-fast) var(--ease-out);
+}
+
+.row[data-entity-type="task"] { border-left-color: color-mix(in oklch, var(--entity-task) 55%, transparent); }
+.row[data-entity-type="project"] { border-left-color: color-mix(in oklch, var(--entity-project) 55%, transparent); }
+.row[data-entity-type="area"] { border-left-color: color-mix(in oklch, var(--entity-area) 55%, transparent); }
+.row[data-entity-type="person"] { border-left-color: color-mix(in oklch, var(--entity-person) 55%, transparent); }
+.row[data-entity-type="note"] { border-left-color: color-mix(in oklch, var(--entity-note) 45%, transparent); }
+.row[data-entity-type="resource"] { border-left-color: color-mix(in oklch, var(--entity-resource) 45%, transparent); }
+
+.row.dueOverdue {
+  border-left-color: var(--red);
+}
+
+.row.dueToday {
+  border-left-color: var(--yellow);
 }
 
 .row:hover {
@@ -174,6 +190,41 @@
   max-width: 120px;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.statusBlocked {
+  color: var(--red);
+  border-color: color-mix(in oklch, var(--red) 22%, var(--border-faint));
+  background: color-mix(in oklch, var(--red) 8%, var(--surface2));
+}
+
+.statusWaiting {
+  color: var(--yellow);
+  border-color: color-mix(in oklch, var(--yellow) 22%, var(--border-faint));
+  background: color-mix(in oklch, var(--yellow) 8%, var(--surface2));
+}
+
+.statusDone {
+  opacity: 0.72;
+}
+
+.statusActive {
+  color: var(--accent);
+  border-color: color-mix(in oklch, var(--accent) 22%, var(--border-faint));
+  background: color-mix(in oklch, var(--accent) 8%, var(--surface2));
+}
+
+.loadBadge {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: color-mix(in oklch, var(--entity-project) 10%, var(--surface2));
+  border: 1px solid color-mix(in oklch, var(--entity-project) 24%, var(--border-faint));
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--entity-project);
   white-space: nowrap;
 }
 

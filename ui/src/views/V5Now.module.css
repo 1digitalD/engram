@@ -71,12 +71,26 @@
   gap: var(--space-2);
   padding: 10px 12px;
   border: 1px solid var(--border-faint);
+  border-left: 2px solid transparent;
   border-radius: var(--radius-md);
   background: var(--surface);
   text-decoration: none;
   color: inherit;
   transition: background-color var(--duration-fast) var(--ease-out),
               border-color var(--duration-fast) var(--ease-out);
+}
+
+.row[data-entity-type="task"] { border-left-color: color-mix(in oklch, var(--entity-task) 55%, transparent); }
+.row[data-entity-type="project"] { border-left-color: color-mix(in oklch, var(--entity-project) 55%, transparent); }
+.row[data-entity-type="area"] { border-left-color: color-mix(in oklch, var(--entity-area) 55%, transparent); }
+.row[data-entity-type="person"] { border-left-color: color-mix(in oklch, var(--entity-person) 55%, transparent); }
+.row[data-entity-type="note"] { border-left-color: color-mix(in oklch, var(--entity-note) 45%, transparent); }
+
+.rowHead {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-width: 0;
 }
 
 .row:hover {
@@ -86,6 +100,7 @@
 
 .rowHot {
   border-left: 3px solid var(--red);
+  background: color-mix(in oklch, var(--red) 4%, var(--surface));
 }
 
 .rowWarm {
@@ -93,13 +108,16 @@
 }
 
 .rowAmbient {
-  border-left: 3px solid transparent;
+  border-left: 2px solid transparent;
 }
 
 .sentence {
+  flex: 1 1 auto;
+  min-width: 0;
   font-size: var(--text-md);
   line-height: 1.45;
   color: var(--text);
+  margin: 0;
 }
 
 .sentence a {

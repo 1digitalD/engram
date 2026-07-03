@@ -1,7 +1,7 @@
 # Iteration 20 — UI Context, Density & Color
 
 Date: 2026-07-03  
-Status: **in progress** (UI-CTX-01–03 deployed; next: UI-CTX-05)  
+Status: **complete** (UI-CTX-01–07 deployed; UI-CTX-08 deferred)  
 Owner: Engram  
 Predecessor: Post-iteration UI density pass (task list context chips, compact layouts)
 
@@ -96,31 +96,21 @@ Manual: ⌘K → search known task → result appears with snippet.
 
 ---
 
-### UI-CTX-05 — List row metadata richness (M3)
+### UI-CTX-05 — List row metadata richness (M3) — **done (2026-07-03)**
 
-**Changes:**
-- Project rows: show `task_counts.open` / `task_counts.total` badge
-- Area/person rows: show `linked_counts` summary (e.g. "3 tasks · 2 projects")
-
-**Acceptance:** [ ] Project list shows open task count [ ] Area list shows link counts
+**Acceptance:** [x] Project list shows open task count [x] Area list shows link counts
 
 ---
 
-### UI-CTX-06 — Shared list row color chrome (M4)
+### UI-CTX-06 — Shared list row color chrome (M4) — **done (2026-07-03)**
 
-**Changes:**
-- Extract shared `EntityListRow` styles: type left-border, status semantic pills
-- Apply to `V5EntityList`, `V5Now` rows, `V5Threads`/`V5EntityRow`
-
-**Acceptance:** [ ] Task row in Now has same type accent as Tasks list
+**Acceptance:** [x] Task row in Now has same type accent as Tasks list
 
 ---
 
-### UI-CTX-07 — Project parent area (M5) — **needs backend**
+### UI-CTX-07 — Project parent area (M5) — **done (2026-07-03)**
 
-**Problem:** No `_attach_project_context`; projects don't expose parent area on list API.
-
-**Blocked until:** New `_attach_project_context` helper (parent area link).
+**Acceptance:** [x] Project list shows parent area chip via `_attach_project_context`
 
 ---
 

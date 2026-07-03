@@ -5,6 +5,7 @@
   align-items: start;
   padding: 10px 12px;
   border: 1px solid var(--border-faint);
+  border-left: 2px solid transparent;
   border-radius: var(--radius-md);
   background: var(--surface);
   text-decoration: none;
@@ -12,6 +13,12 @@
   transition: background-color var(--duration-fast) var(--ease-out),
               border-color var(--duration-fast) var(--ease-out);
 }
+
+.row[data-entity-type="task"] { border-left-color: color-mix(in oklch, var(--entity-task) 55%, transparent); }
+.row[data-entity-type="project"] { border-left-color: color-mix(in oklch, var(--entity-project) 55%, transparent); }
+.row[data-entity-type="area"] { border-left-color: color-mix(in oklch, var(--entity-area) 55%, transparent); }
+.row[data-entity-type="person"] { border-left-color: color-mix(in oklch, var(--entity-person) 55%, transparent); }
+.row[data-entity-type="note"] { border-left-color: color-mix(in oklch, var(--entity-note) 45%, transparent); }
 
 .row:hover {
   background: var(--surface2);

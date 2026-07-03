@@ -1,0 +1,41 @@
+.circle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+  font-size: 11px;
+  line-height: 1;
+}
+
+.task {
+  background: color-mix(in oklch, var(--entity-task) 12%, transparent);
+  color: var(--entity-task);
+}
+
+.project {
+  background: color-mix(in oklch, var(--entity-project) 12%, transparent);
+  color: var(--entity-project);
+}
+
+.area {
+  background: color-mix(in oklch, var(--entity-area) 12%, transparent);
+  color: var(--entity-area);
+}
+
+.person {
+  background: color-mix(in oklch, var(--entity-person) 12%, transparent);
+  color: var(--entity-person);
+}
+
+.note {
+  background: color-mix(in oklch, var(--entity-note) 12%, transparent);
+  color: var(--entity-note);
+}
+
+.resource {
+  background: color-mix(in oklch, var(--entity-resource) 12%, transparent);
+  color: var(--entity-resource);
+}
