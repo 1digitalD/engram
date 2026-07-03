@@ -529,3 +529,86 @@ def test_update_intent_long_content_uses_full_pipeline(client, app):
 
     assert response.status_code == 201
     mock_au_extract.assert_not_called()
+
+
+def test_update_unresolved_resolve_applies_extraction_when_au_note_deduped(client, app):
+    """Resolving update_unresolved still applies stored extraction when the AU note dedups."""
+    task = _create_entity(client, "task", "Ship parser fix")
+    content = "Unique resolve: we can close this dedup test now."
+    no_status = {"status": None, "confidence": 0.0, "follow_up_at": None, "tasks": []}
+
+    with patch(
+        "services.v4_extraction.extract_dates_and_tasks_from_update",
+        return_value=no_status,
+    ):
+        client.post(
+            f"/api/v4/entities/{task['id']}/activity_updates",
+            json={"content": content},
+        )
+
+    with app.app_context():
+        source = Entity(
+            type="note",
+            title="Capture note",
+            content=content,
+            status="active",
+            source="capture",
+            ai_status="done",
+        )
+        db.session.add(source)
+        db.session.flush()
+        suggestion = AiSuggestion(
+            source_entity_id=source.id,
+            suggestion_type="update_unresolved",
+            operation_type="update_unresolved",
+            payload={
+                "content": content,
+                "status": "done",
+                "status_confidence": 0.9,
+                "follow_up_at": None,
+                "tasks": [],
+            },
+            confidence=0.9,
+            status="pending",
+        )
+        db.session.add(suggestion)
+        db.session.commit()
+        suggestion_id = suggestion.id
+
+    response = client.post(
+        f"/api/v4/suggestions/{suggestion_id}/resolve-to-existing",
+        json={"target_id": task["id"]},
+    )
+    assert response.status_code == 200
+
+    with app.app_context():
+        entity = db.session.get(Entity, task["id"])
+        assert entity.status == "done"
+
+
+def test_update_intent_route_still_extracts_decisions(client, app):
+    """Intent-routed update captures still surface explicit decision suggestions."""
+    decision = {
+        "statement": "We will ship v4 by July 15.",
+        "confidence": 0.92,
+        "context": "planning",
+    }
+
+    with patch(
+        "services.v4_extraction.extract_capture_candidates",
+        return_value=UPDATE_EXTRACTION,
+    ), patch(
+        "services.v4_extraction.extract_dates_and_tasks_from_update",
+        return_value={"status": None, "confidence": 0.0, "follow_up_at": None, "tasks": []},
+    ), patch(
+        "api.v4_entities._extract_decision_candidates",
+        return_value=[decision],
+    ):
+        response = client.post(
+            "/api/v4/capture",
+            json={"content": "We can close this out now."},
+        )
+
+    assert response.status_code == 201
+    data = response.get_json()
+    assert any(s["suggestion_type"] == "create_decision" for s in data["suggestions"])

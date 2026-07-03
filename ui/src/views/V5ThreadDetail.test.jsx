@@ -161,14 +161,14 @@ describe('V5ThreadDetail', () => {
     });
   });
 
-  it('does not open the quick-action sheet from timeline rows', () => {
+  it('does not open the quick-action sheet from timeline rows', async () => {
     renderThread('task');
     const row = screen.getByTestId('timeline-row-e1');
 
     vi.useFakeTimers();
     try {
-      fireEvent.touchStart(row);
-      act(() => {
+      await act(async () => {
+        fireEvent.touchStart(row);
         vi.advanceTimersByTime(600);
       });
     } finally {

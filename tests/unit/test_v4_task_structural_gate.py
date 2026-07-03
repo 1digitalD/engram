@@ -7,6 +7,8 @@ from api.v4_entities import (
     _task_structural_score,
     _task_auto_create_ok,
     _task_suggest_ok,
+    _suggestion_task_structural_score,
+    _collect_work_carrying_persons,
 )
 
 
@@ -138,3 +140,41 @@ class TestTaskSuggestGate:
         }
         decision = {"top_match_score": 0.0}
         assert _task_suggest_ok(None, candidate, decision, 0.45) is False
+
+
+class TestSuggestionTaskStructuralScore:
+    def test_prefers_stronger_structural_candidate_over_confidence(self):
+        note = None
+        weak_high_conf = {
+            "suggestion_type": "create_task",
+            "confidence": 0.99,
+            "payload": {"title": "Attend all hands", "assigned_to": None},
+        }
+        strong_low_conf = {
+            "suggestion_type": "create_task",
+            "confidence": 0.55,
+            "payload": {
+                "title": "Follow up with Henry on rollout",
+                "assigned_to": "Henry",
+            },
+        }
+        assert _suggestion_task_structural_score(note, strong_low_conf) > _suggestion_task_structural_score(
+            note, weak_high_conf
+        )
+
+
+class TestCollectWorkCarryingPersons:
+    def test_includes_assignee_and_follow_up_target(self):
+        candidates = [
+            {"type": "task", "title": "Follow up with Mary on contract", "assigned_to": "Akash"},
+            {
+                "type": "person",
+                "title": "Legal Team",
+                "_source": "link",
+                "relationship_type": "assigned_to",
+            },
+        ]
+        names = _collect_work_carrying_persons(candidates)
+        assert "Akash" in names
+        assert "Mary" in names
+        assert "Legal Team" in names

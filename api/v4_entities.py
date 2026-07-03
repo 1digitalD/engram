@@ -2912,7 +2912,7 @@ def _resolve_update_unresolved_suggestion(suggestion):
         confidence=suggestion.confidence,
         source_note_id=source_note.id,
     )
-    if au_note is not None and created:
+    if au_note is not None:
         extraction = {
             "status": payload.get("status"),
             "confidence": payload.get("status_confidence") or 0.0,
@@ -3991,6 +3991,7 @@ def _process_capture_extraction(note, content, extraction, thread_id=None):
             note, content, extraction, thread_id, applied_changes, suggestions
         )
     # route == "junk": note-level metadata only; no reconciliation spend.
+    _append_decision_suggestions(note, thread_id, suggestions)
     if note.ai_status == "pending":
         note.ai_status = "done"
     return applied_changes, suggestions
@@ -4187,12 +4188,7 @@ def _reconcile_capture_candidates(note, extraction, thread_id=None):
     # SQ-08: identify people who carry work in this note (assignees / delegation
     # targets / follow-up owners). Bare mentions without an existing match are
     # dropped instead of auto-created.
-    work_carrying_persons = set()
-    for cand in all_candidates:
-        if _candidate_value(cand, "type") in {"task", "project"}:
-            assignee = _candidate_value(cand, "assigned_to")
-            if assignee:
-                work_carrying_persons.add(assignee)
+    work_carrying_persons = _collect_work_carrying_persons(all_candidates)
 
     if all_candidates:
         from services.v4_reconciliation import reconcile_candidates
@@ -4209,29 +4205,7 @@ def _reconcile_capture_candidates(note, extraction, thread_id=None):
 
     # Decision extraction: explicit commitments always become reviewable
     # suggestions, never auto-created.
-    decision_candidates = _extract_decision_candidates(note, thread_id=thread_id)
-    for candidate in decision_candidates:
-        _append_capture_suggestion(
-            note,
-            candidate,
-            action="new",
-            entity_type="decision",
-            relationship_type=None,
-            confidence=candidate.get("confidence", 0.9),
-            evidence=candidate.get("statement"),
-            suggestions=suggestions,
-            suggestion_type="create_decision",
-            operation_type="create_decision",
-            payload={
-                "thread_id": candidate.get("thread_id"),
-                "statement": candidate.get("statement"),
-                "context": candidate.get("context"),
-                "decided_at": candidate.get("decided_at"),
-                "decided_by": candidate.get("decided_by"),
-                "source_note_id": note.id,
-            },
-            reason=f"Explicit commitment detected: {candidate.get('statement')}",
-        )
+    _append_decision_suggestions(note, thread_id, suggestions)
 
     # SQ-07: cap task suggestions per note and group survivors under the note id
     # so the review sheet can render "N action items from this note" with an
@@ -6501,17 +6475,43 @@ def _task_candidate_looks_tentative(candidate):
     return title.startswith(tentative_prefixes)
 
 
+def _status_keyword_is_affirmed(source_text, term):
+    """Return True when *term* appears in *source_text* without direct negation."""
+    lowered = source_text.lower()
+    start = 0
+    while start < len(lowered):
+        pos = lowered.find(term, start)
+        if pos == -1:
+            return False
+        segment = lowered[max(0, pos - 20):pos + len(term)]
+        if not _status_term_is_negated(segment, term):
+            return True
+        start = pos + len(term)
+    return False
+
+
+def _status_term_is_negated(segment, term):
+    """True when *segment* around *term* is directly negated."""
+    escaped = re.escape(term)
+    negated_patterns = (
+        rf"\bnot\s+yet\s+{escaped}\b",
+        rf"\bnot\s+{escaped}\b",
+        rf"\b(?:isn\'t|aren't|wasn't|weren't|hasn't|haven't|hadn't)\s+(?:\w+\s+){{0,2}}{escaped}\b",
+        rf"\b(?:don't|doesn't|didn't|won't|wouldn't|can't|cannot)\s+(?:\w+\s+){{0,2}}{escaped}\b",
+    )
+    return any(re.search(pattern, segment) for pattern in negated_patterns)
+
+
 def _status_change_is_explicit(source_text, new_status):
     """SQ-09 structural guard for status auto-apply.
 
     A status transition is only auto-applied when the source text contains
     explicit phrasing that names the new status. Confidence is consulted only
     after this precondition is met; without it, the change stays a reviewable
-    suggestion.
+    suggestion. Negated phrasing ("not done", "isn't blocked") does not count.
     """
     if not source_text or not new_status:
         return False
-    lowered = source_text.lower()
     keywords = {
         "done": {"done", "shipped", "completed", "finished", "closed", "close", "closing", "wrapped up"},
         "completed": {"completed", "done", "shipped", "finished", "closed", "close", "closing"},
@@ -6519,7 +6519,84 @@ def _status_change_is_explicit(source_text, new_status):
         "blocked": {"blocked", "stuck", "blocker", "blocking", "block"},
         "waiting": {"waiting", "wait", "waiting on", "blocked on"},
     }
-    return any(term in lowered for term in keywords.get(new_status, set()))
+    return any(
+        _status_keyword_is_affirmed(source_text, term)
+        for term in keywords.get(new_status, set())
+    )
+
+
+def _append_decision_suggestions(note, thread_id, suggestions):
+    """Extract explicit decisions and append reviewable create_decision suggestions."""
+    decision_candidates = _extract_decision_candidates(note, thread_id=thread_id)
+    for candidate in decision_candidates:
+        _append_capture_suggestion(
+            note,
+            candidate,
+            action="new",
+            entity_type="decision",
+            relationship_type=None,
+            confidence=candidate.get("confidence", 0.9),
+            evidence=candidate.get("statement"),
+            suggestions=suggestions,
+            suggestion_type="create_decision",
+            operation_type="create_decision",
+            payload={
+                "thread_id": candidate.get("thread_id"),
+                "statement": candidate.get("statement"),
+                "context": candidate.get("context"),
+                "decided_at": candidate.get("decided_at"),
+                "decided_by": candidate.get("decided_by"),
+                "source_note_id": note.id,
+            },
+            reason=f"Explicit commitment detected: {candidate.get('statement')}",
+        )
+
+
+_FOLLOW_UP_OWNER_RE = re.compile(
+    r"\bfollow[\s-]?up with ([A-Za-z][a-zA-Z'-]+)\b",
+    re.IGNORECASE,
+)
+
+
+def _collect_work_carrying_persons(all_candidates):
+    """Names that carry work in this capture (assignees, delegation, follow-up targets)."""
+    names = set()
+    for cand in all_candidates:
+        ctype = _candidate_value(cand, "type")
+        assignee = _candidate_value(cand, "assigned_to")
+        if assignee:
+            names.add(assignee)
+        if (
+            ctype == "person"
+            and cand.get("_source") == "link"
+            and _candidate_value(cand, "relationship_type") == "assigned_to"
+        ):
+            title = _candidate_value(cand, "title")
+            if title:
+                names.add(title)
+        if ctype == "task":
+            title = _candidate_value(cand, "title") or ""
+            match = _FOLLOW_UP_OWNER_RE.search(title)
+            if match:
+                names.add(match.group(1))
+    return names
+
+
+def _suggestion_task_structural_score(note, row):
+    """Structural score for a pending create_task suggestion row."""
+    payload = row.get("payload") or {}
+    candidate = {
+        "title": payload.get("title"),
+        "assigned_to": payload.get("assigned_to"),
+        "due_at": payload.get("due_at"),
+        "follow_up_at": payload.get("follow_up_at"),
+    }
+    near = payload.get("near_match") or {}
+    decision = {
+        "top_match_score": near.get("score") or 0.0,
+        "top_match_id": near.get("entity_id"),
+    }
+    return _task_structural_score(note, candidate, decision)
 
 
 def _cap_and_group_task_suggestions(note, suggestions):
@@ -6536,8 +6613,13 @@ def _cap_and_group_task_suggestions(note, suggestions):
 
     kept = task_rows
     if len(task_rows) > TASK_SUGGESTION_CAP_PER_NOTE:
-        # Confidence is the tiebreaker when we have more candidates than slots.
-        task_rows.sort(key=lambda item: item[1].get("confidence") or 0.0, reverse=True)
+        task_rows.sort(
+            key=lambda item: (
+                _suggestion_task_structural_score(note, item[1]),
+                item[1].get("confidence") or 0.0,
+            ),
+            reverse=True,
+        )
         kept = task_rows[:TASK_SUGGESTION_CAP_PER_NOTE]
     kept_ids = {row["id"] for _, row in kept}
 
@@ -6551,14 +6633,18 @@ def _cap_and_group_task_suggestions(note, suggestions):
         suggestion.payload = payload
         flag_modified(suggestion, "payload")
 
-    # Drop any task suggestions that did not make the cap from the DB and the
-    # response list. Use "dismissed" so they don't reappear as duplicates.
+    # Drop overflow tasks from the DB and response. Use "expired" (not
+    # "dismissed") so SQ-10 semantic dismissal memory is not polluted.
     dropped = [(i, row) for i, row in task_rows if row["id"] not in kept_ids]
     for _i, row in dropped:
         suggestion = db.session.get(AiSuggestion, row["id"])
         if suggestion is not None and suggestion.status == "pending":
-            suggestion.status = "dismissed"
+            suggestion.status = "expired"
             suggestion.resolved_at = datetime.utcnow()
+            drop_payload = dict(suggestion.payload or {})
+            drop_payload["expire_reason"] = "task_cap_overflow"
+            suggestion.payload = drop_payload
+            flag_modified(suggestion, "payload")
 
     # Update the in-memory dicts and remove dropped rows.
     kept_set = {i for i, _ in kept}
@@ -6809,6 +6895,8 @@ def _recently_resolved_semantic_duplicate(suggestion_type, operation_type, paylo
 
     for suggestion in existing:
         existing_payload = suggestion.payload or {}
+        if existing_payload.get("expire_reason") == "task_cap_overflow":
+            continue
         embedding = existing_payload.get("_semantic_embedding")
         if not embedding:
             continue

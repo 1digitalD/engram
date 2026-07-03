@@ -114,7 +114,7 @@ All 6 prd tasks passed. See archived `docs/iterations/archive/prd-v5-hardening.j
 | `AGENTS.md` | Repo-wide working rules |
 | `docs/V4_PRINCIPLES.md` | Product and architecture rules |
 | `docs/V4_WORLD_MODEL_PLAN.md` | Active implementation plan |
-| `prd.json` | Loopsmith task graph (Iteration 18) |
+| `prd.json` | Loopsmith task graph (Iteration 19 — complete, archive before next loop) |
 | `EXECUTION-TRACKER.md` | This file |
 
 ## Deploy + Validation Baseline
