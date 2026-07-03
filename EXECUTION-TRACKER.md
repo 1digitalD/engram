@@ -26,7 +26,7 @@ aligned with the active API.
 | UI-CTX-06 Shared row chrome | **done + deployed** | same deploy |
 | UI-CTX-07 Project parent area | **done + deployed** | same deploy |
 | UI-CTX-08 TopBar nav | **deferred** | user: leave TopBar as-is |
-| UI-CTX-09 Polish | **done + deployed** | fab-clearance, glyphs, CardActions |
+| UI-CTX-09 Polish | **done + deployed** | backup `engram_20260703_164147.sql` |
 
 ## Previous loop: Iteration 19 — Signal Quality & Capture Intelligence (2026-07-02) — complete
 
