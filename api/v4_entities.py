@@ -131,6 +131,10 @@ INTENT_ROUTE_MAX_CONTENT_CHARS = 1200
 # (ladder step 3). Deliberately strict: a wrong guess applies a status change.
 UPDATE_TARGET_SIMILARITY = 0.75
 SUGGESTION_DUPLICATE_MEMORY_DAYS = 14
+# SQ-10: semantic duplicate memory window. Longer than the exact-fingerprint
+# window because reworded duplicates are worth remembering for a full month.
+SUGGESTION_SEMANTIC_MEMORY_DAYS = 30
+SUGGESTION_SEMANTIC_SIMILARITY_THRESHOLD = 0.85
 COMPACT_LINK_COUNT_RULES = {
     "person": {
         "notes": ("incoming", {"mentions"}, {"note"}),
@@ -6054,7 +6058,7 @@ def _create_suggestion(note, suggestion_type, operation_type, payload, confidenc
             return existing_pending
         return None
 
-    if _recently_resolved_duplicate(fingerprint, confidence):
+    if _recently_resolved_duplicate(fingerprint, confidence, suggestion_type, operation_type, payload):
         return None
 
     _clear_review_resolution(note)
@@ -6692,7 +6696,28 @@ def _existing_pending_suggestion(fingerprint):
     ).first()
 
 
-def _recently_resolved_duplicate(fingerprint, confidence):
+def _semantic_embedding_text(suggestion_type, operation_type, payload):
+    """Normalize a suggestion into the text we embed for semantic duplicate checks.
+
+    Uses the title (or statement/content for non-entity suggestions). For
+    update suggestions, appends the target entity id so that reworded updates
+    to *different* targets are not confused with each other.
+    """
+    payload = payload or {}
+    text = (
+        _clean_text(payload.get("title"))
+        or _clean_text(payload.get("statement"))
+        or _clean_text(payload.get("content"))
+        or ""
+    )
+    if operation_type == "update_entity":
+        target_id = _clean_text(payload.get("target_entity_id"))
+        if target_id:
+            text = f"{text} {target_id}".strip()
+    return text
+
+
+def _recently_resolved_duplicate(fingerprint, confidence, suggestion_type, operation_type, payload):
     # SQ-09: duplicate suppression is structurally gated by the fingerprint
     # (same normalized payload). Confidence is a tiebreaker: a slightly higher
     # confidence version is allowed to resurface, otherwise the duplicate is
@@ -6703,11 +6728,73 @@ def _recently_resolved_duplicate(fingerprint, confidence):
         AiSuggestion.updated_at >= cutoff,
         AiSuggestion.payload["_fingerprint"].as_string() == fingerprint,
     ).order_by(AiSuggestion.updated_at.desc()).first()
-    if existing is None:
+    if existing is not None:
+        previous_confidence = existing.confidence or 0.0
+        next_confidence = confidence or 0.0
+        return next_confidence <= previous_confidence + 0.05
+
+    # SQ-10: reworded duplicates of recently dismissed suggestions should also
+    # be suppressed. The exact-fingerprint fast path above keeps this cheap.
+    return _recently_resolved_semantic_duplicate(suggestion_type, operation_type, payload)
+
+
+def _recently_resolved_semantic_duplicate(suggestion_type, operation_type, payload):
+    """Suppress reworded duplicates via embedding similarity.
+
+    Compares the candidate's normalized text to dismissed/expired suggestions
+    from the last SUGGESTION_SEMANTIC_MEMORY_DAYS days with the same
+    suggestion_type. Embeddings are computed lazily and cached in the dismissed
+    suggestion's payload.
+    """
+    candidate_text = _semantic_embedding_text(suggestion_type, operation_type, payload)
+    if not candidate_text:
         return False
-    previous_confidence = existing.confidence or 0.0
-    next_confidence = confidence or 0.0
-    return next_confidence <= previous_confidence + 0.05
+
+    from services.v4_reconciliation import _cosine, _embed_texts
+
+    semantic_cutoff = datetime.now(timezone.utc) - timedelta(days=SUGGESTION_SEMANTIC_MEMORY_DAYS)
+    existing = AiSuggestion.query.filter(
+        AiSuggestion.status.in_(("dismissed", "expired")),
+        AiSuggestion.updated_at >= semantic_cutoff,
+        AiSuggestion.suggestion_type == suggestion_type,
+    ).order_by(AiSuggestion.updated_at.desc()).all()
+
+    if not existing:
+        return False
+
+    candidate_vectors = _embed_texts([candidate_text])
+    if not candidate_vectors or not candidate_vectors[0]:
+        return False
+    candidate_vec = candidate_vectors[0]
+
+    # Backfill embeddings for dismissed suggestions that don't have one yet.
+    missing = []
+    for suggestion in existing:
+        existing_payload = suggestion.payload or {}
+        if "_semantic_embedding" not in existing_payload:
+            text = _semantic_embedding_text(suggestion.suggestion_type, suggestion.operation_type, existing_payload)
+            if text:
+                missing.append((suggestion, text))
+
+    if missing:
+        vectors = _embed_texts([text for _, text in missing])
+        for i, (suggestion, _) in enumerate(missing):
+            if i >= len(vectors) or not vectors[i]:
+                continue
+            new_payload = dict(suggestion.payload or {})
+            new_payload["_semantic_embedding"] = vectors[i]
+            suggestion.payload = new_payload
+            flag_modified(suggestion, "payload")
+
+    for suggestion in existing:
+        existing_payload = suggestion.payload or {}
+        embedding = existing_payload.get("_semantic_embedding")
+        if not embedding:
+            continue
+        if _cosine(candidate_vec, embedding) >= SUGGESTION_SEMANTIC_SIMILARITY_THRESHOLD:
+            return True
+
+    return False
 
 
 # SQ-07: structural task-extraction gate. A task candidate must have both

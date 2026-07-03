@@ -796,3 +796,128 @@ def test_resolve_to_existing_requires_near_match_or_target(client, app):
 
     response = client.post(f"/api/v4/suggestions/{suggestion_id}/resolve-to-existing", json={})
     assert response.status_code == 400
+
+
+def _fake_embed_with_vectors():
+    vectors = {
+        "follow up with henry": [1.0] + [0.0] * 1535,
+        "follow up with henry on rollout status": [1.0] + [0.0] * 1535,
+        "schedule team offsite": [0.0, 1.0] + [0.0] * 1534,
+    }
+
+    def _embed(texts):
+        return [vectors.get((t or "").lower().strip(), [0.0] * 1536) for t in texts]
+
+    return _embed
+
+
+def test_semantic_duplicate_suppresses_reworded_duplicate(client, app, monkeypatch):
+    """SQ-10: a reworded duplicate of a recently dismissed suggestion is not recreated."""
+    from datetime import datetime, timezone
+    from api import v4_entities
+    import services.v4_reconciliation
+
+    monkeypatch.setattr(
+        services.v4_reconciliation, "_embed_texts", _fake_embed_with_vectors()
+    )
+
+    note_id = _create_note(app, "Semantic dup source")
+    with app.app_context():
+        note = db.session.get(Entity, note_id)
+        original = v4_entities._create_suggestion(
+            note,
+            "create_task",
+            "create_entity",
+            {"type": "task", "title": "Follow up with Henry", "source_entity_id": note_id},
+            confidence=0.9,
+        )
+        db.session.commit()
+        original.status = "dismissed"
+        original.resolved_at = datetime.now(timezone.utc)
+        db.session.commit()
+
+        duplicate = v4_entities._create_suggestion(
+            note,
+            "create_task",
+            "create_entity",
+            {
+                "type": "task",
+                "title": "Follow up with Henry on rollout status",
+                "source_entity_id": note_id,
+            },
+            confidence=0.9,
+        )
+        assert duplicate is None
+        assert (
+            AiSuggestion.query.filter_by(source_entity_id=note_id, status="pending").count()
+            == 0
+        )
+
+
+def test_semantic_duplicate_does_not_suppress_different_suggestion(client, app, monkeypatch):
+    """SQ-10: a genuinely different suggestion about the same person is still proposed."""
+    from datetime import datetime, timezone
+    from api import v4_entities
+    import services.v4_reconciliation
+
+    monkeypatch.setattr(
+        services.v4_reconciliation, "_embed_texts", _fake_embed_with_vectors()
+    )
+
+    note_id = _create_note(app, "Semantic non-dup source")
+    with app.app_context():
+        note = db.session.get(Entity, note_id)
+        original = v4_entities._create_suggestion(
+            note,
+            "create_task",
+            "create_entity",
+            {"type": "task", "title": "Follow up with Henry", "source_entity_id": note_id},
+            confidence=0.9,
+        )
+        db.session.commit()
+        original.status = "dismissed"
+        original.resolved_at = datetime.now(timezone.utc)
+        db.session.commit()
+
+        different = v4_entities._create_suggestion(
+            note,
+            "create_task",
+            "create_entity",
+            {"type": "task", "title": "Schedule team offsite", "source_entity_id": note_id},
+            confidence=0.9,
+        )
+        assert different is not None
+        assert different.status == "pending"
+
+
+def test_exact_fingerprint_short_circuits_before_embedding(client, app, monkeypatch):
+    """SQ-10: exact fingerprint match suppresses without running embedding comparison."""
+    from datetime import datetime, timezone
+    from api import v4_entities
+    import services.v4_reconciliation
+
+    calls = []
+
+    def _counting_embed(texts):
+        calls.append(texts)
+        return [[0.0] * 1536 for _ in texts]
+
+    monkeypatch.setattr(services.v4_reconciliation, "_embed_texts", _counting_embed)
+
+    note_id = _create_note(app, "Exact dup source")
+    payload = {"type": "task", "title": "Follow up with Henry", "source_entity_id": note_id}
+    with app.app_context():
+        note = db.session.get(Entity, note_id)
+        original = v4_entities._create_suggestion(
+            note, "create_task", "create_entity", payload, confidence=0.9
+        )
+        db.session.commit()
+        original.status = "dismissed"
+        original.resolved_at = datetime.now(timezone.utc)
+        db.session.commit()
+
+        duplicate = v4_entities._create_suggestion(
+            note, "create_task", "create_entity", payload, confidence=0.9
+        )
+        assert duplicate is None
+        assert not calls

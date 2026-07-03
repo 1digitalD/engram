@@ -444,6 +444,7 @@ class AiSuggestion(BaseModel):
     def to_dict(self):
         payload = dict(self.payload or {})
         payload.pop("_fingerprint", None)
+        payload.pop("_semantic_embedding", None)
         return {
             "id": self.id,
             "source_entity_id": self.source_entity_id,

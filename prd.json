@@ -153,9 +153,10 @@
         "cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/integration/test_v4_suggestions.py -q"
       ],
       "blocked": false,
-      "passes": false,
-      "attempts": 0,
-      "blockerReason": null
+      "passes": true,
+      "attempts": 1,
+      "blockerReason": null,
+      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/integration/test_v4_suggestions.py -q\n......................                                                   [100%]\n22 passed in 1.69s"
     },
     {
       "id": "sq-11-dismissal-reasons",
