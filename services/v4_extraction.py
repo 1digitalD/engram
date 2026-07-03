@@ -32,7 +32,9 @@ RULES:
 - Be exhaustive for PEOPLE, PROJECTS, AREAS, and RESOURCES — extract every mentioned item.
 - For TASKS, prefer precision over recall: only emit candidates that pass the positive test in \
 the TASKS rule below. The reconciliation layer cannot fix garbage candidates.
-- Confidence: 0.9+ explicit/unambiguous, 0.7–0.9 strongly implied, 0.5–0.7 inferred, <0.5 speculative.
+- Confidence is a tiebreaker only; structural signals (owner, deliverable verb, due date, \
+existing match) drive the apply layer. If you provide it: 0.9+ explicit/unambiguous, 0.7–0.9 \
+strongly implied, 0.5–0.7 inferred, <0.5 speculative.
 - DEDUPE WITHIN THIS NOTE: each real-world entity must appear at most ONCE across the entire \
 output (combining the `links` and `entities` arrays). If a person, project, area, or resource \
 is mentioned multiple times in the note — even with different surface forms ("Priya", "Priya \
@@ -127,7 +129,7 @@ No trailing punctuation. Sentence case. Concrete and specific (avoid 'Note about
     "title": "canonical title of the entity to link to",
     "relationship_type": "parent|related|derived_from|mentions|assigned_to|references|blocks",
     "confidence": 0.0,
-    "evidence": "exact quote or brief rationale"
+    "evidence": "exact quote or brief rationale (confidence is tiebreaker only)"
   }],
   "entities": [{
     "type": "task|project|area|person|resource",
@@ -137,7 +139,7 @@ No trailing punctuation. Sentence case. Concrete and specific (avoid 'Note about
     "follow_up_at": "ISO 8601 date if a follow-up date is mentioned, else null",
     "assigned_to": "person name if task/project is assigned to someone, else null",
     "confidence": 0.0,
-    "evidence": "exact quote or brief rationale"
+    "evidence": "exact quote or brief rationale (confidence is tiebreaker only)"
   }]
 }
 
@@ -516,7 +518,8 @@ ACTIVITY_UPDATE_SYSTEM_PROMPT = """You are a lightweight extraction engine for a
    Examples: "done for now" / "shipped" / "finished" → done, "waiting on infra" → waiting,
    "blocked by security review" → blocked, "started working on this" → in_progress.
    Return null if no status change is implied. Include a top-level confidence (0.0–1.0) for the status
-   extraction when status is non-null.
+   extraction when status is non-null; it is used only as a tiebreaker after explicit status
+   language is detected.
 
 2. FOLLOW-UP DATES: Any explicit date, day, or time frame when the next follow-up or check-in should happen.
    Examples: "review next Friday" → next Friday's date, "circle back in 3 days" → 3 days from now,

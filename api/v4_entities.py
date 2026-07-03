@@ -82,9 +82,17 @@ RELATIONSHIP_TYPES = {
 }
 DEFAULT_OWNER_ALIASES = ["dan"]
 DEFAULT_DELEGATION_CADENCE_DAYS = 3
+
+# SQ-09: confidence thresholds are tiebreakers, not primary gates. Every path
+# that consults them first checks a structural precondition (SQ-07/SQ-08 task
+# and person hygiene, reconciler action, near-duplicate score, explicit status
+# language, etc.). Production data showed extractor confidence is not
+# predictive (deleted vs surviving tasks averaged 0.94 vs 0.95), so the model
+# is no longer asked to self-grade for gating decisions.
 AUTO_APPLY_CONFIDENCE = 0.8
 AUTO_CREATE_ENTITY_CONFIDENCE = 0.85
 LOW_CONFIDENCE_THRESHOLD = 0.5
+
 RISKY_ENTITY_CREATION_TYPES = {"task", "project", "area", "resource", "person"}
 # Types that must never be auto-created from capture — always reviewed.
 SUGGEST_ONLY_CREATION_TYPES = {"project", "area"}
@@ -110,9 +118,10 @@ INBOX_INTENT_PRIORITY = {
     "junk": 7,
 }
 INTENT_SUGGESTION_CONFIDENCE_FLOOR = 0.9
-# SQ-05: extraction-reported update/follow_up intent at or above this
-# confidence routes the capture through activity-update semantics instead of
-# full entity-extraction reconciliation.
+# SQ-09: intent-confidence threshold for routing a capture to the
+# activity-update pipeline. The structural precondition is a recognized
+# update/follow_up intent plus short content; confidence is the tiebreaker
+# that routes borderline cases through the safer full extraction pipeline.
 INTENT_ROUTE_CONFIDENCE = 0.7
 # Long captures (meeting notes) stay on the full pipeline even when the
 # top-level intent looks like an update — they usually carry more than one
