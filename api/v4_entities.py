@@ -2193,10 +2193,12 @@ def create_activity_update(entity_id):
         extracted_status in closing_statuses
         or target.status in closing_statuses
     )
-    route_follow_up_to_tasks = bool(explicit_follow_up and task_candidates)
-    apply_follow_up_to_target = bool(
-        explicit_follow_up and not target_is_closing and not route_follow_up_to_tasks
-    )
+    # Trust the extractor's own placement of the follow-up date: the prompt already
+    # puts it on the target when it stays open, and on spin-off task payloads when
+    # the target is closing. New task candidates alone must not override that —
+    # only a closing status suppresses applying the top-level date to the target.
+    apply_follow_up_to_target = bool(explicit_follow_up and not target_is_closing)
+    route_follow_up_to_tasks = bool(explicit_follow_up and task_candidates and target_is_closing)
 
     if apply_follow_up_to_target:
         old_follow_up = target.follow_up_at
@@ -2260,7 +2262,7 @@ def create_activity_update(entity_id):
             "status": extracted_status,
             "status_auto_applied": status_auto_applied,
             "follow_up_at": explicit_follow_up,
-            "follow_up_auto_set": False,
+            "follow_up_auto_set": apply_follow_up_to_target,
             "tasks": extracted_tasks,
         },
         "applied_mentions": applied_mentions,
