@@ -18,7 +18,7 @@ aligned with the active API.
 
 | Slice | Status | Notes |
 |-------|--------|-------|
-| UI-CTX-01 Recall fix + color | **done** | P0 parse bug fixed; snippet + type accents |
+| UI-CTX-01 Recall fix + color | **done + deployed** | backup `engram_20260703_161840.sql` |
 | UI-CTX-02 Backend task context | pending | detail + search `_attach_task_context` |
 | UI-CTX-03 Detail + Recall chips | pending | depends UI-CTX-02 |
 | UI-CTX-04 Assignee chips | pending | uses existing `people[]` |
@@ -156,6 +156,12 @@ All 6 prd tasks passed. See archived `docs/iterations/archive/prd-v5-hardening.j
 - 2026-07-03T17:45:54.269108+00:00 sq-10-semantic-dismissal-memory accepted via opencode
 - 2026-07-03T18:01:44.723132+00:00 sq-11-dismissal-reasons accepted via opencode
 - 2026-07-03T18:07:23.327702+00:00 sq-11-dismissal-reasons accepted via opencode
+
+## Post-Iteration 20 deploy (2026-07-03)
+
+- Commit `10a2d85b`: UI-CTX-01 — Recall search fix, task context chips, compact layouts.
+- Deploy: `backup engram_20260703_161840.sql` → `./scripts/engram-deploy.sh` (smoke green).
+- Bugbot: 1 low finding (People count plural) — fixed before deploy.
 
 ## Post-Iteration 19 review fix (2026-07-03)
 
