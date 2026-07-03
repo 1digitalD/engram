@@ -98,6 +98,7 @@
   /* Layout */
   --sidebar-w: 184px;
   --topbar-h:  44px;
+  --fab-clearance: 72px;
   --content-max:  720px;
   --content-wide: 1200px;
 

@@ -1,7 +1,7 @@
 .page {
   max-width: var(--content-max);
   margin: 0 auto;
-  padding: var(--space-3) var(--space-4) calc(var(--space-10) + 72px);
+  padding: var(--space-3) var(--space-4) calc(var(--space-10) + var(--fab-clearance));
   display: flex;
   flex-direction: column;
   gap: var(--space-4);

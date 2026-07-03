@@ -9,6 +9,8 @@ import { Link } from 'react-router-dom';
 import { Loader2, RefreshCw, Search } from 'lucide-react';
 import { v4API, friendlyApiError } from '../api/v4Client';
 import CitationEntitySheet from '../components/CitationEntitySheet';
+import XGlyph from '../components/XGlyph';
+import { timelineGlyphType } from '../utils/timelineGlyphs';
 import { pathForEntity } from './v5ThreadDetailUtils';
 import styles from './V5Memory.module.css';
 
@@ -35,12 +37,8 @@ function entityPath(event) {
   return pathForEntity({ id, type });
 }
 
-function eventGlyph(event) {
-  if (event.actor?.startsWith('agent:')) return '✦';
-  if (event.event_type === 'activity_update_added') return '📝';
-  if (event.event_type?.includes('decision')) return '⚖';
-  if (event.event_type === 'created') return '▣';
-  return '·';
+function eventGlyphType(event) {
+  return timelineGlyphType(event);
 }
 
 function formatTime(value) {
@@ -106,7 +104,7 @@ function EventCard({ event, onOpenCitation }) {
         <time className={styles.eventTime} dateTime={event.occurred_at}>
           {formatTime(event.occurred_at)}
         </time>
-        <span className={styles.eventGlyph} aria-hidden="true">{eventGlyph(event)}</span>
+        <XGlyph type={eventGlyphType(event)} className={styles.eventGlyph} />
         <Link to={path} className={styles.eventEntityType}>
           {event.entity_type}
         </Link>

@@ -4,6 +4,7 @@ import { Plus, Search } from 'lucide-react';
 import { v4API, friendlyApiError } from '../api/v4Client';
 import EntityContextChips from '../components/EntityContextChips';
 import EntityGlyphCircle from '../components/EntityGlyphCircle';
+import CardActions from '../components/CardActions';
 import { useCapture } from '../context/CaptureContext';
 import { hasTaskContext } from '../utils/entityContext';
 import { dueUrgencyClass, statusPillVariant } from '../utils/entityRowChrome';
@@ -74,7 +75,7 @@ function hasProjectContext(entity) {
   return entity?.type === 'project' && (entity.areas?.length > 0);
 }
 
-function EntityListRow({ entity, type }) {
+function EntityListRow({ entity, type, onEntityChanged }) {
   const meta = statusMeta(entity);
   const showTaskContext = type === 'task' && hasTaskContext(entity);
   const showProjectContext = type === 'project' && hasProjectContext(entity);
@@ -85,7 +86,7 @@ function EntityListRow({ entity, type }) {
   return (
     <li className={styles.listItem}>
       <article
-        className={`${styles.row} ${styles[`rowType${entity.type?.charAt(0).toUpperCase()}${entity.type?.slice(1)}`] || ''} ${dueUrgency ? styles[dueUrgency] : ''}`}
+        className={`${styles.row} cardActionsParent ${dueUrgency ? styles[dueUrgency] : ''}`}
         data-entity-type={entity.type}
       >
         <Link to={detailPath(entity)} className={styles.rowMainLink}>
@@ -127,6 +128,7 @@ function EntityListRow({ entity, type }) {
             <EntityContextChips areas={entity.areas} />
           </div>
         ) : null}
+        <CardActions entity={entity} onChanged={onEntityChanged} />
       </article>
     </li>
   );
@@ -143,7 +145,7 @@ export default function V5EntityList({ type }) {
     let active = true;
     setLoading(true);
     setError('');
-    v4API.entities.list({ type, limit: 200, sort: 'updated_at', order: 'desc' })
+    v4API.entities.list({ type, limit: 200, sort: 'updated_at', order: 'desc', lifecycle: 'active' })
       .then((response) => {
         if (!active) return;
         setEntities(response?.data || []);
@@ -233,7 +235,16 @@ export default function V5EntityList({ type }) {
       {filtered.length > 0 ? (
         <ul className={styles.list}>
           {filtered.map((entity) => (
-            <EntityListRow key={entity.id} entity={entity} type={type} />
+            <EntityListRow
+              key={entity.id}
+              entity={entity}
+              type={type}
+              onEntityChanged={(change) => {
+                if (change?.id && (change.kind === 'deleted' || change.kind === 'archived')) {
+                  setEntities((current) => current.filter((item) => item.id !== change.id));
+                }
+              }}
+            />
           ))}
         </ul>
       ) : (

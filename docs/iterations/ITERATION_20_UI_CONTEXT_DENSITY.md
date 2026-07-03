@@ -126,12 +126,14 @@ Manual: ⌘K → search known task → result appears with snippet.
 
 ---
 
-### UI-CTX-09 — Polish deferrals (backlog)
+### UI-CTX-09 — Polish deferrals (backlog) — **done (2026-07-03)**
 
-- `--fab-clearance` CSS variable
-- Desktop `inlineButton` sizing on thread detail
-- Memory timeline → `XGlyph`
-- Wire or remove unused `CardActions`
+- `--fab-clearance` CSS variable on all scrollable list pages
+- Desktop compact `inlineButton` sizing on thread detail (touch keeps 44px)
+- Memory + thread timelines use `XGlyph` via shared `timelineGlyphType`
+- `CardActions` wired on entity list rows (archive/delete)
+
+**Acceptance:** [x] FAB padding uses token [x] Timeline glyphs unified [x] CardActions live on lists
 
 ---
 

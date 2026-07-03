@@ -5,7 +5,7 @@ then read the active source docs before changing code.
 
 Last updated: 2026-07-03
 Branch: `main`
-Status: **Iteration 20 complete (UI-CTX-01–07 deployed)** — context, density, metadata, and color chrome.
+Status: **Iteration 20 complete (UI-CTX-01–09 deployed)** — context, density, metadata, and color chrome.
 Previous: UI-CTX-02/03 deployed (2026-07-03 16:27); Iteration 19 complete.
 
 Runtime baseline: `/api/v4` only, fresh Postgres + pgvector schema, write-enabled MCP
@@ -26,6 +26,7 @@ aligned with the active API.
 | UI-CTX-06 Shared row chrome | **done + deployed** | same deploy |
 | UI-CTX-07 Project parent area | **done + deployed** | same deploy |
 | UI-CTX-08 TopBar nav | **deferred** | user: leave TopBar as-is |
+| UI-CTX-09 Polish | **done + deployed** | fab-clearance, glyphs, CardActions |
 
 ## Previous loop: Iteration 19 — Signal Quality & Capture Intelligence (2026-07-02) — complete
 

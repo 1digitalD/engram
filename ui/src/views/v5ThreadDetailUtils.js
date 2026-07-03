@@ -55,15 +55,6 @@ export function formatTimelineDate(value) {
   return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
 }
 
-export function timelineGlyph(event) {
-  if (!event) return '·';
-  if (event.actor?.startsWith('agent:')) return '✦';
-  if (event.event_type === 'activity_update_added') return '📝';
-  if (event.event_type?.includes('decision')) return '⚖';
-  if (event.event_type === 'created') return '▣';
-  return '·';
-}
-
 export function narrativeSummary(entity, canonicalText) {
   const entitySummary = entity?.ai?.entity_summary?.trim();
   if (entitySummary) return entitySummary;

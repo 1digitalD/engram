@@ -27,8 +27,8 @@ import {
   narrativeSummary,
   pathForEntity,
   statusLabel,
-  timelineGlyph,
 } from './v5ThreadDetailUtils';
+import { timelineGlyphType } from '../utils/timelineGlyphs';
 
 const ACTIVITY_UPDATE_ENTITY_TYPES = new Set(['project', 'task', 'area']);
 const ACTIVITY_LOAD_MORE_PAGE_SIZE = 10;
@@ -814,9 +814,10 @@ function ThreadDetailContent({
               <time className={styles.timelineDate} dateTime={event.created_at}>
                 {formatTimelineDate(event.created_at)}
               </time>
-              <span className={styles.timelineGlyph} aria-hidden="true">
-                {timelineGlyph(event)}
-              </span>
+              <XGlyph
+                type={timelineGlyphType(event, { defaultEntityType: entityType })}
+                className={styles.timelineGlyph}
+              />
               <p className={styles.timelineText}>{event.narration}</p>
             </div>
           ))

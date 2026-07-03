@@ -10,6 +10,8 @@ vi.mock('../api/v4Client', () => ({
   v4API: {
     entities: {
       list: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
     },
   },
   friendlyApiError: (err, fallback) => err?.message || fallback || 'Something went wrong.',
@@ -136,6 +138,28 @@ describe('V5EntityList', () => {
     );
 
     expect(await screen.findByRole('link', { name: /Execution/i })).toHaveAttribute('href', '/areas/a1');
+  });
+
+  it('removes a row after archive from card actions', async () => {
+    v4API.entities.list.mockResolvedValue({
+      data: [{ id: 't1', type: 'task', title: 'Ship it', status: 'open' }],
+    });
+    v4API.entities.update.mockResolvedValue({});
+
+    render(
+      <MemoryRouter>
+        <CaptureProvider>
+          <V5EntityList type="task" />
+        </CaptureProvider>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('link', { name: /Ship it/i })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Archive Ship it/i }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('link', { name: /Ship it/i })).not.toBeInTheDocument();
+    });
   });
 
   it('filters entities by search query', async () => {

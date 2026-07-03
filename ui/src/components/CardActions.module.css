@@ -24,6 +24,13 @@
   position: relative;
 }
 
+@media (hover: none), (max-width: 720px) {
+  .cardActions {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
 .actionButton {
   align-items: center;
   background: var(--surface);
