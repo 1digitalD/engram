@@ -200,6 +200,10 @@
   line-height: 1.35;
 }
 
+.resultContext {
+  margin-top: 4px;
+}
+
 .resultMeta {
   flex-shrink: 0;
   align-self: flex-start;

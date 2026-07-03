@@ -76,6 +76,7 @@ function NowRow({ item, onAction, actionsDisabled = false }) {
         <EntityContextChips
           projects={item.projects}
           areas={item.areas}
+          people={item.people}
           className={styles.contextChips}
         />
       ) : null}

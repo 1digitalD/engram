@@ -10,6 +10,8 @@ import { useCapture } from '../context/CaptureContext';
 import { useReview } from '../context/ReviewContext';
 import { useSummary } from '../context/SummaryContext';
 import { entityTitleLabel } from '../utils/entityDisplay';
+import EntityContextChips from '../components/EntityContextChips';
+import { hasTaskContext } from '../utils/entityContext';
 import styles from '../styles/v5.module.css';
 import {
   activityUpdatesMeta,
@@ -672,19 +674,29 @@ function ThreadDetailContent({
           {currentLoad.map((item) => (
             <div key={item.id} className={styles.relatedRow}>
               <XGlyph type="task" />
-              <Link to={pathForEntity(item.task)} className={styles.relatedLink}>
-                <span className={styles.relatedTitle}>
-                  {entityTitleLabel(item.task, { includeType: false })}
-                </span>
-                {item.lastHeardPreview ? (
-                  <span className={styles.relatedMeta}>{item.lastHeardPreview}</span>
+              <div className={styles.relatedMain}>
+                <Link to={pathForEntity(item.task)} className={styles.relatedLink}>
+                  <span className={styles.relatedTitle}>
+                    {entityTitleLabel(item.task, { includeType: false })}
+                  </span>
+                  {item.lastHeardPreview ? (
+                    <span className={styles.relatedMeta}>{item.lastHeardPreview}</span>
+                  ) : null}
+                  {item.lastHeardAt ? (
+                    <time className={styles.relatedMeta} dateTime={item.lastHeardAt}>
+                      Last heard {formatTimelineDate(item.lastHeardAt)}
+                    </time>
+                  ) : null}
+                </Link>
+                {hasTaskContext(item.task) ? (
+                  <EntityContextChips
+                    projects={item.task.projects}
+                    areas={item.task.areas}
+                    people={item.task.people}
+                    className={styles.taskContextChips}
+                  />
                 ) : null}
-                {item.lastHeardAt ? (
-                  <time className={styles.relatedMeta} dateTime={item.lastHeardAt}>
-                    Last heard {formatTimelineDate(item.lastHeardAt)}
-                  </time>
-                ) : null}
-              </Link>
+              </div>
             </div>
           ))}
         </section>
@@ -766,7 +778,17 @@ function ThreadDetailContent({
                 onMouseLeave={longPress.onMouseLeave}
                 data-testid={`action-row-${action.id}`}
               >
-                <div className={styles.actionLabel}>{action.label}</div>
+                <div className={styles.actionMain}>
+                  <div className={styles.actionLabel}>{action.label}</div>
+                  {action.entity?.type === 'task' && hasTaskContext(action.entity) ? (
+                    <EntityContextChips
+                      projects={action.entity.projects}
+                      areas={action.entity.areas}
+                      people={action.entity.people}
+                      className={styles.taskContextChips}
+                    />
+                  ) : null}
+                </div>
                 <div className={styles.actionButtons}>
                   {action.buttons.map((button) => (
                     <ActionButton key={button.key} button={button} onAction={onAction} />

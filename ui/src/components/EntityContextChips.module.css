@@ -45,3 +45,8 @@
   border-color: color-mix(in oklch, var(--entity-area) 24%, var(--border-faint));
   color: var(--entity-area);
 }
+
+.chipPerson {
+  border-color: color-mix(in oklch, var(--entity-person) 24%, var(--border-faint));
+  color: var(--entity-person);
+}

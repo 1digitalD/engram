@@ -98,7 +98,14 @@ export const threadDetailFixtures = {
           {
             kind: 'stuck',
             label: 'Blocked on review',
-            entity: { id: 't-review', type: 'task', title: 'Review PR #847', status: 'blocked' },
+            entity: {
+              id: 't-review',
+              type: 'task',
+              title: 'Review PR #847',
+              status: 'blocked',
+              projects: [{ id: 'p-hitl', title: 'HITL Pilot' }],
+              areas: [{ id: 'a-exec', title: 'Execution' }],
+            },
           },
         ],
       },
@@ -158,7 +165,14 @@ export const threadDetailFixtures = {
           {
             kind: 'stuck',
             label: 'Blocked on review',
-            entity: { id: 't-review', type: 'task', title: 'Review PR #847', status: 'blocked' },
+            entity: {
+              id: 't-review',
+              type: 'task',
+              title: 'Review PR #847',
+              status: 'blocked',
+              projects: [{ id: 'p-hitl', title: 'HITL Pilot' }],
+              areas: [{ id: 'a-exec', title: 'Execution' }],
+            },
           },
         ],
       },
@@ -169,7 +183,15 @@ export const threadDetailFixtures = {
       },
       current_load: [
         {
-          task: { id: 't-review', type: 'task', title: 'Review PR #847', status: 'blocked' },
+          task: {
+            id: 't-review',
+            type: 'task',
+            title: 'Review PR #847',
+            status: 'blocked',
+            projects: [{ id: 'p-hitl', title: 'HITL Pilot' }],
+            areas: [{ id: 'a-exec', title: 'Execution' }],
+            people: [{ id: 'person-mary', title: 'Mary' }],
+          },
           last_heard_at: '2026-06-22T14:00:00+00:00',
           last_heard_preview: 'Mary said she would review by end of week.',
         },

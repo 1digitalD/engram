@@ -7,10 +7,12 @@ function ContextChip({ item }) {
   const path = pathForEntityType(item.type, item.id);
   if (!path) return null;
 
+  const typeClass = styles[`chip${item.type.charAt(0).toUpperCase()}${item.type.slice(1)}`];
+
   return (
     <Link
       to={path}
-      className={`${styles.chip} ${styles[`chip${item.type.charAt(0).toUpperCase()}${item.type.slice(1)}`]}`}
+      className={`${styles.chip} ${typeClass || ''}`}
       onClick={(event) => event.stopPropagation()}
     >
       <XGlyph type={item.type} />
@@ -22,11 +24,13 @@ function ContextChip({ item }) {
 export default function EntityContextChips({
   projects = [],
   areas = [],
+  people = [],
   className = '',
 }) {
   const items = [
     ...(projects || []).map((item) => ({ ...item, type: 'project' })),
     ...(areas || []).map((item) => ({ ...item, type: 'area' })),
+    ...(people || []).map((item) => ({ ...item, type: 'person' })),
   ];
 
   if (!items.length) return null;

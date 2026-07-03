@@ -94,6 +94,7 @@ function EntityListRow({ entity, type }) {
             <EntityContextChips
               projects={entity.projects}
               areas={entity.areas}
+              people={entity.people}
             />
           </div>
         ) : null}

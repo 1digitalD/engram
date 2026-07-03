@@ -230,4 +230,34 @@ describe('V5Recall', () => {
 
     vi.useRealTimers();
   });
+
+  it('shows task context chips on search results when projects and areas are present', async () => {
+    v4API.search.mockResolvedValue(searchPayload([
+      {
+        id: 't-1',
+        type: 'task',
+        title: 'Ship context chips',
+        status: 'open',
+        projects: [{ id: 'p-1', title: 'Memory Lookup' }],
+        areas: [{ id: 'a-1', title: 'Execution' }],
+        people: [{ id: 'person-1', title: 'Priya' }],
+      },
+    ]));
+
+    render(
+      <MemoryRouter>
+        <CaptureProvider>
+          <V5Recall open onClose={vi.fn()} />
+        </CaptureProvider>
+      </MemoryRouter>,
+    );
+
+    fireEvent.change(screen.getByLabelText('Search terms'), { target: { value: 'context' } });
+
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: /Memory Lookup/i })).toHaveAttribute('href', '/projects/p-1');
+      expect(screen.getByRole('link', { name: /Execution/i })).toHaveAttribute('href', '/areas/a-1');
+      expect(screen.getByRole('link', { name: /Priya/i })).toHaveAttribute('href', '/people/person-1');
+    });
+  });
 });

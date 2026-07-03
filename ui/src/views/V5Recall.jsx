@@ -8,6 +8,8 @@ import { v4API, friendlyApiError } from '../api/v4Client';
 import XGlyph from '../components/XGlyph';
 import { useCapture } from '../context/CaptureContext';
 import { normalizeSearchResults } from '../utils/searchResults';
+import EntityContextChips from '../components/EntityContextChips';
+import { hasTaskContext } from '../utils/entityContext';
 import styles from './V5Recall.module.css';
 
 const DEBOUNCE_MS = 180;
@@ -233,6 +235,14 @@ export default function V5Recall({ open, onClose, onAsk, initialQuery = '' }) {
                           <span className={styles.resultTitle}>{entity.title || '(no title)'}</span>
                           {entity.searchSnippet ? (
                             <span className={styles.resultSnippet}>{entity.searchSnippet}</span>
+                          ) : null}
+                          {entity.type === 'task' && hasTaskContext(entity) ? (
+                            <EntityContextChips
+                              projects={entity.projects}
+                              areas={entity.areas}
+                              people={entity.people}
+                              className={styles.resultContext}
+                            />
                           ) : null}
                         </span>
                         {entity.status ? (

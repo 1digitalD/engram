@@ -673,4 +673,21 @@ describe('V5ThreadDetail', () => {
     }));
     await waitFor(() => expect(v4API.decisions.list).toHaveBeenCalledTimes(2));
   });
+
+  it('shows task context chips on person current load and project next actions', async () => {
+    renderThread('person');
+
+    const currentLoad = await screen.findByRole('region', { name: 'Current load' });
+    expect(within(currentLoad).getByRole('link', { name: /HITL Pilot/i })).toHaveAttribute('href', '/projects/p-hitl');
+    expect(within(currentLoad).getByRole('link', { name: /Execution/i })).toHaveAttribute('href', '/areas/a-exec');
+    expect(within(currentLoad).getByRole('link', { name: /^Mary$/i })).toHaveAttribute('href', '/people/person-mary');
+  });
+
+  it('shows task context chips on project next actions', async () => {
+    renderThread('project');
+
+    const nextActions = await screen.findByRole('region', { name: 'Next actions' });
+    expect(within(nextActions).getByRole('link', { name: /HITL Pilot/i })).toHaveAttribute('href', '/projects/p-hitl');
+    expect(within(nextActions).getByRole('link', { name: /Execution/i })).toHaveAttribute('href', '/areas/a-exec');
+  });
 });

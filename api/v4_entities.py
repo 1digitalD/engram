@@ -724,6 +724,7 @@ def search():
         limit=limit,
         tag=tag,
     )
+    results = _enrich_search_results_with_task_context(results)
     resolved_mode = mode if mode in {"keyword", "semantic", "hybrid"} else "hybrid"
     return jsonify({"query": q, "tag": tag, "mode": resolved_mode, "results": results})
 
@@ -1488,6 +1489,7 @@ def get_entity_detail(entity_id):
     }
     if entity.type == "person":
         tasks = _person_open_tasks(entity)
+        _attach_task_context(tasks)
         latest_update = _latest_activity_updates([task.id for task in tasks])
         pulse = _person_pulse(tasks, latest_update)
         detail["current_load"] = _person_current_load(tasks, latest_update)
@@ -1496,6 +1498,7 @@ def get_entity_detail(entity_id):
         detail["meeting_prep"] = _person_meeting_prep(entity, tasks, latest_update, pulse)
     if entity.type == "project":
         tasks = _project_open_tasks(entity)
+        _attach_task_context(tasks)
         latest_update = _latest_activity_updates([task.id for task in tasks])
         detail["project_pulse"] = _project_pulse(tasks, latest_update)
         detail["dependency_watch"] = _task_dependency_watch(tasks, latest_update)
@@ -3640,6 +3643,30 @@ def _attach_task_context(entities):
             entity._projects = context["projects"]
             entity._areas = context["areas"]
             entity._people = context["people"]
+
+
+def _enrich_search_results_with_task_context(results):
+    """Re-serialize task hits in search results with parent/assignee context."""
+    task_ids = [
+        row["entity"]["id"]
+        for row in results
+        if row.get("entity", {}).get("type") == "task" and row["entity"].get("id")
+    ]
+    if not task_ids:
+        return results
+
+    entities = Entity.query.filter(Entity.id.in_(task_ids)).all()
+    _attach_task_context(entities)
+    by_id = {entity.id: entity.to_dict() for entity in entities}
+    enriched = []
+    for row in results:
+        entity = row.get("entity") or {}
+        entity_id = entity.get("id")
+        if entity.get("type") == "task" and entity_id in by_id:
+            enriched.append({**row, "entity": by_id[entity_id]})
+        else:
+            enriched.append(row)
+    return enriched
 
 
 def _attach_compact_link_counts(entities):

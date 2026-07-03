@@ -7,7 +7,8 @@ export function pathForEntityType(type, id) {
 export function taskContextItems(entity) {
   const projects = (entity?.projects || []).map((item) => ({ ...item, type: 'project' }));
   const areas = (entity?.areas || []).map((item) => ({ ...item, type: 'area' }));
-  return [...projects, ...areas];
+  const people = (entity?.people || []).map((item) => ({ ...item, type: 'person' }));
+  return [...projects, ...areas, ...people];
 }
 
 export function hasTaskContext(entity) {
