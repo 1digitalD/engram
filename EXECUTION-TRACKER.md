@@ -5,8 +5,8 @@ then read the active source docs before changing code.
 
 Last updated: 2026-07-03
 Branch: `main`
-Status: **Iteration 20 in progress (UI-CTX-01)** — Recall search fix + UI context density loop.
-Previous: Iteration 19 complete + post-review hardening deployed (2026-07-03).
+Status: **Iteration 20 in progress (UI-CTX-02/03 deployed)** — task context on detail/search + UI chips.
+Previous: UI-CTX-01 deployed (2026-07-03); Iteration 19 complete.
 
 Runtime baseline: `/api/v4` only, fresh Postgres + pgvector schema, write-enabled MCP
 aligned with the active API.
@@ -19,9 +19,9 @@ aligned with the active API.
 | Slice | Status | Notes |
 |-------|--------|-------|
 | UI-CTX-01 Recall fix + color | **done + deployed** | backup `engram_20260703_161840.sql` |
-| UI-CTX-02 Backend task context | pending | detail + search `_attach_task_context` |
-| UI-CTX-03 Detail + Recall chips | pending | depends UI-CTX-02 |
-| UI-CTX-04 Assignee chips | pending | uses existing `people[]` |
+| UI-CTX-02 Backend task context | **done + deployed** | `_attach_task_context` on detail + search |
+| UI-CTX-03 Detail + Recall chips | **done + deployed** | includes assignee chips (UI-CTX-04 scope) |
+| UI-CTX-04 Assignee chips | **done** | merged into UI-CTX-03 |
 | UI-CTX-05 List metadata | pending | task_counts, linked_counts |
 | UI-CTX-06 Shared row chrome | pending | color system rollout |
 | UI-CTX-07 Project parent area | blocked | needs backend helper |

@@ -1,7 +1,7 @@
 # Iteration 20 — UI Context, Density & Color
 
 Date: 2026-07-03  
-Status: **in progress** (UI-CTX-01 complete; next: UI-CTX-02)  
+Status: **in progress** (UI-CTX-01–03 deployed; next: UI-CTX-05)  
 Owner: Engram  
 Predecessor: Post-iteration UI density pass (task list context chips, compact layouts)
 
@@ -78,47 +78,21 @@ Manual: ⌘K → search known task → result appears with snippet.
 
 ---
 
-### UI-CTX-02 — Backend task context on detail + search (M2)
+### UI-CTX-02 — Backend task context on detail + search (M2) — **done (2026-07-03)**
 
-**Problem:** `_attach_task_context` runs on list/today only. Detail nested tasks and search hits return empty `projects`/`areas`.
-
-**Changes (backend):**
-- `get_entity_detail`: `_attach_task_context(tasks)` before pulse/current_load/dependency_watch
-- `search_entities` / `_format_results`: `_attach_task_context` on task entities in results
-
-**Tests:**
-```bash
-TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test \
-  ./venv/bin/pytest tests/integration/test_v4_detail.py tests/integration/test_v4_search.py -q
-```
-
-**Acceptance:** [ ] Person detail `current_load[].task.projects` populated [ ] Search task hit includes projects
+**Acceptance:** [x] Person detail `current_load[].task.projects` populated [x] Search task hit includes projects
 
 ---
 
-### UI-CTX-03 — Thread detail + Recall context chips (M2)
+### UI-CTX-03 — Thread detail + Recall context chips (M2) — **done (2026-07-03)**
 
-**Depends on:** UI-CTX-02
-
-**Changes (UI):**
-- `EntityContextChips` on `actionRow` and `current_load` rows in `V5ThreadDetail`
-- `EntityContextChips` on Recall task results
-
-**Validation:** `cd ui && npm test -- V5ThreadDetail V5Recall`
-
-**Acceptance:** [ ] Action row shows project/area [ ] Recall task shows chips
+**Acceptance:** [x] Action row shows project/area/people [x] Recall task shows chips outside result button
 
 ---
 
-### UI-CTX-04 — Assignee chips on task surfaces (M3)
+### UI-CTX-04 — Assignee chips on task surfaces (M3) — **done (merged into UI-CTX-03)**
 
-**Problem:** API `people[]` on task rows unused.
-
-**Changes:**
-- Extend `EntityContextChips` or add `EntityPeopleChips` (person tint using `--entity-person`)
-- Wire into Tasks list, Now rows
-
-**Acceptance:** [ ] Assignee visible on task card when `people[0]` exists
+**Acceptance:** [x] All assignees visible on task cards when `people[]` exists
 
 ---
 
