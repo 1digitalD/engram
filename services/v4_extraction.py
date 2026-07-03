@@ -121,7 +121,6 @@ No trailing punctuation. Sentence case. Concrete and specific (avoid 'Note about
   "summary": "1–2 sentence summary of what this note is about",
   "intent": "update|task_signal|follow_up|blocker|delegation|reference|junk|note",
   "intent_confidence": 0.0,
-  "confidence": 0.0,
   "tags": [{"name": "tag", "confidence": 0.0}],
   "links": [{
     "target_type": "task|project|area|person|resource",

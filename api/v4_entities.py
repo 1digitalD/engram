@@ -2150,10 +2150,14 @@ def _apply_activity_update_policy(note, target, content, extraction, suggestions
     status_auto_applied = False
 
     # ── Status change ───────────────────────────────────────────────────
+    # SQ-09: status auto-apply requires explicit status language in the
+    # update text in addition to the confidence tiebreaker. Without the
+    # structural signal the change becomes a reviewable suggestion.
     if (
         extracted_status
         and extracted_status in VALID_STATUS.get(target.type, set())
         and extracted_status != target.status
+        and _status_change_is_explicit(content, extracted_status)
     ):
         if status_confidence >= AUTO_APPLY_CONFIDENCE:
             old_status = target.status
@@ -3889,6 +3893,8 @@ def _apply_capture_extraction_metadata(note, extraction, applied_changes):
     for tag_candidate in extraction.get("tags") or []:
         name = _candidate_value(tag_candidate, "name")
         confidence = _candidate_confidence(tag_candidate)
+        # SQ-09: tags are safe metadata. The structural precondition is simply
+        # a non-empty tag name; confidence is the tiebreaker for auto-apply.
         if not name or confidence < AUTO_APPLY_CONFIDENCE:
             continue
         tag = _add_tag(note, name)
@@ -3919,6 +3925,10 @@ def _capture_intent_route(extraction, content):
     if intent == "junk":
         return "junk"
     confidence = _candidate_confidence({"confidence": extraction.get("intent_confidence")})
+    # SQ-09: intent routing is a coarse pipeline switch. The structural
+    # precondition is a recognized update/follow_up intent plus short content;
+    # confidence is the tiebreaker that routes borderline cases through the
+    # safer full extraction pipeline instead.
     if (
         intent in {"update", "follow_up"}
         and confidence >= INTENT_ROUTE_CONFIDENCE
@@ -4208,6 +4218,10 @@ def _apply_reconciliation_decision(note, candidate, decision, applied_changes, s
     action = (decision.get("action") or "new").lower()
     candidate_confidence = _candidate_confidence(candidate)
     if action == "skip":
+        # SQ-09: a skip is a no-action decision. Very low-confidence skips are
+        # dropped silently; medium/high-confidence skips are surfaced for review.
+        # The reconciler has already structurally declined the candidate, so
+        # confidence here only decides whether to stay silent or emit a suggestion.
         if candidate_confidence < LOW_CONFIDENCE_THRESHOLD:
             return
         # A medium/high-confidence candidate should still surface for review
@@ -4285,7 +4299,13 @@ def _apply_reconciliation_decision(note, candidate, decision, applied_changes, s
             return
 
         new_status = (decision.get("fields") or {}).get("status")
-        if new_status in VALID_STATUS.get(target.type, set()) and new_status != target.status:
+        # SQ-09: auto-apply a captured status only when the progress text
+        # explicitly names the status. Confidence alone is not predictive enough.
+        if (
+            new_status in VALID_STATUS.get(target.type, set())
+            and new_status != target.status
+            and _status_change_is_explicit(update_text, new_status)
+        ):
             if confidence >= AUTO_APPLY_CONFIDENCE:
                 old_status = target.status
                 target.status = new_status
@@ -4382,6 +4402,11 @@ def _apply_reconciliation_decision(note, candidate, decision, applied_changes, s
         return
 
     if action == "update":
+        # SQ-09: the structural precondition for an update auto-apply is the
+        # reconciler's explicit "update" decision with a resolved target.
+        # Confidence is only the tiebreaker between applying now and surfacing
+        # a reviewable suggestion; _apply_entity_update further restricts the
+        # mutable fields to status/due_at/follow_up_at.
         if confidence >= AUTO_APPLY_CONFIDENCE:
             _apply_entity_update(note, target, candidate, decision, relationship_type, confidence, evidence, applied_changes)
         else:
@@ -4410,6 +4435,10 @@ def _apply_reconciliation_decision(note, candidate, decision, applied_changes, s
         return
 
     if action == "link":
+        # SQ-09: linking to an existing entity is safe metadata once the
+        # reconciler has explicitly chosen "link" and resolved a target.
+        # Confidence is the tiebreaker between auto-linking and offering the
+        # link as a reviewable suggestion.
         if confidence >= AUTO_APPLY_CONFIDENCE:
             link_source, link_target = _candidate_link_endpoints(note, target, relationship_type)
             link = _create_entity_link(link_source, link_target, relationship_type, confidence, evidence)
@@ -4448,6 +4477,10 @@ def _apply_reconciliation_decision(note, candidate, decision, applied_changes, s
     # action == "new"
     if not title or not entity_type:
         return
+    # SQ-09: globally drop very low-confidence "new" candidates as noise before
+    # spending a review slot. Tasks are further guarded by _task_suggest_ok;
+    # persons are guarded by SQ-08 hygiene below. Here confidence is the only
+    # available signal, so it acts as a coarse noise filter rather than a gate.
     if action == "new" and _candidate_confidence(candidate) < LOW_CONFIDENCE_THRESHOLD:
         return
     content = _candidate_value(candidate, "content")
@@ -4462,6 +4495,9 @@ def _apply_reconciliation_decision(note, candidate, decision, applied_changes, s
         if top_match_score >= NEAR_DUPLICATE_SCORE and decision.get("top_match_id"):
             target = db.session.get(Entity, decision.get("top_match_id"))
             if target is not None:
+                # SQ-09: the near-duplicate/top_match structural check has
+                # already decided the link; confidence is the tiebreaker for
+                # auto-linking vs. surfacing a suggestion.
                 if confidence >= AUTO_APPLY_CONFIDENCE:
                     link_source, link_target = _candidate_link_endpoints(note, target, relationship_type)
                     link = _create_entity_link(link_source, link_target, relationship_type, confidence, evidence)
@@ -4499,6 +4535,9 @@ def _apply_reconciliation_decision(note, candidate, decision, applied_changes, s
         if not _person_carries_work(title, work_carrying_persons):
             return
 
+    # SQ-09: tentative task phrasing is a structural drop signal; confidence
+    # only refines the threshold (high-confidence tentative tasks are still
+    # suppressed because the phrasing is the stronger predictor).
     if (
         entity_type == "task"
         and confidence < AUTO_CREATE_ENTITY_CONFIDENCE
@@ -6373,10 +6412,16 @@ def _append_capture_suggestion(note, candidate, action, entity_type, relationshi
 def _should_emit_capture_suggestion(note, candidate, action, entity_type, relationship_type, confidence):
     intent = ((note.ai_meta or {}).get("intent") or "note")
     if entity_type == "decision":
-        # Decisions are high-signal by design; emit unless confidence is very low.
+        # SQ-09: decisions are high-signal by design; confidence is the
+        # tiebreaker that keeps only very low-confidence ones out of review.
         return confidence >= LOW_CONFIDENCE_THRESHOLD
+    # SQ-09: junk-intent captures are structurally dropped unless a candidate
+    # is high-confidence enough to be worth a quick review slot.
     if intent == "junk" and confidence < INTENT_SUGGESTION_CONFIDENCE_FLOOR:
         return False
+    # SQ-09: reference-intent captures should not spawn low-confidence task
+    # work. The structural signal is the intent classification; confidence is
+    # the tiebreaker.
     if (
         intent == "reference"
         and entity_type == "task"
@@ -6384,6 +6429,8 @@ def _should_emit_capture_suggestion(note, candidate, action, entity_type, relati
         and confidence < INTENT_SUGGESTION_CONFIDENCE_FLOOR
     ):
         return False
+    # SQ-09: tentative phrasing is the structural drop signal here; confidence
+    # only refines which tentative tasks are suppressed.
     if (
         entity_type == "task"
         and action == "new"
@@ -6418,6 +6465,27 @@ def _task_candidate_looks_tentative(candidate):
         "let's maybe ",
     )
     return title.startswith(tentative_prefixes)
+
+
+def _status_change_is_explicit(source_text, new_status):
+    """SQ-09 structural guard for status auto-apply.
+
+    A status transition is only auto-applied when the source text contains
+    explicit phrasing that names the new status. Confidence is consulted only
+    after this precondition is met; without it, the change stays a reviewable
+    suggestion.
+    """
+    if not source_text or not new_status:
+        return False
+    lowered = source_text.lower()
+    keywords = {
+        "done": {"done", "shipped", "completed", "finished", "closed", "close", "closing", "wrapped up"},
+        "completed": {"completed", "done", "shipped", "finished", "closed", "close", "closing"},
+        "cancelled": {"cancelled", "canceled", "killed", "won't do", "not doing", "scrapped"},
+        "blocked": {"blocked", "stuck", "blocker", "blocking", "block"},
+        "waiting": {"waiting", "wait", "waiting on", "blocked on"},
+    }
+    return any(term in lowered for term in keywords.get(new_status, set()))
 
 
 def _cap_and_group_task_suggestions(note, suggestions):
@@ -6760,7 +6828,12 @@ def _task_suggest_ok(note, candidate, decision, confidence):
     if score < 2:
         return False
     if score == 4:
+        # SQ-09: perfect structural score lets the candidate auto-create;
+        # confidence only decides whether it crosses the auto-create threshold.
         return confidence < AUTO_CREATE_ENTITY_CONFIDENCE
+    # SQ-09: partial structural score (2-3) makes the candidate eligible for
+    # review; confidence is the tiebreaker that keeps very low-confidence
+    # noise out of the review queue.
     return confidence >= LOW_CONFIDENCE_THRESHOLD
 
 
@@ -6778,6 +6851,10 @@ def _can_auto_create_entity(entity_type, confidence, top_match_score=0.0, note=N
     # SQ-07: tasks use a structural score gate; confidence is a tiebreaker.
     if entity_type == "task":
         return _task_auto_create_ok(note, candidate, decision or {}, confidence)
+    # SQ-09: for non-task risky entities (person, resource), the structural
+    # preconditions are the SQ-08 person-hygiene check and the near-duplicate
+    # check above. Confidence is the tiebreaker that decides auto-create vs.
+    # review, with a floor to filter obvious noise.
     if confidence < LOW_CONFIDENCE_THRESHOLD:
         return False
     return confidence >= AUTO_CREATE_ENTITY_CONFIDENCE

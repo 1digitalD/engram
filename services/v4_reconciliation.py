@@ -141,11 +141,15 @@ in the same order as the input:
       "update_text": null,
       "blocked_by_id": null,
       "relationship_type": "related",
-      "confidence": 0.0,
       "reason": "brief explanation"
     }}
   ]
 }}
+
+Confidence scores are no longer required for "new", "update", "link", \
+"uncertain", or "progress_update" decisions; the apply layer uses structural \
+rules and near-duplicate scores instead. Include a "confidence" field only for \
+"skip" decisions so the system can label very low-confidence skips appropriately.
 """
 
 
