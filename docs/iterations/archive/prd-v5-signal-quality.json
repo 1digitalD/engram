@@ -1,0 +1,204 @@
+{
+  "iteration": "v5-signal-quality-loop",
+  "goal": "Convert intent classification into behavior and stop noisy/duplicate suggestions: precision task extraction, person dedup, retired confidence-only gating, and semantic dismissal memory, so review-sheet suggestions are worth acting on.",
+  "riskLevel": "medium",
+  "userProblem": "Meeting-note capture proposes discussion fragments and logistics as tasks; every name in a transcript becomes a duplicated person entity; confidence scores do not separate keepers from noise (0.94 avg on deleted tasks vs 0.95 on kept); dismissed suggestions re-appear under slightly reworded titles.",
+  "whyNow": "SQ-00..SQ-06 (model reallocation, mention restoration, decision guardrail, intent-routed capture pipeline) are merged to main. The remaining leverage against the measured 24% suggestion-acceptance / 65% agent-created-deletion rates is extraction precision (SQ-07/08/09) and suggestion learning (SQ-10/11) covered by this PRD.",
+  "skills": [
+    "tdd",
+    "incremental-implementation",
+    "git-workflow"
+  ],
+  "doubt": false,
+  "scope": {
+    "filesAffected": [
+      "api/v4_entities.py",
+      "services/v4_extraction.py",
+      "services/v4_reconciliation.py",
+      "ui/src/views/V5ReviewSheet.jsx",
+      "tests/integration/test_v4_capture.py",
+      "tests/integration/test_v4_capture_extraction.py",
+      "tests/integration/test_v4_capture_intent_routing.py",
+      "tests/integration/test_v4_suggestions.py",
+      "EXECUTION-TRACKER.md",
+      "docs/iterations/ITERATION_19_SIGNAL_QUALITY_PLAN.md"
+    ],
+    "routesAffected": [
+      "POST /api/v4/capture",
+      "POST /api/v4/entities/:id/activity_updates",
+      "GET /api/v4/suggestions",
+      "POST /api/v4/suggestions/:id/accept",
+      "POST /api/v4/suggestions/:id/dismiss"
+    ],
+    "dataOrApiDependencies": [
+      "Tests must use TEST_DATABASE_URL on port 5433 only.",
+      "No schema migrations; store new fields (dismiss_reason, dismissal embeddings) in existing payload/properties JSON columns.",
+      "SQ-07..SQ-11 build on SQ-00..SQ-06 already merged to main (model reallocation, mentions, decision guardrail, intent-routed capture) \u2014 do not re-implement those."
+    ],
+    "writePathsAffected": [
+      "Task/person entity creation and auto-apply gating",
+      "Suggestion dismissal fingerprinting/dedup memory",
+      "Review sheet suggestion rendering and dismiss action"
+    ]
+  },
+  "tasks": [
+    {
+      "id": "sq-07-precision-task-extraction",
+      "title": "Precision task extraction: prompt + structural gate",
+      "description": "Extraction prompt currently says 'prefer over-extraction' / 'when in doubt split' for tasks, and the reconciler is forbidden from demoting task candidates. Replace the task-extraction prompt language with a positive test: a task candidate requires (a) a concrete deliverable or next action AND (b) an owner who is the user or someone the user must chase; explicitly exclude meeting logistics (attend/schedule/hold), stance fragments (endorse/agree/defer/revisit), and restatements of discussion positions, with negative examples drawn from the real deleted-task set in the Iteration 19 plan doc. Replace the confidence-only auto/suggest split for tasks in _apply_capture_decision / _can_auto_create_entity with checklist scoring (has owner? has deliverable-shaped title, i.e. verb+object? has date? target resolvable?) where confidence is a tiebreaker only, not the gate. For long/meeting-note content, cap task suggestions per note (e.g. 8) and tag them with a shared payload.group_id = note id; render grouped suggestions in V5ReviewSheet.jsx as 'N action items from this note' with an accept-all control alongside per-row accept/dismiss.",
+      "kind": "code",
+      "skills": [
+        "tdd",
+        "incremental-implementation",
+        "git-workflow"
+      ],
+      "risk": "medium",
+      "dependencies": [],
+      "acceptanceCriteria": [
+        "Meeting-transcript fixture: stance fragments ('Endorse L2 priority') and logistics ('Name L3 defer on slide 5') are no longer proposed as tasks; real action items with an owner and deliverable still are.",
+        "Task auto-apply/suggest decision no longer relies on confidence alone: a structural checklist (owner, deliverable-shaped title, date, resolvable target) gates the decision; confidence only breaks ties documented inline.",
+        "Grouped meeting suggestions share a payload.group_id per source note and are capped (default 8) per note.",
+        "V5ReviewSheet renders grouped suggestions with an accept-all control; per-row accept/dismiss still works for ungrouped suggestions.",
+        "Existing golden eval fixtures (tests/eval) and test_v4_capture*.py suites pass; new unit/integration tests cover the structural gate and negative extraction examples."
+      ],
+      "validationCommands": [
+        "cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/integration/test_v4_capture.py tests/integration/test_v4_capture_extraction.py tests/integration/test_v4_capture_intent_routing.py tests/integration/test_v4_suggestions.py -q",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- V5ReviewSheet",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build"
+      ],
+      "blocked": false,
+      "passes": true,
+      "attempts": 1,
+      "blockerReason": null,
+      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/integration/test_v4_capture.py tests/integration/test_v4_capture_extraction.py tests/integration/test_v4_capture_intent_routing.py tests/integration/test_v4_suggestions.py -q\n........................................................................ [ 73%]\n..........................                                               [100%]\n98 passed in 39.32s\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- V5ReviewSheet\n\n> engram-ui@0.0.0 test\n> node scripts/run-tests.mjs V5ReviewSheet\n\n\n RUN  v3.2.4 /Volumes/lex1t/dev/shared/repos/engram/ui\n\n \u2713 src/views/V5ReviewSheet.test.jsx (8 tests) 92ms\n\n Test Files  1 passed (1)\n      Tests  8 passed (8)\n   Start at  09:24:54\n   Duration  788ms (transform 64ms, setup 58ms, collect 98ms, tests 92ms, environment 280ms, prepare 44ms)\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build\n\n> engram-ui@0.0.0 build\n> vite build\n\nvite v8.0.10 building client environment for production...\n\u001b[2K\ntransforming...\u2713 1840 modules transformed.\nrendering chunks...\ncomputing gzip size...\n../static/index.html                             1.95 kB \u2502 gzip:   0.87 kB\n../static/assets/index-CPNb_QjM.css             63.60 kB \u2502 gzip:  10.76 kB\n../static/assets/rolldown-runtime-jpDsebLB.js    0.56 kB \u2502 gzip:   0.36 kB\n../static/assets/vendor-icons-CULm09Em.js        3.77 kB \u2502 gzip:   1.72 kB\n../static/assets/index-Q_lHSO42.js              96.64 kB \u2502 gzip:  27.67 kB\n../static/assets/vendor-react-CRYOerXQ.js      230.07 kB \u2502 gzip:  73.01 kB\n../static/assets/vendor-DgoxB5Ss.js            433.38 kB \u2502 gzip: 136.23 kB\n\n\u2713 built in 248ms"
+    },
+    {
+      "id": "sq-08-person-hygiene",
+      "title": "Person entity dedup and stricter auto-creation",
+      "description": "Person entities auto-create at >=0.85 with exact-title dedup only, producing duplicates (Priya x3, Akash x2 observed in production, all hand-deleted). Before creating a person entity, fuzzy/first-name match against existing active people (e.g. 'Priya' should match 'Priya Dhandapani') and link instead of create on a match. Tighten creation policy so only a person who carries work in the same note (assignee, delegation target, or follow-up owner) is auto-created; bare mentions of a name with no associated work become a link if an existing match is found, or are dropped (not created) otherwise.",
+      "kind": "code",
+      "skills": [
+        "tdd",
+        "incremental-implementation",
+        "git-workflow"
+      ],
+      "risk": "medium",
+      "dependencies": [
+        "sq-07-precision-task-extraction"
+      ],
+      "acceptanceCriteria": [
+        "Transcript fixture with 6 distinct names and 2 assignees results in <=2 person creations; remaining names are linked to existing people or dropped, not created.",
+        "A note mentioning 'Priya' when 'Priya Dhandapani' already exists links to the existing person instead of creating a duplicate.",
+        "Bare name mentions with no assigned work and no existing match are not auto-created as person entities.",
+        "New tests cover fuzzy/first-name matching and the tightened creation policy; existing capture/reconciliation suites pass unchanged for non-person entity types."
+      ],
+      "validationCommands": [
+        "cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/integration/test_v4_capture.py tests/integration/test_v4_capture_extraction.py -q"
+      ],
+      "blocked": true,
+      "passes": true,
+      "attempts": 3,
+      "blockerReason": "Executor completed without producing repository changes.",
+      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/integration/test_v4_capture.py tests/integration/test_v4_capture_extraction.py -q\n.....................................................................    [100%]\n69 passed in 26.41s"
+    },
+    {
+      "id": "sq-09-retire-confidence-gating",
+      "title": "Audit and retire confidence-only gates",
+      "description": "Production data shows confidence is not predictive (deleted tasks avg 0.94 vs 0.95 surviving) because the extractor is instructed to be exhaustive and self-rates high. Most of the fix lands inside SQ-05/SQ-07; this slice is the audit and cleanup pass: find every 'confidence >=' gate in api/v4_entities.py (AUTO_APPLY_CONFIDENCE, AUTO_CREATE_ENTITY_CONFIDENCE, LOW_CONFIDENCE_THRESHOLD, and any ad hoc comparisons) and for each one either (a) add a structural precondition alongside it (reusing SQ-07/SQ-08 checklist logic where applicable) or (b) document inline why it remains a legitimate tiebreaker-only use. Update the reconciliation/extraction prompts to stop asking the model to self-grade confidence in places where the score is no longer used for gating.",
+      "kind": "code",
+      "skills": [
+        "tdd",
+        "incremental-implementation",
+        "git-workflow"
+      ],
+      "risk": "low",
+      "dependencies": [
+        "sq-08-person-hygiene"
+      ],
+      "acceptanceCriteria": [
+        "Every confidence-based gate in api/v4_entities.py is either paired with a structural precondition or has an inline comment explaining why confidence alone is sufficient there.",
+        "Prompts no longer request self-graded confidence for decisions that don't use it.",
+        "No behavior regression: full capture/suggestion/activity-update integration suites pass unchanged in outcome for existing fixtures."
+      ],
+      "validationCommands": [
+        "cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/integration -q"
+      ],
+      "blocked": false,
+      "passes": true,
+      "attempts": 3,
+      "blockerReason": null,
+      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/integration -q\n........................................................................ [ 28%]\n........................................................................ [ 56%]\n........................................................................ [ 85%]\n......................................                                   [100%]\n254 passed in 35.70s"
+    },
+    {
+      "id": "sq-10-semantic-dismissal-memory",
+      "title": "Semantic dismissal memory for suggestion dedup",
+      "description": "_suggestion_fingerprint / _recently_resolved_duplicate use exact SHA1 matching only, so a reworded duplicate of a dismissed suggestion ('Follow up with Henry' dismissed, then 'Follow up with Henry on rollout status' re-proposed) is re-created. Add a semantic layer: embed the candidate suggestion's normalized title (plus target id for updates), compare against embeddings of suggestions dismissed in the last 30 days (store the embedding on the suggestion row at dismissal time, or compute lazily and cache in payload). Suppress the new candidate when similarity is >= ~0.85 with the same suggestion_type. Keep the existing exact-fingerprint fast path as the first check.",
+      "kind": "code",
+      "skills": [
+        "tdd",
+        "incremental-implementation",
+        "git-workflow"
+      ],
+      "risk": "medium",
+      "dependencies": [
+        "sq-09-retire-confidence-gating"
+      ],
+      "acceptanceCriteria": [
+        "A reworded duplicate of a suggestion dismissed within the last 30 days is not re-created (semantic similarity >= 0.85, same suggestion_type).",
+        "A genuinely different suggestion about the same person/entity is still proposed (no over-suppression).",
+        "Exact-fingerprint fast path still short-circuits before the embedding comparison runs.",
+        "New tests cover both the suppression and non-suppression cases."
+      ],
+      "validationCommands": [
+        "cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/integration/test_v4_suggestions.py -q"
+      ],
+      "blocked": true,
+      "passes": true,
+      "attempts": 3,
+      "blockerReason": "Executor completed without producing repository changes.",
+      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/integration/test_v4_suggestions.py -q\n......................                                                   [100%]\n22 passed in 1.69s"
+    },
+    {
+      "id": "sq-11-dismissal-reasons",
+      "title": "Dismissal reasons and honest suggestion copy",
+      "description": "Add an optional one-tap dismiss reason in the review sheet dismiss action: 'not a task' / 'not mine' / 'duplicate' / 'wrong target' / 'other', stored on suggestion payload.dismiss_reason and returned by GET /suggestions. Replace the generic UNCERTAIN_SUGGESTION_REASON copy ('AI was not sure about this') with the actual evidence quote from the candidate (evidence field) when present, so suggestion rows are judgeable at a glance without opening detail.",
+      "kind": "code",
+      "skills": [
+        "tdd",
+        "git-workflow"
+      ],
+      "risk": "low",
+      "dependencies": [
+        "sq-10-semantic-dismissal-memory"
+      ],
+      "acceptanceCriteria": [
+        "Dismissing a suggestion with a selected reason persists payload.dismiss_reason; GET /api/v4/suggestions returns it.",
+        "Suggestion rows show the evidence quote instead of the generic 'AI was not sure' copy when an evidence field is present.",
+        "V5ReviewSheet tests cover the reason picker and evidence-quote rendering."
+      ],
+      "validationCommands": [
+        "cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/integration/test_v4_suggestions.py -q",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- V5ReviewSheet",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build"
+      ],
+      "blocked": false,
+      "passes": true,
+      "attempts": 3,
+      "blockerReason": null,
+      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/integration/test_v4_suggestions.py -q\n........................                                                 [100%]\n24 passed in 2.29s\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- V5ReviewSheet\n\n> engram-ui@0.0.0 test\n> node scripts/run-tests.mjs V5ReviewSheet\n\n\n RUN  v3.2.4 /Volumes/lex1t/dev/shared/repos/engram/ui\n\n \u2713 src/views/V5ReviewSheet.test.jsx (12 tests) 135ms\n\n Test Files  1 passed (1)\n      Tests  12 passed (12)\n   Start at  11:07:22\n   Duration  737ms (transform 56ms, setup 47ms, collect 93ms, tests 135ms, environment 230ms, prepare 39ms)\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build\n\n> engram-ui@0.0.0 build\n> vite build\n\nvite v8.0.10 building client environment for production...\n\u001b[2K\ntransforming...\u2713 1840 modules transformed.\nrendering chunks...\ncomputing gzip size...\n../static/index.html                             1.95 kB \u2502 gzip:   0.86 kB\n../static/assets/index-DNZdF_Ju.css             64.42 kB \u2502 gzip:  10.87 kB\n../static/assets/rolldown-runtime-jpDsebLB.js    0.56 kB \u2502 gzip:   0.36 kB\n../static/assets/vendor-icons-CULm09Em.js        3.77 kB \u2502 gzip:   1.72 kB\n../static/assets/index-CHbtcY8y.js              97.68 kB \u2502 gzip:  27.88 kB\n../static/assets/vendor-react-CRYOerXQ.js      230.07 kB \u2502 gzip:  73.01 kB\n../static/assets/vendor-DgoxB5Ss.js            433.38 kB \u2502 gzip: 136.23 kB\n\n\u2713 built in 141ms"
+    }
+  ],
+  "previousIteration": "v5-productivity-trust-loop",
+  "previousIterationStatus": "completed",
+  "codingLoopPolicy": {
+    "primaryExecutor": "opencode",
+    "fallbackExecutors": [
+      "cursor",
+      "codex",
+      "claude"
+    ],
+    "platform": "openclaw",
+    "allowExecutorFallback": true,
+    "requireHumanForDependencies": true
+  }
+}
