@@ -6684,6 +6684,10 @@ def _existing_pending_suggestion(fingerprint):
 
 
 def _recently_resolved_duplicate(fingerprint, confidence):
+    # SQ-09: duplicate suppression is structurally gated by the fingerprint
+    # (same normalized payload). Confidence is a tiebreaker: a slightly higher
+    # confidence version is allowed to resurface, otherwise the duplicate is
+    # suppressed so the review queue isn't spammed with re-suggestions.
     cutoff = datetime.now(timezone.utc) - timedelta(days=SUGGESTION_DUPLICATE_MEMORY_DAYS)
     existing = AiSuggestion.query.filter(
         AiSuggestion.status.in_(("dismissed", "expired")),

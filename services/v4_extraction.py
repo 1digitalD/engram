@@ -528,6 +528,7 @@ ACTIVITY_UPDATE_SYSTEM_PROMPT = """You are a lightweight extraction engine for a
    Examples: "Need to update the docs too" → task, "Priya will handle the deployment" → task assigned to Priya.
    Each task should have a title (concise, starts with verb, ≤10 words), optional content, optional due date,
    optional follow_up_at (when the follow-up date refers to that new work), optional assignee name.
+   Do NOT include a confidence score for tasks; they always become reviewable suggestions.
    Return empty list if no new tasks are mentioned.
 
 FOLLOW-UP ROUTING:
@@ -540,7 +541,7 @@ FOLLOW-UP ROUTING:
 Example — closure + spin-off:
 Update: "This is done for now. Need to clear security review before launch — follow up next week on that."
 → status: "done", confidence: 0.9, follow_up_at: null,
-  tasks: [{title: "Clear security review", follow_up_at: "YYYY-MM-DD", confidence: 0.88}]
+  tasks: [{title: "Clear security review", follow_up_at: "YYYY-MM-DD"}]
 (where YYYY-MM-DD is ~7 days from today)
 
 Return JSON only. No prose, no markdown fences.
@@ -555,8 +556,7 @@ Schema:
     "content": "optional detail",
     "due_at": "YYYY-MM-DD" or null,
     "follow_up_at": "YYYY-MM-DD" or null,
-    "assigned_to": "person name" or null,
-    "confidence": 0.0
+    "assigned_to": "person name" or null
   }]
 }"""
 
