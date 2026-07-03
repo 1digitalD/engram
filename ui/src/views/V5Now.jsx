@@ -141,6 +141,7 @@ function mapEntityToNowItem(entity, reason) {
   const score = entity.attention?.score ?? entity.attention_score ?? 50;
   const projects = entity.projects || [];
   const areas = entity.areas || [];
+  const people = entity.people || [];
   const project = projects[0];
   const subject = entity.title
     ? `${entity.title}${entity.content ? ` — ${entity.content.slice(0, 120)}` : ''}`
@@ -152,6 +153,7 @@ function mapEntityToNowItem(entity, reason) {
     subject,
     projects,
     areas,
+    people,
     when: entity.due_at
       ? new Date(entity.due_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
       : (entity.follow_up_at

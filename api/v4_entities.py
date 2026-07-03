@@ -713,6 +713,7 @@ def search():
             lifecycle=lifecycle,
             limit=limit,
         )
+        results = _enrich_search_results_with_task_context(results)
         return jsonify({"query": "", "tag": tag, "mode": "tag", "results": results})
 
     results = search_entities(

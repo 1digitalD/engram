@@ -125,6 +125,20 @@
   gap: 1px;
 }
 
+.resultCard {
+  border-radius: var(--radius-sm);
+}
+
+.resultCardSelected .result {
+  background: var(--surface2);
+  border-color: var(--border);
+  border-left-color: var(--entity-color, var(--border));
+}
+
+.resultFooter {
+  padding: 0 10px 6px 34px;
+}
+
 .result {
   width: 100%;
   display: flex;

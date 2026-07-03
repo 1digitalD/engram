@@ -223,34 +223,40 @@ export default function V5Recall({ open, onClose, onAsk, initialQuery = '' }) {
                   const selected = globalIndex === selectedIndex;
                   return (
                     <li key={entity.id} role="option" aria-selected={selected}>
-                      <button
-                        type="button"
-                        className={`${styles.result} ${selected ? styles.resultSelected : ''}`}
-                        data-entity-type={entity.type}
-                        onClick={() => selectEntity(entity)}
+                      <div
+                        className={`${styles.resultCard} ${selected ? styles.resultCardSelected : ''}`}
                         onMouseEnter={() => setSelectedIndex(globalIndex)}
                       >
-                        <XGlyph type={entity.type} className={styles.resultGlyph} />
-                        <span className={styles.resultMain}>
-                          <span className={styles.resultTitle}>{entity.title || '(no title)'}</span>
-                          {entity.searchSnippet ? (
-                            <span className={styles.resultSnippet}>{entity.searchSnippet}</span>
+                        <button
+                          type="button"
+                          className={`${styles.result} ${selected ? styles.resultSelected : ''}`}
+                          data-entity-type={entity.type}
+                          onClick={() => selectEntity(entity)}
+                        >
+                          <XGlyph type={entity.type} className={styles.resultGlyph} />
+                          <span className={styles.resultMain}>
+                            <span className={styles.resultTitle}>{entity.title || '(no title)'}</span>
+                            {entity.searchSnippet ? (
+                              <span className={styles.resultSnippet}>{entity.searchSnippet}</span>
+                            ) : null}
+                          </span>
+                          {entity.status ? (
+                            <span className={`${styles.resultMeta} ${statusClass(entity.status)}`}>
+                              {entity.status.replace(/_/g, ' ')}
+                            </span>
                           ) : null}
-                          {entity.type === 'task' && hasTaskContext(entity) ? (
+                        </button>
+                        {entity.type === 'task' && hasTaskContext(entity) ? (
+                          <div className={styles.resultFooter}>
                             <EntityContextChips
                               projects={entity.projects}
                               areas={entity.areas}
                               people={entity.people}
                               className={styles.resultContext}
                             />
-                          ) : null}
-                        </span>
-                        {entity.status ? (
-                          <span className={`${styles.resultMeta} ${statusClass(entity.status)}`}>
-                            {entity.status.replace(/_/g, ' ')}
-                          </span>
+                          </div>
                         ) : null}
-                      </button>
+                      </div>
                     </li>
                   );
                 })}
