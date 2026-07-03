@@ -134,3 +134,4 @@ All 6 prd tasks passed. See archived `docs/iterations/archive/prd-v5-hardening.j
 - 2026-07-03T17:36:58.436365+00:00 sq-09-retire-confidence-gating accepted via opencode
 - 2026-07-03T17:45:54.269108+00:00 sq-10-semantic-dismissal-memory accepted via opencode
 - 2026-07-03T18:01:44.723132+00:00 sq-11-dismissal-reasons accepted via opencode
+- 2026-07-03T18:07:23.327702+00:00 sq-11-dismissal-reasons accepted via opencode

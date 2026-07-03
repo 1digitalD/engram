@@ -135,6 +135,25 @@ describe('V5ReviewSheet', () => {
     expect(await screen.findByText('follow up with design tomorrow')).toBeInTheDocument();
   });
 
+  it('prefers the evidence quote over the generic uncertain copy', async () => {
+    v4API.suggestions.list.mockResolvedValue({
+      data: [
+        {
+          id: 's-uncertain-evidence',
+          suggestion_type: 'create_task',
+          source_note_title: 'Standup note',
+          reason: 'AI was not sure about this',
+          payload: { title: 'Schedule design review', evidence: 'follow up with design tomorrow' },
+        },
+      ],
+      meta: { total: 1 },
+    });
+    renderSheet();
+
+    expect(await screen.findByText('follow up with design tomorrow')).toBeInTheDocument();
+    expect(screen.queryByText('AI was not sure about this')).not.toBeInTheDocument();
+  });
+
   it('lets the user pick a dismiss reason', async () => {
     renderSheet();
 

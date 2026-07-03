@@ -130,7 +130,7 @@ export default function V5ReviewSheet({ open, onClose }) {
   }
 
   function renderCard(row, options = {}) {
-    const evidence = row.reason || row.payload?.evidence;
+    const evidence = row.payload?.evidence || row.reason;
     const sourceTitle = row.source_note_title;
     const disabled = busyId === row.id || options.disabled;
     const choosingReason = dismissReasonId === row.id;
