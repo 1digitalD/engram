@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { v4API, friendlyApiError } from '../api/v4Client';
 import V5EntityRow from './V5EntityRow';
-import pageStyles from '../styles/v5.module.css';
+import styles from './V5Threads.module.css';
 
 function bandForScore(score) {
   if (score >= 75) return 'hot';
@@ -52,61 +52,69 @@ export default function V5Threads() {
   const grouped = useMemo(() => groupThreads(threads), [threads]);
 
   if (loading) {
-    return <p className={pageStyles.statusMessage}>Loading threads…</p>;
+    return (
+      <main className={styles.page} aria-busy="true">
+        <p className={styles.statusMessage}>Loading threads…</p>
+      </main>
+    );
   }
 
   if (error) {
-    return <p className={pageStyles.errorMessage}>{error}</p>;
+    return (
+      <main className={styles.page}>
+        <p className={styles.errorMessage} role="alert">{error}</p>
+      </main>
+    );
   }
 
   const showingPartial = totalCount > threads.length;
 
   return (
-    <div className={pageStyles.page}>
-      <div className={pageStyles.headerRow}>
-        <span className={pageStyles.title}>Threads · {totalCount} active</span>
-        <span className={pageStyles.subtitle}>
+    <main className={styles.page} aria-label="Threads">
+      <header className={styles.headerRow}>
+        <h1 className={styles.title}>Threads · {totalCount} active</h1>
+        <p className={styles.subtitle}>
           ranked by attention
-          {showingPartial ? ` · showing ${threads.length}` : ' ↓'}
-        </span>
-      </div>
+          {showingPartial ? ` · showing ${threads.length}` : ''}
+        </p>
+      </header>
 
       {grouped.hot.length ? (
-        <>
-          <div className={pageStyles.sectionLabel}>hot</div>
-          <div className={pageStyles.list}>
+        <section aria-label="Hot threads">
+          <h2 className={styles.sectionLabel}>hot</h2>
+          <div className={styles.list}>
             {grouped.hot.map((thread) => (
               <V5EntityRow key={thread.id} thread={thread} />
             ))}
           </div>
-        </>
+        </section>
       ) : null}
 
       {grouped.warm.length ? (
-        <>
-          <div className={pageStyles.sectionLabel}>warm</div>
-          <div className={pageStyles.list}>
+        <section aria-label="Warm threads">
+          <h2 className={styles.sectionLabel}>warm</h2>
+          <div className={styles.list}>
             {grouped.warm.map((thread) => (
               <V5EntityRow key={thread.id} thread={thread} />
             ))}
           </div>
-        </>
+        </section>
       ) : null}
 
       {grouped.ambient.length ? (
-        <>
-          <div className={pageStyles.sectionLabel}>ambient</div>
-          <div className={pageStyles.list}>
+        <section aria-label="Ambient threads">
+          <h2 className={styles.sectionLabel}>ambient</h2>
+          <div className={styles.list}>
             {grouped.ambient.map((thread) => (
               <V5EntityRow key={thread.id} thread={thread} variant="ambient" />
             ))}
           </div>
-        </>
+        </section>
       ) : null}
 
       {threads.length === 0 ? (
-        <p className={pageStyles.statusMessage}>No active threads yet.</p>
+        <p className={styles.statusMessage}>No active threads yet.</p>
       ) : null}
-    </div>
+    </main>
   );
 }

@@ -2,10 +2,26 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus, Search } from 'lucide-react';
 import { v4API, friendlyApiError } from '../api/v4Client';
-import { entityTitleLabel } from '../utils/entityDisplay';
+import EntityContextChips from '../components/EntityContextChips';
 import XGlyph from '../components/XGlyph';
 import { useCapture } from '../context/CaptureContext';
+import { hasTaskContext } from '../utils/entityContext';
+import { entityTitleLabel } from '../utils/entityDisplay';
 import styles from './V5EntityList.module.css';
+
+const COUNT_NOUN = {
+  note: ['note', 'notes'],
+  task: ['task', 'tasks'],
+  project: ['project', 'projects'],
+  area: ['area', 'areas'],
+  person: ['person', 'people'],
+  resource: ['resource', 'resources'],
+};
+
+function countNoun(type, count) {
+  const [one, other] = COUNT_NOUN[type] || [type, `${type}s`];
+  return count === 1 ? one : other;
+}
 
 const PLURAL_TITLE = {
   note: 'Notes',
@@ -30,11 +46,60 @@ function detailPath(entity) {
   return `/${entity.type}s/${entity.id}`;
 }
 
+function formatDue(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
 function statusMeta(entity) {
   const parts = [];
+  if (entity.type === 'task') {
+    const due = formatDue(entity.due_at);
+    if (due) parts.push(`due ${due}`);
+    else if (entity.follow_up_at) {
+      const followUp = formatDue(entity.follow_up_at);
+      if (followUp) parts.push(`follow up ${followUp}`);
+    }
+  }
   if (entity.status) parts.push(entity.status.replace(/_/g, ' '));
   if (entity.properties?.priority) parts.push(entity.properties.priority);
   return parts.join(' · ');
+}
+
+function EntityListRow({ entity, type }) {
+  const meta = statusMeta(entity);
+  const showContext = type === 'task' && hasTaskContext(entity);
+
+  return (
+    <li className={styles.listItem}>
+      <article className={styles.row}>
+        <Link to={detailPath(entity)} className={styles.rowMainLink}>
+          <XGlyph type={entity.type} className={styles.rowGlyph} />
+          <div className={styles.rowMain}>
+            <span className={styles.rowTitle}>
+              {entityTitleLabel(entity, { includeType: false })}
+            </span>
+            {meta && !showContext ? (
+              <span className={styles.rowMeta}>{meta}</span>
+            ) : null}
+          </div>
+          {meta && showContext ? (
+            <span className={styles.rowBadge}>{meta}</span>
+          ) : null}
+        </Link>
+        {showContext ? (
+          <div className={styles.rowFooter}>
+            <EntityContextChips
+              projects={entity.projects}
+              areas={entity.areas}
+            />
+          </div>
+        ) : null}
+      </article>
+    </li>
+  );
 }
 
 export default function V5EntityList({ type }) {
@@ -68,11 +133,16 @@ export default function V5EntityList({ type }) {
     const normalized = query.trim().toLowerCase();
     if (!normalized) return entities;
     return entities.filter((entity) => {
+      const contextTitles = [
+        ...(entity.projects || []).map((item) => item.title),
+        ...(entity.areas || []).map((item) => item.title),
+      ];
       const haystack = [
         entity.title,
         entity.content,
         entity.status,
         entity.properties?.priority,
+        ...contextTitles,
       ].filter(Boolean).join(' ').toLowerCase();
       return haystack.includes(normalized);
     });
@@ -81,10 +151,6 @@ export default function V5EntityList({ type }) {
   const title = PLURAL_TITLE[type] || `${type}s`;
 
   function handleCreate() {
-    // Entity list screens are capture-first: the New button opens the capture
-    // sheet so the source note is preserved and the agent can extract the
-    // requested entity. The attachment defaults to the current thread when
-    // inside a thread, and is empty on list routes.
     openCapture();
   }
 
@@ -99,7 +165,14 @@ export default function V5EntityList({ type }) {
   return (
     <main className={styles.page} aria-label={`${title} list`}>
       <header className={styles.header}>
-        <h1 className={styles.title}>{title}</h1>
+        <div className={styles.headerMain}>
+          <h1 className={styles.title}>{title}</h1>
+          <p className={styles.subtitle}>
+            {filtered.length}
+            {' '}
+            {countNoun(type, filtered.length)}
+          </p>
+        </div>
         <button
           type="button"
           className={styles.createButton}
@@ -130,19 +203,7 @@ export default function V5EntityList({ type }) {
       {filtered.length > 0 ? (
         <ul className={styles.list}>
           {filtered.map((entity) => (
-            <li key={entity.id}>
-              <Link to={detailPath(entity)} className={styles.row}>
-                <XGlyph type={entity.type} />
-                <div className={styles.rowMain}>
-                  <span className={styles.rowTitle}>
-                    {entityTitleLabel(entity, { includeType: false })}
-                  </span>
-                  {statusMeta(entity) ? (
-                    <span className={styles.rowMeta}>{statusMeta(entity)}</span>
-                  ) : null}
-                </div>
-              </Link>
-            </li>
+            <EntityListRow key={entity.id} entity={entity} type={type} />
           ))}
         </ul>
       ) : (

@@ -40,6 +40,32 @@ describe('V5EntityList', () => {
     expect(screen.getByRole('link', { name: /Tighten evals/i })).toHaveAttribute('href', '/tasks/t2');
   });
 
+  it('shows project and area context on task cards', async () => {
+    v4API.entities.list.mockResolvedValue({
+      data: [
+        {
+          id: 't1',
+          type: 'task',
+          title: 'Ship rollout',
+          status: 'open',
+          projects: [{ id: 'p1', title: 'Memory Lookup' }],
+          areas: [{ id: 'a1', title: 'Execution' }],
+        },
+      ],
+    });
+
+    render(
+      <MemoryRouter>
+        <CaptureProvider>
+          <V5EntityList type="task" />
+        </CaptureProvider>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('link', { name: /Memory Lookup/i })).toHaveAttribute('href', '/projects/p1');
+    expect(screen.getByRole('link', { name: /Execution/i })).toHaveAttribute('href', '/areas/a1');
+  });
+
   it('filters entities by search query', async () => {
     v4API.entities.list.mockResolvedValue({
       data: [

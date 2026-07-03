@@ -159,6 +159,29 @@ describe('V5Now', () => {
     expect(chip.closest('a')).toHaveAttribute('href', '/projects/project-launch');
   });
 
+  it('shows project and area chips when task context is available', () => {
+    const data = {
+      needs_you_now: [{
+        id: 'task-1',
+        type: 'task',
+        subject: 'Ship rollout',
+        projects: [{ id: 'p1', title: 'Memory Lookup' }],
+        areas: [{ id: 'a1', title: 'Execution' }],
+        when: 'Due today',
+        why_now: 'blocked',
+        actions: [{ key: 'open', label: 'Open', primary: true }],
+        attention_score: 90,
+      }],
+      waiting_on_you: [],
+      ambient: [],
+    };
+
+    renderWithRouter(<V5Now previewData={data} />);
+
+    expect(screen.getByRole('link', { name: /Memory Lookup/i })).toHaveAttribute('href', '/projects/p1');
+    expect(screen.getByRole('link', { name: /Execution/i })).toHaveAttribute('href', '/areas/a1');
+  });
+
   it('keeps open navigation distinct from thread navigation', async () => {
     const user = userEvent.setup();
 

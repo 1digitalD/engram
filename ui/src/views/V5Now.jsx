@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { v4API, friendlyApiError } from '../api/v4Client';
+import EntityContextChips from '../components/EntityContextChips';
 import { useReview } from '../context/ReviewContext';
 import { useSummary } from '../context/SummaryContext';
 import { FOLLOW_UP_24H_TITLE, FOLLOW_UP_TOMORROW_LABEL } from '../utils/followUpActions';
+import { hasTaskContext } from '../utils/entityContext';
 import { getTodayActionItems } from '../utils/today';
 import { MOCKED_NOW_DATA } from './V5Now.fixtures';
 import styles from './V5Now.module.css';
@@ -44,6 +46,7 @@ function NowRow({ item, onAction, actionsDisabled = false }) {
   const parentThreadPath = threadPath(item);
   const band = bandForScore(item.attention_score ?? 0);
   const actions = item.actions || [];
+  const showTaskContext = item.type === 'task' && hasTaskContext(item);
 
   return (
     <article className={`${styles.row} ${band}`}>
@@ -59,7 +62,7 @@ function NowRow({ item, onAction, actionsDisabled = false }) {
         {item.when ? <span>{item.when}</span> : null}
         {item.when && item.why_now ? <span className={styles.metaDot}>·</span> : null}
         {item.why_now ? <span>{item.why_now}</span> : null}
-        {item.thread ? (
+        {!showTaskContext && item.thread ? (
           <>
             <span className={styles.metaDot}>·</span>
             <Link to={parentThreadPath} className={styles.threadChip}>
@@ -68,6 +71,14 @@ function NowRow({ item, onAction, actionsDisabled = false }) {
           </>
         ) : null}
       </div>
+
+      {showTaskContext ? (
+        <EntityContextChips
+          projects={item.projects}
+          areas={item.areas}
+          className={styles.contextChips}
+        />
+      ) : null}
 
       {actions.length > 0 && (
         <div className={styles.actions}>
@@ -127,7 +138,9 @@ function entityKey(entity) {
 
 function mapEntityToNowItem(entity, reason) {
   const score = entity.attention?.score ?? entity.attention_score ?? 50;
-  const project = (entity.projects || [])[0];
+  const projects = entity.projects || [];
+  const areas = entity.areas || [];
+  const project = projects[0];
   const subject = entity.title
     ? `${entity.title}${entity.content ? ` — ${entity.content.slice(0, 120)}` : ''}`
     : 'Untitled item';
@@ -136,6 +149,8 @@ function mapEntityToNowItem(entity, reason) {
     id: entity.id,
     type: entity.type || 'task',
     subject,
+    projects,
+    areas,
     when: entity.due_at
       ? new Date(entity.due_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
       : (entity.follow_up_at

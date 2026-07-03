@@ -9,12 +9,28 @@ vi.mock('../api/v4Client', () => ({
   v4API: {
     search: vi.fn(),
   },
+  friendlyApiError: (err, fallback) => err?.message || fallback || 'Something went wrong.',
 }));
+
+function searchPayload(entities) {
+  return {
+    query: 'test',
+    mode: 'keyword',
+    results: entities.map((entity, index) => ({
+      entity,
+      score: 10 - index,
+      match: {
+        source: 'keyword',
+        snippet: entity.content || `${entity.title} snippet`,
+      },
+    })),
+  };
+}
 
 describe('V5Recall', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    v4API.search.mockResolvedValue({ data: [] });
+    v4API.search.mockResolvedValue(searchPayload([]));
   });
 
   it('does not render when closed', () => {
@@ -54,13 +70,11 @@ describe('V5Recall', () => {
     expect(screen.getByLabelText('Search terms')).toHaveAttribute('placeholder', 'Search your workspace');
   });
 
-  it('searches and navigates to a result on enter', async () => {
+  it('parses real v4 search payloads and navigates to a result on enter', async () => {
     const onClose = vi.fn();
-    v4API.search.mockResolvedValue({
-      data: [
-        { id: 'p1', type: 'project', title: 'Agent Memory', status: 'active' },
-      ],
-    });
+    v4API.search.mockResolvedValue(searchPayload([
+      { id: 'p1', type: 'project', title: 'Agent Memory', status: 'active' },
+    ]));
 
     render(
       <MemoryRouter>
@@ -74,9 +88,29 @@ describe('V5Recall', () => {
 
     await waitFor(() => expect(v4API.search).toHaveBeenCalledWith({ q: 'agent', limit: 24 }));
     expect(await screen.findByRole('option', { name: /Agent Memory/i })).toBeInTheDocument();
+    expect(screen.getByText('Agent Memory snippet')).toBeInTheDocument();
 
     fireEvent.keyDown(screen.getByLabelText('Search terms'), { key: 'Enter' });
     await waitFor(() => expect(onClose).toHaveBeenCalled());
+  });
+
+  it('shows semantic status color for blocked tasks', async () => {
+    v4API.search.mockResolvedValue(searchPayload([
+      { id: 't1', type: 'task', title: 'Blocked rollout', status: 'blocked' },
+    ]));
+
+    render(
+      <MemoryRouter>
+        <CaptureProvider>
+          <V5Recall open onClose={vi.fn()} />
+        </CaptureProvider>
+      </MemoryRouter>,
+    );
+
+    fireEvent.change(screen.getByLabelText('Search terms'), { target: { value: 'blocked' } });
+
+    const status = await screen.findByText('blocked');
+    expect(status.className).toMatch(/statusBlocked/);
   });
 
   it('closes on escape', async () => {
@@ -154,15 +188,19 @@ describe('V5Recall', () => {
     v4API.search.mockImplementation(({ q }) => {
       if (q === 'old') {
         return new Promise((resolve) => {
-          resolveOld = () => resolve({ data: [{ id: 'old1', type: 'note', title: 'Old result' }] });
+          resolveOld = () => resolve(searchPayload([
+            { id: 'old1', type: 'note', title: 'Old result' },
+          ]));
         });
       }
       if (q === 'new') {
         return new Promise((resolve) => {
-          resolveNew = () => resolve({ data: [{ id: 'new1', type: 'note', title: 'New result' }] });
+          resolveNew = () => resolve(searchPayload([
+            { id: 'new1', type: 'note', title: 'New result' },
+          ]));
         });
       }
-      return Promise.resolve({ data: [] });
+      return Promise.resolve(searchPayload([]));
     });
 
     render(
@@ -183,11 +221,9 @@ describe('V5Recall', () => {
     await vi.advanceTimersByTimeAsync(200);
     expect(v4API.search).toHaveBeenLastCalledWith({ q: 'new', limit: 24 });
 
-    // Resolve the newer query first.
     resolveNew();
     await screen.findByRole('option', { name: /New result/i });
 
-    // Then resolve the older, stale query.
     resolveOld();
     await waitFor(() => expect(screen.queryByRole('option', { name: /Old result/i })).not.toBeInTheDocument());
     expect(screen.getByRole('option', { name: /New result/i })).toBeInTheDocument();

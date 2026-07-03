@@ -5,12 +5,27 @@ then read the active source docs before changing code.
 
 Last updated: 2026-07-03
 Branch: `main`
-Status: **Iteration 19 complete + post-review hardening deployed** — SQ-00..SQ-11
-shipped 2026-07-02/03; Bugbot review fixes merged (`7ca1a146`, PR #7) and deployed
-2026-07-03 (`backup engram_20260703_114953.sql`). Full backend + UI suites green.
+Status: **Iteration 20 in progress (UI-CTX-01)** — Recall search fix + UI context density loop.
+Previous: Iteration 19 complete + post-review hardening deployed (2026-07-03).
 
 Runtime baseline: `/api/v4` only, fresh Postgres + pgvector schema, write-enabled MCP
 aligned with the active API.
+
+## Active loop: Iteration 20 — UI Context, Density & Color (2026-07-03)
+
+- Plan: `docs/iterations/ITERATION_20_UI_CONTEXT_DENSITY.md`
+- Slice docs: `SLICE_UICTX01_recall-search-fix.md` … (see plan)
+
+| Slice | Status | Notes |
+|-------|--------|-------|
+| UI-CTX-01 Recall fix + color | **done** | P0 parse bug fixed; snippet + type accents |
+| UI-CTX-02 Backend task context | pending | detail + search `_attach_task_context` |
+| UI-CTX-03 Detail + Recall chips | pending | depends UI-CTX-02 |
+| UI-CTX-04 Assignee chips | pending | uses existing `people[]` |
+| UI-CTX-05 List metadata | pending | task_counts, linked_counts |
+| UI-CTX-06 Shared row chrome | pending | color system rollout |
+| UI-CTX-07 Project parent area | blocked | needs backend helper |
+| UI-CTX-08 TopBar nav | **deferred** | user: leave TopBar as-is |
 
 ## Previous loop: Iteration 19 — Signal Quality & Capture Intelligence (2026-07-02) — complete
 
@@ -115,6 +130,7 @@ All 6 prd tasks passed. See archived `docs/iterations/archive/prd-v5-hardening.j
 | `docs/V4_PRINCIPLES.md` | Product and architecture rules |
 | `docs/V4_WORLD_MODEL_PLAN.md` | Active implementation plan |
 | `prd.json` | Loopsmith idle stub (no active loop; last overlay archived) |
+| `docs/iterations/ITERATION_20_UI_CONTEXT_DENSITY.md` | **Active UI iteration plan** |
 | `EXECUTION-TRACKER.md` | This file |
 
 ## Deploy + Validation Baseline

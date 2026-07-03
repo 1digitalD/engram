@@ -1,3 +1,5 @@
+import { normalizeSearchResults } from '../utils/searchResults';
+
 const API_PREFIX = '/api/v4';
 
 /**
@@ -111,7 +113,10 @@ export const v4API = {
     resolve: (entityId) => v4Request('POST', `/entities/${encodeURIComponent(entityId)}/review/resolve`),
   },
   reprocess: (entityId) => v4Request('POST', `/entities/${encodeURIComponent(entityId)}/reprocess`),
-  search: (params = {}) => v4Request('GET', '/search', null, params),
+  search: async (params = {}) => {
+    const response = await v4Request('GET', '/search', null, params);
+    return { ...response, data: normalizeSearchResults(response) };
+  },
   mentions: (params = {}) => v4Request('GET', '/entities/mentions', null, params),
   today: Object.assign(() => v4Request('GET', '/today'), {
     review: () => v4Request('POST', '/today/review'),

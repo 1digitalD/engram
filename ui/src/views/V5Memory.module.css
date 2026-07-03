@@ -1,10 +1,10 @@
 .page {
   max-width: var(--content-max);
   margin: 0 auto;
-  padding: var(--space-4) var(--space-4) calc(var(--space-12) + 80px);
+  padding: var(--space-3) var(--space-4) calc(var(--space-10) + 72px);
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
+  gap: var(--space-4);
   min-height: 100vh;
   overscroll-behavior-y: contain;
 }
@@ -17,7 +17,7 @@
 
 .title {
   margin: 0;
-  font-size: var(--text-2xl);
+  font-size: var(--text-xl);
   font-weight: 600;
   letter-spacing: -0.02em;
   color: var(--text);

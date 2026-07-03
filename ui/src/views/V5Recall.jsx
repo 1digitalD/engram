@@ -7,13 +7,35 @@ import Sheet from '../components/Sheet';
 import { v4API, friendlyApiError } from '../api/v4Client';
 import XGlyph from '../components/XGlyph';
 import { useCapture } from '../context/CaptureContext';
+import { normalizeSearchResults } from '../utils/searchResults';
 import styles from './V5Recall.module.css';
 
 const DEBOUNCE_MS = 180;
 
+const TYPE_LABEL = {
+  note: 'Notes',
+  task: 'Tasks',
+  project: 'Projects',
+  area: 'Areas',
+  person: 'People',
+  resource: 'Resources',
+};
+
 function detailPath(entity) {
   if (entity.type === 'person') return `/people/${entity.id}`;
   return `/${entity.type}s/${entity.id}`;
+}
+
+function groupLabel(type) {
+  return TYPE_LABEL[type] || `${type || 'unknown'}s`;
+}
+
+function statusClass(status) {
+  if (!status) return '';
+  if (status === 'blocked') return styles.statusBlocked;
+  if (status === 'waiting') return styles.statusWaiting;
+  if (status === 'done' || status === 'cancelled') return styles.statusDone;
+  return '';
 }
 
 function groupResults(results) {
@@ -54,7 +76,7 @@ function useRecallSearch(query) {
       v4API.search({ q: trimmed, limit: 24 })
         .then((response) => {
           if (requestId !== requestIdRef.current) return;
-          setResults(response?.data || []);
+          setResults(normalizeSearchResults(response));
         })
         .catch((err) => {
           if (requestId !== requestIdRef.current) return;
@@ -90,7 +112,6 @@ export default function V5Recall({ open, onClose, onAsk, initialQuery = '' }) {
     if (open) {
       setQuery(initialQuery);
       setSelectedIndex(0);
-      // Focus on next tick so the sheet is mounted.
       window.setTimeout(() => inputRef.current?.focus(), 0);
     }
   }, [open, initialQuery]);
@@ -188,8 +209,12 @@ export default function V5Recall({ open, onClose, onAsk, initialQuery = '' }) {
           ) : null}
 
           {grouped.map((group) => (
-            <section key={group.type} className={styles.group}>
-              <h2 className={styles.groupLabel}>{group.type}s</h2>
+            <section key={group.type} className={styles.group} data-entity-type={group.type}>
+              <h2 className={styles.groupLabel}>
+                <span className={styles.groupDot} aria-hidden="true" />
+                {groupLabel(group.type)}
+                <span className={styles.groupCount}>{group.items.length}</span>
+              </h2>
               <ul className={styles.groupList}>
                 {group.items.map((entity) => {
                   const globalIndex = flatResults.indexOf(entity);
@@ -199,13 +224,21 @@ export default function V5Recall({ open, onClose, onAsk, initialQuery = '' }) {
                       <button
                         type="button"
                         className={`${styles.result} ${selected ? styles.resultSelected : ''}`}
+                        data-entity-type={entity.type}
                         onClick={() => selectEntity(entity)}
                         onMouseEnter={() => setSelectedIndex(globalIndex)}
                       >
-                        <XGlyph type={entity.type} />
-                        <span className={styles.resultTitle}>{entity.title || '(no title)'}</span>
+                        <XGlyph type={entity.type} className={styles.resultGlyph} />
+                        <span className={styles.resultMain}>
+                          <span className={styles.resultTitle}>{entity.title || '(no title)'}</span>
+                          {entity.searchSnippet ? (
+                            <span className={styles.resultSnippet}>{entity.searchSnippet}</span>
+                          ) : null}
+                        </span>
                         {entity.status ? (
-                          <span className={styles.resultMeta}>{entity.status.replace(/_/g, ' ')}</span>
+                          <span className={`${styles.resultMeta} ${statusClass(entity.status)}`}>
+                            {entity.status.replace(/_/g, ' ')}
+                          </span>
                         ) : null}
                       </button>
                     </li>

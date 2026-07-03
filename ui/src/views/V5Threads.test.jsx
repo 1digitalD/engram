@@ -60,9 +60,9 @@ describe('V5Threads', () => {
 
     await waitFor(() => expect(v4API.threads).toHaveBeenCalledWith({ rank: 'attention', limit: 200 }));
     expect(screen.getByText(/Threads · 3 active/i)).toBeInTheDocument();
-    expect(screen.getByText('hot')).toBeInTheDocument();
-    expect(screen.getByText('warm')).toBeInTheDocument();
-    expect(screen.getByText('ambient')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /hot/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /warm/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /ambient/i })).toBeInTheDocument();
   });
 
   it('shows total count even when only a limited payload is loaded', async () => {
