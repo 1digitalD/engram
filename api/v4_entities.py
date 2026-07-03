@@ -103,6 +103,17 @@ INBOX_INTENT_PRIORITY = {
     "junk": 7,
 }
 INTENT_SUGGESTION_CONFIDENCE_FLOOR = 0.9
+# SQ-05: extraction-reported update/follow_up intent at or above this
+# confidence routes the capture through activity-update semantics instead of
+# full entity-extraction reconciliation.
+INTENT_ROUTE_CONFIDENCE = 0.7
+# Long captures (meeting notes) stay on the full pipeline even when the
+# top-level intent looks like an update — they usually carry more than one
+# actionable signal.
+INTENT_ROUTE_MAX_CONTENT_CHARS = 1200
+# Minimum cosine similarity for resolving an update target by embedding search
+# (ladder step 3). Deliberately strict: a wrong guess applies a status change.
+UPDATE_TARGET_SIMILARITY = 0.75
 SUGGESTION_DUPLICATE_MEMORY_DAYS = 14
 COMPACT_LINK_COUNT_RULES = {
     "person": {
@@ -212,8 +223,9 @@ def _capture_sse_stream(data, content, user_title):
 
         if not warnings:
             try:
-                extraction_changes, extraction_suggestions = _reconcile_capture_candidates(
+                extraction_changes, extraction_suggestions = _process_capture_extraction(
                     note,
+                    content,
                     extraction,
                     thread_id=thread_id,
                 )
@@ -273,8 +285,9 @@ def _run_capture_extraction(note, content, mode, thread_id=None):
     applied_changes.extend(_apply_explicit_mentions(note, content))
     try:
         result = _run_basic_capture_extraction(note, mode, thread_id=thread_id)
-        extraction_changes, extraction_suggestions = _reconcile_capture_candidates(
+        extraction_changes, extraction_suggestions = _process_capture_extraction(
             note,
+            content,
             result or {},
             thread_id=thread_id,
         )
@@ -2115,32 +2128,18 @@ def _refresh_delegation_cadence(target, source_note_id=None, actor="user"):
     )
 
 
-@api_v4_bp.route("/entities/<entity_id>/activity_updates", methods=["POST"])
-def create_activity_update(entity_id):
-    target = db.session.get(Entity, entity_id)
-    if target is None:
-        return _error("entity not found", 404)
+def _apply_activity_update_policy(note, target, content, extraction, suggestions, actor="agent:activity-update"):
+    """Shared Add-update policy: status auto-apply/suggest, follow-up routing
+    (sq-02 semantics), and spin-off task suggestions.
 
-    data = request.get_json(silent=True) or {}
-    content = (data.get("content") or "").strip()
-    if not content:
-        return _error("content is required")
-
-    note, created, skip_reason = _create_activity_update_note(target, content, actor="user")
-    if not created:
-        reason = "duplicate within 24h" if skip_reason == "exact_duplicate" else skip_reason or "duplicate"
-        return jsonify({"data": note.to_dict(), "skipped": True, "reason": reason})
-
-    applied_mentions = _apply_explicit_mentions(note, content)
-
-    # Lightweight extraction: scan for dates and new tasks (no full capture cycle).
-    from services.v4_extraction import extract_dates_and_tasks_from_update
-
-    extraction = extract_dates_and_tasks_from_update(content)
+    ``note`` is the note suggestions and events are sourced from (the activity
+    update note on the endpoint path, the capture note on the intent-routed
+    capture path). Appends to ``suggestions`` in place and returns the
+    "extracted" summary dict used in API responses.
+    """
     extracted_tasks = []
-    suggestions = []
     extracted_status = extraction.get("status")
-    status_confidence = extraction.get("confidence", 0.0)
+    status_confidence = extraction.get("confidence", 0.0) or 0.0
     status_auto_applied = False
 
     # ── Status change ───────────────────────────────────────────────────
@@ -2158,7 +2157,7 @@ def create_activity_update(entity_id):
                 "ai_updated",
                 old_value={"status": old_status},
                 new_value={"status": extracted_status},
-                actor="agent:activity-update",
+                actor=actor,
                 confidence=status_confidence,
                 reason="extracted from activity update",
                 source_note_id=note.id,
@@ -2195,7 +2194,7 @@ def create_activity_update(entity_id):
     )
     # Trust the extractor's own placement of the follow-up date: the prompt already
     # puts it on the target when it stays open, and on spin-off task payloads when
-    # the target is closing. New task candidates alone must not override that —
+    # the target is closing. New task candidates alone must not reroute it —
     # only a closing status suppresses applying the top-level date to the target.
     apply_follow_up_to_target = bool(explicit_follow_up and not target_is_closing)
     route_follow_up_to_tasks = bool(explicit_follow_up and task_candidates and target_is_closing)
@@ -2208,7 +2207,7 @@ def create_activity_update(entity_id):
             "ai_updated",
             old_value={"follow_up_at": old_follow_up.isoformat() if old_follow_up else None},
             new_value={"follow_up_at": target.follow_up_at.isoformat()},
-            actor="agent:activity-update",
+            actor=actor,
             reason="extracted from activity update",
             source_note_id=note.id,
         )
@@ -2248,6 +2247,40 @@ def create_activity_update(entity_id):
                 "suggestion_id": suggestion.id,
             })
 
+    return {
+        "status": extracted_status,
+        "status_auto_applied": status_auto_applied,
+        "follow_up_at": explicit_follow_up,
+        "follow_up_auto_set": apply_follow_up_to_target,
+        "tasks": extracted_tasks,
+    }
+
+
+@api_v4_bp.route("/entities/<entity_id>/activity_updates", methods=["POST"])
+def create_activity_update(entity_id):
+    target = db.session.get(Entity, entity_id)
+    if target is None:
+        return _error("entity not found", 404)
+
+    data = request.get_json(silent=True) or {}
+    content = (data.get("content") or "").strip()
+    if not content:
+        return _error("content is required")
+
+    note, created, skip_reason = _create_activity_update_note(target, content, actor="user")
+    if not created:
+        reason = "duplicate within 24h" if skip_reason == "exact_duplicate" else skip_reason or "duplicate"
+        return jsonify({"data": note.to_dict(), "skipped": True, "reason": reason})
+
+    applied_mentions = _apply_explicit_mentions(note, content)
+
+    # Lightweight extraction: scan for dates and new tasks (no full capture cycle).
+    from services.v4_extraction import extract_dates_and_tasks_from_update
+
+    extraction = extract_dates_and_tasks_from_update(content)
+    suggestions = []
+    extracted = _apply_activity_update_policy(note, target, content, extraction, suggestions)
+
     _queue_embed_job(note.id, "activity_update")
     from services.v4_summarization import queue_summarize_if_needed
 
@@ -2258,13 +2291,7 @@ def create_activity_update(entity_id):
     return jsonify({
         "data": _load_entity(note.id).to_dict(),
         "target": _load_entity(target.id).to_dict(),
-        "extracted": {
-            "status": extracted_status,
-            "status_auto_applied": status_auto_applied,
-            "follow_up_at": explicit_follow_up,
-            "follow_up_auto_set": apply_follow_up_to_target,
-            "tasks": extracted_tasks,
-        },
+        "extracted": extracted,
         "applied_mentions": applied_mentions,
         "suggestions": suggestions,
     }), 201
@@ -2758,6 +2785,8 @@ def resolve_suggestion_to_existing(suggestion_id):
         return _error("suggestion not found", 404)
     if suggestion.status != "pending":
         return _error("suggestion is not pending", 409)
+    if suggestion.operation_type == "update_unresolved":
+        return _resolve_update_unresolved_suggestion(suggestion)
     if not _is_create_suggestion_operation(suggestion.operation_type):
         return _error("only create-entity suggestions can be resolved to an existing entity", 400)
 
@@ -2824,6 +2853,81 @@ def resolve_suggestion_to_existing(suggestion_id):
         "suggestion": suggestion.to_dict(),
         "linked_entity": _load_entity(target.id).to_dict(),
         "relationship": link.to_dict() if link is not None else None,
+    })
+
+
+def _resolve_update_unresolved_suggestion(suggestion):
+    """Resolve an update_unresolved suggestion (SQ-05) to a chosen target.
+
+    Creates the activity-update note on the target and applies the stored
+    extraction (status/follow-up/spin-off tasks) with the same policy as the
+    Add update endpoint.
+    """
+    payload = suggestion.payload or {}
+    body = request.get_json(silent=True) or {}
+    target_id = body.get("target_id")
+    if not target_id:
+        return _error("target_id is required")
+
+    target = db.session.get(Entity, target_id)
+    if target is None or target.lifecycle == "deleted":
+        return _error("target entity not found", 404)
+
+    source_note = db.session.get(Entity, suggestion.source_entity_id)
+    if source_note is None:
+        return _error("source note not found", 404)
+    if target.id == source_note.id:
+        return _error("cannot resolve a suggestion to its own source note")
+
+    content = payload.get("content") or (source_note.content or "")[:300]
+    follow_on_suggestions = []
+    au_note, created, _skip_reason = _create_activity_update_note(
+        target,
+        content,
+        actor="agent:v4-review",
+        confidence=suggestion.confidence,
+        source_note_id=source_note.id,
+    )
+    if au_note is not None and created:
+        extraction = {
+            "status": payload.get("status"),
+            "confidence": payload.get("status_confidence") or 0.0,
+            "follow_up_at": payload.get("follow_up_at"),
+            "tasks": payload.get("tasks") or [],
+        }
+        _apply_activity_update_policy(
+            source_note, target, content, extraction, follow_on_suggestions,
+            actor="agent:v4-review",
+        )
+        from services.v4_summarization import queue_summarize_if_needed
+
+        queue_summarize_if_needed(target.id, has_existing_summary=bool(target.ai_summary))
+
+    suggestion.status = "accepted"
+    suggestion.resolved_at = datetime.utcnow()
+    new_payload = dict(payload)
+    new_payload["resolved_to_existing_id"] = target.id
+    suggestion.payload = new_payload
+    flag_modified(suggestion, "payload")
+    _write_event(
+        source_note,
+        "suggestion_accepted",
+        new_value={
+            "suggestion_id": suggestion.id,
+            "resolved_to_existing_id": target.id,
+            "activity_update_note_id": au_note.id if au_note is not None else None,
+        },
+        actor="agent:v4-review",
+        confidence=suggestion.confidence,
+        reason=f"resolved update to existing {target.type} '{target.title}'",
+    )
+    db.session.commit()
+
+    return jsonify({
+        "suggestion": suggestion.to_dict(),
+        "linked_entity": _load_entity(target.id).to_dict(),
+        "relationship": None,
+        "suggestions": follow_on_suggestions,
     })
 
 
@@ -3725,10 +3829,13 @@ def _valid_decided_by(value):
     return False
 
 
-def _reconcile_capture_candidates(note, extraction, thread_id=None):
-    applied_changes = []
-    suggestions = []
+def _apply_capture_extraction_metadata(note, extraction, applied_changes):
+    """Apply note-level extraction output: title, summary, intent, tags.
 
+    These come from the already-completed extraction call, so applying them
+    costs no extra LLM spend regardless of which pipeline the capture routes
+    through afterwards.
+    """
     summary = _clean_text(extraction.get("summary"))
     ai_title = _clean_text(extraction.get("title"))
     ai_meta = dict(note.ai_meta or {})
@@ -3789,6 +3896,202 @@ def _reconcile_capture_candidates(note, extraction, thread_id=None):
             confidence=confidence,
             source_note_id=note.id,
         )
+
+
+def _capture_intent_route(extraction, content):
+    """Pick the capture pipeline from the extraction-reported intent (SQ-05).
+
+    Routing keys off the raw LLM intent, not the heuristic fallback — an
+    absent/unknown intent always stays on the full pipeline.
+    Returns "junk", "activity_update", or "full".
+    """
+    extraction = extraction or {}
+    intent = extraction.get("intent")
+    if intent not in CAPTURE_INTENTS:
+        return "full"
+    if intent == "junk":
+        return "junk"
+    confidence = _candidate_confidence({"confidence": extraction.get("intent_confidence")})
+    if (
+        intent in {"update", "follow_up"}
+        and confidence >= INTENT_ROUTE_CONFIDENCE
+        and len(content or "") <= INTENT_ROUTE_MAX_CONTENT_CHARS
+    ):
+        return "activity_update"
+    return "full"
+
+
+def _process_capture_extraction(note, content, extraction, thread_id=None):
+    """Shared post-extraction step for both capture paths (single-shot + SSE).
+
+    Branches on intent before reconciliation: junk skips reconciliation
+    entirely, update/follow_up routes through activity-update semantics, and
+    everything else runs the existing full reconciliation pipeline.
+    """
+    route = _capture_intent_route(extraction, content)
+    if route == "full":
+        return _reconcile_capture_candidates(note, extraction, thread_id=thread_id)
+
+    applied_changes = []
+    suggestions = []
+    _apply_capture_extraction_metadata(note, extraction, applied_changes)
+    if route == "activity_update":
+        _route_capture_update_intent(
+            note, content, extraction, thread_id, applied_changes, suggestions
+        )
+    # route == "junk": note-level metadata only; no reconciliation spend.
+    if note.ai_status == "pending":
+        note.ai_status = "done"
+    return applied_changes, suggestions
+
+
+def _route_capture_update_intent(note, content, extraction, thread_id, applied_changes, suggestions):
+    """Treat an update/follow_up-intent capture as an activity update (SQ-05).
+
+    Resolves a target via the ladder (thread attachment → explicit mention →
+    embedding similarity), then applies the same policy as Add update. With no
+    target it files a single reviewable update_unresolved suggestion instead
+    of running entity-extraction reconciliation.
+    """
+    from services.v4_extraction import extract_dates_and_tasks_from_update
+
+    intent_confidence = _candidate_confidence({"confidence": extraction.get("intent_confidence")})
+    target = _resolve_update_target(note, content, thread_id)
+    au_extraction = extract_dates_and_tasks_from_update(content)
+
+    if target is None:
+        suggestion = _create_suggestion(
+            note,
+            suggestion_type="update_unresolved",
+            operation_type="update_unresolved",
+            payload={
+                "content": (content or "")[:300],
+                "status": au_extraction.get("status"),
+                "status_confidence": au_extraction.get("confidence"),
+                "follow_up_at": au_extraction.get("follow_up_at"),
+                "tasks": au_extraction.get("tasks") or [],
+            },
+            confidence=intent_confidence or None,
+            reason="update captured but no target could be resolved",
+        )
+        if suggestion is not None:
+            suggestions.append(suggestion.to_dict())
+        return
+
+    au_note, created, _skip_reason = _create_activity_update_note(
+        target,
+        content,
+        actor="agent:v4-capture",
+        confidence=intent_confidence or None,
+        source_note_id=note.id,
+    )
+    if au_note is None:
+        return
+    applied_changes.append({
+        "type": "activity_update_added",
+        "target_entity_id": target.id,
+        "note_id": au_note.id,
+        "content": content,
+        "confidence": intent_confidence,
+        "created": created,
+    })
+    if not created:
+        # Duplicate update within the dedup window — same early-exit semantics
+        # as the Add update endpoint.
+        return
+
+    result = _apply_activity_update_policy(
+        note, target, content, au_extraction, suggestions, actor="agent:v4-capture"
+    )
+    if result["status_auto_applied"]:
+        applied_changes.append({
+            "type": "entity_updated",
+            "entity_id": target.id,
+            "entity_type": target.type,
+            "title": target.title,
+            "changes": {"status": result["status"]},
+        })
+    if result["follow_up_auto_set"]:
+        applied_changes.append({
+            "type": "entity_updated",
+            "entity_id": target.id,
+            "entity_type": target.type,
+            "title": target.title,
+            "changes": {"follow_up_at": result["follow_up_at"]},
+        })
+
+    from services.v4_summarization import queue_summarize_if_needed
+
+    queue_summarize_if_needed(target.id, has_existing_summary=bool(target.ai_summary))
+
+
+def _resolve_update_target(note, content, thread_id):
+    """Resolve the entity an update-intent capture is talking about.
+
+    Ladder: (1) capture thread attachment, (2) explicit @/[[ mention of a
+    task/project in the content, (3) embedding similarity against active
+    tasks and projects. Returns None when nothing is confident enough.
+    """
+    if thread_id:
+        entity = db.session.get(Entity, thread_id)
+        if entity is not None and entity.lifecycle != "deleted":
+            return entity
+
+    for match in EXPLICIT_MENTION_PATTERN.finditer(content or ""):
+        entity_type = ENTITY_TYPE_BY_PLURAL.get(match.group("plural"))
+        if entity_type not in {"task", "project"}:
+            continue
+        target = db.session.get(Entity, match.group("id"))
+        if (
+            target is not None
+            and target.type == entity_type
+            and target.lifecycle != "deleted"
+            and target.id != note.id
+        ):
+            return target
+
+    return _embedding_update_target(content)
+
+
+def _embedding_update_target(content):
+    """Ladder step 3: embed the capture content and search active tasks and
+    projects; accept only a strong (>= UPDATE_TARGET_SIMILARITY) top match."""
+    from services.v4_reconciliation import _cosine, _embed_texts, _load_chunks_for_type
+
+    if not content:
+        return None
+    vectors = _embed_texts([content[:2000]])
+    if not vectors:
+        return None
+    query_vec = vectors[0]
+
+    closed_statuses = {"done", "cancelled", "completed"}
+    best_id = None
+    best_score = 0.0
+    for entity_type in ("task", "project"):
+        for entity_id, _chunk_text, embedding, entity_data in _load_chunks_for_type(entity_type):
+            if embedding is None or len(embedding) == 0:
+                continue
+            if (entity_data or {}).get("status") in closed_statuses:
+                continue
+            score = _cosine(query_vec, embedding)
+            if score > best_score:
+                best_id = entity_id
+                best_score = score
+
+    if best_id is None or best_score < UPDATE_TARGET_SIMILARITY:
+        return None
+    entity = db.session.get(Entity, best_id)
+    if entity is None or entity.lifecycle == "deleted":
+        return None
+    return entity
+
+
+def _reconcile_capture_candidates(note, extraction, thread_id=None):
+    applied_changes = []
+    suggestions = []
+
+    _apply_capture_extraction_metadata(note, extraction, applied_changes)
 
     # Flatten link and entity candidates into a single list for reconciliation.
     # Links carry an explicit relationship_type from extraction; entity candidates
@@ -6089,6 +6392,14 @@ def _normalized_suggestion_payload(operation_type, payload):
             "statement": _clean_text(payload.get("statement")),
             "decided_at": _clean_text(payload.get("decided_at")),
             "decided_by": _clean_text(payload.get("decided_by")),
+        }
+    if operation_type == "update_unresolved":
+        # Distinct unresolved updates must not collapse into one fingerprint;
+        # the content excerpt is the identity of the captured update.
+        return {
+            "content": _clean_text(payload.get("content")),
+            "status": _clean_text(payload.get("status")),
+            "follow_up_at": _clean_text(payload.get("follow_up_at")),
         }
     if operation_type == "update_entity":
         fields = payload.get("fields") or {}

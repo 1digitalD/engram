@@ -94,7 +94,12 @@ def test_capture_stream_done_event_matches_single_shot(client, app):
 
     assert set(stream_done) == set(single_shot)
     assert stream_done["applied_changes"] == single_shot["applied_changes"]
-    assert stream_done["suggestions"] == single_shot["suggestions"]
+    # SQ-05: follow_up intent routes both captures through the activity-update
+    # path; with no resolvable target each yields one update_unresolved
+    # suggestion whose volatile fields (id, payload excerpt) differ per note.
+    assert [s["suggestion_type"] for s in stream_done["suggestions"]] == [
+        s["suggestion_type"] for s in single_shot["suggestions"]
+    ] == ["update_unresolved"]
     assert stream_done["warnings"] == single_shot["warnings"]
     assert stream_done["source_note"]["content"] == "Ask Henry about rollout"
     assert single_shot["source_note"]["content"] == "Ask Priya about deployment"
@@ -668,7 +673,9 @@ def test_capture_auto_applies_summary_and_high_confidence_tags(client, app):
     assert [tag["name"] for tag in data["source_note"]["tags"]] == ["rollout"]
     assert {"type": "summary_updated", "summary": "Rollout follow-up with Henry."} in data["applied_changes"]
     assert {"type": "tag_added", "tag": "rollout", "confidence": 0.96} in data["applied_changes"]
-    assert data["suggestions"] == []
+    # SQ-05: follow_up intent with no resolvable target now files a single
+    # update_unresolved suggestion instead of running full reconciliation.
+    assert [s["suggestion_type"] for s in data["suggestions"]] == ["update_unresolved"]
 
 
 def test_capture_auto_links_existing_project_and_person(client, app):
