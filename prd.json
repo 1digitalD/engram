@@ -97,7 +97,7 @@
       ],
       "blocked": true,
       "passes": true,
-      "attempts": 2,
+      "attempts": 3,
       "blockerReason": "Executor completed without producing repository changes.",
       "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/integration/test_v4_capture.py tests/integration/test_v4_capture_extraction.py -q\n.....................................................................    [100%]\n69 passed in 26.41s"
     },
