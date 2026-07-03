@@ -5,6 +5,7 @@ import { v4API } from './api/v4Client';
 import TopBar from './components/TopBar';
 import { CaptureProvider, useCapture } from './context/CaptureContext';
 import { RecallProvider, useRecall } from './context/RecallContext';
+import { ReviewProvider, useReview } from './context/ReviewContext';
 import { SummaryProvider } from './context/SummaryContext';
 import V5EntityList from './views/V5EntityList';
 import V5ThreadDetail from './views/V5ThreadDetail';
@@ -15,11 +16,18 @@ import V5RecallOpener from './views/V5RecallOpener';
 import V5Memory from './views/V5Memory';
 import V5CaptureSheet, { CaptureFab, CaptureToast } from './views/V5CaptureSheet';
 import V5AskSheet from './views/V5AskSheet';
+import V5ReviewSheet from './views/V5ReviewSheet';
 
 function AppShell() {
   const { toast } = useCapture();
   const { open, openRecall, closeRecall } = useRecall();
-  const [counts, setCounts] = useState({ today: 0, threads: undefined, recall: undefined });
+  const { open: reviewOpen, openReview, closeReview } = useReview();
+  const [counts, setCounts] = useState({
+    today: 0,
+    threads: undefined,
+    recall: undefined,
+    suggestions: 0,
+  });
   const [trustScore, setTrustScore] = useState(null);
   const [askOpen, setAskOpen] = useState(false);
   const [summaryVersion, setSummaryVersion] = useState(0);
@@ -40,11 +48,17 @@ function AppShell() {
           today: data?.today_count ?? 0,
           threads: data?.threads_count ?? 0,
           recall: undefined,
+          suggestions: data?.suggestions_count ?? 0,
         });
       })
       .catch(() => {
         if (active) {
-          setCounts({ today: 0, threads: 0, recall: undefined });
+          setCounts({
+            today: 0,
+            threads: 0,
+            recall: undefined,
+            suggestions: 0,
+          });
         }
       });
 
@@ -89,9 +103,11 @@ function AppShell() {
         <TopBar
           onAsk={() => setAskOpen(true)}
           onRecall={openRecall}
+          onReview={openReview}
           nowCount={counts.today}
           threadsCount={counts.threads}
           recallCount={counts.recall}
+          suggestionsCount={counts.suggestions}
           trustScore={trustScore}
         />
 
@@ -124,8 +140,9 @@ function AppShell() {
         <CaptureFab />
         <V5CaptureSheet />
         <V5AskSheet open={askOpen} onClose={() => setAskOpen(false)} />
-        <CaptureToast toast={toast} />
-        <V5Recall open={open} onClose={closeRecall} />
+        <CaptureToast toast={toast} onOpenReview={openReview} />
+        <V5ReviewSheet open={reviewOpen} onClose={closeReview} />
+        <V5Recall open={open} onClose={closeRecall} onAsk={() => setAskOpen(true)} />
       </div>
     </SummaryProvider>
   );
@@ -135,7 +152,9 @@ function App() {
   return (
     <CaptureProvider>
       <RecallProvider>
-        <AppShell />
+        <ReviewProvider>
+          <AppShell />
+        </ReviewProvider>
       </RecallProvider>
     </CaptureProvider>
   );

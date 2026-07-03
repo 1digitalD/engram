@@ -1,0 +1,403 @@
+{
+  "iteration": "v5-productivity-trust-loop",
+  "goal": "Close the gap between backend intelligence and daily-use UI: activity updates change entity state visibly, suggestions are reviewable, Now surfaces full attention data, and affordances are honest.",
+  "riskLevel": "medium",
+  "userProblem": "V5 ships core surfaces but Add update does not alter visible entity metadata, suggestions have no review UI, Capture renders twice on entity pages, and Now underuses the today API. Capture progress_update semantics were disabled on entity routes (AU8) without equivalent logic on the Add update path.",
+  "whyNow": "Daily-use friction blocks trust in Engram as an operating surface. This iteration also stress-tests Loopsmith drain + LCS + Cursor overseer on a real full-stack scenario.",
+  "skills": [
+    "tdd",
+    "incremental-implementation",
+    "git-workflow"
+  ],
+  "doubt": false,
+  "scope": {
+    "filesAffected": [
+      "api/v4_entities.py",
+      "services/v4_extraction.py",
+      "tests/integration/test_v4_activity_updates.py",
+      "tests/integration/test_v4_suggestions.py",
+      "ui/src/App.jsx",
+      "ui/src/components/TopBar.jsx",
+      "ui/src/views/V5ThreadDetail.jsx",
+      "ui/src/views/V5Now.jsx",
+      "ui/src/views/V5Recall.jsx",
+      "ui/src/views/V5Memory.jsx",
+      "ui/src/views/v5ThreadDetailUtils.js",
+      "ui/src/views/V5ReviewSheet.jsx",
+      "ui/src/styles/v5.module.css",
+      "EXECUTION-TRACKER.md",
+      "docs/iterations/ITERATION_18_V5_PRODUCTIVITY_LOOP.md",
+      "docs/iterations/V5_PRODUCTIVITY_IMPLEMENTATION_PLAN.md"
+    ],
+    "routesAffected": [
+      "POST /api/v4/entities/:id/activity_updates",
+      "GET /api/v4/suggestions",
+      "GET /api/v4/summary",
+      "GET /api/v4/today",
+      "/now",
+      "/tasks/:id",
+      "/projects/:id",
+      "/people/:id",
+      "/recall"
+    ],
+    "dataOrApiDependencies": [
+      "Tests must use TEST_DATABASE_URL on port 5433 only.",
+      "Activity update new tasks remain suggestions per AU3 trust policy.",
+      "No schema migrations in M1\u2013M3 unless explicitly added in a slice."
+    ],
+    "writePathsAffected": [
+      "Activity update extraction and mutation policy",
+      "Suggestion review accept/dismiss from UI",
+      "Entity detail and Now presentation"
+    ]
+  },
+  "tasks": [
+    {
+      "id": "ui-01-duplicate-fab",
+      "title": "Remove duplicate Capture FAB on thread detail",
+      "description": "Entity detail pages render two Capture FABs: global CaptureFab in App.jsx and a local FAB in V5ThreadDetail. Remove the thread-detail FAB (showCaptureFab=false or delete local FAB). Global CaptureFab plus CaptureContext defaultAttachment must still pre-attach the current entity when capturing from entity routes.",
+      "kind": "fix",
+      "skills": [
+        "tdd",
+        "git-workflow"
+      ],
+      "risk": "low",
+      "dependencies": [],
+      "acceptanceCriteria": [
+        "Exactly one capture entry point on entity detail routes (/tasks/:id, /projects/:id, etc.).",
+        "Capture from entity page still pre-attaches thread context via CaptureContext.",
+        "CitationEntitySheet showCaptureFab=false behavior unchanged.",
+        "npm test -- V5ThreadDetail App passes; npm run build passes."
+      ],
+      "validationCommands": [
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- V5ThreadDetail App",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build"
+      ],
+      "blocked": false,
+      "passes": true,
+      "attempts": 1,
+      "blockerReason": null,
+      "validationEvidence": "Overseer canary (Loopsmith blocked on dirty repo pre-commit): showCaptureFab=false on thread detail; CaptureFab remains global in App. npm test -- V5ThreadDetail App: 24 passed."
+    },
+    {
+      "id": "ui-02-update-outcome-panel",
+      "title": "Show Add update applied/suggested outcomes in UI",
+      "description": "V5ThreadDetail handleUpdateSubmit ignores activityUpdates.create response (extracted, suggestions, target). After save, show a dismissible outcome panel: applied follow-up/status changes when present, suggested tasks with count and titles, link placeholder for review sheet (UI-03). Reload detail so Details chips reflect updated follow_up_at.",
+      "kind": "code",
+      "skills": [
+        "tdd",
+        "incremental-implementation",
+        "git-workflow"
+      ],
+      "risk": "medium",
+      "dependencies": [
+        "ui-01-duplicate-fab"
+      ],
+      "acceptanceCriteria": [
+        "Successful Add update shows applied vs suggested summary when API returns them.",
+        "Reloaded entity detail reflects updated follow_up_at in Details chips when API applied it.",
+        "Near-duplicate and error paths unchanged.",
+        "V5ThreadDetail tests cover mocked API response with suggestions array."
+      ],
+      "validationCommands": [
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- V5ThreadDetail",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build"
+      ],
+      "blocked": false,
+      "passes": true,
+      "attempts": 1,
+      "blockerReason": null,
+      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- V5ThreadDetail\n\n> engram-ui@0.0.0 test\n> node scripts/run-tests.mjs V5ThreadDetail\n\n\n RUN  v3.2.4 /Volumes/lex1t/dev/shared/repos/engram/ui\n\n \u2713 src/views/V5ThreadDetail.test.jsx (17 tests) 414ms\n\n Test Files  1 passed (1)\n      Tests  17 passed (17)\n   Start at  15:05:49\n   Duration  1.24s (transform 118ms, setup 49ms, collect 275ms, tests 414ms, environment 266ms, prepare 56ms)\n\nnpm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\nnpm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build\n\n> engram-ui@0.0.0 build\n> vite build\n\nvite v8.0.10 building client environment for production...\n\u001b[2K\ntransforming...\u2713 1835 modules transformed.\nrendering chunks...\ncomputing gzip size...\n../static/index.html                             1.95 kB \u2502 gzip:   0.86 kB\n../static/assets/index-DYuNRQId.css             60.27 kB \u2502 gzip:  10.37 kB\n../static/assets/rolldown-runtime-jpDsebLB.js    0.56 kB \u2502 gzip:   0.36 kB\n../static/assets/vendor-icons-CULm09Em.js        3.77 kB \u2502 gzip:   1.72 kB\n../static/assets/index-DH66Py09.js              83.61 kB \u2502 gzip:  24.50 kB\n../static/assets/vendor-react-CRYOerXQ.js      230.07 kB \u2502 gzip:  73.01 kB\n../static/assets/vendor-DgoxB5Ss.js            433.38 kB \u2502 gzip: 136.23 kB\n\n\u2713 built in 197ms\nnpm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options."
+    },
+    {
+      "id": "ui-03-suggestions-review",
+      "title": "V5 suggestions review sheet and shell badge",
+      "description": "Restore review surface for pending AI suggestions (V4 removed). New V5ReviewSheet: list pending suggestions, accept/dismiss via v4API.suggestions. Top-bar badge from summary.suggestions_count. Capture toast links to review when suggested > 0. Wire App.jsx to read suggestions_count from GET /api/v4/summary.",
+      "kind": "code",
+      "skills": [
+        "tdd",
+        "incremental-implementation",
+        "git-workflow"
+      ],
+      "risk": "medium",
+      "dependencies": [
+        "ui-02-update-outcome-panel"
+      ],
+      "acceptanceCriteria": [
+        "Badge or entry point visible when suggestions_count > 0.",
+        "Review sheet lists pending suggestions and accept/dismiss work against test API mocks.",
+        "Capture toast offers review link when suggestions returned from capture.",
+        "Frontend tests for review sheet; test_v4_suggestions integration suite passes."
+      ],
+      "validationCommands": [
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- V5ReviewSheet App TopBar V5CaptureSheet",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/integration/test_v4_suggestions.py -q",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build"
+      ],
+      "blocked": false,
+      "passes": true,
+      "attempts": 2,
+      "blockerReason": null
+    },
+    {
+      "id": "au10-status-extraction",
+      "title": "Activity update status extraction and mutation policy",
+      "description": "Extend extract_dates_and_tasks_from_update to include optional status (done, waiting, blocked, in_progress). In create_activity_update, auto-apply status when explicit and confidence >= AUTO_APPLY_CONFIDENCE (mirror capture progress_update); else emit update_task suggestion. New tasks remain suggestions only (AU3). Add characterization tests including done-for-now language.",
+      "kind": "code",
+      "skills": [
+        "tdd",
+        "incremental-implementation",
+        "git-workflow"
+      ],
+      "risk": "medium",
+      "dependencies": [
+        "ui-02-update-outcome-panel"
+      ],
+      "acceptanceCriteria": [
+        "Activity update extraction schema includes status field.",
+        "Explicit done language can close task (auto-apply or high-confidence path) with tests.",
+        "New tasks from updates still become create_task suggestions, never silent auto-create.",
+        "test_v4_activity_updates.py passes including new status cases."
+      ],
+      "validationCommands": [
+        "cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/integration/test_v4_activity_updates.py -q",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/integration/test_v4_suggestions.py -q"
+      ],
+      "blocked": false,
+      "passes": true,
+      "attempts": 1,
+      "blockerReason": null,
+      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/integration/test_v4_activity_updates.py -q\n.............................                                            [100%]\n29 passed in 1.36s\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/integration/test_v4_suggestions.py -q\n...................                                                      [100%]\n19 passed in 16.02s"
+    },
+    {
+      "id": "au11-follow-up-routing",
+      "title": "Follow-up routing for closure and spin-off tasks",
+      "description": "When update sets status done/cancelled, do not apply follow_up_at to target entity. When follow-up language refers to new work (e.g. security review), put due_at/follow_up_at on task suggestion payload instead of parent. Update extraction prompt with closure + spin-off example. Integration test for user scenario: done + new task + follow up next week.",
+      "kind": "code",
+      "skills": [
+        "tdd",
+        "incremental-implementation",
+        "git-workflow"
+      ],
+      "risk": "medium",
+      "dependencies": [
+        "au10-status-extraction"
+      ],
+      "acceptanceCriteria": [
+        "Done task update does not receive parent follow_up_at when spin-off task carries the date.",
+        "Explicit follow-up on open task still updates target (existing behavior preserved).",
+        "Integration test covers done + security review task suggestion + follow-up on suggestion.",
+        "test_v4_activity_updates.py passes."
+      ],
+      "validationCommands": [
+        "cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/integration/test_v4_activity_updates.py -q"
+      ],
+      "blocked": false,
+      "passes": true,
+      "attempts": 1,
+      "blockerReason": null,
+      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/integration/test_v4_activity_updates.py -q\n..............................                                           [100%]\n30 passed in 1.28s"
+    },
+    {
+      "id": "ui-04-now-full-today",
+      "title": "Now view uses full /api/v4/today payload",
+      "description": "Extend V5Now transformTodayResponse to surface blocked_tasks, waiting_tasks, overdue_follow_ups, follow_ups, recent_notes, pending_suggestions row, and new_since_yesterday_count from summary where useful. Preserve three-band layout (needs / waiting / ambient).",
+      "kind": "code",
+      "skills": [
+        "tdd",
+        "incremental-implementation",
+        "git-workflow"
+      ],
+      "risk": "medium",
+      "dependencies": [
+        "ui-03-suggestions-review"
+      ],
+      "acceptanceCriteria": [
+        "Now renders at least blocked/waiting and follow-up buckets when API returns them.",
+        "Pending suggestions row links to review sheet when UI-03 shipped.",
+        "V5Now tests updated; test_v4_today integration passes."
+      ],
+      "validationCommands": [
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- V5Now",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/integration/test_v4_today.py -q",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build"
+      ],
+      "blocked": false,
+      "passes": true,
+      "attempts": 1,
+      "blockerReason": null,
+      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- V5Now\n\n> engram-ui@0.0.0 test\n> node scripts/run-tests.mjs V5Now\n\n\n RUN  v3.2.4 /Volumes/lex1t/dev/shared/repos/engram/ui\n\n \u2713 src/views/V5Now.test.jsx (10 tests) 112ms\n\n Test Files  1 passed (1)\n      Tests  10 passed (10)\n   Start at  15:40:59\n   Duration  786ms (transform 74ms, setup 52ms, collect 143ms, tests 112ms, environment 269ms, prepare 48ms)\n\nnpm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\nnpm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/integration/test_v4_today.py -q\n......................                                                   [100%]\n22 passed in 1.33s\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build\n\n> engram-ui@0.0.0 build\n> vite build\n\nvite v8.0.10 building client environment for production...\n\u001b[2K\ntransforming...\u2713 1839 modules transformed.\nrendering chunks...\ncomputing gzip size...\n../static/index.html                             1.95 kB \u2502 gzip:   0.86 kB\n../static/assets/index-DRVWBu84.css             63.51 kB \u2502 gzip:  10.77 kB\n../static/assets/rolldown-runtime-jpDsebLB.js    0.56 kB \u2502 gzip:   0.36 kB\n../static/assets/vendor-icons-CULm09Em.js        3.77 kB \u2502 gzip:   1.72 kB\n../static/assets/index-36rOkMIJ.js              89.70 kB \u2502 gzip:  26.01 kB\n../static/assets/vendor-react-CRYOerXQ.js      230.07 kB \u2502 gzip:  73.01 kB\n../static/assets/vendor-DgoxB5Ss.js            433.38 kB \u2502 gzip: 136.23 kB\n\n\u2713 built in 196ms\nnpm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options."
+    },
+    {
+      "id": "ui-05-meeting-prep",
+      "title": "Render meeting prep and current load on person detail",
+      "description": "Backend person detail includes meeting_prep and current_load but UI ignores them. Add buildMeetingPrep/buildCurrentLoad in v5ThreadDetailUtils and render sections on person detail after Summary.",
+      "kind": "code",
+      "skills": [
+        "tdd",
+        "git-workflow"
+      ],
+      "risk": "low",
+      "dependencies": [],
+      "acceptanceCriteria": [
+        "Person detail shows meeting_prep headline, agenda items, recent notes when API provides them.",
+        "Person detail shows current_load open tasks when API provides them.",
+        "V5ThreadDetail tests cover meeting prep fixture; meeting_prep integration test still passes."
+      ],
+      "validationCommands": [
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- V5ThreadDetail",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/integration/test_v4_today.py -q -k meeting_prep",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build"
+      ],
+      "blocked": false,
+      "passes": true,
+      "attempts": 1,
+      "blockerReason": null,
+      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- V5ThreadDetail\n\n> engram-ui@0.0.0 test\n> node scripts/run-tests.mjs V5ThreadDetail\n\n\n RUN  v3.2.4 /Volumes/lex1t/dev/shared/repos/engram/ui\n\n \u2713 src/views/V5ThreadDetail.test.jsx (18 tests) 432ms\n\n Test Files  1 passed (1)\n      Tests  18 passed (18)\n   Start at  15:42:23\n   Duration  1.26s (transform 121ms, setup 51ms, collect 264ms, tests 432ms, environment 266ms, prepare 52ms)\n\nnpm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\nnpm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/integration/test_v4_today.py -q -k meeting_prep\n.                                                                        [100%]\n1 passed, 21 deselected in 0.27s\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build\n\n> engram-ui@0.0.0 build\n> vite build\n\nvite v8.0.10 building client environment for production...\n\u001b[2K\ntransforming...\u2713 1839 modules transformed.\nrendering chunks...\ncomputing gzip size...\n../static/index.html                             1.95 kB \u2502 gzip:   0.86 kB\n../static/assets/index-DRVWBu84.css             63.51 kB \u2502 gzip:  10.77 kB\n../static/assets/rolldown-runtime-jpDsebLB.js    0.56 kB \u2502 gzip:   0.36 kB\n../static/assets/vendor-icons-CULm09Em.js        3.77 kB \u2502 gzip:   1.72 kB\n../static/assets/index-DkpjkX0a.js              92.19 kB \u2502 gzip:  26.50 kB\n../static/assets/vendor-react-CRYOerXQ.js      230.07 kB \u2502 gzip:  73.01 kB\n../static/assets/vendor-DgoxB5Ss.js            433.38 kB \u2502 gzip: 136.23 kB\n\n\u2713 built in 261ms\nnpm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options."
+    },
+    {
+      "id": "ui-06-honest-follow-up-actions",
+      "title": "Honest Snooze and reminder action labels",
+      "description": "Snooze, Send reminder, and remind emoji actions all set follow_up_at to now+24h without explaining that. Rename to honest labels (e.g. Follow up tomorrow) and add title/tooltip documenting behavior until date picker ships.",
+      "kind": "fix",
+      "skills": [
+        "tdd",
+        "git-workflow"
+      ],
+      "risk": "low",
+      "dependencies": [],
+      "acceptanceCriteria": [
+        "Now Snooze and thread detail remind actions use honest copy matching 24h behavior.",
+        "Tests updated for new labels.",
+        "npm test -- V5Now V5ThreadDetail passes."
+      ],
+      "validationCommands": [
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- V5Now V5ThreadDetail",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build"
+      ],
+      "blocked": false,
+      "passes": true,
+      "attempts": 1,
+      "blockerReason": null,
+      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- V5Now V5ThreadDetail\n\n> engram-ui@0.0.0 test\n> node scripts/run-tests.mjs V5Now V5ThreadDetail\n\n\n RUN  v3.2.4 /Volumes/lex1t/dev/shared/repos/engram/ui\n\n \u2713 src/views/V5Now.test.jsx (11 tests) 125ms\n \u2713 src/views/V5ThreadDetail.test.jsx (19 tests) 422ms\n\n Test Files  2 passed (2)\n      Tests  30 passed (30)\n   Start at  15:43:48\n   Duration  1.22s (transform 166ms, setup 108ms, collect 408ms, tests 547ms, environment 531ms, prepare 80ms)\n\nnpm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\nnpm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build\n\n> engram-ui@0.0.0 build\n> vite build\n\nvite v8.0.10 building client environment for production...\n\u001b[2K\ntransforming...\u2713 1840 modules transformed.\nrendering chunks...\ncomputing gzip size...\n../static/index.html                             1.95 kB \u2502 gzip:   0.86 kB\n../static/assets/index-DRVWBu84.css             63.51 kB \u2502 gzip:  10.77 kB\n../static/assets/rolldown-runtime-jpDsebLB.js    0.56 kB \u2502 gzip:   0.36 kB\n../static/assets/vendor-icons-CULm09Em.js        3.77 kB \u2502 gzip:   1.72 kB\n../static/assets/index-Dd5eq1Lv.js              92.36 kB \u2502 gzip:  26.55 kB\n../static/assets/vendor-react-CRYOerXQ.js      230.07 kB \u2502 gzip:  73.01 kB\n../static/assets/vendor-DgoxB5Ss.js            433.38 kB \u2502 gzip: 136.23 kB\n\n\u2713 built in 203ms\nnpm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options."
+    },
+    {
+      "id": "ui-07-recall-copy",
+      "title": "Recall honest copy and Ask handoff",
+      "description": "Recall placeholder says Search or ask but only searches. Change placeholder to Search your workspace; on empty results offer Open Ask Engram button that opens V5AskSheet.",
+      "kind": "fix",
+      "skills": [
+        "tdd",
+        "git-workflow"
+      ],
+      "risk": "low",
+      "dependencies": [],
+      "acceptanceCriteria": [
+        "Recall placeholder no longer promises ask behavior in the input alone.",
+        "Empty search results show Ask handoff affordance.",
+        "V5Recall tests pass."
+      ],
+      "validationCommands": [
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- V5Recall",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build"
+      ],
+      "blocked": false,
+      "passes": true,
+      "attempts": 1,
+      "blockerReason": null,
+      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- V5Recall\n\n> engram-ui@0.0.0 test\n> node scripts/run-tests.mjs V5Recall\n\n\n RUN  v3.2.4 /Volumes/lex1t/dev/shared/repos/engram/ui\n\n \u2713 src/views/V5RecallOpener.test.jsx (3 tests) 21ms\n \u2713 src/views/V5Recall.test.jsx (8 tests) 518ms\n\n Test Files  2 passed (2)\n      Tests  11 passed (11)\n   Start at  15:50:28\n   Duration  1.19s (transform 84ms, setup 101ms, collect 213ms, tests 539ms, environment 503ms, prepare 90ms)\n\nnpm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\nnpm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build\n\n> engram-ui@0.0.0 build\n> vite build\n\nvite v8.0.10 building client environment for production...\n\u001b[2K\ntransforming...\u2713 1840 modules transformed.\nrendering chunks...\ncomputing gzip size...\n../static/index.html                             1.95 kB \u2502 gzip:   0.86 kB\n../static/assets/index-CwvCIh9R.css             63.66 kB \u2502 gzip:  10.79 kB\n../static/assets/rolldown-runtime-jpDsebLB.js    0.56 kB \u2502 gzip:   0.36 kB\n../static/assets/vendor-icons-CULm09Em.js        3.77 kB \u2502 gzip:   1.72 kB\n../static/assets/index-BUPLew62.js              92.69 kB \u2502 gzip:  26.64 kB\n../static/assets/vendor-react-CRYOerXQ.js      230.07 kB \u2502 gzip:  73.01 kB\n../static/assets/vendor-DgoxB5Ss.js            433.38 kB \u2502 gzip: 136.23 kB\n\n\u2713 built in 197ms\nnpm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options."
+    },
+    {
+      "id": "ui-08-memory-digest",
+      "title": "Memory UX: hide thread UUID filter and reduce noise",
+      "description": "Remove or hide raw Thread ID filter in V5Memory. Add client-side filter to hide repetitive bookkeeping narrations (optional toggle). Keep server timeline contract unchanged.",
+      "kind": "code",
+      "skills": [
+        "tdd",
+        "git-workflow"
+      ],
+      "risk": "low",
+      "dependencies": [],
+      "acceptanceCriteria": [
+        "Thread ID raw text filter not exposed in default Memory UI.",
+        "Toggle or filter reduces low-signal updated bookkeeping lines in client view.",
+        "V5Memory tests pass."
+      ],
+      "validationCommands": [
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- V5Memory",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build"
+      ],
+      "blocked": false,
+      "passes": true,
+      "attempts": 1,
+      "blockerReason": null,
+      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- V5Memory\n\n> engram-ui@0.0.0 test\n> node scripts/run-tests.mjs V5Memory\n\n\n RUN  v3.2.4 /Volumes/lex1t/dev/shared/repos/engram/ui\n\n \u2713 src/views/V5Memory.test.jsx (8 tests) 125ms\n\n Test Files  1 passed (1)\n      Tests  8 passed (8)\n   Start at  15:54:06\n   Duration  966ms (transform 110ms, setup 49ms, collect 292ms, tests 125ms, environment 275ms, prepare 38ms)\n\nnpm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\nnpm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build\n\n> engram-ui@0.0.0 build\n> vite build\n\nvite v8.0.10 building client environment for production...\n\u001b[2K\ntransforming...\u2713 1840 modules transformed.\nrendering chunks...\ncomputing gzip size...\n../static/index.html                             1.95 kB \u2502 gzip:   0.86 kB\n../static/assets/index-CNWemEuX.css             63.35 kB \u2502 gzip:  10.74 kB\n../static/assets/rolldown-runtime-jpDsebLB.js    0.56 kB \u2502 gzip:   0.36 kB\n../static/assets/vendor-icons-CULm09Em.js        3.77 kB \u2502 gzip:   1.72 kB\n../static/assets/index-Dsdhubi6.js              92.59 kB \u2502 gzip:  26.60 kB\n../static/assets/vendor-react-CRYOerXQ.js      230.07 kB \u2502 gzip:  73.01 kB\n../static/assets/vendor-DgoxB5Ss.js            433.38 kB \u2502 gzip: 136.23 kB\n\n\u2713 built in 198ms\nnpm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options."
+    },
+    {
+      "id": "ui-09-decisions-section",
+      "title": "Decisions section on thread detail",
+      "description": "Thread detail shows decisions_count chip but no list. Add Decisions section using GET /api/v4/decisions?thread_id= and optional manual record via POST /api/v4/decisions.",
+      "kind": "code",
+      "skills": [
+        "tdd",
+        "incremental-implementation",
+        "git-workflow"
+      ],
+      "risk": "low",
+      "dependencies": [],
+      "acceptanceCriteria": [
+        "Thread detail lists decisions when API returns them.",
+        "Header decisions chip scrolls or links to section.",
+        "V5ThreadDetail tests cover decisions section with mock data."
+      ],
+      "validationCommands": [
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- V5ThreadDetail",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build"
+      ],
+      "blocked": false,
+      "passes": true,
+      "attempts": 1,
+      "blockerReason": null,
+      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- V5ThreadDetail\n\n> engram-ui@0.0.0 test\n> node scripts/run-tests.mjs V5ThreadDetail\n\n\n RUN  v3.2.4 /Volumes/lex1t/dev/shared/repos/engram/ui\n\n \u2713 src/views/V5ThreadDetail.test.jsx (21 tests) 513ms\n\n Test Files  1 passed (1)\n      Tests  21 passed (21)\n   Start at  16:02:53\n   Duration  1.29s (transform 122ms, setup 47ms, collect 266ms, tests 513ms, environment 257ms, prepare 51ms)\n\nnpm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\nnpm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\nstderr | src/views/V5ThreadDetail.test.jsx > V5ThreadDetail > does not open the quick-action sheet from timeline rows\nAn update to V5ThreadDetail inside a test was not wrapped in act(...).\n\nWhen testing, code that causes React state updates should be wrapped into act(...):\n\nact(() => {\n  /* fire events that update state */\n});\n/* assert on the output */\n\nThis ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build\n\n> engram-ui@0.0.0 build\n> vite build\n\nvite v8.0.10 building client environment for production...\n\u001b[2K\ntransforming...\u2713 1840 modules transformed.\nrendering chunks...\ncomputing gzip size...\n../static/index.html                             1.95 kB \u2502 gzip:   0.86 kB\n../static/assets/index-CNWemEuX.css             63.35 kB \u2502 gzip:  10.74 kB\n../static/assets/rolldown-runtime-jpDsebLB.js    0.56 kB \u2502 gzip:   0.36 kB\n../static/assets/vendor-icons-CULm09Em.js        3.77 kB \u2502 gzip:   1.72 kB\n../static/assets/index-sU6LHL5n.js              95.37 kB \u2502 gzip:  27.24 kB\n../static/assets/vendor-react-CRYOerXQ.js      230.07 kB \u2502 gzip:  73.01 kB\n../static/assets/vendor-DgoxB5Ss.js            433.38 kB \u2502 gzip: 136.23 kB\n\n\u2713 built in 208ms\nnpm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options."
+    },
+    {
+      "id": "ui-10-collapse-empty-sections",
+      "title": "Collapse empty thread detail sections",
+      "description": "People, Related threads, and References sections always render with emptyHint paragraphs. Omit sections entirely when item count is zero to reduce scroll noise.",
+      "kind": "fix",
+      "skills": [
+        "tdd",
+        "git-workflow"
+      ],
+      "risk": "low",
+      "dependencies": [],
+      "acceptanceCriteria": [
+        "Empty People, Related threads, References sections not rendered.",
+        "Non-empty sections unchanged.",
+        "V5ThreadDetail tests pass."
+      ],
+      "validationCommands": [
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- V5ThreadDetail",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build"
+      ],
+      "blocked": false,
+      "passes": true,
+      "attempts": 1,
+      "blockerReason": null,
+      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- V5ThreadDetail\n\n> engram-ui@0.0.0 test\n> node scripts/run-tests.mjs V5ThreadDetail\n\n\n RUN  v3.2.4 /Volumes/lex1t/dev/shared/repos/engram/ui\n\n \u2713 src/views/V5ThreadDetail.test.jsx (22 tests) 507ms\n\n Test Files  1 passed (1)\n      Tests  22 passed (22)\n   Start at  16:05:32\n   Duration  1.43s (transform 138ms, setup 49ms, collect 307ms, tests 507ms, environment 324ms, prepare 59ms)\n\nnpm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\nnpm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\nstderr | src/views/V5ThreadDetail.test.jsx > V5ThreadDetail > does not open the quick-action sheet from timeline rows\nAn update to V5ThreadDetail inside a test was not wrapped in act(...).\n\nWhen testing, code that causes React state updates should be wrapped into act(...):\n\nact(() => {\n  /* fire events that update state */\n});\n/* assert on the output */\n\nThis ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build\n\n> engram-ui@0.0.0 build\n> vite build\n\nvite v8.0.10 building client environment for production...\n\u001b[2K\ntransforming...\u2713 1840 modules transformed.\nrendering chunks...\ncomputing gzip size...\n../static/index.html                             1.95 kB \u2502 gzip:   0.86 kB\n../static/assets/index-CNWemEuX.css             63.35 kB \u2502 gzip:  10.74 kB\n../static/assets/rolldown-runtime-jpDsebLB.js    0.56 kB \u2502 gzip:   0.36 kB\n../static/assets/vendor-icons-CULm09Em.js        3.77 kB \u2502 gzip:   1.72 kB\n../static/assets/index-BJMT5Pcq.js              95.17 kB \u2502 gzip:  27.22 kB\n../static/assets/vendor-react-CRYOerXQ.js      230.07 kB \u2502 gzip:  73.01 kB\n../static/assets/vendor-DgoxB5Ss.js            433.38 kB \u2502 gzip: 136.23 kB\n\n\u2713 built in 197ms\nnpm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options."
+    }
+  ],
+  "previousIteration": "v5-postphase3-hardening",
+  "previousIterationStatus": "completed",
+  "codingLoopPolicy": {
+    "primaryExecutor": "opencode",
+    "fallbackExecutors": [
+      "cursor",
+      "codex",
+      "claude"
+    ],
+    "platform": "openclaw",
+    "allowExecutorFallback": true,
+    "requireHumanForDependencies": true
+  }
+}

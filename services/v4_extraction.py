@@ -29,9 +29,12 @@ Analyze the note below and return JSON with metadata, link candidates, and entit
 RULES:
 - Return JSON only. No prose, no markdown fences.
 - Do NOT re-extract the source note itself as an entity or link candidate.
-- Be exhaustive: extract every actionable item, person, project, area, and resource mentioned.
-- Prefer over-extraction — the reconciliation layer decides what to apply.
-- Confidence: 0.9+ explicit/unambiguous, 0.7–0.9 strongly implied, 0.5–0.7 inferred, <0.5 speculative.
+- Be exhaustive for PEOPLE, PROJECTS, AREAS, and RESOURCES — extract every mentioned item.
+- For TASKS, prefer precision over recall: only emit candidates that pass the positive test in \
+the TASKS rule below. The reconciliation layer cannot fix garbage candidates.
+- Confidence is a tiebreaker only; structural signals (owner, deliverable verb, due date, \
+existing match) drive the apply layer. If you provide it: 0.9+ explicit/unambiguous, 0.7–0.9 \
+strongly implied, 0.5–0.7 inferred, <0.5 speculative.
 - DEDUPE WITHIN THIS NOTE: each real-world entity must appear at most ONCE across the entire \
 output (combining the `links` and `entities` arrays). If a person, project, area, or resource \
 is mentioned multiple times in the note — even with different surface forms ("Priya", "Priya \
@@ -50,22 +53,38 @@ uses for "project" and "area". When extracting NEW projects or areas, follow the
 (scope, specificity, phrasing) as these examples.
 
 TASKS — DEDICATED RULE (highest priority extraction):
-Tasks are routinely missed when prompts are vague. Apply ALL of the following:
+A task candidate must pass a positive test BEFORE it is emitted:
+  (a) It names a concrete deliverable or next action, AND
+  (b) it has an owner who is the user or someone the user must chase.
+
+Apply ALL of the following:
   1. Any section titled "Action Items", "Action items", "Tasks", "TODO", "To do", "Next Steps", \
 "Next steps", "Follow-ups", or "Follow ups" — every bullet (or sub-bullet) inside it is a separate \
-task candidate, but only if it describes a concrete next action.
-  2. Any bullet formatted as "Name:" or "Name —" followed by an action description is a task. \
-The Name is the assignee; emit `assigned_to: "<Name>"` and also emit the Name as a `person` candidate.
+task candidate, BUT only if it passes the positive test above.
+  2. Any bullet formatted as "Name:" or "Name —" followed by an action description is a task ONLY \
+if the action is concrete and the user must chase the owner. Emit `assigned_to: "<Name>"` and also \
+emit the Name as a `person` candidate.
   3. Any sentence that begins with an imperative verb ("Ship", "Draft", "Send", "Schedule", \
 "Define", "Review", "Build"), or contains "needs to", "will", "should", "TODO", "follow up with", \
 "remind me", "let's", or "we should" describes a task only when it names a concrete next step, \
 owner, or deliverable. Ignore hedged, tentative, or purely reflective language.
   4. Do NOT collapse multiple actions into a single task. "Ask Henry and follow up with Priya" is \
 two tasks. "Draft the doc and share by Friday" is one task with a due date; "Draft the doc; then \
-review with the team" is two tasks. When in doubt, split.
+review with the team" is two tasks.
   5. Keep task titles specific and concrete (≤10 words, starts with a verb, sentence case). \
 Prefer the most actionable phrasing; avoid tentative wording like "maybe", "possibly", "could", \
 "consider", or "think about". Put extra detail in `content`, not the title.
+
+EXPLICITLY EXCLUDE from task extraction:
+  - Meeting logistics: attend, schedule, hold, book, reserve, or calendar-blocking that has no \
+deliverable the user owns. Examples: "Attend all hands in Vancouver", "Schedule the Q3 review", \
+"Hold a parking-lot session".
+  - Stance fragments: endorse, agree, defer, revisit, prioritize, favor, support, or "treat X as Y" \
+when they restate a discussion position rather than assign work. Examples: "Endorse L2 priority", \
+"Treat L3 as deliberate defer", "Name L3 defer explicitly on slide 5".
+  - Restatements of discussion positions: "We should prioritize L2 over L3", "The team agreed to \
+defer", "Revisit next quarter".
+  - Calendar/location logistics with no action owner or deliverable.
 
 ENTITY TYPES — use exactly these strings:
   "task"     — See dedicated TASKS rule above. Be selective about tentative phrasing: prefer \
@@ -104,14 +123,13 @@ No trailing punctuation. Sentence case. Concrete and specific (avoid 'Note about
   "summary": "1–2 sentence summary of what this note is about",
   "intent": "update|task_signal|follow_up|blocker|delegation|reference|junk|note",
   "intent_confidence": 0.0,
-  "confidence": 0.0,
   "tags": [{"name": "tag", "confidence": 0.0}],
   "links": [{
     "target_type": "task|project|area|person|resource",
     "title": "canonical title of the entity to link to",
     "relationship_type": "parent|related|derived_from|mentions|assigned_to|references|blocks",
     "confidence": 0.0,
-    "evidence": "exact quote or brief rationale"
+    "evidence": "exact quote or brief rationale (confidence is tiebreaker only)"
   }],
   "entities": [{
     "type": "task|project|area|person|resource",
@@ -121,7 +139,7 @@ No trailing punctuation. Sentence case. Concrete and specific (avoid 'Note about
     "follow_up_at": "ISO 8601 date if a follow-up date is mentioned, else null",
     "assigned_to": "person name if task/project is assigned to someone, else null",
     "confidence": 0.0,
-    "evidence": "exact quote or brief rationale"
+    "evidence": "exact quote or brief rationale (confidence is tiebreaker only)"
   }]
 }
 
@@ -494,52 +512,90 @@ def _intent(value):
 
 # ── Lightweight activity-update extraction ────────────────────────────────────
 
-ACTIVITY_UPDATE_SYSTEM_PROMPT = """You are a lightweight extraction engine for activity/progress updates on tasks and projects. Your ONLY job is to extract two things:
+ACTIVITY_UPDATE_SYSTEM_PROMPT = """You are a lightweight extraction engine for activity/progress updates on tasks and projects. Your ONLY job is to extract three things:
 
-1. FOLLOW-UP DATES: Any explicit date, day, or time frame when the next follow-up or check-in should happen.
+1. STATUS: Optional status change implied about the entity being updated.
+   Examples: "done for now" / "shipped" / "finished" → done, "waiting on infra" → waiting,
+   "blocked by security review" → blocked, "started working on this" → in_progress.
+   Return null if no status change is implied. Include a top-level confidence (0.0–1.0) for the status
+   extraction when status is non-null; it is used only as a tiebreaker after explicit status
+   language is detected.
+
+2. FOLLOW-UP DATES: Any explicit date, day, or time frame when the next follow-up or check-in should happen.
    Examples: "review next Friday" → next Friday's date, "circle back in 3 days" → 3 days from now,
    "follow up June 15" → 2026-06-15, "check in 2 weeks" → 2 weeks from now.
    Return as ISO 8601 date string (YYYY-MM-DD). Use today's date as context for relative dates.
    Return null if no follow-up date is mentioned.
 
-2. NEW TASKS: Any new actionable items mentioned in the update that are NOT the same as the update itself.
+3. NEW TASKS: Any new actionable items mentioned in the update that are NOT the same as the update itself.
    Examples: "Need to update the docs too" → task, "Priya will handle the deployment" → task assigned to Priya.
    Each task should have a title (concise, starts with verb, ≤10 words), optional content, optional due date,
-   optional assignee name. Return empty list if no new tasks are mentioned.
+   optional follow_up_at (when the follow-up date refers to that new work), optional assignee name.
+   Do NOT include a confidence score for tasks; they always become reviewable suggestions.
+   Return empty list if no new tasks are mentioned.
+
+FOLLOW-UP ROUTING:
+- Top-level follow_up_at is for checking back on the entity being updated.
+- When the update closes the entity (status done/cancelled) AND introduces new work, put the follow-up
+  date on the new task (due_at or follow_up_at), NOT on the top-level follow_up_at for the closing entity.
+- When follow-up language clearly refers to new work ("follow up next week on security review"), attach
+  the date to that task instead of the top-level follow_up_at.
+
+Example — closure + spin-off:
+Update: "This is done for now. Need to clear security review before launch — follow up next week on that."
+→ status: "done", confidence: 0.9, follow_up_at: null,
+  tasks: [{title: "Clear security review", follow_up_at: "YYYY-MM-DD"}]
+(where YYYY-MM-DD is ~7 days from today)
 
 Return JSON only. No prose, no markdown fences.
 
 Schema:
 {
+  "status": "done" | "waiting" | "blocked" | "in_progress" | null,
+  "confidence": 0.0,
   "follow_up_at": "YYYY-MM-DD" or null,
   "tasks": [{
     "title": "concise task title",
     "content": "optional detail",
     "due_at": "YYYY-MM-DD" or null,
-    "assigned_to": "person name" or null,
-    "confidence": 0.0
+    "follow_up_at": "YYYY-MM-DD" or null,
+    "assigned_to": "person name" or null
   }]
 }"""
+
+
+ACTIVITY_UPDATE_STATUSES = {"done", "waiting", "blocked", "in_progress"}
+
+
+def _normalize_activity_status(value):
+    normalized = _text(value)
+    if not normalized:
+        return None
+    normalized = normalized.lower().replace("-", "_").replace(" ", "_")
+    if normalized in ACTIVITY_UPDATE_STATUSES:
+        return normalized
+    return None
 
 
 def extract_dates_and_tasks_from_update(content, today_iso=None):
     """Lightweight extraction for activity-update content.
 
-    Returns {"follow_up_at": "YYYY-MM-DD"|None, "tasks": [...]}.
+    Returns {"status": str|None, "confidence": float, "follow_up_at": "YYYY-MM-DD"|None, "tasks": [...]}.
     Uses a cheaper/faster model than the full capture extraction.
     """
+    empty = {"status": None, "confidence": 0.0, "follow_up_at": None, "tasks": []}
     if not content or not content.strip():
-        return {"follow_up_at": None, "tasks": []}
+        return empty
 
     try:
         from flask import current_app
         if current_app.config.get("TESTING") and os.getenv("ENGRAM_ALLOW_TEST_AI") != "1":
-            return {"follow_up_at": None, "tasks": []}
+            return empty
     except RuntimeError:
         pass
 
     if not os.getenv("OPENAI_API_KEY"):
-        return {"follow_up_at": None, "tasks": []}
+        return empty
 
     from datetime import date
     today = today_iso or date.today().isoformat()
@@ -560,9 +616,12 @@ def extract_dates_and_tasks_from_update(content, today_iso=None):
         result = json.loads(raw)
     except Exception as exc:
         logger.warning("activity-update extraction failed: %s", exc)
-        return {"follow_up_at": None, "tasks": []}
+        return empty
 
+    status = _normalize_activity_status(result.get("status"))
     return {
+        "status": status,
+        "confidence": _confidence(result.get("confidence")) if status else 0.0,
         "follow_up_at": _date(result.get("follow_up_at")),
         "tasks": _normalize_activity_tasks(result.get("tasks") or []),
     }
@@ -580,6 +639,7 @@ def _normalize_activity_tasks(items):
             "title": title[:160],
             "content": _text(item.get("content")),
             "due_at": _date(item.get("due_at")),
+            "follow_up_at": _date(item.get("follow_up_at")),
             "assigned_to": _text(item.get("assigned_to")),
             "confidence": _confidence(item.get("confidence")),
         })

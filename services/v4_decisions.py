@@ -74,6 +74,79 @@ TENTATIVE_MARKERS = re.compile(
 )
 
 
+# ── Structural guardrail (SQ-04) ─────────────────────────────────────────
+# The prompt requires a named actor and a concrete date/deliverable, but the
+# model sometimes ignores that (e.g. "We can close this task now." was
+# extracted as a decision). This is a post-hoc, regex-based structural check
+# applied in _normalize_decisions as a belt-and-braces guard: it rejects
+# candidates that read like routine status/closure chatter rather than an
+# attributed commitment.
+CLOSURE_LANGUAGE_PATTERN = re.compile(
+    r"\b(clos(?:e|ed|ing)|done|finish(?:ed|ing)?|wrap\w*(?:\s+\w+){0,2}\s+up|"
+    r"mark(?:ed)?\s+as\s+done)\b",
+    re.IGNORECASE,
+)
+
+DATE_OR_DELIVERABLE_SIGNAL_PATTERN = re.compile(
+    r"\b(\d{4}-\d{2}-\d{2}|\d{1,2}/\d{1,2}(?:/\d{2,4})?|"
+    r"january|february|march|april|may|june|july|august|september|october|november|december|"
+    r"monday|tuesday|wednesday|thursday|friday|saturday|sunday|"
+    r"today|tomorrow|tonight|eod|eow|end of day|end of week|next week|this week)\b",
+    re.IGNORECASE,
+)
+
+# Words that commonly start a sentence regardless of who the actor is (generic
+# pronouns/articles). A capitalized word in this position is not, by itself,
+# evidence of a named actor. Capitalized words elsewhere in the statement (or
+# a non-generic capitalized first word, e.g. an actual name) do count.
+_SENTENCE_INITIAL_STOPWORDS = {
+    "we", "the", "this", "that", "these", "those", "it", "i", "let", "lets",
+    "he", "she", "they", "there", "here", "if", "when", "while", "after",
+    "before", "once", "so", "then", "a", "an", "you", "your", "our", "us",
+    "should", "will", "can", "may", "might", "could", "would", "and", "but",
+}
+
+
+def _has_named_actor_signal(statement):
+    """True if the statement names a specific person/agent (or "I ...")."""
+    if not statement:
+        return False
+    if re.search(r"\bI\b", statement):
+        return True
+    for index, word in enumerate(statement.split()):
+        clean = re.sub(r"[^A-Za-z]", "", word)
+        if not clean or not clean[0].isupper():
+            continue
+        if index == 0 and clean.lower() in _SENTENCE_INITIAL_STOPWORDS:
+            continue
+        return True
+    return False
+
+
+def _has_date_or_deliverable_signal(statement, context, decided_at):
+    if decided_at:
+        return True
+    haystack = " ".join(part for part in (statement, context) if part)
+    return bool(DATE_OR_DELIVERABLE_SIGNAL_PATTERN.search(haystack))
+
+
+def _passes_structural_guardrail(statement, context, decided_at):
+    has_actor = _has_named_actor_signal(statement)
+    has_date_or_deliverable = _has_date_or_deliverable_signal(statement, context, decided_at)
+
+    # Closure/routine-progress language with no attribution and no concrete
+    # date/deliverable reads as status chatter, not a decision.
+    if CLOSURE_LANGUAGE_PATTERN.search(statement) and not has_actor and not has_date_or_deliverable:
+        return False
+
+    # Otherwise still require at least one structural signal: a named actor
+    # (or "I ..." attribution), or a concrete date/deliverable.
+    if not has_actor and not has_date_or_deliverable:
+        return False
+
+    return True
+
+
 def extract_decisions_from_note(content, today_iso=None):
     """Return decision candidates for a note.
 
@@ -129,13 +202,16 @@ def _normalize_decisions(items):
         # model is over-eager.
         if TENTATIVE_MARKERS.search(statement):
             continue
+        context = _clean_text(item.get("context"))
         decided_by = _clean_text(item.get("decided_by")) or "user"
         if not _valid_decided_by(decided_by):
             decided_by = "user"
         decided_at = _parse_datetime(item.get("decided_at"))
+        if not _passes_structural_guardrail(statement, context, decided_at):
+            continue
         decisions.append({
             "statement": statement[:500],
-            "context": _clean_text(item.get("context")),
+            "context": context,
             "decided_at": decided_at,
             "decided_by": decided_by,
         })

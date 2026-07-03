@@ -38,6 +38,11 @@ def test_uncertain_decision_labeled_in_reason():
     reason = _capture_suggestion_reason(decision, confidence=0.7)
     assert reason == v4_reconciliation.UNCERTAIN_SUGGESTION_REASON
 
+    reason_with_evidence = _capture_suggestion_reason(
+        decision, confidence=0.7, evidence="follow up with Akash about Q3"
+    )
+    assert reason_with_evidence == "follow up with Akash about Q3"
+
     assert v4_reconciliation.is_uncertain_decision({"action": "skip", "confidence": 0.9}) is True
     assert v4_reconciliation.is_uncertain_decision({"action": "new", "confidence": 0.7}, confidence=0.7) is True
     assert v4_reconciliation.is_uncertain_decision({"action": "new", "confidence": 0.91}, confidence=0.91) is False

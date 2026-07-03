@@ -47,6 +47,16 @@ const previewData = {
       narration: 'I processed this entity.',
       thread_id: 'note-1',
     },
+    {
+      id: 'e3',
+      entity_id: 'task-1',
+      entity_type: 'task',
+      event_type: 'activity_update_added',
+      occurred_at: new Date(Date.now() - 3600000).toISOString(),
+      actor: 'user',
+      narration: 'Updated task status.',
+      thread_id: 'project-1',
+    },
   ],
   next_offset: null,
 };
@@ -71,11 +81,29 @@ describe('V5Memory', () => {
     expect(screen.getByRole('group', { name: /Filter by actor/i })).toBeInTheDocument();
   });
 
+  it('does not expose a thread ID filter by default', () => {
+    renderWithRouter(<V5Memory previewData={previewData} />);
+    expect(screen.queryByRole('textbox', { name: /Filter by thread ID/i })).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText(/Thread ID filter/i)).not.toBeInTheDocument();
+  });
+
   it('renders a search input and client-side search filter', () => {
     renderWithRouter(<V5Memory previewData={previewData} />);
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'timeline' } });
     expect(screen.getByText(/Created task "Ship timeline"/i)).toBeInTheDocument();
     expect(screen.queryByText(/I processed this entity/i)).not.toBeInTheDocument();
+  });
+
+  it('toggles hiding routine bookkeeping narrations client-side', () => {
+    renderWithRouter(<V5Memory previewData={previewData} />);
+    expect(screen.getByText(/Updated task status/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Hide routine updates/i }));
+    expect(screen.queryByText(/Updated task status/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/Created task "Ship timeline"/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Hide routine updates/i }));
+    expect(screen.getByText(/Updated task status/i)).toBeInTheDocument();
   });
 
   it('shows an empty hint when no events are provided', () => {

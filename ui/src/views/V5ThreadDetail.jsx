@@ -7,12 +7,15 @@ import CitationsList from '../components/CitationsList';
 import CitationEntitySheet from '../components/CitationEntitySheet';
 import MarkdownEditor from '../components/MarkdownEditor';
 import { useCapture } from '../context/CaptureContext';
+import { useReview } from '../context/ReviewContext';
 import { useSummary } from '../context/SummaryContext';
 import { entityTitleLabel } from '../utils/entityDisplay';
 import styles from '../styles/v5.module.css';
 import {
   activityUpdatesMeta,
   buildActivityUpdates,
+  buildCurrentLoad,
+  buildMeetingPrep,
   buildNextActions,
   buildPeople,
   buildReferences,
@@ -161,6 +164,7 @@ function ActionButton({ button, onAction }) {
       type="button"
       className={button.action === 'done' ? styles.inlineButtonPrimary : styles.inlineButton}
       aria-label={button.label}
+      title={button.title}
       onClick={() => onAction(button)}
     >
       {button.label}
@@ -358,13 +362,14 @@ function AddUpdateComposer({
           </p>
           <label className={styles.fieldStack}>
             <span className={styles.fieldLabel}>Update text</span>
-            <textarea
-              className={styles.updateTextarea}
-              aria-label="Update text"
-              placeholder={placeholder}
+            <MarkdownEditor
+              className={styles.editorMarkdown}
               value={draft}
-              onChange={(event) => onChange(event.target.value)}
-              rows={4}
+              onChange={onChange}
+              ariaLabel="Update text"
+              placeholder={placeholder}
+              editable={!saving}
+              minRows={4}
             />
           </label>
           {error ? <p className={styles.error} role="alert">{error}</p> : null}
@@ -388,6 +393,59 @@ function AddUpdateComposer({
         </form>
       )}
     </section>
+  );
+}
+
+function UpdateOutcomePanel({ outcome, onDismiss }) {
+  const { openReview } = useReview();
+  if (!outcome) return null;
+  const { applied = [], suggestions = [] } = outcome;
+  const hasApplied = applied.length > 0;
+  const hasSuggestions = suggestions.length > 0;
+  if (!hasApplied && !hasSuggestions) return null;
+
+  return (
+    <div className={styles.outcomePanel} role="status" aria-live="polite">
+      <div className={styles.outcomeHeader}>
+        <strong>Update processed</strong>
+        <button
+          type="button"
+          className={styles.inlineButton}
+          onClick={onDismiss}
+          aria-label="Dismiss update outcome"
+        >
+          Dismiss
+        </button>
+      </div>
+      {hasApplied ? (
+        <ul className={styles.outcomeList}>
+          {applied.map((change, index) => (
+            <li key={index}>{change.message}</li>
+          ))}
+        </ul>
+      ) : null}
+      {hasSuggestions ? (
+        <div className={styles.outcomeSuggestions}>
+          <p className={styles.outcomeCount}>
+            {suggestions.length} suggested task{suggestions.length === 1 ? '' : 's'}
+          </p>
+          <ul className={styles.outcomeList}>
+            {suggestions.map((suggestion, index) => (
+              <li key={suggestion.id || index}>
+                {suggestion.payload?.title || suggestion.title || 'Untitled suggestion'}
+              </li>
+            ))}
+          </ul>
+          <button
+            type="button"
+            className={styles.outcomeLink}
+            onClick={openReview}
+          >
+            Review suggestions
+          </button>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -416,14 +474,26 @@ function ThreadDetailContent({
   onToggleUpdate,
   onUpdateChange,
   onUpdateSubmit,
+  updateOutcome = null,
+  onDismissUpdateOutcome,
   activityUpdates = [],
   activityHasMore = false,
   activityLoadingMore = false,
   onLoadMoreActivity = null,
+  decisions = [],
+  decisionFormOpen = false,
+  decisionDraft = '',
+  decisionSaving = false,
+  decisionError = '',
+  onToggleDecisionForm,
+  onDecisionChange,
+  onDecisionSubmit,
 }) {
   const entity = detail.entity;
   const entityType = entity.type;
   const summary = narrativeSummary(entity, canonicalText);
+  const meetingPrep = buildMeetingPrep(detail);
+  const currentLoad = buildCurrentLoad(detail);
   const nextActions = buildNextActions(detail);
   const signalCards = buildSignalCards(detail, entityType);
   const people = buildPeople(detail);
@@ -453,12 +523,13 @@ function ThreadDetailContent({
           {detail?.decisions_count ? (
             <>
               <span aria-hidden="true">·</span>
-              <span
+              <a
+                href="#decisions-section"
                 className={styles.countChip}
                 title={`${detail.decisions_count} decision${detail.decisions_count === 1 ? '' : 's'}`}
               >
                 {detail.decisions_count} decision{detail.decisions_count === 1 ? '' : 's'}
-              </span>
+              </a>
             </>
           ) : null}
         </div>
@@ -483,17 +554,159 @@ function ThreadDetailContent({
         <p className={styles.narrative}>{summary}</p>
       </section>
 
+      {detail?.decisions_count || decisionFormOpen ? (
+        <section id="decisions-section" className={styles.section} aria-labelledby="thread-decisions-label">
+          <div className={styles.sectionHeader}>
+            <h2 id="thread-decisions-label" className={styles.sectionLabel}>Decisions</h2>
+            <button
+              type="button"
+              className={styles.inlineButton}
+              onClick={onToggleDecisionForm}
+              aria-expanded={decisionFormOpen}
+            >
+              {decisionFormOpen ? 'Cancel' : 'Record decision'}
+            </button>
+          </div>
+
+          {decisionFormOpen ? (
+            <form
+              className={styles.updateComposer}
+              onSubmit={(event) => {
+                event.preventDefault();
+                onDecisionSubmit();
+              }}
+            >
+              <label className={styles.fieldStack}>
+                <span className={styles.fieldLabel}>Decision statement</span>
+                <textarea
+                  className={styles.updateTextarea}
+                  aria-label="Decision statement"
+                  placeholder="What was decided?"
+                  value={decisionDraft}
+                  onChange={(event) => onDecisionChange(event.target.value)}
+                  rows={3}
+                />
+              </label>
+              {decisionError ? <p className={styles.error} role="alert">{decisionError}</p> : null}
+              <div className={styles.editorActions}>
+                <button
+                  type="button"
+                  className={styles.inlineButton}
+                  onClick={onToggleDecisionForm}
+                  disabled={decisionSaving}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className={styles.inlineButtonPrimary}
+                  disabled={!decisionDraft.trim() || decisionSaving}
+                >
+                  {decisionSaving ? 'Saving…' : 'Save decision'}
+                </button>
+              </div>
+            </form>
+          ) : null}
+
+          {decisions.length > 0 ? (
+            decisions.map((decision) => (
+              <article key={decision.id} className={styles.signalCard} aria-label={`Decision: ${decision.statement}`}>
+                <h3 className={styles.signalTitle}>{decision.statement}</h3>
+                {decision.context ? <p className={styles.signalBody}>{decision.context}</p> : null}
+                <p className={styles.signalMeta}>
+                  {formatTimelineDate(decision.decided_at)}
+                  {decision.decided_by ? ` · ${decision.decided_by}` : null}
+                </p>
+              </article>
+            ))
+          ) : (
+            <p className={styles.emptyHint}>No decisions recorded yet.</p>
+          )}
+        </section>
+      ) : null}
+
+      {meetingPrep ? (
+        <section className={styles.section} aria-labelledby="thread-meeting-prep-label">
+          <h2 id="thread-meeting-prep-label" className={styles.sectionLabel}>Meeting prep</h2>
+          {meetingPrep.headline ? (
+            <p className={styles.narrative}>{meetingPrep.headline}</p>
+          ) : null}
+          {meetingPrep.agendaItems.map((item) => (
+            <article key={item.id} className={styles.signalCard} aria-label={item.title}>
+              <h3 className={styles.signalTitle}>
+                {item.entity ? (
+                  <Link to={pathForEntity(item.entity)}>
+                    {item.title}
+                  </Link>
+                ) : (
+                  item.title
+                )}
+              </h3>
+              {item.reason ? <p className={styles.signalBody}>{item.reason}</p> : null}
+            </article>
+          ))}
+          {meetingPrep.recentNotes.length > 0 ? (
+            <>
+              <h3 className={styles.sectionLabel}>Recent notes</h3>
+              {meetingPrep.recentNotes.map((note) => (
+                <article key={note.id} className={styles.activityRow}>
+                  <Link to={pathForEntity({ id: note.id, type: 'note' })} className={styles.relatedLink}>
+                    <span className={styles.relatedTitle}>{note.title}</span>
+                    {note.updatedAt ? (
+                      <time className={styles.relatedMeta} dateTime={note.updatedAt}>
+                        {formatTimelineDate(note.updatedAt)}
+                      </time>
+                    ) : null}
+                  </Link>
+                  {note.preview ? <p className={styles.activityText}>{note.preview}</p> : null}
+                </article>
+              ))}
+            </>
+          ) : null}
+        </section>
+      ) : null}
+
+      {currentLoad.length > 0 ? (
+        <section className={styles.section} aria-labelledby="thread-current-load-label">
+          <h2 id="thread-current-load-label" className={styles.sectionLabel}>Current load</h2>
+          {currentLoad.map((item) => (
+            <div key={item.id} className={styles.relatedRow}>
+              <XGlyph type="task" />
+              <Link to={pathForEntity(item.task)} className={styles.relatedLink}>
+                <span className={styles.relatedTitle}>
+                  {entityTitleLabel(item.task, { includeType: false })}
+                </span>
+                {item.lastHeardPreview ? (
+                  <span className={styles.relatedMeta}>{item.lastHeardPreview}</span>
+                ) : null}
+                {item.lastHeardAt ? (
+                  <time className={styles.relatedMeta} dateTime={item.lastHeardAt}>
+                    Last heard {formatTimelineDate(item.lastHeardAt)}
+                  </time>
+                ) : null}
+              </Link>
+            </div>
+          ))}
+        </section>
+      ) : null}
+
       {showAddUpdate ? (
-        <AddUpdateComposer
-          entity={entity}
-          open={updateOpen}
-          draft={updateDraft}
-          saving={updateSaving}
-          error={updateError}
-          onToggle={onToggleUpdate}
-          onChange={onUpdateChange}
-          onSubmit={onUpdateSubmit}
-        />
+        <>
+          <AddUpdateComposer
+            entity={entity}
+            open={updateOpen}
+            draft={updateDraft}
+            saving={updateSaving}
+            error={updateError}
+            onToggle={onToggleUpdate}
+            onChange={onUpdateChange}
+            onSubmit={onUpdateSubmit}
+          />
+          <UpdateOutcomePanel
+            outcome={updateOutcome}
+            onDismiss={onDismissUpdateOutcome}
+          />
+        </>
       ) : null}
 
       {activityUpdates.length > 0 ? (
@@ -590,10 +803,10 @@ function ThreadDetailContent({
         )}
       </section>
 
-      <section className={styles.section} aria-labelledby="thread-people-label">
-        <h2 id="thread-people-label" className={styles.sectionLabel}>People</h2>
-        {people.length > 0 ? (
-          people.map((person) => (
+      {people.length > 0 ? (
+        <section className={styles.section} aria-labelledby="thread-people-label">
+          <h2 id="thread-people-label" className={styles.sectionLabel}>People</h2>
+          {people.map((person) => (
             <div key={person.id} className={styles.personRow}>
               <XGlyph type="person" />
               <Link to={pathForEntity(person.entity)} className={styles.personLink}>
@@ -606,16 +819,14 @@ function ThreadDetailContent({
                 </span>
               </Link>
             </div>
-          ))
-        ) : (
-          <p className={styles.emptyHint}>No people linked yet.</p>
-        )}
-      </section>
+          ))}
+        </section>
+      ) : null}
 
-      <section className={styles.section} aria-labelledby="thread-related-label">
-        <h2 id="thread-related-label" className={styles.sectionLabel}>Related threads</h2>
-        {relatedThreads.length > 0 ? (
-          relatedThreads.map((thread) => (
+      {relatedThreads.length > 0 ? (
+        <section className={styles.section} aria-labelledby="thread-related-label">
+          <h2 id="thread-related-label" className={styles.sectionLabel}>Related threads</h2>
+          {relatedThreads.map((thread) => (
             <div key={thread.id} className={styles.relatedRow}>
               <XGlyph type={thread.entity.type} />
               <Link to={pathForEntity(thread.entity)} className={styles.relatedLink}>
@@ -625,20 +836,16 @@ function ThreadDetailContent({
                 <span className={styles.relatedMeta}>{thread.subtitle}</span>
               </Link>
             </div>
-          ))
-        ) : (
-          <p className={styles.emptyHint}>No related threads yet.</p>
-        )}
-      </section>
+          ))}
+        </section>
+      ) : null}
 
-      <section className={styles.section} aria-labelledby="thread-references-label">
-        <h2 id="thread-references-label" className={styles.sectionLabel}>References</h2>
-        {references.length > 0 ? (
+      {references.length > 0 ? (
+        <section className={styles.section} aria-labelledby="thread-references-label">
+          <h2 id="thread-references-label" className={styles.sectionLabel}>References</h2>
           <CitationsList citations={references} onOpen={onOpenReference} />
-        ) : (
-          <p className={styles.emptyHint}>No references yet.</p>
-        )}
-      </section>
+        </section>
+      ) : null}
 
       {showCaptureFab ? (
         <button
@@ -704,9 +911,15 @@ export default function V5ThreadDetail({
   const [updateDraft, setUpdateDraft] = useState('');
   const [updateSaving, setUpdateSaving] = useState(false);
   const [updateError, setUpdateError] = useState('');
+  const [updateOutcome, setUpdateOutcome] = useState(null);
   const [extraActivityUpdates, setExtraActivityUpdates] = useState([]);
   const [activityLoadingMore, setActivityLoadingMore] = useState(false);
   const [citationEntityId, setCitationEntityId] = useState(null);
+  const [decisions, setDecisions] = useState([]);
+  const [decisionFormOpen, setDecisionFormOpen] = useState(false);
+  const [decisionDraft, setDecisionDraft] = useState('');
+  const [decisionSaving, setDecisionSaving] = useState(false);
+  const [decisionError, setDecisionError] = useState('');
   const activeIdRef = useRef(id);
 
   useEffect(() => {
@@ -768,6 +981,25 @@ export default function V5ThreadDetail({
   useEffect(() => {
     setExtraActivityUpdates([]);
   }, [detail?.entity?.id, detail?.sections]);
+
+  useEffect(() => {
+    if (!detail?.entity?.id) return undefined;
+    let cancelled = false;
+    setDecisions([]);
+
+    v4API.decisions.list({ thread_id: detail.entity.id })
+      .then((response) => {
+        if (cancelled) return;
+        setDecisions(response?.data || []);
+      })
+      .catch((err) => {
+        if (!cancelled) setActionError(friendlyApiError(err, 'Failed to load decisions'));
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [detail?.entity?.id]);
 
   const baseActivityUpdates = useMemo(
     () => buildActivityUpdates(detail),
@@ -874,12 +1106,53 @@ export default function V5ThreadDetail({
     setUpdateDraft(value);
   }, []);
 
+  const handleDismissUpdateOutcome = useCallback(() => {
+    setUpdateOutcome(null);
+  }, []);
+
+  const handleToggleDecisionForm = useCallback(() => {
+    setDecisionError('');
+    setDecisionFormOpen((current) => !current);
+  }, []);
+
+  const handleDecisionChange = useCallback((value) => {
+    setDecisionError('');
+    setDecisionDraft(value);
+  }, []);
+
+  const handleDecisionSubmit = useCallback(async () => {
+    if (!detail?.entity || !decisionDraft.trim()) return;
+    setDecisionSaving(true);
+    setDecisionError('');
+
+    try {
+      await v4API.decisions.create({
+        thread_id: detail.entity.id,
+        statement: decisionDraft.trim(),
+        decided_by: 'user',
+      });
+      setDecisionDraft('');
+      setDecisionFormOpen(false);
+      setDetail((current) => ({
+        ...current,
+        decisions_count: (current?.decisions_count || 0) + 1,
+      }));
+      const response = await v4API.decisions.list({ thread_id: detail.entity.id });
+      setDecisions(response?.data || []);
+    } catch (err) {
+      setDecisionError(friendlyApiError(err, 'Failed to record decision'));
+    } finally {
+      setDecisionSaving(false);
+    }
+  }, [detail, decisionDraft]);
+
   const handleUpdateSubmit = useCallback(async () => {
     if (!detail?.entity || !updateDraft.trim()) return;
     setUpdateSaving(true);
     setUpdateError('');
 
     try {
+      const previousEntity = detail.entity;
       const result = await v4API.activityUpdates.create(detail.entity.id, updateDraft.trim());
       if (result?.skipped) {
         const message = result.reason === 'near_duplicate'
@@ -890,6 +1163,20 @@ export default function V5ThreadDetail({
       }
       setUpdateDraft('');
       setUpdateOpen(false);
+
+      const target = result?.target || previousEntity;
+      const applied = [];
+      if (target.status && target.status !== previousEntity.status) {
+        applied.push({ message: `Status updated to ${statusLabel(target.status)}` });
+      }
+      if (target.follow_up_at !== previousEntity.follow_up_at) {
+        applied.push({ message: `Follow-up set to ${formatTimelineDate(target.follow_up_at)}` });
+      }
+      setUpdateOutcome({
+        applied,
+        suggestions: result?.suggestions || [],
+      });
+
       await reloadThread();
       refreshSummary();
     } catch (err) {
@@ -961,10 +1248,21 @@ export default function V5ThreadDetail({
         onToggleUpdate={handleToggleUpdate}
         onUpdateChange={handleUpdateChange}
         onUpdateSubmit={handleUpdateSubmit}
+        updateOutcome={updateOutcome}
+        onDismissUpdateOutcome={handleDismissUpdateOutcome}
         activityUpdates={activityUpdates}
         activityHasMore={activityHasMore}
         activityLoadingMore={activityLoadingMore}
         onLoadMoreActivity={handleLoadMoreActivity}
+        showCaptureFab={false}
+        decisions={decisions}
+        decisionFormOpen={decisionFormOpen}
+        decisionDraft={decisionDraft}
+        decisionSaving={decisionSaving}
+        decisionError={decisionError}
+        onToggleDecisionForm={handleToggleDecisionForm}
+        onDecisionChange={handleDecisionChange}
+        onDecisionSubmit={handleDecisionSubmit}
       />
       <CitationEntitySheet
         entityId={citationEntityId}

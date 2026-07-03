@@ -1,11 +1,14 @@
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { v4API } from '../api/v4Client';
 import { CaptureProvider, useCapture } from '../context/CaptureContext';
+import { ReviewProvider } from '../context/ReviewContext';
 import V5ThreadDetail from './V5ThreadDetail';
-import V5CaptureSheet from './V5CaptureSheet';
+import V5CaptureSheet, { CaptureFab } from './V5CaptureSheet';
 import { fixtureForType } from './V5ThreadDetail.fixtures';
+import { BUMP_FOLLOW_UP_LABEL, FOLLOW_UP_24H_TITLE } from '../utils/followUpActions';
 
 vi.mock('../api/v4Client', () => ({
   v4API: {
@@ -19,11 +22,24 @@ vi.mock('../api/v4Client', () => ({
       create: vi.fn(),
       list: vi.fn(),
     },
+    decisions: {
+      list: vi.fn(),
+      create: vi.fn(),
+    },
+    mentions: vi.fn(),
   },
   friendlyApiError: (err, fallback) => err?.message || fallback || 'Something went wrong.',
 }));
 
 const entityTypes = ['project', 'person', 'area', 'resource', 'task', 'note'];
+
+function ThreadProviders({ children }) {
+  return (
+    <CaptureProvider>
+      <ReviewProvider>{children}</ReviewProvider>
+    </CaptureProvider>
+  );
+}
 
 function renderThread(type) {
   const fixture = fixtureForType(type);
@@ -32,7 +48,7 @@ function renderThread(type) {
 
   return render(
     <MemoryRouter initialEntries={[path]}>
-      <CaptureProvider>
+      <ThreadProviders>
         <Routes>
           <Route
             path={`/${basePath}/:id`}
@@ -46,14 +62,23 @@ function renderThread(type) {
             )}
           />
         </Routes>
-      </CaptureProvider>
+      </ThreadProviders>
     </MemoryRouter>,
   );
+}
+
+async function typeUpdate(text) {
+  const field = screen.getByLabelText('Update text');
+  field.focus();
+  const user = userEvent.setup();
+  await user.type(field, text, { skipClick: true });
 }
 
 describe('V5ThreadDetail', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    v4API.decisions.list.mockResolvedValue({ data: [] });
+    v4API.mentions.mockResolvedValue({ results: {} });
   });
 
   entityTypes.forEach((type) => {
@@ -66,7 +91,12 @@ describe('V5ThreadDetail', () => {
       expect(screen.getByRole('region', { name: 'Details' })).toBeInTheDocument();
       expect(screen.getByRole('region', { name: 'Summary' })).toBeInTheDocument();
       expect(screen.getByRole('region', { name: 'Timeline' })).toBeInTheDocument();
-      expect(screen.getByRole('region', { name: 'People' })).toBeInTheDocument();
+
+      if (type !== 'resource') {
+        expect(screen.getByRole('region', { name: 'People' })).toBeInTheDocument();
+      } else {
+        expect(screen.queryByRole('region', { name: 'People' })).not.toBeInTheDocument();
+      }
       expect(screen.getByRole('region', { name: 'Related threads' })).toBeInTheDocument();
       expect(screen.getByRole('region', { name: 'References' })).toBeInTheDocument();
 
@@ -80,20 +110,65 @@ describe('V5ThreadDetail', () => {
     });
   });
 
+  it('omits People, Related threads, and References sections when empty', async () => {
+    const fixture = fixtureForType('project');
+    const emptyDetail = {
+      ...fixture.detail,
+      sections: [],
+    };
+
+    render(
+      <MemoryRouter initialEntries={['/projects/project-hitl']}>
+        <ThreadProviders>
+          <Routes>
+            <Route
+              path="/projects/:id"
+              element={(
+                <V5ThreadDetail
+                  type="project"
+                  previewDetail={emptyDetail}
+                  previewEvents={fixture.events}
+                  previewCanonical={fixture.canonical}
+                />
+              )}
+            />
+          </Routes>
+        </ThreadProviders>
+      </MemoryRouter>,
+    );
+
+    await screen.findByRole('heading', { level: 1, name: fixture.detail.entity.title });
+    expect(screen.queryByRole('region', { name: 'People' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Related threads' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'References' })).not.toBeInTheDocument();
+    expect(screen.queryByText('No people linked yet.')).not.toBeInTheDocument();
+    expect(screen.queryByText('No related threads yet.')).not.toBeInTheDocument();
+    expect(screen.queryByText('No references yet.')).not.toBeInTheDocument();
+  });
+
   it('does not render dead Decide actions on blocker rows', async () => {
     renderThread('task');
     await screen.findByText('Blocked by Security approval');
     expect(screen.queryByRole('button', { name: 'Decide' })).not.toBeInTheDocument();
   });
 
-  it('does not open the quick-action sheet from timeline rows', () => {
+  it('shows honest follow-up labels on next-action remind buttons', async () => {
+    renderThread('task');
+    const remindButtons = await screen.findAllByRole('button', { name: BUMP_FOLLOW_UP_LABEL });
+    expect(remindButtons.length).toBeGreaterThan(0);
+    remindButtons.forEach((button) => {
+      expect(button).toHaveAttribute('title', FOLLOW_UP_24H_TITLE);
+    });
+  });
+
+  it('does not open the quick-action sheet from timeline rows', async () => {
     renderThread('task');
     const row = screen.getByTestId('timeline-row-e1');
 
     vi.useFakeTimers();
     try {
-      fireEvent.touchStart(row);
-      act(() => {
+      await act(async () => {
+        fireEvent.touchStart(row);
         vi.advanceTimersByTime(600);
       });
     } finally {
@@ -117,7 +192,7 @@ describe('V5ThreadDetail', () => {
     const fixture = fixtureForType('project');
     render(
       <MemoryRouter initialEntries={['/projects/project-hitl']}>
-        <CaptureProvider>
+        <ThreadProviders>
           <CaptureObserver />
           <V5CaptureSheet
             attachmentOptions={[
@@ -125,6 +200,7 @@ describe('V5ThreadDetail', () => {
               { id: 'project-hitl', label: 'HITL Pilot', type: 'project' },
             ]}
           />
+          <CaptureFab />
           <Routes>
             <Route
               path="/projects/:id"
@@ -138,11 +214,13 @@ describe('V5ThreadDetail', () => {
               )}
             />
           </Routes>
-        </CaptureProvider>
+        </ThreadProviders>
       </MemoryRouter>,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Capture' }));
+    expect(screen.getAllByRole('button', { name: /^(Capture|Open capture)$/i })).toHaveLength(1);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open capture' }));
     await waitFor(() => expect(screen.getByTestId('capture-open')).toHaveTextContent('open'));
     expect(screen.getByTestId('capture-content')).toHaveTextContent('');
     await waitFor(() => expect(screen.getByLabelText('Capture thread context')).toHaveValue('project-hitl'));
@@ -161,7 +239,7 @@ describe('V5ThreadDetail', () => {
 
     render(
       <MemoryRouter initialEntries={['/projects/project-hitl']}>
-        <CaptureProvider>
+        <ThreadProviders>
           <Routes>
             <Route
               path="/projects/:id"
@@ -175,15 +253,13 @@ describe('V5ThreadDetail', () => {
               )}
             />
           </Routes>
-        </CaptureProvider>
+        </ThreadProviders>
       </MemoryRouter>,
     );
 
     await waitFor(() => expect(v4API.entities.detail).toHaveBeenCalled());
     fireEvent.click(screen.getByRole('button', { name: 'Write update' }));
-    fireEvent.change(screen.getByLabelText('Update text'), {
-      target: { value: 'Shipped parser fix to design partners.' },
-    });
+    await typeUpdate('Shipped parser fix to design partners.');
     fireEvent.click(screen.getByRole('button', { name: 'Save update' }));
 
     await waitFor(() => expect(v4API.activityUpdates.create).toHaveBeenCalledWith(
@@ -191,6 +267,124 @@ describe('V5ThreadDetail', () => {
       'Shipped parser fix to design partners.',
     ));
     await waitFor(() => expect(v4API.entities.detail).toHaveBeenCalledTimes(2));
+  });
+
+  it('renders the mention-enabled markdown editor for update text', async () => {
+    renderThread('project');
+    await screen.findByRole('region', { name: 'Add update' });
+    fireEvent.click(screen.getByRole('button', { name: 'Write update' }));
+    const field = screen.getByLabelText('Update text');
+    expect(field.closest('[data-testid="markdown-editor"]')).not.toBeNull();
+  });
+
+  it('submits a mention picked with @ as a markdown link', async () => {
+    const fixture = fixtureForType('project');
+    v4API.mentions.mockResolvedValue({
+      results: { person: [{ id: 'person-henry', title: 'Henry', path: '/people/person-henry' }] },
+    });
+    v4API.activityUpdates.create.mockResolvedValue({
+      data: { id: 'note-new-update', type: 'note', source: 'activity_update' },
+      suggestions: [],
+    });
+    v4API.entities.detail.mockResolvedValue(fixture.detail);
+    v4API.entities.events.mockResolvedValue({ data: fixture.events });
+    v4API.entities.canonical.mockResolvedValue({ canonical: fixture.canonical });
+
+    render(
+      <MemoryRouter initialEntries={['/projects/project-hitl']}>
+        <ThreadProviders>
+          <Routes>
+            <Route
+              path="/projects/:id"
+              element={(
+                <V5ThreadDetail
+                  type="project"
+                  previewDetail={null}
+                  previewEvents={null}
+                  previewCanonical=""
+                />
+              )}
+            />
+          </Routes>
+        </ThreadProviders>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => expect(v4API.entities.detail).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole('button', { name: 'Write update' }));
+    await typeUpdate('Ping @Henry');
+
+    // The @ trigger opens the mention picker; picking Henry replaces the
+    // query with a markdown link that must reach the API unchanged.
+    const option = await screen.findByRole('button', { name: 'Henry' });
+    fireEvent.mouseDown(option);
+    fireEvent.click(screen.getByRole('button', { name: 'Save update' }));
+
+    await waitFor(() => expect(v4API.activityUpdates.create).toHaveBeenCalledWith(
+      'project-hitl',
+      'Ping [Henry](/people/person-henry)',
+    ));
+  });
+
+  it('shows applied and suggested outcomes after a successful update', async () => {
+    const fixture = fixtureForType('project');
+    const updatedEntity = {
+      ...fixture.detail.entity,
+      follow_up_at: '2026-07-10T09:00:00Z',
+    };
+    const updatedDetail = { ...fixture.detail, entity: updatedEntity };
+
+    v4API.activityUpdates.create.mockResolvedValue({
+      data: { id: 'note-new-update', type: 'note', source: 'activity_update' },
+      target: updatedEntity,
+      extracted: { follow_up_at: '2026-07-10T09:00:00Z', tasks: [] },
+      suggestions: [
+        { id: 's1', suggestion_type: 'create_task', payload: { title: 'Schedule design review' } },
+        { id: 's2', suggestion_type: 'create_task', payload: { title: 'Notify stakeholders' } },
+      ],
+    });
+    v4API.entities.detail
+      .mockResolvedValueOnce(fixture.detail)
+      .mockResolvedValueOnce(updatedDetail);
+    v4API.entities.events.mockResolvedValue({ data: fixture.events });
+    v4API.entities.canonical.mockResolvedValue({ canonical: fixture.canonical });
+
+    render(
+      <MemoryRouter initialEntries={['/projects/project-hitl']}>
+        <ThreadProviders>
+          <Routes>
+            <Route
+              path="/projects/:id"
+              element={(
+                <V5ThreadDetail
+                  type="project"
+                  previewDetail={null}
+                  previewEvents={null}
+                  previewCanonical=""
+                />
+              )}
+            />
+          </Routes>
+        </ThreadProviders>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => expect(v4API.entities.detail).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole('button', { name: 'Write update' }));
+    await typeUpdate('Shipped parser fix to design partners.');
+    fireEvent.click(screen.getByRole('button', { name: 'Save update' }));
+
+    await waitFor(() => expect(v4API.activityUpdates.create).toHaveBeenCalled());
+    expect(await screen.findByText('2 suggested tasks')).toBeInTheDocument();
+    expect(screen.getByText('Schedule design review')).toBeInTheDocument();
+    expect(screen.getByText('Notify stakeholders')).toBeInTheDocument();
+    expect(screen.getByText(/Follow-up set to/)).toBeInTheDocument();
+
+    const detailsSection = screen.getByRole('region', { name: 'Details' });
+    expect(within(detailsSection).getByText(/Jul 10/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss update outcome' }));
+    await waitFor(() => expect(screen.queryByText('2 suggested tasks')).not.toBeInTheDocument());
   });
 
   it('renders activity updates from detail sections', async () => {
@@ -234,7 +428,7 @@ describe('V5ThreadDetail', () => {
 
     render(
       <MemoryRouter initialEntries={['/projects/project-hitl']}>
-        <CaptureProvider>
+        <ThreadProviders>
           <Routes>
             <Route
               path="/projects/:id"
@@ -248,7 +442,7 @@ describe('V5ThreadDetail', () => {
               )}
             />
           </Routes>
-        </CaptureProvider>
+        </ThreadProviders>
       </MemoryRouter>,
     );
 
@@ -273,7 +467,7 @@ describe('V5ThreadDetail', () => {
 
     render(
       <MemoryRouter initialEntries={['/projects/project-hitl']}>
-        <CaptureProvider>
+        <ThreadProviders>
           <Routes>
             <Route
               path="/projects/:id"
@@ -287,12 +481,27 @@ describe('V5ThreadDetail', () => {
               )}
             />
           </Routes>
-        </CaptureProvider>
+        </ThreadProviders>
       </MemoryRouter>,
     );
 
     await screen.findByRole('region', { name: 'Add update' });
     expect(screen.queryByRole('region', { name: 'Activity' })).not.toBeInTheDocument();
+  });
+
+  it('renders meeting prep and current load on person detail', async () => {
+    renderThread('person');
+
+    const meetingPrepSection = await screen.findByRole('region', { name: 'Meeting prep' });
+    expect(within(meetingPrepSection).getByText('Go in with 2 agenda topics and 1 recent note.')).toBeInTheDocument();
+    expect(within(meetingPrepSection).getByText('Unblock Review PR #847')).toBeInTheDocument();
+    expect(within(meetingPrepSection).getByText(/Mary said she would review by end of week/)).toBeInTheDocument();
+    expect(within(meetingPrepSection).getByText('Mary 1:1 notes')).toBeInTheDocument();
+    expect(within(meetingPrepSection).getByText('Discuss HITL rollout blockers and support path.')).toBeInTheDocument();
+
+    const currentLoadSection = screen.getByRole('region', { name: 'Current load' });
+    expect(within(currentLoadSection).getByText('Review PR #847')).toBeInTheDocument();
+    expect(within(currentLoadSection).getByText(/Last heard/)).toBeInTheDocument();
   });
 
   it('renders typed people relationships and reference citations', async () => {
@@ -324,7 +533,7 @@ describe('V5ThreadDetail', () => {
 
     render(
       <MemoryRouter initialEntries={[`/tasks/${fixture.detail.entity.id}`]}>
-        <CaptureProvider>
+        <ThreadProviders>
           <Routes>
             <Route
               path="/tasks/:id"
@@ -338,7 +547,7 @@ describe('V5ThreadDetail', () => {
               )}
             />
           </Routes>
-        </CaptureProvider>
+        </ThreadProviders>
       </MemoryRouter>,
     );
 
@@ -380,7 +589,7 @@ describe('V5ThreadDetail', () => {
 
     render(
       <MemoryRouter initialEntries={[`/tasks/${detail.entity.id}`]}>
-        <CaptureProvider>
+        <ThreadProviders>
           <Routes>
             <Route
               path="/tasks/:id"
@@ -394,11 +603,74 @@ describe('V5ThreadDetail', () => {
               )}
             />
           </Routes>
-        </CaptureProvider>
+        </ThreadProviders>
       </MemoryRouter>,
     );
 
     const openThreadLink = await screen.findByRole('link', { name: 'Open thread' });
     expect(openThreadLink).toHaveAttribute('href', '/projects/project-hitl');
+
+    const remindButton = screen.getByRole('button', { name: BUMP_FOLLOW_UP_LABEL });
+    expect(remindButton).toHaveAttribute('title', FOLLOW_UP_24H_TITLE);
+  });
+
+  it('renders decisions section with fetched decisions', async () => {
+    const fixture = fixtureForType('project');
+    v4API.decisions.list.mockResolvedValue({
+      data: [
+        {
+          id: 'd1',
+          statement: 'Use PostgreSQL for the v4 schema',
+          context: 'Architecture review',
+          decided_at: '2026-06-20T10:00:00+00:00',
+          decided_by: 'user',
+        },
+        {
+          id: 'd2',
+          statement: 'Ship HITL piece by Friday',
+          decided_at: '2026-06-22T14:00:00+00:00',
+          decided_by: 'agent:v4-capture',
+        },
+      ],
+    });
+
+    renderThread('project');
+
+    const section = await screen.findByRole('region', { name: 'Decisions' });
+    expect(within(section).getByText('Use PostgreSQL for the v4 schema')).toBeInTheDocument();
+    expect(within(section).getByText('Architecture review')).toBeInTheDocument();
+    expect(within(section).getByText('Ship HITL piece by Friday')).toBeInTheDocument();
+    expect(v4API.decisions.list).toHaveBeenCalledWith({ thread_id: fixture.detail.entity.id });
+
+    const chip = screen.getByRole('link', { name: '2 decisions' });
+    expect(chip).toHaveAttribute('href', '#decisions-section');
+  });
+
+  it('records a decision via POST /api/v4/decisions and refreshes the list', async () => {
+    v4API.decisions.list.mockResolvedValue({ data: [] });
+    v4API.decisions.create.mockResolvedValue({
+      data: {
+        id: 'd-new',
+        thread_id: 'project-hitl',
+        statement: 'Use Vite for the build',
+        decided_by: 'user',
+      },
+    });
+
+    renderThread('project');
+
+    const section = await screen.findByRole('region', { name: 'Decisions' });
+    fireEvent.click(within(section).getByRole('button', { name: 'Record decision' }));
+    fireEvent.change(within(section).getByLabelText('Decision statement'), {
+      target: { value: 'Use Vite for the build' },
+    });
+    fireEvent.click(within(section).getByRole('button', { name: 'Save decision' }));
+
+    await waitFor(() => expect(v4API.decisions.create).toHaveBeenCalledWith({
+      thread_id: 'project-hitl',
+      statement: 'Use Vite for the build',
+      decided_by: 'user',
+    }));
+    await waitFor(() => expect(v4API.decisions.list).toHaveBeenCalledTimes(2));
   });
 });

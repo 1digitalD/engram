@@ -82,12 +82,27 @@ RELATIONSHIP_TYPES = {
 }
 DEFAULT_OWNER_ALIASES = ["dan"]
 DEFAULT_DELEGATION_CADENCE_DAYS = 3
+
+# SQ-09: confidence thresholds are tiebreakers, not primary gates. Every path
+# that consults them first checks a structural precondition (SQ-07/SQ-08 task
+# and person hygiene, reconciler action, near-duplicate score, explicit status
+# language, etc.). Production data showed extractor confidence is not
+# predictive (deleted vs surviving tasks averaged 0.94 vs 0.95), so the model
+# is no longer asked to self-grade for gating decisions.
 AUTO_APPLY_CONFIDENCE = 0.8
 AUTO_CREATE_ENTITY_CONFIDENCE = 0.85
 LOW_CONFIDENCE_THRESHOLD = 0.5
+
 RISKY_ENTITY_CREATION_TYPES = {"task", "project", "area", "resource", "person"}
 # Types that must never be auto-created from capture — always reviewed.
-SUGGEST_ONLY_CREATION_TYPES = {"project", "area", "task"}
+SUGGEST_ONLY_CREATION_TYPES = {"project", "area"}
+# SQ-07: task auto-create/suggest gate. A task candidate must pass structural
+# checks before confidence is consulted; confidence is a tiebreaker, not the gate.
+# Score interpretation (documented inline in _task_structural_score):
+#   4 checks passed: eligible for auto-create if confidence is high enough, else suggest.
+#   2-3 checks passed: suggest if confidence is above the low threshold, else drop.
+#   0-1 checks passed: drop (meeting logistics, stance fragments, restatements).
+TASK_SUGGESTION_CAP_PER_NOTE = 8
 # Reconciliation similarity at or above which a "new" decision is treated as
 # a potential duplicate and routed to the review queue instead of auto-created.
 NEAR_DUPLICATE_SCORE = 0.75
@@ -103,7 +118,23 @@ INBOX_INTENT_PRIORITY = {
     "junk": 7,
 }
 INTENT_SUGGESTION_CONFIDENCE_FLOOR = 0.9
+# SQ-09: intent-confidence threshold for routing a capture to the
+# activity-update pipeline. The structural precondition is a recognized
+# update/follow_up intent plus short content; confidence is the tiebreaker
+# that routes borderline cases through the safer full extraction pipeline.
+INTENT_ROUTE_CONFIDENCE = 0.7
+# Long captures (meeting notes) stay on the full pipeline even when the
+# top-level intent looks like an update — they usually carry more than one
+# actionable signal.
+INTENT_ROUTE_MAX_CONTENT_CHARS = 1200
+# Minimum cosine similarity for resolving an update target by embedding search
+# (ladder step 3). Deliberately strict: a wrong guess applies a status change.
+UPDATE_TARGET_SIMILARITY = 0.75
 SUGGESTION_DUPLICATE_MEMORY_DAYS = 14
+# SQ-10: semantic duplicate memory window. Longer than the exact-fingerprint
+# window because reworded duplicates are worth remembering for a full month.
+SUGGESTION_SEMANTIC_MEMORY_DAYS = 30
+SUGGESTION_SEMANTIC_SIMILARITY_THRESHOLD = 0.85
 COMPACT_LINK_COUNT_RULES = {
     "person": {
         "notes": ("incoming", {"mentions"}, {"note"}),
@@ -212,8 +243,9 @@ def _capture_sse_stream(data, content, user_title):
 
         if not warnings:
             try:
-                extraction_changes, extraction_suggestions = _reconcile_capture_candidates(
+                extraction_changes, extraction_suggestions = _process_capture_extraction(
                     note,
+                    content,
                     extraction,
                     thread_id=thread_id,
                 )
@@ -273,8 +305,9 @@ def _run_capture_extraction(note, content, mode, thread_id=None):
     applied_changes.extend(_apply_explicit_mentions(note, content))
     try:
         result = _run_basic_capture_extraction(note, mode, thread_id=thread_id)
-        extraction_changes, extraction_suggestions = _reconcile_capture_candidates(
+        extraction_changes, extraction_suggestions = _process_capture_extraction(
             note,
+            content,
             result or {},
             thread_id=thread_id,
         )
@@ -2115,6 +2148,138 @@ def _refresh_delegation_cadence(target, source_note_id=None, actor="user"):
     )
 
 
+def _apply_activity_update_policy(note, target, content, extraction, suggestions, actor="agent:activity-update"):
+    """Shared Add-update policy: status auto-apply/suggest, follow-up routing
+    (sq-02 semantics), and spin-off task suggestions.
+
+    ``note`` is the note suggestions and events are sourced from (the activity
+    update note on the endpoint path, the capture note on the intent-routed
+    capture path). Appends to ``suggestions`` in place and returns the
+    "extracted" summary dict used in API responses.
+    """
+    extracted_tasks = []
+    extracted_status = extraction.get("status")
+    status_confidence = extraction.get("confidence", 0.0) or 0.0
+    status_auto_applied = False
+
+    # ── Status change ───────────────────────────────────────────────────
+    # SQ-09: status auto-apply requires explicit status language in the
+    # update text in addition to the confidence tiebreaker. Without the
+    # structural signal the change becomes a reviewable suggestion.
+    if (
+        extracted_status
+        and extracted_status in VALID_STATUS.get(target.type, set())
+        and extracted_status != target.status
+        and _status_change_is_explicit(content, extracted_status)
+    ):
+        if status_confidence >= AUTO_APPLY_CONFIDENCE:
+            old_status = target.status
+            target.status = extracted_status
+            status_auto_applied = True
+            _write_event(
+                target,
+                "ai_updated",
+                old_value={"status": old_status},
+                new_value={"status": extracted_status},
+                actor=actor,
+                confidence=status_confidence,
+                reason="extracted from activity update",
+                source_note_id=note.id,
+            )
+            _queue_embed_job(target.id, "activity_update_auto_status")
+        else:
+            suggestion = _create_suggestion(
+                note,
+                suggestion_type=f"update_{target.type}",
+                operation_type="update_entity",
+                payload={
+                    "target_entity_id": target.id,
+                    "target_type": target.type,
+                    "title": target.title,
+                    "fields": {"status": extracted_status},
+                    "evidence": content[:200],
+                },
+                confidence=status_confidence,
+                reason=f"extracted status from activity update: {extracted_status}",
+            )
+            if suggestion:
+                suggestions.append(suggestion.to_dict())
+
+    # ── Follow-up date ──────────────────────────────────────────────────
+    explicit_follow_up = extraction.get("follow_up_at")
+    task_candidates = extraction.get("tasks") or []
+
+    closing_statuses = (
+        {"done", "cancelled"} if target.type == "task" else {"completed", "cancelled"}
+    )
+    target_is_closing = (
+        extracted_status in closing_statuses
+        or target.status in closing_statuses
+    )
+    # Trust the extractor's own placement of the follow-up date: the prompt already
+    # puts it on the target when it stays open, and on spin-off task payloads when
+    # the target is closing. New task candidates alone must not reroute it —
+    # only a closing status suppresses applying the top-level date to the target.
+    apply_follow_up_to_target = bool(explicit_follow_up and not target_is_closing)
+    route_follow_up_to_tasks = bool(explicit_follow_up and task_candidates and target_is_closing)
+
+    if apply_follow_up_to_target:
+        old_follow_up = target.follow_up_at
+        target.follow_up_at = _parse_iso_date(explicit_follow_up)
+        _write_event(
+            target,
+            "ai_updated",
+            old_value={"follow_up_at": old_follow_up.isoformat() if old_follow_up else None},
+            new_value={"follow_up_at": target.follow_up_at.isoformat()},
+            actor=actor,
+            reason="extracted from activity update",
+            source_note_id=note.id,
+        )
+
+    # ── New tasks from update content ────────────────────────────────────
+    for task_candidate in task_candidates:
+        confidence = task_candidate.get("confidence", 0.0)
+        task_follow_up = task_candidate.get("follow_up_at")
+        task_due_at = task_candidate.get("due_at")
+        if route_follow_up_to_tasks and explicit_follow_up and not task_follow_up and not task_due_at:
+            task_follow_up = explicit_follow_up
+
+        suggestion = _create_suggestion(
+            note,
+            suggestion_type="create_task",
+            operation_type="create_new_entity",
+            payload={
+                "type": "task",
+                "title": task_candidate.get("title"),
+                "content": task_candidate.get("content"),
+                "due_at": task_due_at,
+                "follow_up_at": task_follow_up,
+                "assigned_to": task_candidate.get("assigned_to"),
+                "evidence": task_candidate.get("title"),
+                "target_entity_id": target.id,
+                "relationship_type": "derived_from",
+            },
+            confidence=confidence,
+            reason=f"extracted from activity update: {task_candidate.get('title', '')[:80]}",
+        )
+        if suggestion:
+            suggestions.append(suggestion.to_dict())
+            extracted_tasks.append({
+                "title": task_candidate.get("title"),
+                "confidence": confidence,
+                "auto_created": False,
+                "suggestion_id": suggestion.id,
+            })
+
+    return {
+        "status": extracted_status,
+        "status_auto_applied": status_auto_applied,
+        "follow_up_at": explicit_follow_up,
+        "follow_up_auto_set": apply_follow_up_to_target,
+        "tasks": extracted_tasks,
+    }
+
+
 @api_v4_bp.route("/entities/<entity_id>/activity_updates", methods=["POST"])
 def create_activity_update(entity_id):
     target = db.session.get(Entity, entity_id)
@@ -2137,53 +2302,8 @@ def create_activity_update(entity_id):
     from services.v4_extraction import extract_dates_and_tasks_from_update
 
     extraction = extract_dates_and_tasks_from_update(content)
-    extracted_tasks = []
     suggestions = []
-
-    # ── Follow-up date ──────────────────────────────────────────────────
-    explicit_follow_up = extraction.get("follow_up_at")
-
-    if explicit_follow_up:
-        old_follow_up = target.follow_up_at
-        target.follow_up_at = _parse_iso_date(explicit_follow_up)
-        _write_event(
-            target,
-            "ai_updated",
-            old_value={"follow_up_at": old_follow_up.isoformat() if old_follow_up else None},
-            new_value={"follow_up_at": target.follow_up_at.isoformat()},
-            actor="agent:activity-update",
-            reason="extracted from activity update",
-            source_note_id=note.id,
-        )
-
-    # ── New tasks from update content ────────────────────────────────────
-    for task_candidate in extraction.get("tasks") or []:
-        confidence = task_candidate.get("confidence", 0.0)
-        suggestion = _create_suggestion(
-            note,
-            suggestion_type="create_task",
-            operation_type="create_new_entity",
-            payload={
-                "type": "task",
-                "title": task_candidate.get("title"),
-                "content": task_candidate.get("content"),
-                "due_at": task_candidate.get("due_at"),
-                "assigned_to": task_candidate.get("assigned_to"),
-                "evidence": task_candidate.get("title"),
-                "target_entity_id": target.id,
-                "relationship_type": "derived_from",
-            },
-            confidence=confidence,
-            reason=f"extracted from activity update: {task_candidate.get('title', '')[:80]}",
-        )
-        if suggestion:
-            suggestions.append(suggestion.to_dict())
-            extracted_tasks.append({
-                "title": task_candidate.get("title"),
-                "confidence": confidence,
-                "auto_created": False,
-                "suggestion_id": suggestion.id,
-            })
+    extracted = _apply_activity_update_policy(note, target, content, extraction, suggestions)
 
     _queue_embed_job(note.id, "activity_update")
     from services.v4_summarization import queue_summarize_if_needed
@@ -2195,11 +2315,7 @@ def create_activity_update(entity_id):
     return jsonify({
         "data": _load_entity(note.id).to_dict(),
         "target": _load_entity(target.id).to_dict(),
-        "extracted": {
-            "follow_up_at": explicit_follow_up,
-            "follow_up_auto_set": False,
-            "tasks": extracted_tasks,
-        },
+        "extracted": extracted,
         "applied_mentions": applied_mentions,
         "suggestions": suggestions,
     }), 201
@@ -2693,6 +2809,8 @@ def resolve_suggestion_to_existing(suggestion_id):
         return _error("suggestion not found", 404)
     if suggestion.status != "pending":
         return _error("suggestion is not pending", 409)
+    if suggestion.operation_type == "update_unresolved":
+        return _resolve_update_unresolved_suggestion(suggestion)
     if not _is_create_suggestion_operation(suggestion.operation_type):
         return _error("only create-entity suggestions can be resolved to an existing entity", 400)
 
@@ -2762,6 +2880,90 @@ def resolve_suggestion_to_existing(suggestion_id):
     })
 
 
+def _resolve_update_unresolved_suggestion(suggestion):
+    """Resolve an update_unresolved suggestion (SQ-05) to a chosen target.
+
+    Creates the activity-update note on the target and applies the stored
+    extraction (status/follow-up/spin-off tasks) with the same policy as the
+    Add update endpoint.
+    """
+    payload = suggestion.payload or {}
+    body = request.get_json(silent=True) or {}
+    target_id = body.get("target_id")
+    if not target_id:
+        return _error("target_id is required")
+
+    target = db.session.get(Entity, target_id)
+    if target is None or target.lifecycle == "deleted":
+        return _error("target entity not found", 404)
+
+    source_note = db.session.get(Entity, suggestion.source_entity_id)
+    if source_note is None:
+        return _error("source note not found", 404)
+    if target.id == source_note.id:
+        return _error("cannot resolve a suggestion to its own source note")
+
+    content = payload.get("content") or (source_note.content or "")[:300]
+    follow_on_suggestions = []
+    au_note, created, _skip_reason = _create_activity_update_note(
+        target,
+        content,
+        actor="agent:v4-review",
+        confidence=suggestion.confidence,
+        source_note_id=source_note.id,
+    )
+    if au_note is not None:
+        extraction = {
+            "status": payload.get("status"),
+            "confidence": payload.get("status_confidence") or 0.0,
+            "follow_up_at": payload.get("follow_up_at"),
+            "tasks": payload.get("tasks") or [],
+        }
+        _apply_activity_update_policy(
+            source_note, target, content, extraction, follow_on_suggestions,
+            actor="agent:v4-review",
+        )
+        from services.v4_summarization import queue_summarize_if_needed
+
+        queue_summarize_if_needed(target.id, has_existing_summary=bool(target.ai_summary))
+
+    suggestion.status = "accepted"
+    suggestion.resolved_at = datetime.utcnow()
+    new_payload = dict(payload)
+    new_payload["resolved_to_existing_id"] = target.id
+    suggestion.payload = new_payload
+    flag_modified(suggestion, "payload")
+    _write_event(
+        source_note,
+        "suggestion_accepted",
+        new_value={
+            "suggestion_id": suggestion.id,
+            "resolved_to_existing_id": target.id,
+            "activity_update_note_id": au_note.id if au_note is not None else None,
+        },
+        actor="agent:v4-review",
+        confidence=suggestion.confidence,
+        reason=f"resolved update to existing {target.type} '{target.title}'",
+    )
+    db.session.commit()
+
+    return jsonify({
+        "suggestion": suggestion.to_dict(),
+        "linked_entity": _load_entity(target.id).to_dict(),
+        "relationship": None,
+        "suggestions": follow_on_suggestions,
+    })
+
+
+VALID_DISMISS_REASONS = {
+    "not a task",
+    "not mine",
+    "duplicate",
+    "wrong target",
+    "other",
+}
+
+
 @api_v4_bp.route("/suggestions/<suggestion_id>/dismiss", methods=["POST"])
 def dismiss_suggestion(suggestion_id):
     suggestion = db.session.get(AiSuggestion, suggestion_id)
@@ -2770,14 +2972,26 @@ def dismiss_suggestion(suggestion_id):
     if suggestion.status != "pending":
         return _error("suggestion is not pending", 409)
 
+    data = request.get_json(silent=True) or {}
+    dismiss_reason = data.get("dismiss_reason")
+    if dismiss_reason is not None and dismiss_reason not in VALID_DISMISS_REASONS:
+        return _error(
+            "dismiss_reason must be one of: " + ", ".join(sorted(VALID_DISMISS_REASONS))
+        )
+
     suggestion.status = "dismissed"
     suggestion.resolved_at = datetime.utcnow()
+    payload = dict(suggestion.payload or {})
+    if dismiss_reason:
+        payload["dismiss_reason"] = dismiss_reason
+        suggestion.payload = payload
+        flag_modified(suggestion, "payload")
     source_entity = db.session.get(Entity, suggestion.source_entity_id)
     if source_entity is not None:
         _write_event(
             source_entity,
             "suggestion_dismissed",
-            new_value={"suggestion_id": suggestion.id},
+            new_value={"suggestion_id": suggestion.id, "dismiss_reason": dismiss_reason},
             actor="agent:v4-review",
             confidence=suggestion.confidence,
             reason=suggestion.reason,
@@ -3660,10 +3874,13 @@ def _valid_decided_by(value):
     return False
 
 
-def _reconcile_capture_candidates(note, extraction, thread_id=None):
-    applied_changes = []
-    suggestions = []
+def _apply_capture_extraction_metadata(note, extraction, applied_changes):
+    """Apply note-level extraction output: title, summary, intent, tags.
 
+    These come from the already-completed extraction call, so applying them
+    costs no extra LLM spend regardless of which pipeline the capture routes
+    through afterwards.
+    """
     summary = _clean_text(extraction.get("summary"))
     ai_title = _clean_text(extraction.get("title"))
     ai_meta = dict(note.ai_meta or {})
@@ -3710,6 +3927,8 @@ def _reconcile_capture_candidates(note, extraction, thread_id=None):
     for tag_candidate in extraction.get("tags") or []:
         name = _candidate_value(tag_candidate, "name")
         confidence = _candidate_confidence(tag_candidate)
+        # SQ-09: tags are safe metadata. The structural precondition is simply
+        # a non-empty tag name; confidence is the tiebreaker for auto-apply.
         if not name or confidence < AUTO_APPLY_CONFIDENCE:
             continue
         tag = _add_tag(note, name)
@@ -3724,6 +3943,207 @@ def _reconcile_capture_candidates(note, extraction, thread_id=None):
             confidence=confidence,
             source_note_id=note.id,
         )
+
+
+def _capture_intent_route(extraction, content):
+    """Pick the capture pipeline from the extraction-reported intent (SQ-05).
+
+    Routing keys off the raw LLM intent, not the heuristic fallback — an
+    absent/unknown intent always stays on the full pipeline.
+    Returns "junk", "activity_update", or "full".
+    """
+    extraction = extraction or {}
+    intent = extraction.get("intent")
+    if intent not in CAPTURE_INTENTS:
+        return "full"
+    if intent == "junk":
+        return "junk"
+    confidence = _candidate_confidence({"confidence": extraction.get("intent_confidence")})
+    # SQ-09: intent routing is a coarse pipeline switch. The structural
+    # precondition is a recognized update/follow_up intent plus short content;
+    # confidence is the tiebreaker that routes borderline cases through the
+    # safer full extraction pipeline instead.
+    if (
+        intent in {"update", "follow_up"}
+        and confidence >= INTENT_ROUTE_CONFIDENCE
+        and len(content or "") <= INTENT_ROUTE_MAX_CONTENT_CHARS
+    ):
+        return "activity_update"
+    return "full"
+
+
+def _process_capture_extraction(note, content, extraction, thread_id=None):
+    """Shared post-extraction step for both capture paths (single-shot + SSE).
+
+    Branches on intent before reconciliation: junk skips reconciliation
+    entirely, update/follow_up routes through activity-update semantics, and
+    everything else runs the existing full reconciliation pipeline.
+    """
+    route = _capture_intent_route(extraction, content)
+    if route == "full":
+        return _reconcile_capture_candidates(note, extraction, thread_id=thread_id)
+
+    applied_changes = []
+    suggestions = []
+    _apply_capture_extraction_metadata(note, extraction, applied_changes)
+    if route == "activity_update":
+        _route_capture_update_intent(
+            note, content, extraction, thread_id, applied_changes, suggestions
+        )
+    # route == "junk": note-level metadata only; no reconciliation spend.
+    _append_decision_suggestions(note, thread_id, suggestions)
+    if note.ai_status == "pending":
+        note.ai_status = "done"
+    return applied_changes, suggestions
+
+
+def _route_capture_update_intent(note, content, extraction, thread_id, applied_changes, suggestions):
+    """Treat an update/follow_up-intent capture as an activity update (SQ-05).
+
+    Resolves a target via the ladder (thread attachment → explicit mention →
+    embedding similarity), then applies the same policy as Add update. With no
+    target it files a single reviewable update_unresolved suggestion instead
+    of running entity-extraction reconciliation.
+    """
+    from services.v4_extraction import extract_dates_and_tasks_from_update
+
+    intent_confidence = _candidate_confidence({"confidence": extraction.get("intent_confidence")})
+    target = _resolve_update_target(note, content, thread_id)
+    au_extraction = extract_dates_and_tasks_from_update(content)
+
+    if target is None:
+        suggestion = _create_suggestion(
+            note,
+            suggestion_type="update_unresolved",
+            operation_type="update_unresolved",
+            payload={
+                "content": (content or "")[:300],
+                "status": au_extraction.get("status"),
+                "status_confidence": au_extraction.get("confidence"),
+                "follow_up_at": au_extraction.get("follow_up_at"),
+                "tasks": au_extraction.get("tasks") or [],
+            },
+            confidence=intent_confidence or None,
+            reason="update captured but no target could be resolved",
+        )
+        if suggestion is not None:
+            suggestions.append(suggestion.to_dict())
+        return
+
+    au_note, created, _skip_reason = _create_activity_update_note(
+        target,
+        content,
+        actor="agent:v4-capture",
+        confidence=intent_confidence or None,
+        source_note_id=note.id,
+    )
+    if au_note is None:
+        return
+    applied_changes.append({
+        "type": "activity_update_added",
+        "target_entity_id": target.id,
+        "note_id": au_note.id,
+        "content": content,
+        "confidence": intent_confidence,
+        "created": created,
+    })
+    if not created:
+        # Duplicate update within the dedup window — same early-exit semantics
+        # as the Add update endpoint.
+        return
+
+    result = _apply_activity_update_policy(
+        note, target, content, au_extraction, suggestions, actor="agent:v4-capture"
+    )
+    if result["status_auto_applied"]:
+        applied_changes.append({
+            "type": "entity_updated",
+            "entity_id": target.id,
+            "entity_type": target.type,
+            "title": target.title,
+            "changes": {"status": result["status"]},
+        })
+    if result["follow_up_auto_set"]:
+        applied_changes.append({
+            "type": "entity_updated",
+            "entity_id": target.id,
+            "entity_type": target.type,
+            "title": target.title,
+            "changes": {"follow_up_at": result["follow_up_at"]},
+        })
+
+    from services.v4_summarization import queue_summarize_if_needed
+
+    queue_summarize_if_needed(target.id, has_existing_summary=bool(target.ai_summary))
+
+
+def _resolve_update_target(note, content, thread_id):
+    """Resolve the entity an update-intent capture is talking about.
+
+    Ladder: (1) capture thread attachment, (2) explicit @/[[ mention of a
+    task/project in the content, (3) embedding similarity against active
+    tasks and projects. Returns None when nothing is confident enough.
+    """
+    if thread_id:
+        entity = db.session.get(Entity, thread_id)
+        if entity is not None and entity.lifecycle != "deleted":
+            return entity
+
+    for match in EXPLICIT_MENTION_PATTERN.finditer(content or ""):
+        entity_type = ENTITY_TYPE_BY_PLURAL.get(match.group("plural"))
+        if entity_type not in {"task", "project"}:
+            continue
+        target = db.session.get(Entity, match.group("id"))
+        if (
+            target is not None
+            and target.type == entity_type
+            and target.lifecycle != "deleted"
+            and target.id != note.id
+        ):
+            return target
+
+    return _embedding_update_target(content)
+
+
+def _embedding_update_target(content):
+    """Ladder step 3: embed the capture content and search active tasks and
+    projects; accept only a strong (>= UPDATE_TARGET_SIMILARITY) top match."""
+    from services.v4_reconciliation import _cosine, _embed_texts, _load_chunks_for_type
+
+    if not content:
+        return None
+    vectors = _embed_texts([content[:2000]])
+    if not vectors:
+        return None
+    query_vec = vectors[0]
+
+    closed_statuses = {"done", "cancelled", "completed"}
+    best_id = None
+    best_score = 0.0
+    for entity_type in ("task", "project"):
+        for entity_id, _chunk_text, embedding, entity_data in _load_chunks_for_type(entity_type):
+            if embedding is None or len(embedding) == 0:
+                continue
+            if (entity_data or {}).get("status") in closed_statuses:
+                continue
+            score = _cosine(query_vec, embedding)
+            if score > best_score:
+                best_id = entity_id
+                best_score = score
+
+    if best_id is None or best_score < UPDATE_TARGET_SIMILARITY:
+        return None
+    entity = db.session.get(Entity, best_id)
+    if entity is None or entity.lifecycle == "deleted":
+        return None
+    return entity
+
+
+def _reconcile_capture_candidates(note, extraction, thread_id=None):
+    applied_changes = []
+    suggestions = []
+
+    _apply_capture_extraction_metadata(note, extraction, applied_changes)
 
     # Flatten link and entity candidates into a single list for reconciliation.
     # Links carry an explicit relationship_type from extraction; entity candidates
@@ -3765,6 +4185,11 @@ def _reconcile_capture_candidates(note, extraction, thread_id=None):
             deduped[seen[key]] = cand
     all_candidates = deduped
 
+    # SQ-08: identify people who carry work in this note (assignees / delegation
+    # targets / follow-up owners). Bare mentions without an existing match are
+    # dropped instead of auto-created.
+    work_carrying_persons = _collect_work_carrying_persons(all_candidates)
+
     if all_candidates:
         from services.v4_reconciliation import reconcile_candidates
         decisions = reconcile_candidates(all_candidates, thread_id=thread_id)
@@ -3775,34 +4200,17 @@ def _reconcile_capture_candidates(note, extraction, thread_id=None):
                 decision,
                 applied_changes,
                 suggestions,
-                capture_thread_id=thread_id,
+                work_carrying_persons=work_carrying_persons,
             )
 
     # Decision extraction: explicit commitments always become reviewable
     # suggestions, never auto-created.
-    decision_candidates = _extract_decision_candidates(note, thread_id=thread_id)
-    for candidate in decision_candidates:
-        _append_capture_suggestion(
-            note,
-            candidate,
-            action="new",
-            entity_type="decision",
-            relationship_type=None,
-            confidence=candidate.get("confidence", 0.9),
-            evidence=candidate.get("statement"),
-            suggestions=suggestions,
-            suggestion_type="create_decision",
-            operation_type="create_decision",
-            payload={
-                "thread_id": candidate.get("thread_id"),
-                "statement": candidate.get("statement"),
-                "context": candidate.get("context"),
-                "decided_at": candidate.get("decided_at"),
-                "decided_by": candidate.get("decided_by"),
-                "source_note_id": note.id,
-            },
-            reason=f"Explicit commitment detected: {candidate.get('statement')}",
-        )
+    _append_decision_suggestions(note, thread_id, suggestions)
+
+    # SQ-07: cap task suggestions per note and group survivors under the note id
+    # so the review sheet can render "N action items from this note" with an
+    # accept-all control.
+    _cap_and_group_task_suggestions(note, suggestions)
 
     # Reconciliation ran to completion — mark the note as AI-processed regardless
     # of whether extraction produced a summary. Previously notes with empty
@@ -3814,10 +4222,14 @@ def _reconcile_capture_candidates(note, extraction, thread_id=None):
     return applied_changes, suggestions
 
 
-def _apply_reconciliation_decision(note, candidate, decision, applied_changes, suggestions, capture_thread_id=None):
+def _apply_reconciliation_decision(note, candidate, decision, applied_changes, suggestions, work_carrying_persons=None):
     action = (decision.get("action") or "new").lower()
     candidate_confidence = _candidate_confidence(candidate)
     if action == "skip":
+        # SQ-09: a skip is a no-action decision. Very low-confidence skips are
+        # dropped silently; medium/high-confidence skips are surfaced for review.
+        # The reconciler has already structurally declined the candidate, so
+        # confidence here only decides whether to stay silent or emit a suggestion.
         if candidate_confidence < LOW_CONFIDENCE_THRESHOLD:
             return
         # A medium/high-confidence candidate should still surface for review
@@ -3865,10 +4277,8 @@ def _apply_reconciliation_decision(note, candidate, decision, applied_changes, s
             action = "new"
 
     if action == "progress_update":
-        if capture_thread_id:
-            # Thread-attached capture is extraction bias only; Add update is the
-            # explicit activity-update path (AU8).
-            return
+        # SQ-06: thread-attached captures used to silently drop these decisions
+        # (old AU8 rule); they now behave exactly like unattached ones.
         target_id = decision.get("target_id")
         target = db.session.get(Entity, target_id) if target_id else None
         if target is None:
@@ -3897,7 +4307,13 @@ def _apply_reconciliation_decision(note, candidate, decision, applied_changes, s
             return
 
         new_status = (decision.get("fields") or {}).get("status")
-        if new_status in VALID_STATUS.get(target.type, set()) and new_status != target.status:
+        # SQ-09: auto-apply a captured status only when the progress text
+        # explicitly names the status. Confidence alone is not predictive enough.
+        if (
+            new_status in VALID_STATUS.get(target.type, set())
+            and new_status != target.status
+            and _status_change_is_explicit(update_text, new_status)
+        ):
             if confidence >= AUTO_APPLY_CONFIDENCE:
                 old_status = target.status
                 target.status = new_status
@@ -3994,6 +4410,11 @@ def _apply_reconciliation_decision(note, candidate, decision, applied_changes, s
         return
 
     if action == "update":
+        # SQ-09: the structural precondition for an update auto-apply is the
+        # reconciler's explicit "update" decision with a resolved target.
+        # Confidence is only the tiebreaker between applying now and surfacing
+        # a reviewable suggestion; _apply_entity_update further restricts the
+        # mutable fields to status/due_at/follow_up_at.
         if confidence >= AUTO_APPLY_CONFIDENCE:
             _apply_entity_update(note, target, candidate, decision, relationship_type, confidence, evidence, applied_changes)
         else:
@@ -4022,6 +4443,10 @@ def _apply_reconciliation_decision(note, candidate, decision, applied_changes, s
         return
 
     if action == "link":
+        # SQ-09: linking to an existing entity is safe metadata once the
+        # reconciler has explicitly chosen "link" and resolved a target.
+        # Confidence is the tiebreaker between auto-linking and offering the
+        # link as a reviewable suggestion.
         if confidence >= AUTO_APPLY_CONFIDENCE:
             link_source, link_target = _candidate_link_endpoints(note, target, relationship_type)
             link = _create_entity_link(link_source, link_target, relationship_type, confidence, evidence)
@@ -4060,18 +4485,74 @@ def _apply_reconciliation_decision(note, candidate, decision, applied_changes, s
     # action == "new"
     if not title or not entity_type:
         return
+    # SQ-09: globally drop very low-confidence "new" candidates as noise before
+    # spending a review slot. Tasks are further guarded by _task_suggest_ok;
+    # persons are guarded by SQ-08 hygiene below. Here confidence is the only
+    # available signal, so it acts as a coarse noise filter rather than a gate.
     if action == "new" and _candidate_confidence(candidate) < LOW_CONFIDENCE_THRESHOLD:
         return
     content = _candidate_value(candidate, "content")
     top_match_score = decision.get("top_match_score") or 0.0
-    suggestion_reason = _capture_suggestion_reason(decision, confidence, uncertain=uncertain)
+    suggestion_reason = _capture_suggestion_reason(decision, confidence, uncertain=uncertain, evidence=evidence)
+
+    # SQ-08 person hygiene: bare person mentions must either match an existing
+    # person or carry work in this note. A near-duplicate existing person is
+    # linked instead of creating a duplicate; a bare mention with no match and
+    # no associated work is dropped silently.
+    if entity_type == "person":
+        if top_match_score >= NEAR_DUPLICATE_SCORE and decision.get("top_match_id"):
+            target = db.session.get(Entity, decision.get("top_match_id"))
+            if target is not None:
+                # SQ-09: the near-duplicate/top_match structural check has
+                # already decided the link; confidence is the tiebreaker for
+                # auto-linking vs. surfacing a suggestion.
+                if confidence >= AUTO_APPLY_CONFIDENCE:
+                    link_source, link_target = _candidate_link_endpoints(note, target, relationship_type)
+                    link = _create_entity_link(link_source, link_target, relationship_type, confidence, evidence)
+                    if link is not None:
+                        applied_changes.append({
+                            "type": "relationship_added",
+                            "target_entity_id": target.id,
+                            "relationship_type": relationship_type,
+                            "confidence": confidence,
+                        })
+                        _write_event(note, "relationship_added", new_value=link.to_dict(), actor="agent:v4-capture", confidence=confidence, reason=evidence, source_note_id=note.id)
+                else:
+                    _append_capture_suggestion(
+                        note,
+                        candidate,
+                        action="link",
+                        entity_type=target.type,
+                        relationship_type=relationship_type,
+                        confidence=confidence,
+                        evidence=evidence,
+                        suggestions=suggestions,
+                        suggestion_type="link_existing",
+                        operation_type="link_existing",
+                        payload={
+                            "source_entity_id": note.id,
+                            "target_entity_id": target.id,
+                            "target_type": target.type,
+                            "title": target.title,
+                            "relationship_type": relationship_type,
+                            "evidence": evidence,
+                        },
+                        reason=decision.get("reason"),
+                    )
+                return
+        if not _person_carries_work(title, work_carrying_persons):
+            return
+
+    # SQ-09: tentative task phrasing is a structural drop signal; confidence
+    # only refines the threshold (high-confidence tentative tasks are still
+    # suppressed because the phrasing is the stronger predictor).
     if (
         entity_type == "task"
         and confidence < AUTO_CREATE_ENTITY_CONFIDENCE
         and _task_candidate_looks_tentative(candidate)
     ):
         return
-    if _can_auto_create_entity(entity_type, confidence, top_match_score):
+    if _can_auto_create_entity(entity_type, confidence, top_match_score, note=note, candidate=candidate, decision=decision):
         entity = _auto_create_entity(
             entity_type=entity_type,
             title=title,
@@ -4145,6 +4626,10 @@ def _apply_reconciliation_decision(note, candidate, decision, applied_changes, s
                     reason=decision.get("reason"),
                 )
     else:
+        # SQ-07: tasks must pass the structural suggest gate; otherwise they are
+        # dropped as noise (logistics, stance fragments, restatements).
+        if entity_type == "task" and not _task_suggest_ok(note, candidate, decision, confidence):
+            return
         _append_capture_suggestion(
             note,
             candidate,
@@ -5568,7 +6053,7 @@ def _create_suggestion(note, suggestion_type, operation_type, payload, confidenc
             return existing_pending
         return None
 
-    if _recently_resolved_duplicate(fingerprint, confidence):
+    if _recently_resolved_duplicate(fingerprint, confidence, suggestion_type, operation_type, payload):
         return None
 
     _clear_review_resolution(note)
@@ -5703,11 +6188,81 @@ def _create_entity_link(source_entity, target_entity, relationship_type, confide
 
 
 def _find_existing_entity(entity_type, title):
+    if entity_type == "person":
+        return _find_existing_person(title)
     return Entity.query.filter(
         Entity.type == entity_type,
         func.lower(Entity.title) == title.lower(),
         Entity.lifecycle != "deleted",
     ).first()
+
+
+def _find_existing_person(title):
+    """Find an active person by exact, unique first-name, or unique substring match.
+
+    A bare first-name mention ("Priya") resolves to "Priya Dhandapani" only
+    when the match is unambiguous. If multiple people share the same first
+    name, no automatic link is made — the caller should create a new entity or
+    surface the mention for review.
+    """
+    title_lower = (title or "").strip().lower()
+    if not title_lower:
+        return None
+
+    persons = Entity.query.filter(
+        Entity.type == "person",
+        Entity.lifecycle == "active",
+    ).all()
+
+    exact_match = None
+    first_name_matches = []
+    substring_matches = []
+
+    for person in persons:
+        person_title_lower = (person.title or "").strip().lower()
+        if not person_title_lower:
+            continue
+        if person_title_lower == title_lower:
+            exact_match = person
+            break
+        words = person_title_lower.split()
+        if words and words[0] == title_lower:
+            first_name_matches.append(person)
+        elif title_lower in person_title_lower:
+            substring_matches.append(person)
+
+    if exact_match is not None:
+        return exact_match
+    if len(first_name_matches) == 1:
+        return first_name_matches[0]
+    if not first_name_matches and len(substring_matches) == 1:
+        return substring_matches[0]
+    return None
+
+
+def _person_carries_work(title, work_carrying_persons):
+    """Return True if a person candidate matches a work-carrying name.
+
+    Work-carrying names come from task/project candidates with an assigned_to
+    value in the same note. Matching tolerates first-name and substring overlap
+    so that "Priya" is considered work-carrying when a task is assigned to
+    "Priya Dhandapani".
+    """
+    if not title or not work_carrying_persons:
+        return False
+    title_lower = title.strip().lower()
+    for name in work_carrying_persons:
+        name_lower = (name or "").strip().lower()
+        if not name_lower:
+            continue
+        if title_lower == name_lower:
+            return True
+        name_words = name_lower.split()
+        if name_words and name_words[0] == title_lower:
+            return True
+        if title_lower in name_lower or name_lower in title_lower:
+            return True
+    return False
 
 
 def _default_relationship_type(entity_type):
@@ -5836,14 +6391,14 @@ def _inbox_sort_key(note, pending_suggestion_count, mode):
     return (intent_rank, created_rank, timestamp_rank)
 
 
-def _capture_suggestion_reason(decision, confidence, uncertain=False):
+def _capture_suggestion_reason(decision, confidence, uncertain=False, evidence=None):
     from services.v4_reconciliation import (
         UNCERTAIN_SUGGESTION_REASON,
         is_uncertain_decision,
     )
 
     if uncertain or is_uncertain_decision(decision, confidence=confidence):
-        return UNCERTAIN_SUGGESTION_REASON
+        return evidence or UNCERTAIN_SUGGESTION_REASON
     return decision.get("reason")
 
 
@@ -5865,10 +6420,16 @@ def _append_capture_suggestion(note, candidate, action, entity_type, relationshi
 def _should_emit_capture_suggestion(note, candidate, action, entity_type, relationship_type, confidence):
     intent = ((note.ai_meta or {}).get("intent") or "note")
     if entity_type == "decision":
-        # Decisions are high-signal by design; emit unless confidence is very low.
+        # SQ-09: decisions are high-signal by design; confidence is the
+        # tiebreaker that keeps only very low-confidence ones out of review.
         return confidence >= LOW_CONFIDENCE_THRESHOLD
+    # SQ-09: junk-intent captures are structurally dropped unless a candidate
+    # is high-confidence enough to be worth a quick review slot.
     if intent == "junk" and confidence < INTENT_SUGGESTION_CONFIDENCE_FLOOR:
         return False
+    # SQ-09: reference-intent captures should not spawn low-confidence task
+    # work. The structural signal is the intent classification; confidence is
+    # the tiebreaker.
     if (
         intent == "reference"
         and entity_type == "task"
@@ -5876,6 +6437,8 @@ def _should_emit_capture_suggestion(note, candidate, action, entity_type, relati
         and confidence < INTENT_SUGGESTION_CONFIDENCE_FLOOR
     ):
         return False
+    # SQ-09: tentative phrasing is the structural drop signal here; confidence
+    # only refines which tentative tasks are suppressed.
     if (
         entity_type == "task"
         and action == "new"
@@ -5910,6 +6473,188 @@ def _task_candidate_looks_tentative(candidate):
         "let's maybe ",
     )
     return title.startswith(tentative_prefixes)
+
+
+def _status_keyword_is_affirmed(source_text, term):
+    """Return True when *term* appears in *source_text* without direct negation."""
+    lowered = source_text.lower()
+    start = 0
+    while start < len(lowered):
+        pos = lowered.find(term, start)
+        if pos == -1:
+            return False
+        segment = lowered[max(0, pos - 20):pos + len(term)]
+        if not _status_term_is_negated(segment, term):
+            return True
+        start = pos + len(term)
+    return False
+
+
+def _status_term_is_negated(segment, term):
+    """True when *segment* around *term* is directly negated."""
+    escaped = re.escape(term)
+    negated_patterns = (
+        rf"\bnot\s+yet\s+{escaped}\b",
+        rf"\bnot\s+{escaped}\b",
+        rf"\b(?:isn\'t|aren't|wasn't|weren't|hasn't|haven't|hadn't)\s+(?:\w+\s+){{0,2}}{escaped}\b",
+        rf"\b(?:don't|doesn't|didn't|won't|wouldn't|can't|cannot)\s+(?:\w+\s+){{0,2}}{escaped}\b",
+    )
+    return any(re.search(pattern, segment) for pattern in negated_patterns)
+
+
+def _status_change_is_explicit(source_text, new_status):
+    """SQ-09 structural guard for status auto-apply.
+
+    A status transition is only auto-applied when the source text contains
+    explicit phrasing that names the new status. Confidence is consulted only
+    after this precondition is met; without it, the change stays a reviewable
+    suggestion. Negated phrasing ("not done", "isn't blocked") does not count.
+    """
+    if not source_text or not new_status:
+        return False
+    keywords = {
+        "done": {"done", "shipped", "completed", "finished", "closed", "close", "closing", "wrapped up"},
+        "completed": {"completed", "done", "shipped", "finished", "closed", "close", "closing"},
+        "cancelled": {"cancelled", "canceled", "killed", "won't do", "not doing", "scrapped"},
+        "blocked": {"blocked", "stuck", "blocker", "blocking", "block"},
+        "waiting": {"waiting", "wait", "waiting on", "blocked on"},
+    }
+    return any(
+        _status_keyword_is_affirmed(source_text, term)
+        for term in keywords.get(new_status, set())
+    )
+
+
+def _append_decision_suggestions(note, thread_id, suggestions):
+    """Extract explicit decisions and append reviewable create_decision suggestions."""
+    decision_candidates = _extract_decision_candidates(note, thread_id=thread_id)
+    for candidate in decision_candidates:
+        _append_capture_suggestion(
+            note,
+            candidate,
+            action="new",
+            entity_type="decision",
+            relationship_type=None,
+            confidence=candidate.get("confidence", 0.9),
+            evidence=candidate.get("statement"),
+            suggestions=suggestions,
+            suggestion_type="create_decision",
+            operation_type="create_decision",
+            payload={
+                "thread_id": candidate.get("thread_id"),
+                "statement": candidate.get("statement"),
+                "context": candidate.get("context"),
+                "decided_at": candidate.get("decided_at"),
+                "decided_by": candidate.get("decided_by"),
+                "source_note_id": note.id,
+            },
+            reason=f"Explicit commitment detected: {candidate.get('statement')}",
+        )
+
+
+_FOLLOW_UP_OWNER_RE = re.compile(
+    r"\bfollow[\s-]?up with ([A-Za-z][a-zA-Z'-]+)\b",
+    re.IGNORECASE,
+)
+
+
+def _collect_work_carrying_persons(all_candidates):
+    """Names that carry work in this capture (assignees, delegation, follow-up targets)."""
+    names = set()
+    for cand in all_candidates:
+        ctype = _candidate_value(cand, "type")
+        assignee = _candidate_value(cand, "assigned_to")
+        if assignee:
+            names.add(assignee)
+        if (
+            ctype == "person"
+            and cand.get("_source") == "link"
+            and _candidate_value(cand, "relationship_type") == "assigned_to"
+        ):
+            title = _candidate_value(cand, "title")
+            if title:
+                names.add(title)
+        if ctype == "task":
+            title = _candidate_value(cand, "title") or ""
+            match = _FOLLOW_UP_OWNER_RE.search(title)
+            if match:
+                names.add(match.group(1))
+    return names
+
+
+def _suggestion_task_structural_score(note, row):
+    """Structural score for a pending create_task suggestion row."""
+    payload = row.get("payload") or {}
+    candidate = {
+        "title": payload.get("title"),
+        "assigned_to": payload.get("assigned_to"),
+        "due_at": payload.get("due_at"),
+        "follow_up_at": payload.get("follow_up_at"),
+    }
+    near = payload.get("near_match") or {}
+    decision = {
+        "top_match_score": near.get("score") or 0.0,
+        "top_match_id": near.get("entity_id"),
+    }
+    return _task_structural_score(note, candidate, decision)
+
+
+def _cap_and_group_task_suggestions(note, suggestions):
+    """Cap create_task suggestions per note and tag survivors with group_id.
+
+    Long meeting notes can produce many task candidates. We keep the best
+    TASK_SUGGESTION_CAP_PER_NOTE candidates (structural score, then confidence)
+    and mark them as a group so the review sheet can render them with an
+    accept-all control.
+    """
+    task_rows = [(i, row) for i, row in enumerate(suggestions) if row.get("suggestion_type") == "create_task"]
+    if not task_rows:
+        return
+
+    kept = task_rows
+    if len(task_rows) > TASK_SUGGESTION_CAP_PER_NOTE:
+        task_rows.sort(
+            key=lambda item: (
+                _suggestion_task_structural_score(note, item[1]),
+                item[1].get("confidence") or 0.0,
+            ),
+            reverse=True,
+        )
+        kept = task_rows[:TASK_SUGGESTION_CAP_PER_NOTE]
+    kept_ids = {row["id"] for _, row in kept}
+
+    note_id_str = str(note.id)
+    for suggestion_id in kept_ids:
+        suggestion = db.session.get(AiSuggestion, suggestion_id)
+        if suggestion is None or suggestion.status != "pending":
+            continue
+        payload = dict(suggestion.payload or {})
+        payload["group_id"] = note_id_str
+        suggestion.payload = payload
+        flag_modified(suggestion, "payload")
+
+    # Drop overflow tasks from the DB and response. Use "expired" (not
+    # "dismissed") so SQ-10 semantic dismissal memory is not polluted.
+    dropped = [(i, row) for i, row in task_rows if row["id"] not in kept_ids]
+    for _i, row in dropped:
+        suggestion = db.session.get(AiSuggestion, row["id"])
+        if suggestion is not None and suggestion.status == "pending":
+            suggestion.status = "expired"
+            suggestion.resolved_at = datetime.utcnow()
+            drop_payload = dict(suggestion.payload or {})
+            drop_payload["expire_reason"] = "task_cap_overflow"
+            suggestion.payload = drop_payload
+            flag_modified(suggestion, "payload")
+
+    # Update the in-memory dicts and remove dropped rows.
+    kept_set = {i for i, _ in kept}
+    for i, row in task_rows:
+        if i in kept_set:
+            payload = row.get("payload") or {}
+            payload["group_id"] = note_id_str
+            row["payload"] = payload
+
+    suggestions[:] = [row for i, row in enumerate(suggestions) if i in kept_set or row.get("suggestion_type") != "create_task"]
 
 
 def _expire_stale_suggestion_if_needed(suggestion):
@@ -6025,6 +6770,14 @@ def _normalized_suggestion_payload(operation_type, payload):
             "decided_at": _clean_text(payload.get("decided_at")),
             "decided_by": _clean_text(payload.get("decided_by")),
         }
+    if operation_type == "update_unresolved":
+        # Distinct unresolved updates must not collapse into one fingerprint;
+        # the content excerpt is the identity of the captured update.
+        return {
+            "content": _clean_text(payload.get("content")),
+            "status": _clean_text(payload.get("status")),
+            "follow_up_at": _clean_text(payload.get("follow_up_at")),
+        }
     if operation_type == "update_entity":
         fields = payload.get("fields") or {}
         return {
@@ -6050,21 +6803,250 @@ def _existing_pending_suggestion(fingerprint):
     ).first()
 
 
-def _recently_resolved_duplicate(fingerprint, confidence):
+def _semantic_embedding_text(suggestion_type, operation_type, payload):
+    """Normalize a suggestion into the text we embed for semantic duplicate checks.
+
+    Uses the title (or statement/content for non-entity suggestions). For
+    update suggestions, appends the target entity id so that reworded updates
+    to *different* targets are not confused with each other.
+    """
+    payload = payload or {}
+    text = (
+        _clean_text(payload.get("title"))
+        or _clean_text(payload.get("statement"))
+        or _clean_text(payload.get("content"))
+        or ""
+    )
+    if operation_type == "update_entity":
+        target_id = _clean_text(payload.get("target_entity_id"))
+        if target_id:
+            text = f"{text} {target_id}".strip()
+    return text
+
+
+def _recently_resolved_duplicate(fingerprint, confidence, suggestion_type, operation_type, payload):
+    # SQ-09: duplicate suppression is structurally gated by the fingerprint
+    # (same normalized payload). Confidence is a tiebreaker: a slightly higher
+    # confidence version is allowed to resurface, otherwise the duplicate is
+    # suppressed so the review queue isn't spammed with re-suggestions.
     cutoff = datetime.now(timezone.utc) - timedelta(days=SUGGESTION_DUPLICATE_MEMORY_DAYS)
     existing = AiSuggestion.query.filter(
         AiSuggestion.status.in_(("dismissed", "expired")),
         AiSuggestion.updated_at >= cutoff,
         AiSuggestion.payload["_fingerprint"].as_string() == fingerprint,
     ).order_by(AiSuggestion.updated_at.desc()).first()
-    if existing is None:
+    if existing is not None:
+        previous_confidence = existing.confidence or 0.0
+        next_confidence = confidence or 0.0
+        return next_confidence <= previous_confidence + 0.05
+
+    # SQ-10: reworded duplicates of recently dismissed suggestions should also
+    # be suppressed. The exact-fingerprint fast path above keeps this cheap.
+    return _recently_resolved_semantic_duplicate(suggestion_type, operation_type, payload)
+
+
+def _recently_resolved_semantic_duplicate(suggestion_type, operation_type, payload):
+    """Suppress reworded duplicates via embedding similarity.
+
+    Compares the candidate's normalized text to dismissed/expired suggestions
+    from the last SUGGESTION_SEMANTIC_MEMORY_DAYS days with the same
+    suggestion_type. Embeddings are computed lazily and cached in the dismissed
+    suggestion's payload.
+    """
+    candidate_text = _semantic_embedding_text(suggestion_type, operation_type, payload)
+    if not candidate_text:
         return False
-    previous_confidence = existing.confidence or 0.0
-    next_confidence = confidence or 0.0
-    return next_confidence <= previous_confidence + 0.05
+
+    from services.v4_reconciliation import _cosine, _embed_texts
+
+    semantic_cutoff = datetime.now(timezone.utc) - timedelta(days=SUGGESTION_SEMANTIC_MEMORY_DAYS)
+    existing = AiSuggestion.query.filter(
+        AiSuggestion.status.in_(("dismissed", "expired")),
+        AiSuggestion.updated_at >= semantic_cutoff,
+        AiSuggestion.suggestion_type == suggestion_type,
+    ).order_by(AiSuggestion.updated_at.desc()).all()
+
+    if not existing:
+        return False
+
+    candidate_vectors = _embed_texts([candidate_text])
+    if not candidate_vectors or not candidate_vectors[0]:
+        return False
+    candidate_vec = candidate_vectors[0]
+
+    # Backfill embeddings for dismissed suggestions that don't have one yet.
+    missing = []
+    for suggestion in existing:
+        existing_payload = suggestion.payload or {}
+        if "_semantic_embedding" not in existing_payload:
+            text = _semantic_embedding_text(suggestion.suggestion_type, suggestion.operation_type, existing_payload)
+            if text:
+                missing.append((suggestion, text))
+
+    if missing:
+        vectors = _embed_texts([text for _, text in missing])
+        for i, (suggestion, _) in enumerate(missing):
+            if i >= len(vectors) or not vectors[i]:
+                continue
+            new_payload = dict(suggestion.payload or {})
+            new_payload["_semantic_embedding"] = vectors[i]
+            suggestion.payload = new_payload
+            flag_modified(suggestion, "payload")
+
+    for suggestion in existing:
+        existing_payload = suggestion.payload or {}
+        if existing_payload.get("expire_reason") == "task_cap_overflow":
+            continue
+        embedding = existing_payload.get("_semantic_embedding")
+        if not embedding:
+            continue
+        if _cosine(candidate_vec, embedding) >= SUGGESTION_SEMANTIC_SIMILARITY_THRESHOLD:
+            return True
+
+    return False
 
 
-def _can_auto_create_entity(entity_type, confidence, top_match_score=0.0):
+# SQ-07: structural task-extraction gate. A task candidate must have both
+# (a) a concrete deliverable/next-action and (b) an owner the user chases.
+# We approximate this with four checklist signals; confidence only breaks ties.
+_TASK_DELIVERABLE_VERBS = {
+    "ship", "draft", "send", "schedule", "define", "review", "build", "write",
+    "document", "follow", "follow up", "followup", "confirm", "complete",
+    "finish", "deliver", "prepare", "update", "fix", "resolve", "close",
+    "clear", "get", "obtain", "share", "publish", "deploy", "release",
+    "test", "verify", "check", "ask", "tell", "remind", "call", "meet",
+    "discuss", "align", "drive", "lead", "own", "take", "handle", "manage",
+    "coordinate", "facilitate", "organize", "create", "make", "produce",
+    "submit", "present", "report", "investigate", "research", "analyze",
+    "decide", "approve", "sign", "negotiate", "finalize", "review", "revise",
+    "edit", "proofread", "circulate", "distribute", "design", "plan",
+    "implement", "develop", "code", "migrate", "integrate", "configure",
+    "setup", "set", "refactor", "rewrite", "rework", "consolidate",
+    "streamline", "simplify", "automate", "enable", "disable", "restore",
+    "backfill", "reconcile", "validate", "benchmark", "measure", "track",
+}
+# Imperatives that look like deliverables but are actually logistics/stance.
+# "schedule" is deliberately excluded from this list: scheduling a specific,
+# named call or deliverable is a real action item (e.g. "Schedule the customer
+# migration call"), whereas generic meeting logistics are excluded by the prompt.
+_TASK_LOGISTICS_VERBS = {
+    "attend", "hold", "book", "reserve", "block", "endorse",
+    "agree", "defer", "revisit", "prioritize", "favour", "favor", "support",
+}
+
+
+def _title_has_deliverable_shape(title):
+    """True if the title starts with an action verb followed by an object."""
+    if not title:
+        return False
+    words = title.lower().strip("-–:;• ").split()
+    if not words:
+        return False
+    # Tentative prefix cancels deliverable shape.
+    if words[0] in {"maybe", "possibly", "perhaps", "might", "could", "consider"}:
+        return False
+    first = words[0].rstrip(",")
+    if first in _TASK_LOGISTICS_VERBS:
+        return False
+    if first in _TASK_DELIVERABLE_VERBS:
+        return len(words) >= 2
+    # Recognize "follow up" / "follow-up" as a compound verb.
+    if first in {"follow", "follow-up"} and len(words) >= 2 and words[1] in {"up", "with", "on"}:
+        return len(words) >= 3
+    return False
+
+
+def _task_has_owner(candidate):
+    """True if the candidate has an explicit assignee."""
+    return bool(_clean_text(_candidate_value(candidate, "assigned_to")))
+
+
+def _task_has_date(candidate):
+    """True if the candidate carries a due or follow-up date."""
+    return bool(
+        _candidate_value(candidate, "due_at") or _candidate_value(candidate, "follow_up_at")
+    )
+
+
+def _task_target_resolvable(note, candidate, decision):
+    """True if the task can be attached to an existing project/area or note project link."""
+    # Reconciliation found a near-match existing task/project/area.
+    if (decision.get("top_match_score") or 0.0) >= NEAR_DUPLICATE_SCORE:
+        return True
+    # Candidate itself carries a project/area relationship.
+    related = (_candidate_value(candidate, "parent") or _candidate_value(candidate, "project"))
+    if related:
+        return True
+    # Source note already links to a project the task could inherit.
+    if note is not None:
+        note_project_links = EntityLink.query.filter(
+            EntityLink.source_entity_id == note.id,
+            EntityLink.relationship_type.in_(["parent", "related"]),
+        ).join(Entity, Entity.id == EntityLink.target_entity_id).filter(
+            Entity.type == "project"
+        ).first()
+        if note_project_links is not None:
+            return True
+    return False
+
+
+def _task_structural_score(note, candidate, decision):
+    """Return 0-4 structural quality score for a task candidate.
+
+    SQ-07 checklist:
+      1. has_owner: assigned_to is present.
+      2. has_deliverable_title: verb + object shape (not logistics/stance).
+      3. has_date: due_at or follow_up_at present.
+      4. target_resolvable: existing near-match, explicit parent project, or
+         source note already links to a project.
+    """
+    score = 0
+    if _task_has_owner(candidate):
+        score += 1
+    if _title_has_deliverable_shape(_candidate_value(candidate, "title")):
+        score += 1
+    if _task_has_date(candidate):
+        score += 1
+    if _task_target_resolvable(note, candidate, decision):
+        score += 1
+    return score
+
+
+def _task_auto_create_ok(note, candidate, decision, confidence):
+    """SQ-07: structural score gate for auto-creating a task.
+
+    Confidence is a tiebreaker: candidates with a perfect structural score
+    (4/4) may auto-create if they are also high-confidence. Candidates with
+    a strong-but-imperfect score (3/4) are surfaced for review. Lower scores
+    are dropped as noise (logistics, stance fragments, restatements).
+    """
+    score = _task_structural_score(note, candidate, decision)
+    if score == 4:
+        return confidence >= AUTO_CREATE_ENTITY_CONFIDENCE
+    return False
+
+
+def _task_suggest_ok(note, candidate, decision, confidence):
+    """SQ-07: structural score gate for suggesting a task.
+
+    A candidate must have at least half the structural signals to be worth
+    a review slot; confidence only breaks ties when capping. Score 2-3 goes
+    to the review queue, score 4 goes to auto-create and is excluded here.
+    """
+    score = _task_structural_score(note, candidate, decision)
+    if score < 2:
+        return False
+    if score == 4:
+        # SQ-09: perfect structural score lets the candidate auto-create;
+        # confidence only decides whether it crosses the auto-create threshold.
+        return confidence < AUTO_CREATE_ENTITY_CONFIDENCE
+    # SQ-09: partial structural score (2-3) makes the candidate eligible for
+    # review; confidence is the tiebreaker that keeps very low-confidence
+    # noise out of the review queue.
+    return confidence >= LOW_CONFIDENCE_THRESHOLD
+
+
+def _can_auto_create_entity(entity_type, confidence, top_match_score=0.0, note=None, candidate=None, decision=None):
     if entity_type not in RISKY_ENTITY_CREATION_TYPES:
         return False
     # Projects and areas are low-volume and expensive to dedupe after the
@@ -6075,6 +7057,13 @@ def _can_auto_create_entity(entity_type, confidence, top_match_score=0.0):
     # a sibling, regardless of how confident the model is that this is "new".
     if (top_match_score or 0.0) >= NEAR_DUPLICATE_SCORE:
         return False
+    # SQ-07: tasks use a structural score gate; confidence is a tiebreaker.
+    if entity_type == "task":
+        return _task_auto_create_ok(note, candidate, decision or {}, confidence)
+    # SQ-09: for non-task risky entities (person, resource), the structural
+    # preconditions are the SQ-08 person-hygiene check and the near-duplicate
+    # check above. Confidence is the tiebreaker that decides auto-create vs.
+    # review, with a floor to filter obvious noise.
     if confidence < LOW_CONFIDENCE_THRESHOLD:
         return False
     return confidence >= AUTO_CREATE_ENTITY_CONFIDENCE

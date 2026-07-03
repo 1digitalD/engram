@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { v4API, friendlyApiError } from '../api/v4Client';
+import { useReview } from '../context/ReviewContext';
 import { useSummary } from '../context/SummaryContext';
+import { FOLLOW_UP_24H_TITLE, FOLLOW_UP_TOMORROW_LABEL } from '../utils/followUpActions';
+import { getTodayActionItems } from '../utils/today';
 import { MOCKED_NOW_DATA } from './V5Now.fixtures';
 import styles from './V5Now.module.css';
 
@@ -14,6 +17,7 @@ function routeForEntity(type, id) {
 }
 
 function itemPath(item) {
+  if (item.nonNavigable) return null;
   return routeForEntity(item.type, item.id);
 }
 
@@ -43,9 +47,13 @@ function NowRow({ item, onAction, actionsDisabled = false }) {
 
   return (
     <article className={`${styles.row} ${band}`}>
-      <Link to={detailPath} className={styles.sentence}>
-        {sentenceFor(item)}
-      </Link>
+      {detailPath ? (
+        <Link to={detailPath} className={styles.sentence}>
+          {sentenceFor(item)}
+        </Link>
+      ) : (
+        <p className={styles.sentence}>{sentenceFor(item)}</p>
+      )}
 
       <div className={styles.meta}>
         {item.when ? <span>{item.when}</span> : null}
@@ -70,6 +78,7 @@ function NowRow({ item, onAction, actionsDisabled = false }) {
               className={`${styles.actionButton} ${action.primary ? styles.actionButtonPrimary : ''}`}
               onClick={() => onAction(item, action)}
               disabled={actionsDisabled}
+              title={action.title}
             >
               {action.label}
             </button>
@@ -104,58 +113,102 @@ function Section({ title, items, onAction, actionsDisabled = false }) {
   );
 }
 
-function transformTodayResponse(today) {
+const ACTION_REASON_LABELS = {
+  overdue_follow_up: 'overdue follow-up',
+  follow_up_today: 'follow-up today',
+  blocked: 'blocked',
+  waiting: 'waiting',
+  needs_attention: 'needs attention',
+};
+
+function entityKey(entity) {
+  return entity?.id || null;
+}
+
+function mapEntityToNowItem(entity, reason) {
+  const score = entity.attention?.score ?? entity.attention_score ?? 50;
+  const project = (entity.projects || [])[0];
+  const subject = entity.title
+    ? `${entity.title}${entity.content ? ` — ${entity.content.slice(0, 120)}` : ''}`
+    : 'Untitled item';
+
+  return {
+    id: entity.id,
+    type: entity.type || 'task',
+    subject,
+    when: entity.due_at
+      ? new Date(entity.due_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+      : (entity.follow_up_at
+        ? new Date(entity.follow_up_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+        : 'No date'),
+    why_now: reason || entity.attention?.reasons?.[0]?.label || 'Needs attention',
+    thread: project
+      ? { id: project.id, label: project.title, type: 'project' }
+      : { id: entity.id, label: entity.title || 'Untitled', type: entity.type || 'task' },
+    actions: [
+      { key: 'open', label: 'Open', primary: true },
+      { key: 'snooze', label: FOLLOW_UP_TOMORROW_LABEL, title: FOLLOW_UP_24H_TITLE },
+      { key: 'done', label: 'Done' },
+    ],
+    attention_score: score,
+  };
+}
+
+function bandNowItem(item, needs, waiting, ambient) {
+  const score = item.attention_score ?? 0;
+  if (score >= 75) {
+    needs.push(item);
+  } else if (score >= 25) {
+    waiting.push(item);
+  } else {
+    ambient.push(item);
+  }
+}
+
+export function transformTodayResponse(today) {
   const needs = [];
   const waiting = [];
   const ambient = [];
-  const allEntities = [
-    ...(today.overdue || []).map((entity) => ({ ...entity, reason: 'overdue' })),
-    ...(today.due_today || []).map((entity) => ({ ...entity, reason: 'due today' })),
-    ...(today.delegations_quiet || []).map((entity) => ({ ...entity, reason: 'needs a nudge' })),
-    ...(today.dependency_interventions || []).map((item) => ({ ...item.entity, reason: item.label })),
-  ];
+  const seen = new Set();
 
-  for (const entity of allEntities) {
-    if (!entity) continue;
+  function addEntity(entity, reason) {
+    const key = entityKey(entity);
+    if (!entity || !key || seen.has(key)) return;
+    seen.add(key);
+    bandNowItem(mapEntityToNowItem(entity, reason), needs, waiting, ambient);
+  }
 
-    const score = entity.attention?.score ?? entity.attention_score ?? 50;
-    const project = (entity.projects || [])[0];
-    const subject = entity.title
-      ? `${entity.title}${entity.content ? ` — ${entity.content.slice(0, 120)}` : ''}`
-      : 'Untitled item';
+  for (const entity of today.overdue || []) addEntity(entity, 'overdue');
+  for (const entity of today.due_today || []) addEntity(entity, 'due today');
+  for (const entity of today.delegations_quiet || []) addEntity(entity, 'needs a nudge');
+  for (const item of today.dependency_interventions || []) {
+    addEntity(item.entity, item.label);
+  }
+  for (const { entity, reason } of getTodayActionItems(today)) {
+    addEntity(entity, ACTION_REASON_LABELS[reason] || reason);
+  }
 
-    const item = {
-      id: entity.id,
-      type: entity.type || 'task',
-      subject,
-      when: entity.due_at
-        ? new Date(entity.due_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-        : (entity.follow_up_at
-          ? new Date(entity.follow_up_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-          : 'No date'),
-      why_now: entity.reason || entity.attention?.reasons?.[0]?.label || 'Needs attention',
-      thread: project
-        ? { id: project.id, label: project.title, type: 'project' }
-        : { id: entity.id, label: entity.title || 'Untitled', type: entity.type || 'task' },
-      actions: [
-        { key: 'open', label: 'Open', primary: true },
-        { key: 'snooze', label: 'Snooze' },
-        { key: 'done', label: 'Done' },
-      ],
-      attention_score: score,
-    };
-
-    if (score >= 75) {
-      needs.push(item);
-    } else if (score >= 25) {
-      waiting.push(item);
-    } else {
-      ambient.push(item);
-    }
+  for (const note of today.recent_notes || []) {
+    const key = entityKey(note);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    ambient.push({
+      id: note.id,
+      type: 'note',
+      subject: note.title || (note.content ? note.content.slice(0, 120) : 'Recent note'),
+      when: 'Recent',
+      why_now: note.ai?.intent ? `${note.ai.intent.replace(/_/g, ' ')} note` : 'Recent capture',
+      thread: { id: note.id, label: note.title || 'Note', type: 'note' },
+      actions: [{ key: 'open', label: 'Open', primary: true }],
+      attention_score: 15,
+    });
   }
 
   const stale = [...(today.stale_projects || []), ...(today.suggested_archival || [])];
   for (const entity of stale) {
+    const key = entityKey(entity);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
     ambient.push({
       id: entity.id,
       type: 'project',
@@ -168,7 +221,40 @@ function transformTodayResponse(today) {
     });
   }
 
-  return { needs_you_now: needs, waiting_on_you: waiting, ambient };
+  const suggestions = today.pending_suggestions || [];
+  if (suggestions.length > 0) {
+    waiting.push({
+      id: 'pending-suggestions',
+      type: 'suggestions',
+      subject: `${suggestions.length} suggestion${suggestions.length === 1 ? '' : 's'} ready to review`,
+      when: 'Review',
+      why_now: 'From recent captures',
+      actions: [{ key: 'review', label: 'Review suggestions', primary: true }],
+      attention_score: 55,
+      nonNavigable: true,
+    });
+  }
+
+  return {
+    needs_you_now: needs,
+    waiting_on_you: waiting,
+    ambient,
+    new_since_yesterday_count: today.new_since_yesterday_count ?? 0,
+  };
+}
+
+function buildSubtitle(data) {
+  const attentionCount = (data?.needs_you_now?.length || 0) + (data?.waiting_on_you?.length || 0);
+  const newCount = data?.new_since_yesterday_count ?? 0;
+
+  if (attentionCount > 0) {
+    const base = `${attentionCount} item${attentionCount === 1 ? '' : 's'} need your attention.`;
+    return newCount > 0 ? `${base} ${newCount} new since yesterday.` : base;
+  }
+  if (newCount > 0) {
+    return `${newCount} new since yesterday. Nothing urgent right now.`;
+  }
+  return 'Nothing urgent. Use this time to plan ahead or capture notes.';
 }
 
 export default function V5Now({ previewData }) {
@@ -178,6 +264,7 @@ export default function V5Now({ previewData }) {
   const [pendingAction, setPendingAction] = useState(null);
   const navigate = useNavigate();
   const { refreshSummary } = useSummary();
+  const { openReview } = useReview();
 
   useEffect(() => {
     if (previewData) {
@@ -231,7 +318,7 @@ export default function V5Now({ previewData }) {
           setData(transformTodayResponse(today));
           refreshSummary();
         } catch (err) {
-          setError(friendlyApiError(err, 'Snooze failed'));
+          setError(friendlyApiError(err, 'Follow-up update failed'));
         } finally {
           setPendingAction(null);
         }
@@ -251,6 +338,9 @@ export default function V5Now({ previewData }) {
         }
         return;
       }
+      case 'review':
+        openReview();
+        return;
       default:
         return;
     }
@@ -281,11 +371,7 @@ export default function V5Now({ previewData }) {
     <main className={styles.page}>
       <header className={styles.header}>
         <h1 className={styles.title}>Now</h1>
-        <p className={styles.subtitle}>
-          {hasItems
-            ? `${(data?.needs_you_now?.length || 0) + (data?.waiting_on_you?.length || 0)} items need your attention.`
-            : 'Nothing urgent. Use this time to plan ahead or capture notes.'}
-        </p>
+        <p className={styles.subtitle}>{buildSubtitle(data)}</p>
         {error ? <p className={styles.error} role="alert">{error}</p> : null}
       </header>
 

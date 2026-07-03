@@ -19,6 +19,11 @@ vi.mock('./api/v4Client', () => ({
     metrics: {
       trust: vi.fn().mockResolvedValue({ correction_rate: null }),
     },
+    suggestions: {
+      list: vi.fn().mockResolvedValue({ data: [], meta: { total: 0 } }),
+      accept: vi.fn(),
+      dismiss: vi.fn(),
+    },
   },
 }));
 
@@ -52,7 +57,7 @@ describe('V5 App shell', () => {
   });
 
   it('renders lens counts from the summary endpoint', async () => {
-    v4API.summary.mockResolvedValue({ today_count: 3, threads_count: 7 });
+    v4API.summary.mockResolvedValue({ today_count: 3, threads_count: 7, suggestions_count: 4 });
 
     render(
       <MemoryRouter initialEntries={['/now']}>
@@ -63,9 +68,24 @@ describe('V5 App shell', () => {
     await waitFor(() => expect(v4API.summary).toHaveBeenCalled());
     expect(screen.getByRole('link', { name: /Now/i })).toHaveTextContent('3');
     expect(screen.getByRole('link', { name: /Threads/i })).toHaveTextContent('7');
+    expect(screen.getByRole('button', { name: /Review 4 pending suggestions/i })).toBeInTheDocument();
     // Recall has no meaningful count, so its pill is suppressed rather than
     // showing a false zero (audit B-010).
     expect(screen.getByRole('button', { name: /Recall/i })).not.toHaveTextContent(/\d/);
+  });
+
+  it('opens the review sheet from the top bar badge', async () => {
+    v4API.summary.mockResolvedValue({ today_count: 0, threads_count: 0, suggestions_count: 2 });
+
+    render(
+      <MemoryRouter initialEntries={['/now']}>
+        <App />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: /Review 2 pending suggestions/i }));
+    expect(await screen.findByRole('dialog', { name: 'Review suggestions' })).toBeInTheDocument();
+    await waitFor(() => expect(v4API.suggestions.list).toHaveBeenCalledWith({ status: 'pending' }));
   });
 
   it('exposes a global capture FAB', async () => {

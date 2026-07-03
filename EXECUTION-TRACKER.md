@@ -3,127 +3,140 @@
 Fresh-agent handoff for the current v4 baseline. Use this to get oriented quickly,
 then read the active source docs before changing code.
 
-Last updated: 2026-07-02
+Last updated: 2026-07-03
 Branch: `main`
-Status: **Activity Update v2 shipped** (AU0–AU7, 2026-07-02). Milestone validation: 130 backend + 23 frontend tests green; Bugbot fix for capture skip/status regression applied pre-deploy.
+Status: **Iteration 19 complete** — M0-M2 (SQ-00..SQ-06) shipped via direct sub-agent
+worktrees 2026-07-02/03; M3-M4 (SQ-07..SQ-11) shipped via Loopsmith drain 2026-07-03.
+Full backend + UI suites green.
 
 Runtime baseline: `/api/v4` only, fresh Postgres + pgvector schema, write-enabled MCP
 aligned with the active API.
 
-## Current hardening loop: Activity Update v2 (2026-07-02)
+## Previous loop: Iteration 19 — Signal Quality & Capture Intelligence (2026-07-02) — complete
 
-- Spec: `docs/iterations/ACTIVITY_UPDATE_V2_SPEC.md` (active)
-- Plan: `docs/iterations/ACTIVITY_UPDATE_V2_IMPLEMENTATION_PLAN.md` (Loopsmith slice index)
-- Slice docs: `docs/iterations/SLICE_AU0_characterization.md` … `SLICE_AU9_activity-load-more.md`
-- **Activity Update v2 (AU0–AU7):** complete (2026-07-02)
-- **AU8 (capture thread_id bias):** complete (2026-07-02)
-- **AU9 (activity load more):** complete (2026-07-02)
+- Contract/Plan: `docs/iterations/ITERATION_19_SIGNAL_QUALITY_PLAN.md`
+- Loopsmith overlay: `prd.json` (iteration `v5-signal-quality-loop`, SQ-07..SQ-11 only)
+- Archived prd: `docs/iterations/archive/prd-v5-productivity.json`
 
-Milestone AU0–AU5: characterize → index → provenance → trust policy → Add update UI → Activity section.
-Defer AU6 (capture attachment cleanup) and AU7 (cap/pagination) until core path is validated.
+### Milestones
 
-## Previous loop: Iteration 17 (2026-07-01)
+| Milestone | Slices | Status |
+|-----------|--------|--------|
+| M0 Model reallocation | SQ-00 | done (`.env`, not in git) |
+| M1 Broken trust primitives | SQ-01, SQ-02, SQ-03, SQ-04 | done (`8433f2cb`, `5c986f5c`, `dd448bca`, `feaf3b15`) |
+| M2 Route by intent | SQ-05, SQ-06 | done (`88d4f53d`, `4c991732`) |
+| M3 Precision extraction | SQ-07, SQ-08, SQ-09 | done (`7a98e70e`, `3a3046f3`, `4ef7078c`) |
+| M4 Learning loop | SQ-10, SQ-11 | done (`16ef2906`, `741b0607`) |
 
-- Loopsmith runtime fully drained end-of-v5 Phase 3 work, with a new execution overlay
-  created in `prd.json` for post-Phase-3 hardening slices.
-- That overlay is intentionally narrower than the repo planning source of truth:
-  `docs/V4_WORLD_MODEL_PLAN.md` remains the active implementation plan.
-- Current hardening order: loop reliability, truthful UI state, Recall hardening,
-  `New` semantics, and smoke coverage.
-- `loopsmithctl doctor --strict` is not hanging indefinitely; it is exceeding the
-  orchestrator timeout because strict probes currently take about 41 seconds and the
-  Codex executor blocks on stdin during the strict probe.
+M0-M2 were delivered directly via `Agent` tool sub-agents in isolated git worktrees
+(TDD, fast-forward merge to main), not via Loopsmith — orchestrated inline per explicit
+instruction rather than through `prd.json`. M3-M4 used the standard Loopsmith + LCS drain
+pattern (run-id `20260703T160154Z-f9737036`), with tasks chained serially (`dependencies`)
+since they share `api/v4_entities.py`. Each slice was independently code-reviewed against
+its `prd.json` acceptanceCriteria after landing.
 
-### Validation findings retained from the current loop
+### Final validation (2026-07-03, post-drain)
 
-- `TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/unit/ -q`
-  previously passed: **171 passed**.
-- `TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/integration/test_v4_ask.py -q`
-  previously passed with **4 passed, 2 pre-existing failures** unrelated to deploy/docs.
-- Full backend suite previously sat at **377 passed, 6 failed**, with the known failures in:
-  `tests/integration/test_v4_ask.py`, `tests/integration/test_v4_search.py`, and
-  `tests/integration/test_v4_today.py`.
+- Backend: `TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test
+  ./venv/bin/pytest -q` → 472 passed, 20 skipped, 0 failed.
+- UI: `cd ui && npm test` → 147 passed. `npm run build` → succeeds.
+- The 3 tests previously flagged as pre-existing failures (`test_v4_search.py` —
+  `test_semantic_search_with_mocked_embeddings`, `test_semantic_search_filters_weak_matches`,
+  `test_hybrid_search_uses_rrf`) now pass; the underlying pgvector/schema quirk appears to
+  have cleared after repeated schema rebuilds during the drain. No longer a known issue.
 
-## Latest slice: hardening-interaction-smoke (2026-07-01)
+## Previous loop: Iteration 18 — V5 Productivity & Trust (2026-07-02) — complete
 
-- Added focused frontend interaction coverage for capture retry, Ask, Recall, and
-  entity-list creation entry points.
-- Focused frontend tests previously passed:
-  `cd ui && npm test -- V5CaptureSheet V5AskSheet V5Recall V5EntityList`
-- Full frontend suite previously passed:
-  `cd ui && npm test`
-- Frontend build previously passed:
-  `cd ui && npm run build`
+- Contract: `docs/iterations/ITERATION_18_V5_PRODUCTIVITY_LOOP.md`
+- Plan: `docs/iterations/V5_PRODUCTIVITY_IMPLEMENTATION_PLAN.md`
+- Full plan: `docs/superpowers/plans/2026-07-02-v5-productivity-trust-loop.md`
+- Loopsmith overlay: `prd.json` (iteration `v5-productivity-trust-loop`)
+- Archived prd: `docs/iterations/archive/prd-v5-hardening.json`
+- Slice docs: `SLICE_UI01_duplicate-fab.md` … `SLICE_UI10_collapse-empty-sections.md`, `SLICE_AU10_status-extraction.md`, `SLICE_AU11_follow-up-routing.md`
 
-## Latest deploy/doc cleanup (2026-07-01)
+### Milestones
 
-- `scripts/engram-deploy.sh` now treats deploy success as more than a bare health check.
-- Post-restart smoke is read-only and covers:
-  `GET /api/v4/health`, `GET /api/v4/summary`, `GET /api/v4/today`,
-  `GET /api/v4/threads?rank=attention&limit=1`, and `GET /api/v4/timeline?limit=1`.
-- `docs/DEPLOY.md` now matches the current runtime routing model:
-  `/` redirects to `/now`, with `/threads`, `/memory`, and `/recall` as the primary
-  top-level lenses.
-- `/api/v4/inbox` still exists as backend review data, but it should not be treated as
-  the primary app landing route in current docs.
+| Milestone | Tasks | Status |
+|-----------|-------|--------|
+| M1 Trust fixes | UI-01, UI-02, UI-03 | done |
+| M2 Activity intelligence | AU10, AU11 | done |
+| M3 Daily surface | UI-04 – UI-07 | done |
+| M4 Polish | UI-08 – UI-10 | done |
+
+### Iteration 18 outcome
+
+- Drain completed 2026-07-02 (UI-04→UI-10 in one clean-tree drain after M1–M2).
+- Head: `76db4896` (ui-10). Deploy after iteration: backup `engram_20260702_172910.sql`.
+- Retrospective: harness + product notes captured in chat; LCS/Loopsmith improvements queued.
+
+### Delivery model
+
+- **Loopsmith drain** runs slices from `prd.json` in isolated worktrees.
+- **LCS** via `loopsmithctl-lcs.sh` (PREAMBLE + TDD skills).
+- **Cursor overseer** monitors status, fixes harness drift, manual smoke at plan deploy gates, **takeover via pause-and-resume only** (see Harness notes).
+- **Retrospective** done (2026-07-02).
+
+### Overseer commands
+
+```bash
+bash /Volumes/lex1t/dev/shared/repos/loopsmith-coding-standards/scripts/loopsmithctl-lcs.sh \
+  status --repo /Volumes/lex1t/dev/shared/repos/engram
+
+bash /Volumes/lex1t/dev/shared/repos/loopsmith-coding-standards/scripts/loopsmithctl-lcs.sh \
+  host-run --repo /Volumes/lex1t/dev/shared/repos/engram --task-id ui-01-duplicate-fab
+
+# After M1 canary succeeds:
+bash .../loopsmithctl-lcs.sh host-run --repo .../engram --drain
+```
+
+### Harness notes (carry forward)
+
+- Strict doctor ~41s; do not block drain on strict probe timeout alone.
+- UI tasks: `coding-loop-policy.yaml` sets `executorLaunchTimeoutSeconds: 1800`.
+- Tests: `TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test` only.
+- Recovery: `bash scripts/loopsmith_recover.sh /Volumes/lex1t/dev/shared/repos/engram inspect`
+- **Overseer takeover (policy A):** pause drain — do not implement product code on `main` in parallel with an active attempt on the same `task-id`. Wait for attempt to finish/fail, or `reset-state`; land overseer commit; mark task `passes: true` in `prd.json`; resume drain.
+- **Deploy gates:** defined per iteration in the plan (milestone and/or end-of-cycle); not per slice. See `V5_PRODUCTIVITY_IMPLEMENTATION_PLAN.md` § Deploy gates.
+- **Loopsmith wrapper:** must resolve `LOOPSMITHCTL` portably (not OpenClaw-specific); any agent uses the same LCS wrapper.
+
+## Previous loop: Activity Update v2 (2026-07-02) — complete
+
+AU0–AU9 shipped. See `docs/iterations/ACTIVITY_UPDATE_V2_SPEC.md`.
+
+## Previous loop: Iteration 17 V5 Hardening (2026-07-01) — complete
+
+All 6 prd tasks passed. See archived `docs/iterations/archive/prd-v5-hardening.json`.
 
 ## Active Sources of Truth
 
-Read these before changing code:
-
 | Document | Purpose |
 |---|---|
-| `AGENTS.md` | Repo-wide working rules and active artifact list |
-| `docs/V4_PRINCIPLES.md` | Non-negotiable product and architecture rules |
-| `docs/V4_WORLD_MODEL_PLAN.md` | Active implementation plan and slice order |
-| `docs/SCHEMA.sql` | Canonical fresh schema |
-| `mcp_server/README_V4.md` | MCP contract and transport |
-| `docs/DEPLOY.md` | launchd + Tailscale deployment workflow |
-
-Non-authoritative historical artifacts:
-
-- `prd.json` is archived reference material only.
-- Older V2/V3 execution history is archaeology, not planning input.
-- If route history or older UI milestone details matter, use `docs/iterations/` and git
-  history instead of older tracker snapshots.
-
-## Current Baseline
-
-- The only runtime API is `/api/v4`.
-- MCP is write-enabled and must stay aligned with `/api/v4`.
-- Relationship records use `EntityLink` only; relationship IDs must not appear in
-  `properties`.
-- `activity_update` is an allowed relationship type used for summary-context notes.
-- `/api/v4/today` includes overdue work, follow-ups, blocked/waiting tasks, projects
-  without open tasks, recent notes, pending suggestions, and derived attention buckets.
-- `/api/v4/summary` returns counts used by the shell plus coordination radar.
-- Meaningful mutations write `entity_events`.
-
-## Current Runtime Surfaces
-
-- `/` redirects to `/now`.
-- Primary top-level app routes are `/now`, `/threads`, `/memory`, and `/recall`.
-- Entity collection routes remain `/notes`, `/projects`, `/tasks`, `/areas`, `/people`,
-  and `/resources`, with detail routes under each collection plus `/entities/:id`.
-- `/api/v4/inbox` still exists as a backend review/feed endpoint, but it is not the
-  current top-level UI landing route.
+| `AGENTS.md` | Repo-wide working rules |
+| `docs/V4_PRINCIPLES.md` | Product and architecture rules |
+| `docs/V4_WORLD_MODEL_PLAN.md` | Active implementation plan |
+| `prd.json` | Loopsmith task graph (Iteration 19 — complete, archive before next loop) |
+| `EXECUTION-TRACKER.md` | This file |
 
 ## Deploy + Validation Baseline
 
-- Production launch path is `scripts/engram-deploy.sh` plus
-  `~/Library/LaunchAgents/com.engram.api.plist`.
-- Every deploy must run `bash scripts/backup_prod.sh` before restart work touches
-  production.
-- The deploy script now performs a focused read-only smoke after restart:
-  `GET /api/v4/health`, `GET /api/v4/summary`, `GET /api/v4/today`,
-  `GET /api/v4/threads?rank=attention&limit=1`, and `GET /api/v4/timeline?limit=1`.
-- Treat a failed smoke as a failed deploy even if the process is technically listening
-  on port `5001`.
-
-## Active Delivery Method
-
-- Reusable process artifact: `docs/playbooks/SOFTWARE_DELIVERY_PLAYBOOK.md`
-- Iteration planning template: `docs/templates/ITERATION_CONTRACT_TEMPLATE.md`
-- This tracker remains the continuity artifact for current execution state.
-- Keep process minimal: use only the playbook, template, and tracker unless the work
-  proves more structure is needed.
+- Backup before deploy: `bash scripts/backup_prod.sh`
+- Backend tests serial on port 5433
+- Frontend: `cd ui && npm test && npm run build`
+- 2026-07-02T22:05:51.027347+00:00 ui-02-update-outcome-panel accepted via opencode
+- 2026-07-02T22:33:44.232614+00:00 au10-status-extraction accepted via cursor
+- 2026-07-02T22:35:20.042541+00:00 au11-follow-up-routing accepted via cursor
+- 2026-07-02T22:41:02.617279+00:00 ui-04-now-full-today accepted via cursor
+- 2026-07-02T22:42:26.816202+00:00 ui-05-meeting-prep accepted via cursor
+- 2026-07-02T22:43:50.416230+00:00 ui-06-honest-follow-up-actions accepted via cursor
+- 2026-07-02T22:50:30.120585+00:00 ui-07-recall-copy accepted via opencode
+- 2026-07-02T22:54:08.012460+00:00 ui-08-memory-digest accepted via opencode
+- 2026-07-02T23:02:55.342522+00:00 ui-09-decisions-section accepted via opencode
+- 2026-07-02T23:05:34.066365+00:00 ui-10-collapse-empty-sections accepted via opencode
+- 2026-07-03T16:24:55.538327+00:00 sq-07-precision-task-extraction accepted via opencode
+- 2026-07-03T16:51:49.198698+00:00 sq-08-person-hygiene accepted via opencode
+- 2026-07-03T17:18:16.256581+00:00 sq-09-retire-confidence-gating accepted via opencode
+- 2026-07-03T17:28:39.004645+00:00 sq-09-retire-confidence-gating accepted via opencode
+- 2026-07-03T17:36:58.436365+00:00 sq-09-retire-confidence-gating accepted via opencode
+- 2026-07-03T17:45:54.269108+00:00 sq-10-semantic-dismissal-memory accepted via opencode
+- 2026-07-03T18:01:44.723132+00:00 sq-11-dismissal-reasons accepted via opencode
+- 2026-07-03T18:07:23.327702+00:00 sq-11-dismissal-reasons accepted via opencode

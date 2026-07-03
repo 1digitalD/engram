@@ -13,7 +13,7 @@ export const MOCKED_NOW_DATA = {
       thread: { id: 'project-launch', label: 'Product Launch', type: 'project' },
       actions: [
         { key: 'open', label: 'Open', primary: true },
-        { key: 'snooze', label: 'Snooze 1h' },
+        { key: 'snooze', label: 'Follow up tomorrow', title: 'Sets follow-up to 24 hours from now until a date picker ships.' },
         { key: 'done', label: 'Mark done' },
       ],
       attention_score: 94,

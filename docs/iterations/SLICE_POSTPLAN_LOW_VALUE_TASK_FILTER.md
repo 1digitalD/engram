@@ -1,6 +1,6 @@
 # Slice Post-Plan — Low-Value Task Suppression
 
-Status: IMPLEMENTED locally, pending merge validation.
+Status: IMPLEMENTED (merged via SQ-09 tentative task gate).
 
 ## Goal
 

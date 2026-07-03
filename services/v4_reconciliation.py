@@ -23,8 +23,13 @@ RECONCILIATION_MODEL = resolve_chat_model("OPENAI_RECONCILIATION_MODEL")
 SIMILARITY_THRESHOLD = 0.60
 TOP_K = 3
 CATALOG_CHAR_CAP = 8000  # ≈ 2000 tokens; projects/areas only
+
+# SQ-09: confidence thresholds are tiebreakers, not primary gates. The
+# reconciler's action (new/update/link/skip/progress_update), target
+# resolution, and near-duplicate score provide the structural signal.
 LOW_CONFIDENCE_THRESHOLD = 0.5
 AUTO_CREATE_CONFIDENCE_THRESHOLD = 0.85
+
 UNCERTAIN_SUGGESTION_REASON = "AI was not sure about this"
 
 SYSTEM_PROMPT = """\
@@ -141,16 +146,27 @@ in the same order as the input:
       "update_text": null,
       "blocked_by_id": null,
       "relationship_type": "related",
-      "confidence": 0.0,
       "reason": "brief explanation"
     }}
   ]
 }}
+
+Confidence scores are no longer required for "new", "update", "link", \
+"uncertain", or "progress_update" decisions; the apply layer uses structural \
+rules and near-duplicate scores instead. Include a "confidence" field only for \
+"skip" decisions so the system can label very low-confidence skips appropriately.
 """
 
 
 def is_uncertain_decision(decision, threshold=AUTO_CREATE_CONFIDENCE_THRESHOLD, confidence=None):
-    """Return True when a decision should be labeled as uncertain in capture output."""
+    """Return True when a decision should be labeled as uncertain in capture output.
+
+    SQ-09: explicit skip/uncertain actions are structurally uncertain. For all
+    other actions, confidence is a tiebreaker: a low score marks a borderline
+    candidate as "AI was not sure" in the review queue, but the structural
+    gate (action type, target resolution, near-duplicate score) has already
+    decided whether the candidate is actionable.
+    """
     if not isinstance(decision, dict):
         return False
     action = (decision.get("action") or "").lower()
@@ -295,13 +311,16 @@ def _enrich_candidates(candidates, thread_id=None):
         except Exception:
             thread_entity = None
 
-    # --- Step 1: exact matches (no embedding needed) ---
+    # --- Step 1: exact matches + person first-name matches (no embedding needed) ---
     exact_by_index = {}
+    person_name_match_by_index = {}
     for i, c in enumerate(candidates):
         title = c.get("title", "")
         entity_type = c.get("type", "")
         if title and entity_type:
             exact_by_index[i] = _exact_match(title, entity_type)
+            if entity_type == "person":
+                person_name_match_by_index[i] = _person_name_match(title)
 
     # --- Step 2: batch embed composed match documents in one API call ---
     match_docs = [_build_match_document(c) for c in candidates]
@@ -321,8 +340,12 @@ def _enrich_candidates(candidates, thread_id=None):
         entity_type = candidate.get("type", "")
         exact = exact_by_index.get(i, [])
 
+        person_name_matches = person_name_match_by_index.get(i, [])
         if not title or not entity_type or i >= len(vectors) or not vectors[i]:
             best = {m["id"]: m for m in exact}
+            for m in person_name_matches:
+                if m["id"] not in best:
+                    best[m["id"]] = m
             best = _merge_thread_entity_bias(best, thread_entity, entity_type)
             ranked = sorted(best.values(), key=lambda x: x["score"], reverse=True)
             enriched.append({"candidate": candidate, "matches": ranked[:TOP_K]})
@@ -330,6 +353,9 @@ def _enrich_candidates(candidates, thread_id=None):
 
         vector = vectors[i]
         best = {m["id"]: m for m in exact}  # seed with exact match
+        for m in person_name_matches:
+            if m["id"] not in best:
+                best[m["id"]] = m
 
         for chunk_entity_id, chunk_text, chunk_embedding, entity_data in chunks_by_type.get(entity_type, []):
             if not chunk_embedding:
@@ -424,6 +450,61 @@ def _exact_match(title, entity_type):
         "content_preview": (entity.content or "")[:300],
         "score": 1.0,
     }]
+
+
+def _person_name_match(title):
+    """Return near-match entries for active people matching a first name or substring.
+
+    A bare first-name mention ("Priya") should resolve to an existing
+    "Priya Dhandapani" instead of creating a duplicate. To keep linking safe,
+    ambiguous first-name matches (e.g. "Sam" matching two people) are omitted.
+    """
+    from models import Entity
+
+    title_lower = (title or "").strip().lower()
+    if not title_lower or len(title_lower) < 2:
+        return []
+
+    persons = Entity.query.filter(
+        Entity.type == "person",
+        Entity.lifecycle == "active",
+    ).all()
+
+    first_name_matches = []
+    substring_matches = []
+
+    for person in persons:
+        person_title_lower = (person.title or "").strip().lower()
+        if not person_title_lower:
+            continue
+        if person_title_lower == title_lower:
+            # Exact match is handled separately with score 1.0.
+            continue
+        words = person_title_lower.split()
+        if words and words[0] == title_lower:
+            first_name_matches.append(person)
+        elif title_lower in person_title_lower:
+            substring_matches.append(person)
+
+    chosen = []
+    if len(first_name_matches) == 1:
+        chosen = first_name_matches
+    elif not first_name_matches and len(substring_matches) == 1:
+        chosen = substring_matches
+
+    return [
+        {
+            "id": person.id,
+            "title": person.title,
+            "type": person.type,
+            "status": person.status,
+            "due_at": person.due_at.isoformat() if person.due_at else None,
+            "follow_up_at": person.follow_up_at.isoformat() if person.follow_up_at else None,
+            "content_preview": (person.content or "")[:300],
+            "score": 0.92,
+        }
+        for person in chosen
+    ]
 
 
 # ── Workspace catalog ────────────────────────────────────────────────────────
@@ -561,13 +642,15 @@ def _call_model(enriched):
 def _heuristic_decisions(enriched):
     """Fallback when the model call fails or OPENAI_API_KEY is absent.
 
-    Exact matches (score=1.0) → link; everything else → new.
+    Exact matches (score=1.0) → link; person first-name/substring matches
+    (score >= 0.90) → link; everything else → new.
     """
     decisions = []
     for item in enriched:
         matches = item.get("matches") or []
         candidate = item["candidate"]
         top = matches[0] if matches else None
+        entity_type = candidate.get("type", "")
         if top and top["score"] >= 1.0:
             decisions.append({
                 "action": "link",
@@ -576,6 +659,19 @@ def _heuristic_decisions(enriched):
                 "relationship_type": None,
                 "confidence": candidate.get("confidence", 0.5),
                 "reason": "exact title match (heuristic fallback)",
+            })
+        elif (
+            entity_type == "person"
+            and top
+            and top["score"] >= 0.90
+        ):
+            decisions.append({
+                "action": "link",
+                "target_id": top["id"],
+                "fields": {},
+                "relationship_type": None,
+                "confidence": candidate.get("confidence", 0.5),
+                "reason": "first-name/substring person match (heuristic fallback)",
             })
         elif _candidate_confidence_value(candidate) < LOW_CONFIDENCE_THRESHOLD:
             decisions.append({

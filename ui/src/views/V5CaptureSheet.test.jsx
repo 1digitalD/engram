@@ -2,8 +2,9 @@
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { CaptureProvider } from '../context/CaptureContext';
+import { CaptureProvider, useCapture } from '../context/CaptureContext';
 import V5CaptureSheet, { CAPTURE_ATTACHMENT_HINT, CAPTURE_PLACEHOLDER, CaptureToast } from './V5CaptureSheet';
 
 vi.mock('../api/v4Client', () => ({
@@ -15,11 +16,36 @@ vi.mock('../api/v4Client', () => ({
     relationships: {
       create: vi.fn(),
     },
+    mentions: vi.fn().mockResolvedValue({ results: {} }),
   },
   friendlyApiError: (err, fallback) => err?.message || fallback || 'Something went wrong.',
 }));
 
 import { v4API } from '../api/v4Client';
+
+// The capture textarea was replaced by the mention-enabled MarkdownEditor,
+// a Tiptap contenteditable surface. fireEvent.change doesn't drive it, so
+// tests type through it with userEvent instead.
+async function typeCapture(text) {
+  const field = screen.getByLabelText('Capture text');
+  field.focus();
+  const user = userEvent.setup();
+  await user.type(field, text, { skipClick: true });
+}
+
+// A mention is normally inserted by picking an entity from the @/[[ popup,
+// which the mention extension turns into a real markdown link node (see
+// mentionExtension.js). To exercise the round trip without driving that
+// popup, seed the sheet's initial content (as CaptureContext.openCapture
+// does for voice/attachment flows) with mention markdown already in it.
+function OpenWithContent({ content }) {
+  const { openCapture } = useCapture();
+  return (
+    <button type="button" onClick={() => openCapture(content)}>
+      Open with content
+    </button>
+  );
+}
 
 const SAMPLE_OPTIONS = [
   { id: '', label: 'None', type: '' },
@@ -48,8 +74,14 @@ describe('V5CaptureSheet', () => {
 
   it('uses honest placeholder copy', () => {
     renderSheet();
-    expect(screen.getByLabelText('Capture text')).toHaveAttribute('placeholder', CAPTURE_PLACEHOLDER);
+    const field = screen.getByLabelText('Capture text');
+    expect(field.querySelector('[data-placeholder]')).toHaveAttribute('data-placeholder', CAPTURE_PLACEHOLDER);
     expect(screen.queryByText(/AI will figure out what you mean/i)).not.toBeInTheDocument();
+  });
+
+  it('renders the mention-enabled markdown editor for capture text', () => {
+    renderSheet();
+    expect(screen.getByTestId('markdown-editor')).toBeInTheDocument();
   });
 
   it('falls back to /notes for toast view links', () => {
@@ -60,6 +92,18 @@ describe('V5CaptureSheet', () => {
     );
 
     expect(screen.getByRole('link', { name: 'View' })).toHaveAttribute('href', '/notes');
+  });
+
+  it('offers a review action when suggestions were returned', () => {
+    const onOpenReview = vi.fn();
+    render(
+      <MemoryRouter>
+        <CaptureToast toast={{ applied: 1, suggested: 2 }} onOpenReview={onOpenReview} />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Review' }));
+    expect(onOpenReview).toHaveBeenCalledTimes(1);
   });
 
   it('auto-attaches when opened from a thread route', async () => {
@@ -91,9 +135,7 @@ describe('V5CaptureSheet', () => {
 
     renderSheet('/', { onClose, onSaved, captureFn });
 
-    fireEvent.change(screen.getByLabelText('Capture text'), {
-      target: { value: 'Ask Henry about rollout' },
-    });
+    await typeCapture('Ask Henry about rollout');
     fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
 
     await waitFor(() => expect(captureFn).toHaveBeenCalledWith(
@@ -118,9 +160,7 @@ describe('V5CaptureSheet', () => {
 
     renderSheet('/', { onClose, captureFn });
 
-    fireEvent.change(screen.getByLabelText('Capture text'), {
-      target: { value: 'Broken capture' },
-    });
+    await typeCapture('Broken capture');
     fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('pipeline broke');
@@ -147,9 +187,7 @@ describe('V5CaptureSheet', () => {
 
     await waitFor(() => expect(screen.getByLabelText('Capture thread context')).toHaveValue('p1'));
 
-    fireEvent.change(screen.getByLabelText('Capture text'), {
-      target: { value: 'Status update' },
-    });
+    await typeCapture('Status update');
     fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
 
     await waitFor(() => expect(captureFn).toHaveBeenCalledWith(
@@ -182,9 +220,7 @@ describe('V5CaptureSheet', () => {
 
     renderSheet('/', { onClose, onSaved, captureFn });
 
-    fireEvent.change(screen.getByLabelText('Capture text'), {
-      target: { value: 'Retry me' },
-    });
+    await typeCapture('Retry me');
     fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('pipeline broke');
@@ -195,5 +231,43 @@ describe('V5CaptureSheet', () => {
     await waitFor(() => expect(captureFn).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     expect(onSaved).toHaveBeenCalledWith(successResult);
+  });
+
+  it('passes mention markdown links through to the API unchanged', async () => {
+    const mentionMarkdown = 'Ask [Henry](/people/henry-1) about rollout';
+    const captureFn = vi.fn(async () => ({
+      source_note: { id: 'n1' },
+      applied_changes: [],
+      suggestions: [],
+      warnings: [],
+    }));
+
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <CaptureProvider>
+          <OpenWithContent content={mentionMarkdown} />
+          <Routes>
+            <Route
+              path="*"
+              element={<V5CaptureSheet attachmentOptions={SAMPLE_OPTIONS} captureFn={captureFn} />}
+            />
+          </Routes>
+        </CaptureProvider>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open with content' }));
+
+    const field = await screen.findByLabelText('Capture text');
+    await waitFor(() => {
+      expect(field.querySelector('a[href="/people/henry-1"]')).toHaveTextContent('Henry');
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
+
+    await waitFor(() => expect(captureFn).toHaveBeenCalledWith(
+      expect.objectContaining({ content: mentionMarkdown }),
+      expect.any(Object),
+    ));
   });
 });

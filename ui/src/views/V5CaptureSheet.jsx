@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import Sheet from '../components/Sheet';
+import MarkdownEditor from '../components/MarkdownEditor';
 import { useCapture } from '../context/CaptureContext';
 import { useSummary } from '../context/SummaryContext';
 import { v4API, friendlyApiError } from '../api/v4Client';
@@ -74,7 +75,7 @@ async function loadAttachmentOptions(defaultAttachment) {
   return options;
 }
 
-export function CaptureToast({ toast }) {
+export function CaptureToast({ toast, onOpenReview }) {
   if (!toast) return null;
   const applied = toast.applied ?? 0;
   const suggested = toast.suggested ?? 0;
@@ -83,6 +84,15 @@ export function CaptureToast({ toast }) {
       <span>
         Saved · AI processing ({applied} applied, {suggested} suggested).
       </span>
+      {suggested > 0 && onOpenReview ? (
+        <button
+          type="button"
+          className={styles.toastAction}
+          onClick={onOpenReview}
+        >
+          Review
+        </button>
+      ) : null}
       <Link className={styles.toastLink} to={toast.viewPath || '/notes'}>
         View
       </Link>
@@ -269,14 +279,14 @@ export default function V5CaptureSheet({
         </header>
 
         <div className={styles.body}>
-          <textarea
+          <MarkdownEditor
             className={styles.textarea}
             value={content}
-            onChange={(event) => setContent(event.target.value)}
+            onChange={setContent}
             placeholder={CAPTURE_PLACEHOLDER}
-            aria-label="Capture text"
-            disabled={streaming}
-            rows={6}
+            ariaLabel="Capture text"
+            editable={!streaming}
+            minRows={6}
             autoFocus
           />
           {attachment.id ? (

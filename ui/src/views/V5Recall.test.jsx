@@ -42,6 +42,18 @@ describe('V5Recall', () => {
     expect(screen.getByLabelText('Search terms')).toBeInTheDocument();
   });
 
+  it('uses an honest placeholder that does not promise ask behavior', () => {
+    render(
+      <MemoryRouter>
+        <CaptureProvider>
+          <V5Recall open onClose={vi.fn()} />
+        </CaptureProvider>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByLabelText('Search terms')).toHaveAttribute('placeholder', 'Search your workspace');
+  });
+
   it('searches and navigates to a result on enter', async () => {
     const onClose = vi.fn();
     v4API.search.mockResolvedValue({
@@ -81,7 +93,7 @@ describe('V5Recall', () => {
     await waitFor(() => expect(onClose).toHaveBeenCalled());
   });
 
-  it('opens capture with the current query instead of showing an ask action', async () => {
+  it('shows a capture action in the header while a query is present', async () => {
     function CaptureObserver() {
       const { open, initialContent } = useCapture();
       return (
@@ -104,12 +116,33 @@ describe('V5Recall', () => {
     fireEvent.change(screen.getByLabelText('Search terms'), { target: { value: 'mary follow-up' } });
 
     const captureButton = await screen.findByRole('button', { name: /capture mary follow-up/i });
-    expect(screen.queryByRole('button', { name: /ask about mary follow-up/i })).not.toBeInTheDocument();
-
     fireEvent.click(captureButton);
 
     await waitFor(() => expect(screen.getByTestId('capture-open')).toHaveTextContent('open'));
     expect(screen.getByTestId('capture-content')).toHaveTextContent('mary follow-up');
+  });
+
+  it('shows an Ask handoff affordance when search returns no results', async () => {
+    const onClose = vi.fn();
+    const onAsk = vi.fn();
+
+    render(
+      <MemoryRouter>
+        <CaptureProvider>
+          <V5Recall open onClose={onClose} onAsk={onAsk} />
+        </CaptureProvider>
+      </MemoryRouter>,
+    );
+
+    fireEvent.change(screen.getByLabelText('Search terms'), { target: { value: 'missing item' } });
+
+    const askButton = await screen.findByRole('button', { name: /open ask engram/i });
+    expect(screen.getByText(/No results for "missing item"/i)).toBeInTheDocument();
+
+    fireEvent.click(askButton);
+
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(onAsk).toHaveBeenCalled();
   });
 
   it('ignores stale responses from older queries', async () => {

@@ -103,7 +103,7 @@ export const v4API = {
     list: (params = {}) => v4Request('GET', '/suggestions', null, params),
     update: (id, data) => v4Request('PATCH', `/suggestions/${encodeURIComponent(id)}`, data),
     accept: (id) => v4Request('POST', `/suggestions/${encodeURIComponent(id)}/accept`),
-    dismiss: (id) => v4Request('POST', `/suggestions/${encodeURIComponent(id)}/dismiss`),
+    dismiss: (id, data) => v4Request('POST', `/suggestions/${encodeURIComponent(id)}/dismiss`, data),
     resolveToExisting: (id, targetId) => v4Request('POST', `/suggestions/${encodeURIComponent(id)}/resolve-to-existing`, targetId ? { target_id: targetId } : {}),
     reconcile: (params = {}) => v4Request('POST', '/suggestions/reconcile', null, params),
   },

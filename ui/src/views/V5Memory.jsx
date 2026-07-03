@@ -138,13 +138,13 @@ export default function V5Memory({ previewData }) {
   const [search, setSearch] = useState('');
   const [entityType, setEntityType] = useState('');
   const [actorFilter, setActorFilter] = useState('');
-  const [threadId, setThreadId] = useState('');
+  const [hideUpdates, setHideUpdates] = useState(false);
   const [citationEntityId, setCitationEntityId] = useState(null);
 
   const touchStartY = useRef(null);
   const observerTarget = useRef(null);
 
-  const hasActiveFilters = entityType || actorFilter || threadId || search;
+  const hasActiveFilters = entityType || actorFilter || search || hideUpdates;
 
   const loadEvents = useCallback(async (offset = 0, append = false) => {
     if (offset === 0) {
@@ -159,7 +159,6 @@ export default function V5Memory({ previewData }) {
         offset,
         ...(entityType ? { entity_type: entityType } : {}),
         ...(actorFilter ? { actor: actorFilter } : {}),
-        ...(threadId ? { thread_id: threadId } : {}),
       };
       const data = await v4API.timeline(params);
       if (append) {
@@ -176,7 +175,7 @@ export default function V5Memory({ previewData }) {
       setLoadingMore(false);
       setRefreshing(false);
     }
-  }, [entityType, actorFilter, threadId]);
+  }, [entityType, actorFilter]);
 
   useEffect(() => {
     if (previewData) {
@@ -190,7 +189,7 @@ export default function V5Memory({ previewData }) {
   useEffect(() => {
     if (previewData) return;
     loadEvents(0, false);
-  }, [entityType, actorFilter, threadId, loadEvents, previewData]);
+  }, [entityType, actorFilter, loadEvents, previewData]);
 
   useEffect(() => {
     if (previewData) return;
@@ -230,14 +229,18 @@ export default function V5Memory({ previewData }) {
   }
 
   const filteredEvents = useMemo(() => {
+    let result = events;
+    if (hideUpdates) {
+      result = result.filter((event) => event.event_type !== 'activity_update_added');
+    }
     const q = search.trim().toLowerCase();
-    if (!q) return events;
-    return events.filter((event) => (
+    if (!q) return result;
+    return result.filter((event) => (
       (event.narration || '').toLowerCase().includes(q)
       || (event.entity_type || '').toLowerCase().includes(q)
       || (event.actor || '').toLowerCase().includes(q)
     ));
-  }, [events, search]);
+  }, [events, search, hideUpdates]);
 
   const grouped = useMemo(() => groupEventsByDate(filteredEvents), [filteredEvents]);
 
@@ -278,16 +281,14 @@ export default function V5Memory({ previewData }) {
             onChange={setActorFilter}
             ariaLabel="Filter by actor"
           />
-          <div className={styles.threadFilter}>
-            <input
-              type="text"
-              placeholder="Thread ID filter"
-              value={threadId}
-              onChange={(event) => setThreadId(event.target.value.trim())}
-              className={styles.threadInput}
-              aria-label="Filter by thread ID"
-            />
-          </div>
+          <button
+            type="button"
+            className={`${styles.chip} ${hideUpdates ? styles.chipActive : ''}`}
+            aria-pressed={hideUpdates}
+            onClick={() => setHideUpdates((prev) => !prev)}
+          >
+            Hide routine updates
+          </button>
         </div>
       </div>
 
