@@ -13,6 +13,7 @@ import { useReview } from '../context/ReviewContext';
 import { useSummary } from '../context/SummaryContext';
 import { entityTitleLabel } from '../utils/entityDisplay';
 import EntityContextChips from '../components/EntityContextChips';
+import InlineTitleEditor from '../components/InlineTitleEditor';
 import { hasTaskContext } from '../utils/entityContext';
 import styles from '../styles/v5.module.css';
 import {
@@ -533,6 +534,9 @@ function ThreadDetailContent({
   onDecisionSubmit,
   onChipRemove,
   onSectionRemove,
+  onTitleSave,
+  titleSaving = false,
+  titleEditable = true,
 }) {
   const entity = detail.entity;
   const entityType = entity.type;
@@ -581,7 +585,16 @@ function ThreadDetailContent({
             </>
           ) : null}
         </div>
+        {titleEditable && onTitleSave ? (
+        <InlineTitleEditor
+          title={entity.title || ''}
+          onSave={onTitleSave}
+          className={styles.title}
+          saving={titleSaving}
+        />
+        ) : (
         <h1 className={styles.title}>{entityTitleLabel(entity, { includeType: false })}</h1>
+        )}
         {(entityType === 'task' || entityType === 'project') ? (
           <EntityContextChips
             projects={entityType === 'task' ? (entity.projects || []) : []}
@@ -1027,6 +1040,7 @@ export default function V5ThreadDetail({
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorDraft, setEditorDraft] = useState(buildDraft(previewDetail?.entity));
   const [editorSaving, setEditorSaving] = useState(false);
+  const [titleSaving, setTitleSaving] = useState(false);
   const [editorError, setEditorError] = useState('');
   const [updateOpen, setUpdateOpen] = useState(false);
   const [updateDraft, setUpdateDraft] = useState('');
@@ -1246,6 +1260,25 @@ export default function V5ThreadDetail({
     }
   }, [detail, editorDraft, reloadThread, refreshSummary]);
 
+  const handleTitleSave = useCallback(async (newTitle) => {
+    if (!detail?.entity) return;
+    setTitleSaving(true);
+    setActionError('');
+    try {
+      await v4API.entities.update(detail.entity.id, { title: newTitle });
+      const refreshed = await reloadThread();
+      if (refreshed?.entity) {
+        setEditorDraft(buildDraft(refreshed.entity));
+      }
+      refreshSummary();
+    } catch (err) {
+      setActionError(friendlyApiError(err, 'Failed to save title'));
+      throw err;
+    } finally {
+      setTitleSaving(false);
+    }
+  }, [detail, reloadThread, refreshSummary]);
+
   const handleChipRemove = useCallback(async (item) => {
     if (!item?.relationship_id || !detail?.entity) return;
     try {
@@ -1448,6 +1481,8 @@ export default function V5ThreadDetail({
         onDecisionSubmit={handleDecisionSubmit}
         onChipRemove={handleChipRemove}
         onSectionRemove={handleSectionRemove}
+        onTitleSave={handleTitleSave}
+        titleSaving={titleSaving}
       />
       <CitationEntitySheet
         entityId={citationEntityId}

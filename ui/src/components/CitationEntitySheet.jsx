@@ -109,6 +109,7 @@ export default function CitationEntitySheet({ entityId, open, onClose }) {
               onCapture={() => {}}
               showCaptureFab={false}
               showNextActions={false}
+              titleEditable={false}
             />
           )}
         </div>

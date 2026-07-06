@@ -8,6 +8,7 @@ import { ArrowLeft, Plus } from 'lucide-react';
 import { v4API, friendlyApiError } from '../api/v4Client';
 import { normalizeSearchResults } from '../utils/searchResults';
 import EntityGlyphCircle from '../components/EntityGlyphCircle';
+import InlineTitleEditor from '../components/InlineTitleEditor';
 import { entityTitleLabel } from '../utils/entityDisplay';
 import { labDetailPath } from './labPaths';
 import styles from './LabEntityDetail.module.css';
@@ -453,6 +454,18 @@ export default function LabEntityDetail() {
     setError('');
   }, [detail]);
 
+  const handleTitleSave = useCallback(async (newTitle) => {
+    if (!detail?.entity) return;
+    setError('');
+    try {
+      await v4API.entities.update(id, { title: newTitle });
+      await loadDetail();
+    } catch (err) {
+      setError(friendlyApiError(err, 'Failed to save title'));
+      throw err;
+    }
+  }, [detail, id, loadDetail]);
+
   const dirty = useMemo(() => isDraftDirty(detail?.entity, draft), [detail, draft]);
 
   if (loading) {
@@ -488,7 +501,12 @@ export default function LabEntityDetail() {
           <EntityGlyphCircle type={entity.type} />
           <span>{entity.type}</span>
         </div>
-        <h1 className={styles.title}>{entityTitleLabel(entity, { includeType: false })}</h1>
+        <InlineTitleEditor
+          title={entity.title || ''}
+          onSave={handleTitleSave}
+          className={styles.title}
+          saving={saving}
+        />
       </header>
 
       <div className={styles.editor}>

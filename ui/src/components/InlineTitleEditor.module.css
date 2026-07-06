@@ -1,0 +1,49 @@
+.button {
+  all: unset;
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  cursor: text;
+  border-radius: 4px;
+  padding: 2px 4px;
+  margin: -2px -4px;
+}
+
+.button:hover:not(:disabled),
+.button:focus-visible {
+  background: var(--surface2, rgba(0, 0, 0, 0.04));
+  outline: 2px solid var(--border, #d1d5db);
+  outline-offset: 2px;
+}
+
+.button:disabled {
+  cursor: default;
+}
+
+.empty {
+  color: var(--text-secondary, #6b7280);
+  font-style: italic;
+}
+
+.input {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 2px 4px;
+  border: 1px solid var(--border, #d1d5db);
+  border-radius: 4px;
+  background: var(--surface, #fff);
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  line-height: inherit;
+}
+
+.input:focus {
+  outline: 2px solid var(--accent, #2563eb);
+  outline-offset: 1px;
+}
+
+.input:disabled {
+  opacity: 0.6;
+}

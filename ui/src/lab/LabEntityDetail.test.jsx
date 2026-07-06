@@ -105,6 +105,22 @@ describe('LabEntityDetail', () => {
     expect(screen.getByText('Henry')).toBeInTheDocument();
   });
 
+  it('persists inline title change via update entity API', async () => {
+    renderDetail();
+    await screen.findByRole('heading', { level: 1, name: 'Write docs' });
+
+    await userEvent.click(screen.getByRole('button', { name: /Title: Write docs/i }));
+    const titleInput = screen.getByLabelText('Title');
+    await userEvent.clear(titleInput);
+    await userEvent.type(titleInput, 'Updated docs');
+    fireEvent.keyDown(titleInput, { key: 'Enter' });
+
+    await waitFor(() => {
+      expect(v4API.entities.update).toHaveBeenCalledWith('task-1', { title: 'Updated docs' });
+    });
+    expect(v4API.entities.detail).toHaveBeenCalledTimes(2);
+  });
+
   it('persists status change via update entity API', async () => {
     renderDetail();
     await screen.findByRole('heading', { level: 1, name: 'Write docs' });
