@@ -3,15 +3,32 @@
 Fresh-agent handoff for the current v4 baseline. Use this to get oriented quickly,
 then read the active source docs before changing code.
 
-Last updated: 2026-07-03
+Last updated: 2026-07-06
 Branch: `main`
-Status: **Iteration 20 complete (UI-CTX-01–09 deployed)** — context, density, metadata, and color chrome.
-Previous: UI-CTX-02/03 deployed (2026-07-03 16:27); Iteration 19 complete.
+Status: **Iteration 21 planned, not started** — Lab Surface (parallel additive UI at `/lab`).
+Previous: Iteration 20 complete (UI-CTX-01–09 deployed) — context, density, metadata, and color chrome.
 
 Runtime baseline: `/api/v4` only, fresh Postgres + pgvector schema, write-enabled MCP
 aligned with the active API.
 
-## Active loop: Iteration 20 — UI Context, Density & Color (2026-07-03)
+## Planned loop: Iteration 21 — Lab Surface (2026-07-06)
+
+- Plan: `docs/iterations/ITERATION_21_LAB_SURFACE.md`
+- Loopsmith overlay: `prd.json` (iteration `lab-surface-loop`)
+- Origin: UX interview + disposable clickable Artifact prototype (not in repo) validated a
+  redesigned capture-trust loop, standalone entity authoring, and a people/load rollup.
+- Product decisions locked 2026-07-06: additive-only `/lab/*` route inside `ui/`, current
+  app stays default/fallback untouched; Lab writes real live data (shared workspace, not
+  sandboxed); multi-person/group meeting prep explicitly cut from scope.
+
+| Slice | Status | Notes |
+|-------|--------|-------|
+| LAB-00 Shell scaffold (read-only) | not started | `/lab` route + TopBar link only |
+| LAB-01 Capture trust loop | not started | real capture, additive response fields only |
+| LAB-02 Entity authoring | not started | new `POST /api/v4/entities/:id/links` |
+| LAB-03 People rollup | not started | no group/multi-select, per product decision |
+
+## Previous loop: Iteration 20 — UI Context, Density & Color (2026-07-03) — complete
 
 - Plan: `docs/iterations/ITERATION_20_UI_CONTEXT_DENSITY.md`
 - Slice docs: `SLICE_UICTX01_recall-search-fix.md` … (see plan)
@@ -130,8 +147,8 @@ All 6 prd tasks passed. See archived `docs/iterations/archive/prd-v5-hardening.j
 | `AGENTS.md` | Repo-wide working rules |
 | `docs/V4_PRINCIPLES.md` | Product and architecture rules |
 | `docs/V4_WORLD_MODEL_PLAN.md` | Active implementation plan |
-| `prd.json` | Loopsmith idle stub (no active loop; last overlay archived) |
-| `docs/iterations/ITERATION_20_UI_CONTEXT_DENSITY.md` | **Active UI iteration plan** |
+| `prd.json` | Loopsmith overlay — iteration `lab-surface-loop` (planned, not started) |
+| `docs/iterations/ITERATION_21_LAB_SURFACE.md` | **Active UI iteration plan** |
 | `EXECUTION-TRACKER.md` | This file |
 
 ## Deploy + Validation Baseline
