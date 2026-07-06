@@ -94,9 +94,16 @@ Available MCP tools:
 
 Use `mcp_server/README_V4.md` as the contract for MCP inputs, outputs, and transport modes.
 
+For HTTP transport (local or Tailscale), set `TRANSPORT=http` and `MCP_PORT=8765`.
+When proxying through Tailscale Serve, also set `MCP_ALLOWED_HOSTS` to your machine's
+Tailscale DNS name — otherwise FastMCP returns `421 Misdirected Request` for the
+Tailscale `Host` header (this is not a TLS certificate issue).
+
 ## Deployment
 
-For local launchd + Tailscale deployment, use `docs/DEPLOY.md`, `scripts/engram-deploy.sh`, and `com.engram.api.plist` together. The deployment path expects the API to bind to `127.0.0.1:5001`.
+For local launchd + Tailscale deployment, use `docs/DEPLOY.md`, `scripts/engram-deploy.sh`,
+`com.engram.api.plist`, and `com.engram.mcp.plist`. The API binds to `127.0.0.1:5001`;
+MCP HTTP binds to `127.0.0.1:8765` at path `/mcp`.
 
 ## Validation
 

@@ -36,6 +36,18 @@ ENGRAM_API_BASE=http://localhost:5001/api/v4 python mcp_server/server.py
 TRANSPORT=http MCP_PORT=8765 ENGRAM_API_BASE=http://localhost:5001/api/v4 python mcp_server/server.py
 ```
 
+When exposing MCP through Tailscale Serve, set `MCP_ALLOWED_HOSTS` to your
+machine's Tailscale DNS name (comma-separated if needed). FastMCP validates the
+`Host` header and returns `421 Misdirected Request` for unknown hosts — this is
+not a TLS certificate problem.
+
+```bash
+MCP_ALLOWED_HOSTS=danishs-mac-mini.tail003386.ts.net \
+TRANSPORT=http MCP_PORT=8765 \
+ENGRAM_API_BASE=http://127.0.0.1:5001/api/v4 \
+python mcp_server/server.py
+```
+
 ## Smoke test
 
 ```bash

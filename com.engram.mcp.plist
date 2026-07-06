@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.engram.mcp</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Volumes/lex1t/dev/shared/repos/engram/venv/bin/python</string>
+        <string>/Volumes/lex1t/dev/shared/repos/engram/mcp_server/server.py</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Volumes/lex1t/dev/shared/repos/engram</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>TRANSPORT</key>
+        <string>http</string>
+
+        <key>MCP_PORT</key>
+        <string>8765</string>
+
+        <key>ENGRAM_API_BASE</key>
+        <string>http://127.0.0.1:5001/api/v4</string>
+
+        <!-- Required for Tailscale Serve: FastMCP rejects unknown Host headers with 421. -->
+        <key>MCP_ALLOWED_HOSTS</key>
+        <string>danishs-mac-mini.tail003386.ts.net</string>
+
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+
+    <key>StandardOutPath</key>
+    <string>/Users/danish/Library/Logs/Engram/mcp.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/danish/Library/Logs/Engram/mcp-error.log</string>
+</dict>
+</plist>

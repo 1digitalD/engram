@@ -316,4 +316,14 @@ if __name__ == "__main__":
     if transport == "stdio":
         mcp.run(transport="stdio")
     else:
-        mcp.run(transport="streamable-http", host="127.0.0.1", port=int(os.getenv("MCP_PORT", 8765)))
+        allowed_hosts = [
+            host.strip()
+            for host in os.getenv("MCP_ALLOWED_HOSTS", "").split(",")
+            if host.strip()
+        ]
+        mcp.run(
+            transport="streamable-http",
+            host="127.0.0.1",
+            port=int(os.getenv("MCP_PORT", 8765)),
+            allowed_hosts=allowed_hosts or None,
+        )

@@ -3,12 +3,10 @@
 ## Architecture
 
 ```text
-Internet -> Tailscale Serve (Mac mini:5001) -> 127.0.0.1:5001 (Flask API + built Vite assets)
+Tailscale Serve (tailnet)
+  |-- :5001 -> 127.0.0.1:5001  Flask API + built Vite UI
+  |-- :8765 -> 127.0.0.1:8765  MCP HTTP (streamable-http at /mcp)
 ```
-
-Tailscale Serve proxies inbound requests to the local Flask API at `127.0.0.1:5001`.
-The launchd-managed production process must bind there for both the API and the built
-frontend shell to stay reachable.
 
 Current runtime expectations:
 
@@ -19,10 +17,12 @@ Current runtime expectations:
 
 ## Prerequisites
 
-- macOS with Tailscale installed and serving on port `5001`
+- macOS with Tailscale installed and serving on ports `5001` (API/UI) and `8765` (MCP)
 - PostgreSQL available locally at `postgresql://engram:engram@localhost:5432/engram`
 - Python 3.11+ and the repo virtualenv at `/Volumes/lex1t/dev/shared/repos/engram/venv/`
-- checked-in LaunchAgent copied to `~/Library/LaunchAgents/com.engram.api.plist`
+- checked-in LaunchAgents copied to `~/Library/LaunchAgents/`:
+  - `com.engram.api.plist` — Flask API on `127.0.0.1:5001`
+  - `com.engram.mcp.plist` — MCP HTTP on `127.0.0.1:8765` (set `MCP_ALLOWED_HOSTS` to your Tailscale DNS name)
 
 ## Quick Deploy
 
@@ -83,6 +83,26 @@ sleep 2
 launchctl load ~/Library/LaunchAgents/com.engram.api.plist
 ```
 
+### MCP (`com.engram.mcp`)
+
+The MCP HTTP server is managed by `~/Library/LaunchAgents/com.engram.mcp.plist`. It:
+
+- runs `mcp_server/server.py` with `TRANSPORT=http` on `127.0.0.1:8765`
+- proxies to the local API via `ENGRAM_API_BASE=http://127.0.0.1:5001/api/v4`
+- sets `MCP_ALLOWED_HOSTS` to the Tailscale DNS name so FastMCP accepts proxied requests
+
+Install or refresh it with:
+
+```bash
+cp /Volumes/lex1t/dev/shared/repos/engram/com.engram.mcp.plist ~/Library/LaunchAgents/com.engram.mcp.plist
+plutil -lint ~/Library/LaunchAgents/com.engram.mcp.plist
+launchctl unload ~/Library/LaunchAgents/com.engram.mcp.plist 2>/dev/null || true
+sleep 2
+launchctl load ~/Library/LaunchAgents/com.engram.mcp.plist
+```
+
+Remote MCP clients should use `https://<tailscale-host>:8765/mcp` (not port `5001`).
+
 ## Manual Checks
 
 Health:
@@ -90,7 +110,11 @@ Health:
 ```bash
 curl http://127.0.0.1:5001/api/v4/health
 curl https://danishs-mac-mini.tail003386.ts.net:5001/api/v4/health
+curl --http1.1 https://danishs-mac-mini.tail003386.ts.net:8765/mcp -o /dev/null -w "%{http_code}\n"
 ```
+
+A `406` from `/mcp` without MCP client headers is expected; `421` means `MCP_ALLOWED_HOSTS`
+needs updating in `com.engram.mcp.plist`.
 
 Focused runtime smoke:
 
@@ -141,7 +165,35 @@ Reset it if needed:
 ```bash
 tailscale serve reset
 tailscale serve --bg 5001
+tailscale serve --bg --https=8765 8765
 ```
+
+## MCP over Tailscale
+
+The MCP HTTP server runs on `127.0.0.1:8765` via `com.engram.mcp` LaunchAgent.
+Tailscale Serve proxies:
+
+```text
+https://danishs-mac-mini.tail003386.ts.net:8765 -> http://127.0.0.1:8765
+```
+
+MCP endpoint path: `/mcp` (streamable HTTP).
+
+If remote clients see `421 Misdirected Request`, FastMCP is rejecting the
+Tailscale `Host` header — not a certificate mismatch. Set `MCP_ALLOWED_HOSTS`
+in `com.engram.mcp.plist` to your Tailscale machine name, then restart MCP:
+
+```bash
+cp /Volumes/lex1t/dev/shared/repos/engram/com.engram.mcp.plist ~/Library/LaunchAgents/com.engram.mcp.plist
+plutil -lint ~/Library/LaunchAgents/com.engram.mcp.plist
+launchctl unload ~/Library/LaunchAgents/com.engram.mcp.plist 2>/dev/null || true
+sleep 2
+launchctl load ~/Library/LaunchAgents/com.engram.mcp.plist
+curl --http1.1 https://danishs-mac-mini.tail003386.ts.net:8765/mcp -o /dev/null -w "%{http_code}\n"
+```
+
+A `406` from `/mcp` without MCP client headers is expected; `421` means the host
+allowlist still needs updating.
 
 ## Troubleshooting
 

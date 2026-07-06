@@ -16,7 +16,7 @@ The active implementation is Engram v4.
 | `docs/V4_PRINCIPLES.md` | Non-negotiable v4 product and architecture rules |
 | `docs/SCHEMA.sql` | Canonical v4 Postgres schema |
 | `mcp_server/README_V4.md` | v4 MCP contract and tool surface |
-| `docs/DEPLOY.md` | Local launchd + Tailscale deployment workflow |
+| `docs/DEPLOY.md` | Local launchd + Tailscale deployment workflow (API `:5001`, MCP `:8765`) |
 | `EXECUTION-TRACKER.md` | Fresh-agent handoff, current repo state, and archived milestones |
 
 `docs/V4_IMPLEMENTATION_PLAN.md` is archived history. `prd.json` is archived reference only.
