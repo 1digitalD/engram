@@ -1377,14 +1377,39 @@ def _staleness_days_for(entities, now):
     return result
 
 
+def _child_task_ids_by_project(project_ids):
+    """Map project_id -> non-deleted child task ids (parent-linked). Batched."""
+    if not project_ids:
+        return {}
+    rows = (
+        db.session.query(EntityLink.target_entity_id, EntityLink.source_entity_id)
+        .join(Entity, Entity.id == EntityLink.source_entity_id)
+        .filter(
+            EntityLink.relationship_type == "parent",
+            EntityLink.target_entity_id.in_(project_ids),
+            Entity.type == "task",
+            Entity.lifecycle != "deleted",
+        )
+        .all()
+    )
+    result = {project_id: [] for project_id in project_ids}
+    for project_id, task_id in rows:
+        result.setdefault(project_id, []).append(task_id)
+    return result
+
+
 def _project_staleness_days(entities, now):
     """Map entity_id -> days since the most recent of: an activity-update
-    note, an EntityEvent, or any field change (`updated_at`). Batched."""
+    note or EntityEvent on the project itself, or on any parent-linked child
+    task. Batched."""
     if not entities:
         return {}
     entity_ids = [e.id for e in entities]
-    latest_update = _latest_activity_updates(entity_ids)
-    latest_event = _latest_event_at(entity_ids)
+    child_by_project = _child_task_ids_by_project(entity_ids)
+    all_child_ids = [task_id for task_ids in child_by_project.values() for task_id in task_ids]
+    tracked_ids = entity_ids + all_child_ids
+    latest_update = _latest_activity_updates(tracked_ids)
+    latest_event = _latest_event_at(tracked_ids)
     result = {}
     for entity in entities:
         candidates = [entity.created_at]
@@ -1392,6 +1417,11 @@ def _project_staleness_days(entities, now):
             candidates.append(latest_update[entity.id][0])
         if entity.id in latest_event:
             candidates.append(latest_event[entity.id])
+        for task_id in child_by_project.get(entity.id, []):
+            if task_id in latest_update:
+                candidates.append(latest_update[task_id][0])
+            if task_id in latest_event:
+                candidates.append(latest_event[task_id])
         candidates = [c for c in candidates if c is not None]
         reference = max(candidates)
         if reference.tzinfo is None:
@@ -2266,6 +2296,8 @@ def _create_activity_update_note(target, content, actor="user", confidence=None,
         source_note_id=event_source_note_id,
     )
     _refresh_delegation_cadence(target, source_note_id=event_source_note_id, actor=actor)
+    if target.type == "task":
+        _touch_parent_projects(target)
     return note, True, None
 
 

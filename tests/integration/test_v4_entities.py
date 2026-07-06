@@ -519,6 +519,40 @@ def test_project_updated_at_advances_when_child_task_is_updated(client, app):
     )
 
 
+def test_project_updated_at_advances_when_child_task_gets_activity_update(client, app):
+    """A project's updated_at should advance when a child task receives an activity update."""
+    project = client.post(
+        "/api/v4/entities",
+        json={"type": "project", "title": "Activity Update Project"},
+    ).get_json()["data"]
+    task = client.post(
+        "/api/v4/entities",
+        json={"type": "task", "title": "Child Task", "status": "open"},
+    ).get_json()["data"]
+
+    client.post(
+        f"/api/v4/entities/{task['id']}/relationships",
+        json={"target_entity_id": project["id"], "relationship_type": "parent"},
+    )
+
+    import time
+    time.sleep(0.1)
+
+    old_updated = client.get(f"/api/v4/entities/{project['id']}").get_json()["data"]["updated_at"]
+
+    response = client.post(
+        f"/api/v4/entities/{task['id']}/activity_updates",
+        json={"content": "Made progress on the rollout."},
+    )
+    assert response.status_code == 201
+
+    project_after = client.get(f"/api/v4/entities/{project['id']}").get_json()["data"]
+    assert project_after["updated_at"] > old_updated, (
+        f"project updated_at should advance after child activity update: "
+        f"{project_after['updated_at']} <= {old_updated}"
+    )
+
+
 def test_task_rows_carry_parent_context_entities(client, app):
     """Task list rows include parent project/area refs and assignee refs."""
     from extensions import db

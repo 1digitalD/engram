@@ -455,6 +455,49 @@ def test_v4_today_surfaces_stale_and_archival_projects(client, app):
     assert summary["stale_projects_count"] == len(stale_ids) + len(archival_ids)
 
 
+def test_v4_today_stale_project_clears_when_child_task_has_activity(client, app):
+    """Child task activity counts toward project staleness (F1 rollup)."""
+    stale_project = _create_entity(client, "project", "Stale until child moves")
+    task = _create_entity(client, "task", "Child work item")
+    _link(client, task["id"], stale_project["id"], "parent")
+
+    old_reference = datetime.now(timezone.utc) - timedelta(days=15)
+    with app.app_context():
+        from sqlalchemy import update
+        from models import EntityEvent
+
+        db.session.execute(
+            update(Entity)
+            .where(Entity.id.in_([stale_project["id"], task["id"]]))
+            .values(created_at=old_reference)
+        )
+        db.session.execute(
+            update(EntityEvent)
+            .where(EntityEvent.entity_id.in_([stale_project["id"], task["id"]]))
+            .values(created_at=old_reference)
+        )
+        db.session.commit()
+        db.session.expire_all()
+
+    before = client.get("/api/v4/today").get_json()
+    assert stale_project["id"] in {item["id"] for item in before["stale_projects"]}
+
+    response = client.post(
+        f"/api/v4/entities/{task['id']}/activity_updates",
+        json={"content": "Shipped the first slice today."},
+    )
+    assert response.status_code == 201
+
+    after = client.get("/api/v4/today").get_json()
+    stale_ids = {item["id"] for item in after["stale_projects"]}
+    archival_ids = {item["id"] for item in after["suggested_archival"]}
+    assert stale_project["id"] not in stale_ids
+    assert stale_project["id"] not in archival_ids
+
+    summary = client.get("/api/v4/summary").get_json()
+    assert summary["stale_projects_count"] == len(stale_ids) + len(archival_ids)
+
+
 def test_v4_today_surfaces_new_since_yesterday_count(client, app):
     yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
 
