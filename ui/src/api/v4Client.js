@@ -88,6 +88,7 @@ export const v4API = {
     clearOwner: (id) => v4Request('DELETE', `/entities/${encodeURIComponent(id)}/owner`),
     merge: (id, targetId) => v4Request('POST', `/entities/${encodeURIComponent(id)}/merge`, { target_id: targetId }),
     convert: (id, type) => v4Request('POST', `/entities/${encodeURIComponent(id)}/convert`, { type }),
+    createLink: (id, data) => v4Request('POST', `/entities/${encodeURIComponent(id)}/links`, data),
     events: (id) => v4Request('GET', `/entities/${encodeURIComponent(id)}/events`),
     canonical: (id) => v4Request('GET', `/entities/${encodeURIComponent(id)}/canonical`),
     captureChanges: (id) => v4Request('GET', `/entities/${encodeURIComponent(id)}/capture-changes`),

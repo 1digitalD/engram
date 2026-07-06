@@ -80,6 +80,52 @@ RELATIONSHIP_TYPES = {
     "blocks",
     "activity_update",
 }
+# Semantic source/target type constraints for manually-created relationships.
+# Derived from the detail-section type filters and the canonical examples in
+# docs/V4_PRINCIPLES.md.
+RELATIONSHIP_COMPATIBILITY = {
+    "parent": {
+        "task": {"project", "area"},
+        "project": {"area"},
+    },
+    "assigned_to": {
+        "task": {"person"},
+    },
+    "derived_from": {
+        "task": {"note"},
+    },
+    "mentions": {
+        "note": {"person", "project", "area"},
+        "task": {"person"},
+        "project": {"person"},
+        "area": {"person"},
+        "person": {"project", "person"},
+        "resource": {"person", "project", "task", "area", "resource"},
+    },
+    "references": {
+        "note": {"resource"},
+        "task": {"resource"},
+        "project": {"resource"},
+        "area": {"resource"},
+        "person": {"resource"},
+        "resource": {"project", "task", "area", "person", "resource", "note"},
+    },
+    "related": {
+        "task": {"task", "note", "resource", "person", "project", "area"},
+        "project": {"project", "note", "resource", "person", "area"},
+        "area": {"note", "resource", "person", "project", "area"},
+        "note": {"note", "project", "area", "person", "resource", "task"},
+        "person": {"person", "project", "resource", "task", "area"},
+        "resource": {"resource", "project", "task", "area", "person", "note"},
+    },
+    "blocks": {
+        "task": {"task"},
+        "project": {"project"},
+    },
+    "activity_update": {
+        "note": {"task", "project", "area"},
+    },
+}
 DEFAULT_OWNER_ALIASES = ["dan"]
 DEFAULT_DELEGATION_CADENCE_DAYS = 3
 
@@ -3412,6 +3458,75 @@ def create_relationship(entity_id):
     return jsonify({"data": link.to_dict()}), 201
 
 
+@api_v4_bp.route("/entities/<entity_id>/links", methods=["POST"])
+def create_link(entity_id):
+    """Additive manual link endpoint for Lab entity authoring.
+
+    Body: { target_id, relationship_type }. Reuses _create_entity_link so the
+    new path behaves identically to existing callers for cycle/duplicate
+    handling, while adding explicit request validation and recording the
+    manual user actor/source.
+    """
+    source_entity = db.session.get(Entity, entity_id)
+    if source_entity is None:
+        return _error("source entity not found", 404)
+
+    data = request.get_json(silent=True) or {}
+    target_id = data.get("target_id")
+    relationship_type = data.get("relationship_type")
+
+    if not target_id:
+        return _error("target_id is required")
+    if relationship_type not in RELATIONSHIP_TYPES:
+        return _error(f"invalid relationship_type: {relationship_type}")
+    if target_id == entity_id:
+        return _error("self-link relationships are not allowed")
+
+    target_entity = db.session.get(Entity, target_id)
+    if target_entity is None:
+        return _error("target entity not found", 404)
+    if target_entity.lifecycle == "deleted":
+        return _error("target entity is deleted", 404)
+
+    if not _is_relationship_compatible(relationship_type, source_entity.type, target_entity.type):
+        return _error(
+            f"{relationship_type} link from {source_entity.type} to {target_entity.type} is not allowed",
+            400,
+        )
+
+    if EntityLink.query.filter_by(
+        source_entity_id=entity_id,
+        target_entity_id=target_id,
+        relationship_type=relationship_type,
+    ).first():
+        return _error("duplicate relationship", 409)
+
+    if relationship_type == "blocks" and _creates_blocks_cycle(entity_id, target_id):
+        return _error("relationship would create a blocks cycle", 409)
+
+    link = _create_entity_link(
+        source_entity,
+        target_entity,
+        relationship_type,
+        confidence=1.0,
+        evidence="manual link",
+        source="manual",
+    )
+    if link is None:
+        return _error("relationship could not be created", 409)
+
+    _write_event(
+        source_entity,
+        "relationship_added",
+        new_value=link.to_dict(),
+        actor="user",
+        reason="manual link",
+    )
+    db.session.commit()
+
+    return jsonify({"data": link.to_dict()}), 201
+
+
 @api_v4_bp.route("/relationships/<relationship_id>", methods=["PATCH"])
 def update_relationship(relationship_id):
     link = db.session.get(EntityLink, relationship_id)
@@ -3887,6 +4002,11 @@ def _validate_status(entity_type, status):
     if status not in VALID_STATUS[entity_type]:
         return _error(f"invalid status for {entity_type}: {status}")
     return None
+
+
+def _is_relationship_compatible(relationship_type, source_type, target_type):
+    allowed = RELATIONSHIP_COMPATIBILITY.get(relationship_type, {})
+    return target_type in allowed.get(source_type, set())
 
 
 def _validate_lifecycle(lifecycle):

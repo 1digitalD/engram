@@ -1,0 +1,237 @@
+.page {
+  padding: 24px;
+  max-width: 720px;
+}
+
+.header {
+  margin-bottom: 24px;
+}
+
+.typeMeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary, #6b7280);
+  margin-bottom: 8px;
+}
+
+.title {
+  font-size: 24px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 16px;
+  color: var(--text-secondary, #6b7280);
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.backLink:hover {
+  text-decoration: underline;
+}
+
+.editor {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+  padding: 16px;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 8px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary, #6b7280);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.field select,
+.field input {
+  padding: 8px 10px;
+  border: 1px solid var(--border, #d1d5db);
+  border-radius: 6px;
+  font-size: 14px;
+  background: var(--surface, #fff);
+  color: var(--text-primary, #111827);
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.button {
+  padding: 8px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--border, #d1d5db);
+  background: var(--surface, #fff);
+  color: var(--text-primary, #111827);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.buttonPrimary {
+  composes: button;
+  background: var(--primary, #111827);
+  color: #fff;
+  border-color: var(--primary, #111827);
+}
+
+.section {
+  margin-bottom: 24px;
+}
+
+.sectionTitle {
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary, #6b7280);
+  margin: 0 0 10px;
+}
+
+.emptyHint {
+  font-size: 14px;
+  color: var(--text-secondary, #6b7280);
+  margin: 0;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: var(--surface-secondary, #f3f4f6);
+  font-size: 13px;
+  color: var(--text-primary, #111827);
+}
+
+.chip a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.chip a:hover {
+  text-decoration: underline;
+}
+
+.addButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px dashed var(--border, #d1d5db);
+  background: transparent;
+  color: var(--text-secondary, #6b7280);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.addButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.picker {
+  position: relative;
+  margin-top: 8px;
+}
+
+.pickerInput {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border, #d1d5db);
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.pickerDropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  max-height: 240px;
+  overflow: auto;
+  margin-top: 4px;
+  background: var(--surface, #fff);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.pickerGroup {
+  padding: 4px 0;
+}
+
+.pickerGroupTitle {
+  padding: 4px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary, #6b7280);
+}
+
+.pickerItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.pickerItem:hover,
+.pickerItemActive {
+  background: var(--surface-secondary, #f3f4f6);
+}
+
+.pickerStatus {
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--text-secondary, #6b7280);
+}
+
+.error {
+  color: var(--danger, #dc2626);
+  font-size: 14px;
+  margin: 8px 0;
+}
+
+.statusMessage {
+  color: var(--text-secondary, #6b7280);
+  font-size: 14px;
+}

@@ -4,6 +4,7 @@ import {
 } from 'react-router-dom';
 import { ArrowLeft, Search } from 'lucide-react';
 import LabEntityList from './LabEntityList';
+import LabEntityDetail from './LabEntityDetail';
 import LabPeople from './LabPeople';
 import LabSearch from './LabSearch';
 import LabToday from './LabToday';
@@ -115,11 +116,17 @@ export default function LabShell() {
             <Route path="/" element={<Navigate to="/lab/today" replace />} />
             <Route path="/today" element={<LabToday />} />
             <Route path="/notes" element={<LabEntityList type="note" onOpenCapture={() => setCaptureOpen(true)} />} />
+            <Route path="/notes/:id" element={<LabEntityDetail />} />
             <Route path="/tasks" element={<LabEntityList type="task" onOpenCapture={() => setCaptureOpen(true)} />} />
+            <Route path="/tasks/:id" element={<LabEntityDetail />} />
             <Route path="/projects" element={<LabEntityList type="project" onOpenCapture={() => setCaptureOpen(true)} />} />
+            <Route path="/projects/:id" element={<LabEntityDetail />} />
             <Route path="/areas" element={<LabEntityList type="area" onOpenCapture={() => setCaptureOpen(true)} />} />
+            <Route path="/areas/:id" element={<LabEntityDetail />} />
             <Route path="/people" element={<LabPeople />} />
+            <Route path="/people/:id" element={<LabEntityDetail />} />
             <Route path="/resources" element={<LabEntityList type="resource" onOpenCapture={() => setCaptureOpen(true)} />} />
+            <Route path="/resources/:id" element={<LabEntityDetail />} />
           </Routes>
         </main>
       </div>

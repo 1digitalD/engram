@@ -29,8 +29,8 @@ function countNoun(type, count) {
 }
 
 function detailPath(entity) {
-  if (entity.type === 'person') return `/people/${entity.id}`;
-  return `/${entity.type}s/${entity.id}`;
+  if (entity.type === 'person') return `/lab/people/${entity.id}`;
+  return `/lab/${entity.type}s/${entity.id}`;
 }
 
 function formatStatus(entity) {
