@@ -531,10 +531,15 @@ function ThreadDetailContent({
   onToggleDecisionForm,
   onDecisionChange,
   onDecisionSubmit,
+  onChipRemove,
+  onSectionRemove,
 }) {
   const entity = detail.entity;
   const entityType = entity.type;
   const summary = narrativeSummary(entity, canonicalText);
+  const childSections = (detail?.sections || []).filter(
+    (s) => (s.key === 'open_tasks' || s.key === 'completed_tasks' || s.key === 'tasks' || s.key === 'projects') && s.items?.length > 0
+  );
   const meetingPrep = buildMeetingPrep(detail);
   const currentLoad = buildCurrentLoad(detail);
   const nextActions = buildNextActions(detail);
@@ -577,12 +582,13 @@ function ThreadDetailContent({
           ) : null}
         </div>
         <h1 className={styles.title}>{entityTitleLabel(entity, { includeType: false })}</h1>
-        {entityType === 'task' ? (
+        {(entityType === 'task' || entityType === 'project') ? (
           <EntityContextChips
-            projects={entity.projects || []}
+            projects={entityType === 'task' ? (entity.projects || []) : []}
             areas={entity.areas || []}
             people={entity.people || []}
             className={styles.taskContextChips}
+            onRemove={onChipRemove}
           />
         ) : null}
       </header>
@@ -599,6 +605,49 @@ function ThreadDetailContent({
         onSave={onEditorSave}
         onCancel={onEditorCancel}
       />
+
+      {childSections.length > 0 ? childSections.map((section) => (
+        <section key={section.key} className={styles.section} aria-labelledby={`child-${section.key}-label`}>
+          <h2 id={`child-${section.key}-label`} className={styles.sectionLabel}>
+            {section.title || section.key.replace(/_/g, ' ').replace(/\b./g, (c) => c.toUpperCase())}
+          </h2>
+          {section.items.map((item) => {
+            const entity = item?.entity;
+            if (!entity) return null;
+            return (
+              <div key={entity.id} className={styles.relatedRow}>
+                <XGlyph type={entity.type} />
+                <div className={styles.relatedMain}>
+                  <Link to={pathForEntity(entity)} className={styles.relatedLink}>
+                    <span className={styles.relatedTitle}>
+                      {entityTitleLabel(entity, { includeType: false })}
+                    </span>
+                  </Link>
+                </div>
+                <button
+                  type="button"
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: 'var(--text-tertiary)',
+                    fontSize: '16px',
+                    padding: '2px 6px',
+                    borderRadius: 'var(--radius-full)',
+                    lineHeight: 1,
+                    flexShrink: 0,
+                  }}
+                  onClick={() => onSectionRemove(item)}
+                  aria-label={`Remove ${entity.type}`}
+                  title={`Remove ${entity.type}`}
+                >
+                  ×
+                </button>
+              </div>
+            );
+          })}
+        </section>
+      )) : null}
 
       <section className={styles.section} aria-labelledby="thread-narrative-label">
         <h2 id="thread-narrative-label" className={styles.sectionLabel}>Summary</h2>
@@ -1197,6 +1246,35 @@ export default function V5ThreadDetail({
     }
   }, [detail, editorDraft, reloadThread, refreshSummary]);
 
+  const handleChipRemove = useCallback(async (item) => {
+    if (!item?.relationship_id || !detail?.entity) return;
+    try {
+      await v4API.relationships.delete(item.relationship_id);
+      const refreshed = await reloadThread();
+      if (refreshed?.entity) {
+        setEditorDraft(buildDraft(refreshed.entity));
+      }
+      refreshSummary();
+    } catch (err) {
+      console.error('Failed to remove relationship:', err);
+    }
+  }, [detail, reloadThread, refreshSummary]);
+
+  const handleSectionRemove = useCallback(async (sectionItem) => {
+    const relId = sectionItem?.relationship?.id;
+    if (!relId) return;
+    try {
+      await v4API.relationships.delete(relId);
+      const refreshed = await reloadThread();
+      if (refreshed?.entity) {
+        setEditorDraft(buildDraft(refreshed.entity));
+      }
+      refreshSummary();
+    } catch (err) {
+      console.error('Failed to remove section item:', err);
+    }
+  }, [reloadThread, refreshSummary]);
+
   const handleCapture = useCallback(() => {
     openCapture();
   }, [openCapture]);
@@ -1368,6 +1446,8 @@ export default function V5ThreadDetail({
         onToggleDecisionForm={handleToggleDecisionForm}
         onDecisionChange={handleDecisionChange}
         onDecisionSubmit={handleDecisionSubmit}
+        onChipRemove={handleChipRemove}
+        onSectionRemove={handleSectionRemove}
       />
       <CitationEntitySheet
         entityId={citationEntityId}
