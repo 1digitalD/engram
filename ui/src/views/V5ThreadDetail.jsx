@@ -6,6 +6,7 @@ import XGlyph from '../components/XGlyph';
 import CitationsList from '../components/CitationsList';
 import CitationEntitySheet from '../components/CitationEntitySheet';
 import MarkdownEditor from '../components/MarkdownEditor';
+import MarkdownContent from '../components/MarkdownContent';
 import { useCapture } from '../context/CaptureContext';
 import { useReview } from '../context/ReviewContext';
 import { useSummary } from '../context/SummaryContext';
@@ -536,6 +537,14 @@ function ThreadDetailContent({
           ) : null}
         </div>
         <h1 className={styles.title}>{entityTitleLabel(entity, { includeType: false })}</h1>
+        {entityType === 'task' ? (
+          <EntityContextChips
+            projects={entity.projects || []}
+            areas={entity.areas || []}
+            people={entity.people || []}
+            className={styles.taskContextChips}
+          />
+        ) : null}
       </header>
 
       <EntityAttributeEditor
@@ -553,7 +562,7 @@ function ThreadDetailContent({
 
       <section className={styles.section} aria-labelledby="thread-narrative-label">
         <h2 id="thread-narrative-label" className={styles.sectionLabel}>Summary</h2>
-        <p className={styles.narrative}>{summary}</p>
+        <MarkdownContent content={summary} className={styles.narrative} />
       </section>
 
       {detail?.decisions_count || decisionFormOpen ? (
@@ -631,7 +640,7 @@ function ThreadDetailContent({
         <section className={styles.section} aria-labelledby="thread-meeting-prep-label">
           <h2 id="thread-meeting-prep-label" className={styles.sectionLabel}>Meeting prep</h2>
           {meetingPrep.headline ? (
-            <p className={styles.narrative}>{meetingPrep.headline}</p>
+            <MarkdownContent content={meetingPrep.headline} className={styles.narrative} />
           ) : null}
           {meetingPrep.agendaItems.map((item) => (
             <article key={item.id} className={styles.signalCard} aria-label={item.title}>

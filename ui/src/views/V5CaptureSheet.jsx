@@ -103,27 +103,31 @@ export function CaptureToast({ toast, onOpenReview }) {
 export function CaptureFab() {
   const { openCapture } = useCapture();
   return (
-    <>
+    <button
+      type="button"
+      className={styles.fab}
+      aria-label="Open capture"
+      title="Capture"
+      onClick={openCapture}
+    >
+      <Plus size={24} strokeWidth={2.2} aria-hidden="true" />
+    </button>
+  );
+}
+
+export function CaptureMobileBar() {
+  const { openCapture } = useCapture();
+  return (
+    <div className={styles.mobileBar}>
       <button
         type="button"
-        className={styles.fab}
+        className={styles.mobileInput}
         aria-label="Open capture"
-        title="Capture"
         onClick={openCapture}
       >
-        <Plus size={24} strokeWidth={2.2} aria-hidden="true" />
+        Quick capture…
       </button>
-      <div className={styles.mobileBar}>
-        <button
-          type="button"
-          className={styles.mobileInput}
-          aria-label="Open capture"
-          onClick={openCapture}
-        >
-          {CAPTURE_PLACEHOLDER}
-        </button>
-      </div>
-    </>
+    </div>
   );
 }
 

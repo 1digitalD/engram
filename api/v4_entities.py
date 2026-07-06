@@ -1481,6 +1481,9 @@ def get_entity_detail(entity_id):
     entity = _load_entity(entity_id)
     if entity is None:
         return _error("entity not found", 404)
+    # Attach project/area/people context for task detail pages
+    if entity.type == "task":
+        _attach_task_context([entity])
     entity_data = entity.to_dict()
     if entity.type == "person":
         entity_data["is_owner"] = _is_owner(entity.title, entity.id)
@@ -2306,7 +2309,8 @@ def create_activity_update(entity_id):
     # Lightweight extraction: scan for dates and new tasks (no full capture cycle).
     from services.v4_extraction import extract_dates_and_tasks_from_update
 
-    extraction = extract_dates_and_tasks_from_update(content)
+    parent_context = {"type": target.type, "title": target.title} if target.title else None
+    extraction = extract_dates_and_tasks_from_update(content, parent_context=parent_context)
     suggestions = []
     extracted = _apply_activity_update_policy(note, target, content, extraction, suggestions)
 
@@ -4064,7 +4068,8 @@ def _route_capture_update_intent(note, content, extraction, thread_id, applied_c
 
     intent_confidence = _candidate_confidence({"confidence": extraction.get("intent_confidence")})
     target = _resolve_update_target(note, content, thread_id)
-    au_extraction = extract_dates_and_tasks_from_update(content)
+    parent_context = {"type": target.type, "title": target.title} if target and target.title else None
+    au_extraction = extract_dates_and_tasks_from_update(content, parent_context=parent_context)
 
     if target is None:
         suggestion = _create_suggestion(

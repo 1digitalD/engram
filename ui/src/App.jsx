@@ -14,7 +14,7 @@ import V5Now from './views/V5Now';
 import V5Recall from './views/V5Recall';
 import V5RecallOpener from './views/V5RecallOpener';
 import V5Memory from './views/V5Memory';
-import V5CaptureSheet, { CaptureFab, CaptureToast } from './views/V5CaptureSheet';
+import V5CaptureSheet, { CaptureFab, CaptureMobileBar, CaptureToast } from './views/V5CaptureSheet';
 import V5AskSheet from './views/V5AskSheet';
 import V5ReviewSheet from './views/V5ReviewSheet';
 
@@ -110,6 +110,8 @@ function AppShell() {
           suggestionsCount={counts.suggestions}
           trustScore={trustScore}
         />
+
+        <CaptureMobileBar />
 
         <div className={styles.mainColumn}>
           <div className={styles.routeViewport}>

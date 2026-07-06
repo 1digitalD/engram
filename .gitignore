@@ -25,6 +25,8 @@ logs/
 
 # Build artifacts that don't belong in source
 .gstack/
+# Top-level vitest cache from ui/ runs
+node_modules/
 static/assets/
 static/index.html
 .claude/

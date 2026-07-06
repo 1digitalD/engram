@@ -205,15 +205,10 @@
   }
 
   .mobileBar {
+    display: block;
+    padding: var(--space-2) var(--space-3);
     background: var(--surface);
     border-bottom: 1px solid var(--border);
-    display: block;
-    left: 0;
-    padding: var(--space-2) var(--space-3);
-    position: fixed;
-    right: 0;
-    top: 56px;
-    z-index: 30;
   }
 
   .mobileInput {

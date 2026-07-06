@@ -534,6 +534,16 @@ ACTIVITY_UPDATE_SYSTEM_PROMPT = """You are a lightweight extraction engine for a
    Do NOT include a confidence score for tasks; they always become reviewable suggestions.
    Return empty list if no new tasks are mentioned.
 
+PARENT CONTEXT:
+The user prompt may include a line like "This update is on the project/task 'X'" at the top.
+When it does, INCLUDE the parent context in extracted task titles when it makes the title more
+descriptive and socially meaningful. A title like "Update the docs" on a project called "API Integration"
+should become "Update API Integration docs" — the reader should be able to understand what the task
+refers to without needing to know which page they were on when it was created.
+Do NOT bloat titles: include only enough context to disambiguate. "Review PR" on a task is fine;
+"Review API Integration PR" is better. But do not prefix every title with the parent name
+if the parent name is not helpful.
+
 FOLLOW-UP ROUTING:
 - Top-level follow_up_at is for checking back on the entity being updated.
 - When the update closes the entity (status done/cancelled) AND introduces new work, put the follow-up
@@ -577,11 +587,15 @@ def _normalize_activity_status(value):
     return None
 
 
-def extract_dates_and_tasks_from_update(content, today_iso=None):
+def extract_dates_and_tasks_from_update(content, today_iso=None, parent_context=None):
     """Lightweight extraction for activity-update content.
 
     Returns {"status": str|None, "confidence": float, "follow_up_at": "YYYY-MM-DD"|None, "tasks": [...]}.
     Uses a cheaper/faster model than the full capture extraction.
+
+    parent_context: optional dict with {"type": "project"|"task"|"...", "title": str}
+    describing the entity the update is being posted on. Used to craft more
+    descriptive task titles that carry social/contextual meaning.
     """
     empty = {"status": None, "confidence": 0.0, "follow_up_at": None, "tasks": []}
     if not content or not content.strip():
@@ -600,7 +614,18 @@ def extract_dates_and_tasks_from_update(content, today_iso=None):
     from datetime import date
     today = today_iso or date.today().isoformat()
 
-    user_prompt = f"Today is {today}.\n\nUpdate content:\n{content[:4000]}"
+    ctx = (parent_context or {}).get("type") and (parent_context or {}).get("title")
+    if ctx:
+        pt = parent_context["type"]
+        pt_label = {"project": "project", "task": "task", "area": "area"}.get(pt, pt)
+        parent_title = parent_context["title"]
+        user_prompt = (
+            f"Today is {today}.\n"
+            f'This update is on the {pt_label} "{parent_title}".\n\n'
+            f"Update content:\n{content[:4000]}"
+        )
+    else:
+        user_prompt = f"Today is {today}.\n\nUpdate content:\n{content[:4000]}"
 
     try:
         response = get_openai_client().chat.completions.create(
