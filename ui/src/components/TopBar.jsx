@@ -146,6 +146,15 @@ export default function TopBar({
         })}
       </nav>
 
+      <NavLink
+        to="/lab"
+        className={({ isActive }) => (
+          `${styles.labLink} ${isActive ? styles.labLinkActive : ''}`.trim()
+        )}
+      >
+        Try the redesign (beta)
+      </NavLink>
+
       <div className={styles.spacer} />
 
       <button

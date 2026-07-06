@@ -1,0 +1,119 @@
+import { useEffect, useMemo, useState } from 'react';
+import {
+  Navigate, NavLink, Route, Routes, useLocation,
+} from 'react-router-dom';
+import { ArrowLeft, Search } from 'lucide-react';
+import LabEntityList from './LabEntityList';
+import LabSearch from './LabSearch';
+import LabToday from './LabToday';
+import styles from './LabShell.module.css';
+
+const navItems = [
+  { to: '/lab/today', label: 'Today' },
+  { to: '/lab/notes', label: 'Notes' },
+  { to: '/lab/tasks', label: 'Tasks' },
+  { to: '/lab/projects', label: 'Projects' },
+  { to: '/lab/areas', label: 'Areas' },
+  { to: '/lab/people', label: 'People' },
+  { to: '/lab/resources', label: 'Resources' },
+];
+
+const PAGE_TITLE = {
+  '/lab/today': 'Today',
+  '/lab/notes': 'Notes',
+  '/lab/tasks': 'Tasks',
+  '/lab/projects': 'Projects',
+  '/lab/areas': 'Areas',
+  '/lab/people': 'People',
+  '/lab/resources': 'Resources',
+};
+
+function pageTitle(pathname) {
+  return PAGE_TITLE[pathname] || 'Lab';
+}
+
+export default function LabShell() {
+  const location = useLocation();
+  const [searchOpen, setSearchOpen] = useState(false);
+  const title = useMemo(() => pageTitle(location.pathname), [location.pathname]);
+
+  useEffect(() => {
+    function onKeyDown(event) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        setSearchOpen(true);
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
+  return (
+    <div className={styles.shell} data-lab="true">
+      <aside className={styles.sidebar}>
+        <NavLink to="/now" className={styles.brand} aria-label="Engram home">
+          <span className={styles.brandGlyph} aria-hidden="true">◈</span>
+          <span>Engram</span>
+        </NavLink>
+
+        <NavLink to="/now" className={styles.backLink}>
+          <ArrowLeft size={14} strokeWidth={2} aria-hidden="true" />
+          Back to classic
+        </NavLink>
+
+        <nav className={styles.nav} aria-label="Lab navigation">
+          {navItems.map(({ to, label }) => {
+            const isActive = location.pathname === to
+              || (to !== '/lab/today' && location.pathname.startsWith(to));
+            return (
+              <NavLink
+                key={to}
+                to={to}
+                aria-current={isActive ? 'page' : undefined}
+                className={({ isActive: navActive }) => (
+                  `${styles.navLink} ${navActive ? styles.navLinkActive : ''}`.trim()
+                )}
+              >
+                {label}
+              </NavLink>
+            );
+          })}
+        </nav>
+
+        <div className={styles.betaBadge}>LAB redesign</div>
+      </aside>
+
+      <div className={styles.main}>
+        <header className={styles.topbar}>
+          <h1 className={styles.topbarTitle}>{title}</h1>
+          <button
+            type="button"
+            className={styles.searchTrigger}
+            onClick={() => setSearchOpen(true)}
+            aria-label="Open search"
+          >
+            <Search size={14} strokeWidth={2} aria-hidden="true" />
+            <span>Search</span>
+            <kbd>⌘K</kbd>
+          </button>
+        </header>
+
+        <main className={styles.content}>
+          <Routes>
+            <Route path="/" element={<Navigate to="/lab/today" replace />} />
+            <Route path="/today" element={<LabToday />} />
+            <Route path="/notes" element={<LabEntityList type="note" />} />
+            <Route path="/tasks" element={<LabEntityList type="task" />} />
+            <Route path="/projects" element={<LabEntityList type="project" />} />
+            <Route path="/areas" element={<LabEntityList type="area" />} />
+            <Route path="/people" element={<LabEntityList type="person" />} />
+            <Route path="/resources" element={<LabEntityList type="resource" />} />
+          </Routes>
+        </main>
+      </div>
+
+      <LabSearch open={searchOpen} onClose={() => setSearchOpen(false)} />
+    </div>
+  );
+}

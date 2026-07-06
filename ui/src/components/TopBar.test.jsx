@@ -79,4 +79,12 @@ describe('TopBar', () => {
     fireEvent.click(screen.getByRole('button', { name: /Review 2 pending suggestions/i }));
     expect(onReview).toHaveBeenCalledTimes(1);
   });
+
+  it('renders a link to the Lab redesign', () => {
+    renderWithRouter(<TopBar trustScore={87} onAsk={() => {}} />);
+
+    const link = screen.getByRole('link', { name: /Try the redesign \(beta\)/i });
+    expect(link).toBeInTheDocument();
+    expect(link).toHaveAttribute('href', '/lab');
+  });
 });

@@ -192,3 +192,4 @@ All 6 prd tasks passed. See archived `docs/iterations/archive/prd-v5-hardening.j
 - Post-Iteration 19 prod metrics not yet re-run (acceptance rate / agent-deletion SQL in `ITERATION_19_SIGNAL_QUALITY_PLAN.md` § Measurement).
 - Replay eval last run 2026-06-30 (`docs/iterations/replay_results/`); re-run after the next extraction change.
 - Code-default chat model is `gpt-5.4-nano`; prod `.env` overrides judgment paths to `-mini` (SQ-00). `.env.example` documents the intended prod policy.
+- 2026-07-06T16:20:04.851853+00:00 lab-00-shell-scaffold accepted via opencode
