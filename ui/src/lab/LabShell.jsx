@@ -4,6 +4,7 @@ import {
 } from 'react-router-dom';
 import { ArrowLeft, Search } from 'lucide-react';
 import LabEntityList from './LabEntityList';
+import LabPeople from './LabPeople';
 import LabSearch from './LabSearch';
 import LabToday from './LabToday';
 import styles from './LabShell.module.css';
@@ -107,7 +108,7 @@ export default function LabShell() {
             <Route path="/tasks" element={<LabEntityList type="task" />} />
             <Route path="/projects" element={<LabEntityList type="project" />} />
             <Route path="/areas" element={<LabEntityList type="area" />} />
-            <Route path="/people" element={<LabEntityList type="person" />} />
+            <Route path="/people" element={<LabPeople />} />
             <Route path="/resources" element={<LabEntityList type="resource" />} />
           </Routes>
         </main>

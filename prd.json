@@ -158,9 +158,10 @@
         "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- LabPeople"
       ],
       "blocked": false,
-      "passes": false,
-      "attempts": 0,
-      "blockerReason": null
+      "passes": true,
+      "attempts": 1,
+      "blockerReason": null,
+      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- LabPeople\n\n> engram-ui@0.0.0 test\n> node scripts/run-tests.mjs LabPeople\n\n\n RUN  v3.2.4 /Volumes/lex1t/dev/shared/repos/engram/ui\n\n \u2713 src/lab/LabPeople.test.jsx (6 tests) 52ms\n\n Test Files  1 passed (1)\n      Tests  6 passed (6)\n   Start at  10:40:00\n   Duration  455ms (transform 44ms, setup 22ms, collect 73ms, tests 52ms, environment 121ms, prepare 30ms)"
     }
   ],
   "codingLoopPolicy": {
