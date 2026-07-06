@@ -1481,9 +1481,11 @@ def get_entity_detail(entity_id):
     entity = _load_entity(entity_id)
     if entity is None:
         return _error("entity not found", 404)
-    # Attach project/area/people context for task detail pages
+    # Attach project/area/people context for detail pages
     if entity.type == "task":
         _attach_task_context([entity])
+    if entity.type == "project":
+        _attach_project_context([entity])
     entity_data = entity.to_dict()
     if entity.type == "person":
         entity_data["is_owner"] = _is_owner(entity.title, entity.id)
@@ -3608,7 +3610,7 @@ def _attach_project_context(entities):
 
     project_areas = {project_id: [] for project_id in project_ids}
     rows = (
-        db.session.query(EntityLink.source_entity_id, Entity.id, Entity.title)
+        db.session.query(EntityLink.source_entity_id, EntityLink.id, Entity.id, Entity.title)
         .join(Entity, Entity.id == EntityLink.target_entity_id)
         .filter(
             EntityLink.relationship_type == "parent",
@@ -3618,8 +3620,8 @@ def _attach_project_context(entities):
         )
         .all()
     )
-    for project_id, area_id, area_title in rows:
-        project_areas.setdefault(project_id, []).append({"id": area_id, "title": area_title})
+    for project_id, rel_id, area_id, area_title in rows:
+        project_areas.setdefault(project_id, []).append({"id": area_id, "title": area_title, "relationship_id": rel_id})
 
     for entity in entities:
         if entity.type == "project":
@@ -3637,7 +3639,7 @@ def _attach_task_context(entities):
         for task_id in task_ids
     }
     parent_rows = (
-        db.session.query(EntityLink.source_entity_id, Entity.id, Entity.title, Entity.type)
+        db.session.query(EntityLink.source_entity_id, EntityLink.id, Entity.id, Entity.title, Entity.type)
         .join(Entity, Entity.id == EntityLink.target_entity_id)
         .filter(
             EntityLink.relationship_type == "parent",
@@ -3647,12 +3649,12 @@ def _attach_task_context(entities):
         )
         .all()
     )
-    for task_id, target_id, target_title, target_type in parent_rows:
+    for task_id, rel_id, target_id, target_title, target_type in parent_rows:
         bucket = task_context.setdefault(task_id, {"projects": [], "areas": [], "people": []})
         if target_type == "project":
-            bucket["projects"].append({"id": target_id, "title": target_title})
+            bucket["projects"].append({"id": target_id, "title": target_title, "relationship_id": rel_id})
         elif target_type == "area":
-            bucket["areas"].append({"id": target_id, "title": target_title})
+            bucket["areas"].append({"id": target_id, "title": target_title, "relationship_id": rel_id})
 
     assignee_rows = (
         db.session.query(EntityLink.source_entity_id, Entity.id, Entity.title)

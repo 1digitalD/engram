@@ -7,6 +7,7 @@ import CitationsList from '../components/CitationsList';
 import CitationEntitySheet from '../components/CitationEntitySheet';
 import MarkdownEditor from '../components/MarkdownEditor';
 import MarkdownContent from '../components/MarkdownContent';
+import EntityPicker from '../components/EntityPicker';
 import { useCapture } from '../context/CaptureContext';
 import { useReview } from '../context/ReviewContext';
 import { useSummary } from '../context/SummaryContext';
@@ -73,6 +74,8 @@ function toIsoOrNull(value) {
 }
 
 function buildDraft(entity) {
+  const projects = entity?.projects || [];
+  const areas = entity?.areas || [];
   return {
     title: entity?.title || '',
     content: entity?.content || '',
@@ -80,6 +83,10 @@ function buildDraft(entity) {
     due_at: toLocalInput(entity?.due_at),
     follow_up_at: toLocalInput(entity?.follow_up_at),
     priority: entity?.properties?.priority || '',
+    projectId: projects[0]?.id || null,
+    projectTitle: projects[0]?.title || '',
+    areaId: areas[0]?.id || null,
+    areaTitle: areas[0]?.title || '',
   };
 }
 
@@ -188,6 +195,9 @@ function EntityAttributeEditor({
   onCancel,
 }) {
   const statuses = STATUS_OPTIONS[entity?.type] || ['active'];
+  const entityType = entity?.type;
+  const showProject = entityType === 'task';
+  const showArea = entityType === 'task' || entityType === 'project';
 
   return (
     <section className={styles.section} aria-labelledby="thread-details-label">
@@ -278,6 +288,36 @@ function EntityAttributeEditor({
                 ))}
               </select>
             </label>
+
+            {showProject ? (
+              <label className={styles.fieldStack}>
+                <span className={styles.fieldLabel}>Project</span>
+                <EntityPicker
+                  entityType="project"
+                  value={draft.projectId ? { id: draft.projectId, title: draft.projectTitle } : null}
+                  onChange={(selected) => {
+                    onChange('projectId', selected?.id || null);
+                    onChange('projectTitle', selected?.title || '');
+                  }}
+                  placeholder="Search projects…"
+                />
+              </label>
+            ) : null}
+
+            {showArea ? (
+              <label className={styles.fieldStack}>
+                <span className={styles.fieldLabel}>Area</span>
+                <EntityPicker
+                  entityType="area"
+                  value={draft.areaId ? { id: draft.areaId, title: draft.areaTitle } : null}
+                  onChange={(selected) => {
+                    onChange('areaId', selected?.id || null);
+                    onChange('areaTitle', selected?.title || '');
+                  }}
+                  placeholder="Search areas…"
+                />
+              </label>
+            ) : null}
           </div>
 
           <label className={styles.fieldStack}>
@@ -1106,11 +1146,44 @@ export default function V5ThreadDetail({
 
   const handleEditorSave = useCallback(async () => {
     if (!detail?.entity) return;
+    const entityId = detail.entity.id;
     setEditorSaving(true);
     setEditorError('');
 
     try {
-      await v4API.entities.update(detail.entity.id, buildUpdatePayload(detail.entity, editorDraft));
+      // Save entity scalar fields
+      await v4API.entities.update(entityId, buildUpdatePayload(detail.entity, editorDraft));
+
+      // Handle project relationship change (tasks only)
+      const currentProj = detail.entity.projects?.[0] || null;
+      const draftProjId = editorDraft.projectId;
+      if (detail.entity.type === 'task' && (draftProjId || null) !== (currentProj?.id || null)) {
+        if (currentProj?.relationship_id) {
+          await v4API.relationships.delete(currentProj.relationship_id).catch(() => {});
+        }
+        if (draftProjId) {
+          await v4API.relationships.create(entityId, {
+            target_entity_id: draftProjId,
+            relationship_type: 'parent',
+          });
+        }
+      }
+
+      // Handle area relationship change (tasks and projects)
+      const currentArea = detail.entity.areas?.[0] || null;
+      const draftAreaId = editorDraft.areaId;
+      if ((draftAreaId || null) !== (currentArea?.id || null)) {
+        if (currentArea?.relationship_id) {
+          await v4API.relationships.delete(currentArea.relationship_id).catch(() => {});
+        }
+        if (draftAreaId) {
+          await v4API.relationships.create(entityId, {
+            target_entity_id: draftAreaId,
+            relationship_type: 'parent',
+          });
+        }
+      }
+
       const refreshed = await reloadThread();
       if (refreshed?.entity) {
         setEditorDraft(buildDraft(refreshed.entity));
