@@ -13,8 +13,9 @@ publication:
 
 # Per Loopsmith docs: 300s default is too low for tasks that build JS from a
 # fresh worktree (npm install, build, test). Set to 1800s (30 min) for any
-# task touching TS/JS, including the engram UI in ui/. Reads via
-# policy.extra.executorLaunchTimeoutSeconds (see src/loopsmith/policy.py).
+# task touching TS/JS. Reads via policy.extra.executorLaunchTimeoutSeconds
+# (see src/loopsmith/policy.py). This survives ensure_policy() rewrites so it
+# doesn't need to be re-applied per-repo after every host-run/doctor call.
 executorLaunchTimeoutSeconds: 1800
 
 # Cooldown before retrying same executor (seconds). Lets rate limits reset.
