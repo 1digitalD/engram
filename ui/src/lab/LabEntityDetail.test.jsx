@@ -122,10 +122,9 @@ describe('LabEntityDetail', () => {
     v4API.search.mockResolvedValue({
       results: [
         {
-          type: 'project',
-          results: [
-            { entity: { id: 'project-1', type: 'project', title: 'Docs project' } },
-          ],
+          entity: { id: 'project-1', type: 'project', title: 'Docs project' },
+          score: 1,
+          match: { snippet: 'Docs project' },
         },
       ],
     });
@@ -149,6 +148,33 @@ describe('LabEntityDetail', () => {
         relationship_type: 'parent',
       });
     });
+  });
+
+  it('renders activity updates without relationship chips', async () => {
+    v4API.entities.detail.mockResolvedValue({
+      ...TASK_FIXTURE,
+      sections: [
+        ...TASK_FIXTURE.sections,
+        {
+          key: 'activity_updates',
+          title: 'Activity',
+          items: [
+            {
+              id: 'update-1',
+              title: 'Update: Pilot',
+              content: 'Mary will review by Friday.',
+              updated_at: '2026-06-22T14:00:00+00:00',
+            },
+          ],
+        },
+      ],
+    });
+
+    renderDetail();
+
+    expect(await screen.findByText('Activity')).toBeInTheDocument();
+    expect(screen.getByText('Update: Pilot')).toBeInTheDocument();
+    expect(screen.getByText('Mary will review by Friday.')).toBeInTheDocument();
   });
 
   it('shows an error when detail load fails', async () => {

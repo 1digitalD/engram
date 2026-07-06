@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { v4API, friendlyApiError } from '../api/v4Client';
 import EntityGlyphCircle from '../components/EntityGlyphCircle';
 import { entityTitleLabel } from '../utils/entityDisplay';
+import { labDetailPath } from './labPaths';
 import styles from './LabPeople.module.css';
 
 function deriveSummary(detail) {
@@ -127,7 +128,7 @@ export default function LabPeople() {
             return (
               <li key={person.id}>
                 <Link
-                  to={`/people/${person.id}`}
+                  to={labDetailPath(person)}
                   className={styles.row}
                   data-entity-type="person"
                 >

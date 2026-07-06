@@ -63,12 +63,12 @@ describe('LabPeople', () => {
     renderWithRouter();
 
     const aliceLink = await screen.findByRole('link', { name: /Alice/ });
-    expect(aliceLink).toHaveAttribute('href', '/people/p1');
+    expect(aliceLink).toHaveAttribute('href', '/lab/people/p1');
     expect(within(aliceLink).getByText(/3 open tasks/)).toBeInTheDocument();
     expect(within(aliceLink).getByText(/Last heard/)).toBeInTheDocument();
 
     const bobLink = screen.getByRole('link', { name: /Bob/ });
-    expect(bobLink).toHaveAttribute('href', '/people/p2');
+    expect(bobLink).toHaveAttribute('href', '/lab/people/p2');
     expect(within(bobLink).getByText(/1 open task/)).toBeInTheDocument();
     expect(within(bobLink).getByText('Gone quiet')).toBeInTheDocument();
   });

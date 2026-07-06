@@ -6,9 +6,10 @@ import {
 } from 'react-router-dom';
 import { ArrowLeft, Plus } from 'lucide-react';
 import { v4API, friendlyApiError } from '../api/v4Client';
+import { normalizeSearchResults } from '../utils/searchResults';
 import EntityGlyphCircle from '../components/EntityGlyphCircle';
 import { entityTitleLabel } from '../utils/entityDisplay';
-import { pathForEntityType } from '../utils/entityContext';
+import { labDetailPath } from './labPaths';
 import styles from './LabEntityDetail.module.css';
 
 const STATUS_OPTIONS = {
@@ -132,17 +133,27 @@ function sectionAddRelationshipType(section) {
 }
 
 function canAddToSection(section) {
+  if (section.key === 'activity_updates') return false;
   const { direction } = sectionMeta(section);
   return direction === 'outgoing' || direction === 'both';
 }
 
 function RelationshipChip({ item }) {
   const entity = item.entity;
-  const path = pathForEntityType(entity.type, entity.id);
+  const path = labDetailPath(entity);
   return (
     <span className={styles.chip}>
       {path ? <Link to={path}>{entityTitleLabel(entity, { includeType: false })}</Link> : entityTitleLabel(entity, { includeType: false })}
     </span>
+  );
+}
+
+function ActivityUpdateItem({ item }) {
+  return (
+    <div className={styles.activityItem}>
+      <span className={styles.activityTitle}>{item.title || 'Update'}</span>
+      {item.content ? <p className={styles.activityContent}>{item.content}</p> : null}
+    </div>
   );
 }
 
@@ -179,7 +190,7 @@ function AddRelationshipPicker({ entityId, relationshipType, onAdded }) {
     setLoading(true);
     v4API.search({ q: query, limit: 10 }).then((resp) => {
       if (cancelled) return;
-      setResults(resp?.results || []);
+      setResults(normalizeSearchResults(resp));
       setLoading(false);
     }).catch((err) => {
       if (!cancelled) {
@@ -197,17 +208,7 @@ function AddRelationshipPicker({ entityId, relationshipType, onAdded }) {
     }
   }, [results]);
 
-  const flatResults = useMemo(() => {
-    const list = [];
-    results.forEach((group) => {
-      (group.results || []).forEach((result) => {
-        if (result?.entity) {
-          list.push(result.entity);
-        }
-      });
-    });
-    return list;
-  }, [results]);
+  const flatResults = useMemo(() => results, [results]);
 
   const handleSelect = useCallback(async (targetEntity) => {
     if (saving) return;
@@ -329,7 +330,7 @@ export default function LabEntityDetail() {
       if (activeIdRef.current !== id) return;
       const entityType = response?.entity?.type;
       if (routeType && entityType && entityType !== entityTypeFromRouteType(routeType)) {
-        navigate(pathForEntityType(entityType, response.entity.id), { replace: true });
+        navigate(labDetailPath(response.entity), { replace: true });
         return;
       }
       setDetail(response);
@@ -479,6 +480,13 @@ export default function LabEntityDetail() {
         <section key={section.key} className={styles.section}>
           <h2 className={styles.sectionTitle}>{section.title || section.key}</h2>
           {section.items?.length ? (
+            section.key === 'activity_updates' ? (
+              <div className={styles.activityList}>
+                {section.items.map((item) => (
+                  <ActivityUpdateItem key={item.id} item={item} />
+                ))}
+              </div>
+            ) : (
             <div className={styles.chips}>
               {section.items.map((item) => (
                 <RelationshipChip key={item.entity.id} item={item} />
@@ -491,6 +499,7 @@ export default function LabEntityDetail() {
                 />
               ) : null}
             </div>
+            )
           ) : (
             <div className={styles.chips}>
               {canAddToSection(section) ? (

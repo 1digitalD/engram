@@ -5,13 +5,13 @@ then read the active source docs before changing code.
 
 Last updated: 2026-07-06
 Branch: `main`
-Status: **Iteration 21 planned, not started** — Lab Surface (parallel additive UI at `/lab`).
+Status: **Iteration 21 complete** — Lab Surface (additive UI at `/lab`).
 Previous: Iteration 20 complete (UI-CTX-01–09 deployed) — context, density, metadata, and color chrome.
 
 Runtime baseline: `/api/v4` only, fresh Postgres + pgvector schema, write-enabled MCP
 aligned with the active API.
 
-## Planned loop: Iteration 21 — Lab Surface (2026-07-06)
+## Current loop: Iteration 21 — Lab Surface (2026-07-06) — complete
 
 - Plan: `docs/iterations/ITERATION_21_LAB_SURFACE.md`
 - Loopsmith overlay: `prd.json` (iteration `lab-surface-loop`)
@@ -20,13 +20,20 @@ aligned with the active API.
 - Product decisions locked 2026-07-06: additive-only `/lab/*` route inside `ui/`, current
   app stays default/fallback untouched; Lab writes real live data (shared workspace, not
   sandboxed); multi-person/group meeting prep explicitly cut from scope.
+- LAB-01 and LAB-02 landed via direct cherry-pick from Loopsmith worktrees after harness
+  failures (Claude credits, OpenCode venv path, Cursor merge symlink bug).
 
 | Slice | Status | Notes |
 |-------|--------|-------|
-| LAB-00 Shell scaffold (read-only) | not started | `/lab` route + TopBar link only |
-| LAB-01 Capture trust loop | not started | real capture, additive response fields only |
-| LAB-02 Entity authoring | not started | new `POST /api/v4/entities/:id/links` |
-| LAB-03 People rollup | not started | no group/multi-select, per product decision |
+| LAB-00 Shell scaffold (read-only) | **done** | `/lab` route + TopBar link |
+| LAB-01 Capture trust loop | **done** | cherry-picked `46a8b268`, LabShell conflict resolved |
+| LAB-02 Entity authoring | **done** | cherry-picked `42083002`, `POST /api/v4/entities/:id/links` |
+| LAB-03 People rollup | **done** | no group/multi-select, per product decision |
+
+### Final validation (2026-07-06, post-landing)
+
+- Backend: `pytest tests/integration/test_v4_capture.py test_v4_suggestions.py test_v4_entity_links.py` → 39 passed.
+- UI: `cd ui && npm test` → 188 passed. `npm run build` → succeeds.
 
 ## Previous loop: Iteration 20 — UI Context, Density & Color (2026-07-03) — complete
 
@@ -147,7 +154,7 @@ All 6 prd tasks passed. See archived `docs/iterations/archive/prd-v5-hardening.j
 | `AGENTS.md` | Repo-wide working rules |
 | `docs/V4_PRINCIPLES.md` | Product and architecture rules |
 | `docs/V4_WORLD_MODEL_PLAN.md` | Active implementation plan |
-| `prd.json` | Loopsmith overlay — iteration `lab-surface-loop` (planned, not started) |
+| `prd.json` | Loopsmith overlay — iteration `lab-surface-loop` (complete) |
 | `docs/iterations/ITERATION_21_LAB_SURFACE.md` | **Active UI iteration plan** |
 | `EXECUTION-TRACKER.md` | This file |
 
@@ -194,3 +201,5 @@ All 6 prd tasks passed. See archived `docs/iterations/archive/prd-v5-hardening.j
 - Code-default chat model is `gpt-5.4-nano`; prod `.env` overrides judgment paths to `-mini` (SQ-00). `.env.example` documents the intended prod policy.
 - 2026-07-06T16:20:04.851853+00:00 lab-00-shell-scaffold accepted via opencode
 - 2026-07-06T17:40:01.068597+00:00 lab-03-people-rollup accepted via opencode
+- 2026-07-06T18:15:00.000000+00:00 lab-01-capture-trust-loop accepted via cursor (cherry-pick from worktree)
+- 2026-07-06T18:15:00.000000+00:00 lab-02-entity-authoring accepted via cursor (cherry-pick from worktree)

@@ -4,6 +4,7 @@ import { Search } from 'lucide-react';
 import { v4API, friendlyApiError } from '../api/v4Client';
 import EntityGlyphCircle from '../components/EntityGlyphCircle';
 import { entityTitleLabel } from '../utils/entityDisplay';
+import { labDetailPath } from './labPaths';
 import styles from './LabEntityList.module.css';
 
 const PLURAL_TITLE = {
@@ -26,11 +27,6 @@ const EMPTY_HINT = {
 
 function countNoun(type, count) {
   return count === 1 ? type : `${type}s`;
-}
-
-function detailPath(entity) {
-  if (entity.type === 'person') return `/lab/people/${entity.id}`;
-  return `/lab/${entity.type}s/${entity.id}`;
 }
 
 function formatStatus(entity) {
@@ -135,7 +131,7 @@ export default function LabEntityList({ type, onOpenCapture }) {
           {filtered.map((entity) => (
             <li key={entity.id}>
               <Link
-                to={detailPath(entity)}
+                to={labDetailPath(entity)}
                 className={styles.row}
                 data-entity-type={entity.type}
               >

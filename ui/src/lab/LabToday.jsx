@@ -3,20 +3,15 @@ import { Link } from 'react-router-dom';
 import { v4API, friendlyApiError } from '../api/v4Client';
 import EntityGlyphCircle from '../components/EntityGlyphCircle';
 import { transformTodayResponse } from '../views/V5Now';
+import { labDetailPath } from './labPaths';
 import styles from './LabToday.module.css';
-
-function routeForEntity(type, id) {
-  if (!type || !id) return null;
-  if (type === 'person') return `/people/${id}`;
-  return `/${type}s/${id}`;
-}
 
 function itemPath(item) {
   if (item.nonNavigable) return null;
   if (item.thread?.type && item.thread?.id) {
-    return routeForEntity(item.thread.type, item.thread.id);
+    return labDetailPath(item.thread.type, item.thread.id);
   }
-  return routeForEntity(item.type, item.id);
+  return labDetailPath(item.type, item.id);
 }
 
 function TodayRow({ item }) {

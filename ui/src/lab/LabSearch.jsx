@@ -6,6 +6,7 @@ import { Search } from 'lucide-react';
 import Sheet from '../components/Sheet';
 import { v4API, friendlyApiError } from '../api/v4Client';
 import XGlyph from '../components/XGlyph';
+import { labDetailPath } from './labPaths';
 import styles from './LabSearch.module.css';
 
 const DEBOUNCE_MS = 180;
@@ -18,11 +19,6 @@ const TYPE_LABEL = {
   person: 'People',
   resource: 'Resources',
 };
-
-function detailPath(entity) {
-  if (entity.type === 'person') return `/people/${entity.id}`;
-  return `/${entity.type}s/${entity.id}`;
-}
 
 function groupLabel(type) {
   return TYPE_LABEL[type] || `${type || 'unknown'}s`;
@@ -112,7 +108,7 @@ export default function LabSearch({ open, onClose }) {
   const selectEntity = useCallback((entity) => {
     if (!entity) return;
     onClose?.();
-    navigate(detailPath(entity));
+    navigate(labDetailPath(entity));
   }, [navigate, onClose]);
 
   const handleKeyDown = useCallback((event) => {
