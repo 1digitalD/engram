@@ -140,6 +140,8 @@ AUTO_CREATE_ENTITY_CONFIDENCE = 0.85
 LOW_CONFIDENCE_THRESHOLD = 0.5
 
 RISKY_ENTITY_CREATION_TYPES = {"task", "project", "area", "resource", "person"}
+# Entity types that can anchor ingest_candidates / reconciliation thread context.
+THREAD_INGEST_SOURCE_TYPES = {"project", "task", "area"}
 # Types that must never be auto-created from capture — always reviewed.
 SUGGEST_ONLY_CREATION_TYPES = {"project", "area"}
 # SQ-07: task auto-create/suggest gate. A task candidate must pass structural
@@ -2477,6 +2479,8 @@ def create_activity_update(entity_id):
     if not content:
         return _error("content is required")
 
+    skip_extraction = bool(data.get("skip_extraction"))
+
     note, created, skip_reason = _create_activity_update_note(target, content, actor="user")
     if not created:
         reason = "duplicate within 24h" if skip_reason == "exact_duplicate" else skip_reason or "duplicate"
@@ -2484,13 +2488,16 @@ def create_activity_update(entity_id):
 
     applied_mentions = _apply_explicit_mentions(note, content)
 
-    # Lightweight extraction: scan for dates and new tasks (no full capture cycle).
-    from services.v4_extraction import extract_dates_and_tasks_from_update
-
-    parent_context = {"type": target.type, "title": target.title} if target.title else None
-    extraction = extract_dates_and_tasks_from_update(content, parent_context=parent_context)
     suggestions = []
-    extracted = _apply_activity_update_policy(note, target, content, extraction, suggestions)
+    if skip_extraction:
+        extracted = {}
+    else:
+        # Lightweight extraction: scan for dates and new tasks (no full capture cycle).
+        from services.v4_extraction import extract_dates_and_tasks_from_update
+
+        parent_context = {"type": target.type, "title": target.title} if target.title else None
+        extraction = extract_dates_and_tasks_from_update(content, parent_context=parent_context)
+        extracted = _apply_activity_update_policy(note, target, content, extraction, suggestions)
 
     _queue_embed_job(note.id, "activity_update")
     from services.v4_summarization import queue_summarize_if_needed
@@ -2673,6 +2680,16 @@ def accept_suggestion(suggestion_id):
             actor="agent:v4-review",
             confidence=suggestion.confidence,
             reason=suggestion.reason,
+        )
+
+    if entity_type == "task" and source_note.type in THREAD_INGEST_SOURCE_TYPES:
+        parent_changes = []
+        _link_task_to_note_projects(
+            source_note,
+            entity,
+            suggestion.confidence,
+            payload.get("evidence") or suggestion.reason,
+            parent_changes,
         )
 
     suggestion.status = "accepted"
@@ -3336,22 +3353,27 @@ def ingest_candidates(entity_id):
     entity = _load_entity(entity_id)
     if entity is None:
         return _error("entity not found", 404)
-    if entity.type != "note":
-        return _error("ingest_candidates is only supported for notes")
+    if entity.type not in ENTITY_TYPES:
+        return _error(f"unsupported entity type: {entity.type}")
 
     from services.v4_extraction import normalize_candidates
     extraction = normalize_candidates(request.get_json(silent=True) or {})
     _clear_review_resolution(entity)
 
+    thread_id = entity.id if entity.type in THREAD_INGEST_SOURCE_TYPES else None
     try:
-        applied_changes, suggestions = _reconcile_capture_candidates(entity, extraction)
+        applied_changes, suggestions = _reconcile_capture_candidates(
+            entity, extraction, thread_id=thread_id
+        )
     except Exception as exc:
         db.session.rollback()
         return _error(f"reconciliation failed: {exc}", 500)
 
     db.session.commit()
+    entity_dict = _load_entity(entity.id).to_dict()
     return jsonify({
-        "source_note": _load_entity(entity.id).to_dict(),
+        "source_entity": entity_dict,
+        "source_note": entity_dict,
         "applied_changes": applied_changes,
         "suggestions": suggestions,
         "warnings": [],
@@ -4212,7 +4234,7 @@ def _apply_capture_extraction_metadata(note, extraction, applied_changes):
             source_note_id=note.id,
         )
 
-    if summary:
+    if summary and note.type == "note":
         ai_meta["summary"] = summary
         if extraction.get("confidence") is not None:
             ai_meta["confidence"] = extraction.get("confidence")
@@ -4233,7 +4255,11 @@ def _apply_capture_extraction_metadata(note, extraction, applied_changes):
         note.ai_meta = ai_meta
         flag_modified(note, "ai_meta")
 
-    _apply_capture_intent(note, extraction)
+    if note.type == "note":
+        _apply_capture_intent(note, extraction)
+
+    if note.type != "note":
+        return
 
     for tag_candidate in extraction.get("tags") or []:
         name = _candidate_value(tag_candidate, "name")
@@ -4516,8 +4542,10 @@ def _reconcile_capture_candidates(note, extraction, thread_id=None):
             )
 
     # Decision extraction: explicit commitments always become reviewable
-    # suggestions, never auto-created.
-    _append_decision_suggestions(note, thread_id, suggestions)
+    # suggestions, never auto-created. Notes only — thread ingest supplies
+    # structured candidates and should not re-scan stored entity content.
+    if note.type == "note":
+        _append_decision_suggestions(note, thread_id, suggestions)
 
     # SQ-07: cap task suggestions per note and group survivors under the note id
     # so the review sheet can render "N action items from this note" with an
@@ -4942,6 +4970,24 @@ def _apply_reconciliation_decision(note, candidate, decision, applied_changes, s
         # dropped as noise (logistics, stance fragments, restatements).
         if entity_type == "task" and not _task_suggest_ok(note, candidate, decision, confidence):
             return
+        task_payload = {
+            "type": entity_type,
+            "title": title,
+            "content": content,
+            "due_at": _candidate_value(candidate, "due_at"),
+            "assigned_to": _candidate_value(candidate, "assigned_to"),
+            "source_entity_id": note.id,
+            "evidence": evidence,
+            "relationship_type": relationship_type,
+            "near_match": {
+                "entity_id": decision.get("top_match_id"),
+                "title": decision.get("top_match_title"),
+                "score": top_match_score,
+            } if decision.get("top_match_id") else None,
+        }
+        if entity_type == "task" and note.type in THREAD_INGEST_SOURCE_TYPES:
+            task_payload["target_entity_id"] = note.id
+            task_payload["relationship_type"] = "derived_from"
         _append_capture_suggestion(
             note,
             candidate,
@@ -4953,21 +4999,7 @@ def _apply_reconciliation_decision(note, candidate, decision, applied_changes, s
             suggestions=suggestions,
             suggestion_type=f"create_{entity_type}",
             operation_type="create_entity",
-            payload={
-                "type": entity_type,
-                "title": title,
-                "content": content,
-                "due_at": _candidate_value(candidate, "due_at"),
-                "assigned_to": _candidate_value(candidate, "assigned_to"),
-                "source_entity_id": note.id,
-                "evidence": evidence,
-                "relationship_type": relationship_type,
-                "near_match": {
-                    "entity_id": decision.get("top_match_id"),
-                    "title": decision.get("top_match_title"),
-                    "score": top_match_score,
-                } if decision.get("top_match_id") else None,
-            },
+            payload=task_payload,
             reason=suggestion_reason,
         )
 
@@ -4980,31 +5012,34 @@ def _link_task_to_note_projects(note, task, confidence, evidence, applied_change
     to one or more of the projects that note references. Without this step,
     tasks end up orphaned with only a derived_from link to the note, and
     projects show zero open tasks.
+
+    When the source entity is itself a project or area, parent-link the task directly.
     """
+    parent_target_ids = set()
+    if note.type in {"project", "area"} and note.lifecycle == "active":
+        parent_target_ids.add(note.id)
+
     project_link_types = {"related", "mentions", "parent"}
     note_project_links = EntityLink.query.filter(
         EntityLink.source_entity_id == note.id,
         EntityLink.relationship_type.in_(project_link_types),
     ).all()
 
-    project_ids = {
-        link.target_entity_id
-        for link in note_project_links
-    }
+    parent_target_ids.update(link.target_entity_id for link in note_project_links)
 
-    if not project_ids:
+    if not parent_target_ids:
         return
 
-    projects = Entity.query.filter(
-        Entity.id.in_(project_ids),
-        Entity.type == "project",
+    parents = Entity.query.filter(
+        Entity.id.in_(parent_target_ids),
+        Entity.type.in_({"project", "area"}),
         Entity.lifecycle == "active",
     ).all()
 
-    for project in projects:
+    for parent in parents:
         parent_link = _create_entity_link(
             task,
-            project,
+            parent,
             "parent",
             confidence,
             evidence,
@@ -5022,7 +5057,7 @@ def _link_task_to_note_projects(note, task, confidence, evidence, applied_change
             )
             applied_changes.append({
                 "type": "relationship_added",
-                "target_entity_id": project.id,
+                "target_entity_id": parent.id,
                 "relationship_type": "parent",
                 "confidence": confidence,
             })
@@ -6605,8 +6640,11 @@ def _accepted_suggestion_link(source_note, entity, payload=None):
 
 
 def _candidate_link_endpoints(source_note, entity, relationship_type):
-    if source_note.type == "note" and entity.type == "task" and relationship_type == "derived_from":
-        return entity, source_note
+    if entity.type == "task" and relationship_type == "derived_from":
+        if source_note.type == "note":
+            return entity, source_note
+        if source_note.type in THREAD_INGEST_SOURCE_TYPES:
+            return entity, source_note
     return source_note, entity
 
 
@@ -6730,6 +6768,9 @@ def _append_capture_suggestion(note, candidate, action, entity_type, relationshi
 
 
 def _should_emit_capture_suggestion(note, candidate, action, entity_type, relationship_type, confidence):
+    if note.type != "note":
+        return confidence >= LOW_CONFIDENCE_THRESHOLD
+
     intent = ((note.ai_meta or {}).get("intent") or "note")
     if entity_type == "decision":
         # SQ-09: decisions are high-signal by design; confidence is the
@@ -7291,6 +7332,8 @@ def _task_target_resolvable(note, candidate, decision):
         return True
     # Source note already links to a project the task could inherit.
     if note is not None:
+        if note.type in THREAD_INGEST_SOURCE_TYPES:
+            return True
         note_project_links = EntityLink.query.filter(
             EntityLink.source_entity_id == note.id,
             EntityLink.relationship_type.in_(["parent", "related"]),

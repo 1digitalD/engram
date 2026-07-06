@@ -365,7 +365,7 @@ def test_submit_candidates_posts_to_ingest_endpoint(monkeypatch):
 
     monkeypatch.setattr(server, "_api", fake_api)
     text = server.submit_candidates(
-        note_id="n1",
+        entity_id="n1",
         summary="Team sync",
         entities=[{"type": "task", "title": "Follow up", "confidence": 0.95, "evidence": "needs follow up"}],
     )
@@ -387,3 +387,21 @@ def test_submit_candidates_defaults_empty_lists(monkeypatch):
 
     monkeypatch.setattr(server, "_api", fake_api)
     server.submit_candidates("n1")
+
+
+def test_append_activity_update_passes_skip_extraction(monkeypatch):
+    calls = []
+
+    def fake_api(method, path, **kwargs):
+        calls.append((method, path, kwargs))
+        return {
+            "data": {"id": "n1", "content": "Logged progress"},
+            "extracted": {},
+            "suggestions": [],
+        }
+
+    monkeypatch.setattr(server, "_api", fake_api)
+    server.append_activity_update("p1", "Logged progress", skip_extraction=True)
+
+    assert calls[0][:2] == ("POST", "/entities/p1/activity_updates")
+    assert calls[0][2]["json"] == {"content": "Logged progress", "skip_extraction": True}

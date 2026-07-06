@@ -138,6 +138,12 @@ function canAddToSection(section) {
   return direction === 'outgoing' || direction === 'both';
 }
 
+function canCreateChildTask(section, entityType) {
+  if (entityType === 'project' && section.key === 'open_tasks') return true;
+  if (entityType === 'area' && section.key === 'tasks') return true;
+  return false;
+}
+
 function RelationshipChip({ item }) {
   const entity = item.entity;
   const path = labDetailPath(entity);
@@ -155,6 +161,80 @@ function ActivityUpdateItem({ item }) {
       {item.content ? <p className={styles.activityContent}>{item.content}</p> : null}
     </div>
   );
+}
+
+function AddChildTaskControl({ parentEntity, onAdded }) {
+  const [title, setTitle] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    const trimmed = title.trim();
+    if (!trimmed || saving) return;
+
+    setSaving(true);
+    setError('');
+    try {
+      const created = await v4API.entities.create({
+        type: 'task',
+        title: trimmed,
+        status: 'open',
+      });
+      const taskId = created?.data?.id;
+      if (!taskId) {
+        throw new Error('Task was not created');
+      }
+      await v4API.entities.createLink(taskId, {
+        target_id: parentEntity.id,
+        relationship_type: 'parent',
+      });
+      setTitle('');
+      onAdded();
+    } catch (err) {
+      setError(friendlyApiError(err, 'Failed to add task'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <form className={styles.addTaskForm} onSubmit={handleSubmit}>
+      <input
+        type="text"
+        value={title}
+        onChange={(event) => setTitle(event.target.value)}
+        placeholder="New task title…"
+        aria-label="New task title"
+        disabled={saving}
+        className={styles.addTaskInput}
+      />
+      <button
+        type="submit"
+        className={styles.addTaskButton}
+        disabled={saving || !title.trim()}
+      >
+        {saving ? 'Adding…' : 'Add task'}
+      </button>
+      {error ? <p className={styles.error} role="alert">{error}</p> : null}
+    </form>
+  );
+}
+
+function SectionActions({ section, entity, onAdded }) {
+  if (canCreateChildTask(section, entity.type)) {
+    return <AddChildTaskControl parentEntity={entity} onAdded={onAdded} />;
+  }
+  if (canAddToSection(section)) {
+    return (
+      <AddRelationshipPicker
+        entityId={entity.id}
+        relationshipType={sectionAddRelationshipType(section)}
+        onAdded={onAdded}
+      />
+    );
+  }
+  return null;
 }
 
 function AddRelationshipPicker({ entityId, relationshipType, onAdded }) {
@@ -491,23 +571,13 @@ export default function LabEntityDetail() {
               {section.items.map((item) => (
                 <RelationshipChip key={item.entity.id} item={item} />
               ))}
-              {canAddToSection(section) ? (
-                <AddRelationshipPicker
-                  entityId={entity.id}
-                  relationshipType={sectionAddRelationshipType(section)}
-                  onAdded={loadDetail}
-                />
-              ) : null}
+              <SectionActions section={section} entity={entity} onAdded={loadDetail} />
             </div>
             )
           ) : (
             <div className={styles.chips}>
-              {canAddToSection(section) ? (
-                <AddRelationshipPicker
-                  entityId={entity.id}
-                  relationshipType={sectionAddRelationshipType(section)}
-                  onAdded={loadDetail}
-                />
+              {canCreateChildTask(section, entity.type) || canAddToSection(section) ? (
+                <SectionActions section={section} entity={entity} onAdded={loadDetail} />
               ) : (
                 <p className={styles.emptyHint}>No {section.title.toLowerCase()} yet.</p>
               )}

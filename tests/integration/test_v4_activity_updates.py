@@ -740,3 +740,36 @@ def test_activity_update_follow_up_auto_set_false_when_no_follow_up_extracted(cl
     with app.app_context():
         entity = db.session.get(Entity, task["id"])
         assert entity.follow_up_at is None
+
+
+def test_activity_update_skip_extraction_skips_lightweight_extraction(client, app):
+    project = _create_entity(client, "project", "Build v4")
+    extraction = {
+        "status": "blocked",
+        "confidence": 0.95,
+        "follow_up_at": "2026-07-10",
+        "tasks": [{"title": "Spin-off task", "confidence": 0.9}],
+    }
+
+    with patch(
+        "services.v4_extraction.extract_dates_and_tasks_from_update",
+        return_value=extraction,
+    ) as extract_mock:
+        response = client.post(
+            f"/api/v4/entities/{project['id']}/activity_updates",
+            json={"content": "Blocked on vendor API.", "skip_extraction": True},
+        )
+
+    extract_mock.assert_not_called()
+    assert response.status_code == 201
+    data = response.get_json()
+    assert data["extracted"] == {}
+    assert data["suggestions"] == []
+
+    with app.app_context():
+        from models import AiSuggestion
+
+        entity = db.session.get(Entity, project["id"])
+        assert entity.status == "active"
+        assert entity.follow_up_at is None
+        assert AiSuggestion.query.filter_by(source_entity_id=project["id"]).count() == 0

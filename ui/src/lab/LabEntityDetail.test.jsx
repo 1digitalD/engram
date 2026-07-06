@@ -12,6 +12,7 @@ vi.mock('../api/v4Client', () => ({
     entities: {
       detail: vi.fn(),
       update: vi.fn(),
+      create: vi.fn(),
       createLink: vi.fn(),
     },
     search: vi.fn(),
@@ -49,6 +50,23 @@ const TASK_FIXTURE = {
     {
       key: 'blocking',
       title: 'Blocking / Blocked By',
+      items: [],
+    },
+  ],
+};
+
+const PROJECT_FIXTURE = {
+  entity: {
+    id: 'project-1',
+    type: 'project',
+    title: 'Docs project',
+    status: 'active',
+    properties: {},
+  },
+  sections: [
+    {
+      key: 'open_tasks',
+      title: 'Open Tasks',
       items: [],
     },
   ],
@@ -175,6 +193,34 @@ describe('LabEntityDetail', () => {
     expect(await screen.findByText('Activity')).toBeInTheDocument();
     expect(screen.getByText('Update: Pilot')).toBeInTheDocument();
     expect(screen.getByText('Mary will review by Friday.')).toBeInTheDocument();
+  });
+
+  it('creates a child task on a project open tasks section', async () => {
+    v4API.entities.detail.mockResolvedValue(PROJECT_FIXTURE);
+    v4API.entities.create.mockResolvedValue({
+      data: { id: 'task-new', type: 'task', title: 'Draft rollout plan', status: 'open' },
+    });
+
+    renderDetail('/lab/projects/project-1');
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Docs project' })).toBeInTheDocument();
+
+    const titleInput = screen.getByLabelText('New task title');
+    await userEvent.type(titleInput, 'Draft rollout plan');
+    await userEvent.click(screen.getByRole('button', { name: 'Add task' }));
+
+    await waitFor(() => {
+      expect(v4API.entities.create).toHaveBeenCalledWith({
+        type: 'task',
+        title: 'Draft rollout plan',
+        status: 'open',
+      });
+      expect(v4API.entities.createLink).toHaveBeenCalledWith('task-new', {
+        target_id: 'project-1',
+        relationship_type: 'parent',
+      });
+    });
+    expect(v4API.entities.detail).toHaveBeenCalledTimes(2);
   });
 
   it('shows an error when detail load fails', async () => {

@@ -973,3 +973,84 @@ def test_exact_fingerprint_short_circuits_before_embedding(client, app, monkeypa
         )
         assert duplicate is None
         assert not calls
+
+
+def test_ingest_candidates_on_project_queues_task_linked_to_project(client, app):
+    project = client.post(
+        "/api/v4/entities",
+        json={"type": "project", "title": "Launch plan"},
+    ).get_json()["data"]
+
+    response = client.post(
+        f"/api/v4/entities/{project['id']}/ingest_candidates",
+        json={
+            "summary": "Vendor follow-up needed",
+            "tags": [],
+            "links": [],
+            "entities": [{
+                "type": "task",
+                "title": "Follow up with vendor",
+                "content": "Confirm API timeline",
+                "confidence": 0.61,
+                "evidence": "vendor follow-up",
+            }],
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["source_entity"]["id"] == project["id"]
+    assert data["source_note"]["id"] == project["id"]
+    assert len(data["suggestions"]) == 1
+    suggestion = data["suggestions"][0]
+    assert suggestion["suggestion_type"] == "create_task"
+    assert suggestion["payload"]["target_entity_id"] == project["id"]
+    assert suggestion["payload"]["relationship_type"] == "derived_from"
+
+    with app.app_context():
+        pending = AiSuggestion.query.filter_by(
+            source_entity_id=project["id"],
+            status="pending",
+        ).all()
+        assert len(pending) == 1
+        assert pending[0].payload["target_entity_id"] == project["id"]
+
+
+def test_accept_project_ingest_task_suggestion_parent_links_task(client, app):
+    project = client.post(
+        "/api/v4/entities",
+        json={"type": "project", "title": "Launch plan"},
+    ).get_json()["data"]
+
+    ingest = client.post(
+        f"/api/v4/entities/{project['id']}/ingest_candidates",
+        json={
+            "summary": "Vendor follow-up needed",
+            "entities": [{
+                "type": "task",
+                "title": "Follow up with vendor",
+                "confidence": 0.61,
+                "evidence": "vendor follow-up",
+            }],
+        },
+    )
+    assert ingest.status_code == 200
+    suggestion_id = ingest.get_json()["suggestions"][0]["id"]
+
+    response = client.post(f"/api/v4/suggestions/{suggestion_id}/accept")
+    assert response.status_code == 200
+    created = response.get_json()["created_entity"]
+
+    with app.app_context():
+        EntityLink.query.filter_by(
+            source_entity_id=created["id"],
+            target_entity_id=project["id"],
+            relationship_type="parent",
+        ).one()
+        EntityLink.query.filter_by(
+            source_entity_id=created["id"],
+            target_entity_id=project["id"],
+            relationship_type="derived_from",
+        ).one()
+        project_entity = db.session.get(Entity, project["id"])
+        assert (project_entity.ai_meta or {}).get("summary") is None

@@ -164,6 +164,38 @@
   cursor: not-allowed;
 }
 
+.addTaskForm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 8px;
+  width: 100%;
+}
+
+.addTaskInput {
+  flex: 1 1 200px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border, #d1d5db);
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.addTaskButton {
+  padding: 8px 12px;
+  border: 1px solid var(--border, #d1d5db);
+  border-radius: 6px;
+  background: var(--surface, #fff);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.addTaskButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .picker {
   position: relative;
   margin-top: 8px;

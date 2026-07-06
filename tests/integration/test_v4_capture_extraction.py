@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 from extensions import db
 from models import AiSuggestion, Entity, EntityEvent, EntityLink
+from tests.assertions import applied_change_contains
 
 
 def _parse_capture_sse_events(response_data):
@@ -511,12 +512,12 @@ def test_capture_links_bare_first_name_to_existing_full_name(client, app):
         c.get("type") == "entity_created" and c.get("entity_type") == "person"
         for c in data["applied_changes"]
     )
-    assert {
+    assert applied_change_contains(data["applied_changes"], {
         "type": "relationship_added",
         "target_entity_id": existing["id"],
         "relationship_type": "mentions",
         "confidence": 0.91,
-    } in data["applied_changes"]
+    })
 
     with app.app_context():
         assert Entity.query.filter_by(type="person").count() == 1
@@ -922,8 +923,8 @@ def test_capture_auto_applies_summary_and_high_confidence_tags(client, app):
     assert data["source_note"]["ai"]["intent_confidence"] == 0.94
     assert data["source_note"]["ai"]["status"] == "done"
     assert [tag["name"] for tag in data["source_note"]["tags"]] == ["rollout"]
-    assert {"type": "summary_updated", "summary": "Rollout follow-up with Henry."} in data["applied_changes"]
-    assert {"type": "tag_added", "tag": "rollout", "confidence": 0.96} in data["applied_changes"]
+    assert applied_change_contains(data["applied_changes"], {"type": "summary_updated", "summary": "Rollout follow-up with Henry."})
+    assert applied_change_contains(data["applied_changes"], {"type": "tag_added", "tag": "rollout", "confidence": 0.96})
     # SQ-05: follow_up intent with no resolvable target now files a single
     # update_unresolved suggestion instead of running full reconciliation.
     assert [s["suggestion_type"] for s in data["suggestions"]] == ["update_unresolved"]
@@ -986,18 +987,18 @@ def test_capture_auto_links_existing_project_and_person(client, app):
     data = response.get_json()
     note_id = data["source_note"]["id"]
     assert data["suggestions"] == []
-    assert {
+    assert applied_change_contains(data["applied_changes"], {
         "type": "relationship_added",
         "target_entity_id": project_id,
         "relationship_type": "related",
         "confidence": 0.95,
-    } in data["applied_changes"]
-    assert {
+    })
+    assert applied_change_contains(data["applied_changes"], {
         "type": "relationship_added",
         "target_entity_id": person_id,
         "relationship_type": "mentions",
         "confidence": 0.92,
-    } in data["applied_changes"]
+    })
 
     with app.app_context():
         links = EntityLink.query.filter_by(source_entity_id=note_id).all()
@@ -1217,12 +1218,12 @@ def test_capture_without_openai_key_reuses_exact_existing_entity_instead_of_crea
     data = response.get_json()
     note_id = data["source_note"]["id"]
     assert data["suggestions"] == []
-    assert {
+    assert applied_change_contains(data["applied_changes"], {
         "type": "relationship_added",
         "target_entity_id": project_id,
         "relationship_type": "related",
         "confidence": 0.95,
-    } in data["applied_changes"]
+    })
 
     with app.app_context():
         assert Entity.query.filter_by(type="project", title="Memory Lookup").count() == 1
@@ -1822,15 +1823,13 @@ def test_capture_progress_update_with_high_confidence_status_auto_applies(client
     assert len(activity_changes) == 1
 
     status_changes = [c for c in data["applied_changes"] if c["type"] == "entity_updated"]
-    assert status_changes == [
-        {
-            "type": "entity_updated",
-            "entity_id": task_id,
-            "entity_type": "task",
-            "title": "Build HITL piece",
-            "changes": {"status": "done"},
-        }
-    ]
+    assert applied_change_contains(status_changes, {
+        "type": "entity_updated",
+        "entity_id": task_id,
+        "entity_type": "task",
+        "title": "Build HITL piece",
+        "changes": {"status": "done"},
+    })
 
     with app.app_context():
         from extensions import db

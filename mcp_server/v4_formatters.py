@@ -209,7 +209,7 @@ def format_suggestions(payload):
 
 
 def format_capture_result(payload):
-    note = payload.get("source_note") or {}
+    source = payload.get("source_entity") or payload.get("source_note") or {}
     applied = payload.get("applied_changes") or []
     suggestions = payload.get("suggestions") or []
     warnings = payload.get("warnings") or []
@@ -218,10 +218,14 @@ def format_capture_result(payload):
     if skipped:
         return (
             f"Capture skipped: {payload.get('reason', 'duplicate')} "
-            f"(existing note `{note.get('id')}`: {_entity_title_text(note, id_on_line=True)})"
+            f"(existing note `{source.get('id')}`: {_entity_title_text(source, id_on_line=True)})"
         )
 
-    lines = [f"Captured note `{note.get('id')}`: {_entity_title_text(note, id_on_line=True)}"]
+    source_type = source.get("type") or "entity"
+    lines = [
+        f"Ingested on {source_type} `{source.get('id')}`: "
+        f"{_entity_title_text(source, id_on_line=True)}"
+    ]
     if applied:
         lines.append(f"Applied {len(applied)} change(s):")
         for change in applied:

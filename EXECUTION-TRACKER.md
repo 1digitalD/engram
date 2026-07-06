@@ -11,6 +11,14 @@ Previous: Iteration 20 complete (UI-CTX-01–09 deployed) — context, density, 
 Runtime baseline: `/api/v4` only, fresh Postgres + pgvector schema, write-enabled MCP
 aligned with the active API.
 
+## MCP agent workflow update (2026-07-06)
+
+- `append_activity_update(entity_id, content, skip_extraction?)` — log activity without triggering lightweight extraction when `skip_extraction=true`.
+- `submit_candidates(entity_id, …)` — ingest pre-extracted candidates on any entity type (not notes only); project/task/area sources pass thread context and parent-link accepted tasks.
+- Validation: backend 505 passed, UI 190 passed, `npm run build` green.
+- Deploy: `backup engram_20260706_132040.sql` → `./scripts/engram-deploy.sh` (smoke green); MCP restarted via `com.engram.mcp.plist`.
+- Docs: `mcp_server/README_V4.md`, `README.md` MCP section.
+
 ## Current loop: Iteration 21 — Lab Surface (2026-07-06) — complete
 
 - Plan: `docs/iterations/ITERATION_21_LAB_SURFACE.md`

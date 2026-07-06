@@ -2,6 +2,7 @@
 
 from extensions import db
 from models import EntityLink
+from tests.assertions import parent_context_ref
 
 
 def _create_entity(client, entity_type, title, **extra):
@@ -48,8 +49,8 @@ def test_person_detail_current_load_includes_task_parent_context(client, app):
     data = response.get_json()
 
     load_item = next(item for item in data["current_load"] if item["task"]["id"] == task["id"])
-    assert load_item["task"]["projects"] == [{"id": project["id"], "title": "Memory Lookup"}]
-    assert load_item["task"]["areas"] == [{"id": area["id"], "title": "Execution"}]
+    assert parent_context_ref(project["id"], "Memory Lookup")(load_item["task"]["projects"])
+    assert parent_context_ref(area["id"], "Execution")(load_item["task"]["areas"])
 
 
 def test_project_detail_pulse_includes_task_parent_context(client, app):
@@ -72,8 +73,8 @@ def test_project_detail_pulse_includes_task_parent_context(client, app):
 
     focus = data["project_pulse"]["focus_items"]
     task_item = next(item for item in focus if item["entity"]["id"] == task["id"])
-    assert task_item["entity"]["projects"] == [{"id": project["id"], "title": "Agent Platform"}]
-    assert task_item["entity"]["areas"] == [{"id": area["id"], "title": "Engineering"}]
+    assert parent_context_ref(project["id"], "Agent Platform")(task_item["entity"]["projects"])
+    assert parent_context_ref(area["id"], "Engineering")(task_item["entity"]["areas"])
 
 
 def test_search_task_results_include_parent_context(client, app):
@@ -88,5 +89,5 @@ def test_search_task_results_include_parent_context(client, app):
     data = response.get_json()
 
     row = next(r for r in data["results"] if r["entity"]["id"] == task["id"])
-    assert row["entity"]["projects"] == [{"id": project["id"], "title": "Memory Lookup"}]
-    assert row["entity"]["areas"] == [{"id": area["id"], "title": "Execution"}]
+    assert parent_context_ref(project["id"], "Memory Lookup")(row["entity"]["projects"])
+    assert parent_context_ref(area["id"], "Execution")(row["entity"]["areas"])

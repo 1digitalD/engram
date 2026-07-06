@@ -6,6 +6,7 @@ from app import create_app
 from extensions import db
 from models import Entity, EntityEvent, Job, Tag
 from services import runtime_health
+from tests.assertions import parent_context_ref
 
 
 FORBIDDEN_DTO_FIELDS = {
@@ -582,8 +583,8 @@ def test_task_rows_carry_parent_context_entities(client, app):
 
     rows = client.get("/api/v4/entities?type=task").get_json()["data"]
     row = next(r for r in rows if r["id"] == task["id"])
-    assert row["projects"] == [{"id": project["id"], "title": "Memory Lookup"}]
-    assert row["areas"] == [{"id": area["id"], "title": "Execution"}]
+    assert parent_context_ref(project["id"], "Memory Lookup")(row["projects"])
+    assert parent_context_ref(area["id"], "Execution")(row["areas"])
     assert row["people"] == [{"id": person["id"], "title": "Priya"}]
 
     # Projects themselves don't get task-context fields populated
@@ -608,4 +609,4 @@ def test_project_rows_carry_parent_area_context(client, app):
 
     rows = client.get("/api/v4/entities?type=project").get_json()["data"]
     row = next(r for r in rows if r["id"] == project["id"])
-    assert row["areas"] == [{"id": area["id"], "title": "Execution"}]
+    assert parent_context_ref(area["id"], "Execution")(row["areas"])

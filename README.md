@@ -89,8 +89,8 @@ Available MCP tools:
 - `link_entities`
 - `accept_suggestion`
 - `dismiss_suggestion`
-- `submit_candidates`
-- `append_activity_update`
+- `submit_candidates(entity_id, …)` — pre-extracted candidates for any entity (note, project, task, area); bypasses LLM extraction
+- `append_activity_update(entity_id, content, skip_extraction?)` — log activity on a project/task/area; set `skip_extraction=true` to skip lightweight extraction
 
 Use `mcp_server/README_V4.md` as the contract for MCP inputs, outputs, and transport modes.
 

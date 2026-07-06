@@ -271,16 +271,17 @@ def reconcile_suggestions(limit: int = 100) -> str:
 
 
 @mcp.tool(description=(
-    "Submit pre-extracted candidates for an existing note, bypassing the server-side LLM extraction step. "
-    "Use this when you have already analyzed the note and can supply structured candidates — "
+    "Submit pre-extracted candidates for an existing entity, bypassing the server-side LLM extraction step. "
+    "Use this when you have already analyzed content and can supply structured candidates — "
     "it skips the GPT-4o extraction call and runs deduplication + reconciliation only. "
-    "note_id must refer to an existing note entity. "
+    "entity_id may be any entity type (note, project, task, area, etc.). "
+    "For projects/tasks/areas, pass thread context automatically and link created tasks back to the source. "
     "tags: list of {name, confidence} objects. "
     "entities: list of {type, title, content?, due_at?, follow_up_at?, confidence, evidence?} objects. "
     "links: list of {target_type, title, relationship_type, confidence, evidence?} objects."
 ))
 def submit_candidates(
-    note_id: str,
+    entity_id: str,
     summary: Optional[str] = None,
     tags: Optional[List[dict]] = None,
     entities: Optional[List[dict]] = None,
@@ -292,13 +293,21 @@ def submit_candidates(
         "entities": entities or [],
         "links": links or [],
     }
-    payload = _api("POST", f"/entities/{note_id}/ingest_candidates", json=body)
+    payload = _api("POST", f"/entities/{entity_id}/ingest_candidates", json=body)
     return format_capture_result(payload)
 
 
-@mcp.tool(description="Append an activity update note to a project, task, or area. Exact duplicates within 24h and near-duplicates are skipped.")
-def append_activity_update(entity_id: str, content: str) -> str:
-    payload = _api("POST", f"/entities/{entity_id}/activity_updates", json={"content": content})
+@mcp.tool(description=(
+    "Append an activity update note to a project, task, or area. "
+    "Exact duplicates within 24h and near-duplicates are skipped. "
+    "Set skip_extraction=true to log the update without running lightweight LLM extraction "
+    "(status changes, follow-up dates, spin-off task suggestions)."
+))
+def append_activity_update(entity_id: str, content: str, skip_extraction: bool = False) -> str:
+    body: dict = {"content": content}
+    if skip_extraction:
+        body["skip_extraction"] = True
+    payload = _api("POST", f"/entities/{entity_id}/activity_updates", json=body)
     return format_activity_update(payload)
 
 
