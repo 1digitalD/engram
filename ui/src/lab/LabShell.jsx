@@ -7,6 +7,7 @@ import LabEntityList from './LabEntityList';
 import LabPeople from './LabPeople';
 import LabSearch from './LabSearch';
 import LabToday from './LabToday';
+import LabCapture from './LabCapture';
 import styles from './LabShell.module.css';
 
 const navItems = [
@@ -36,6 +37,7 @@ function pageTitle(pathname) {
 export default function LabShell() {
   const location = useLocation();
   const [searchOpen, setSearchOpen] = useState(false);
+  const [captureOpen, setCaptureOpen] = useState(false);
   const title = useMemo(() => pageTitle(location.pathname), [location.pathname]);
 
   useEffect(() => {
@@ -91,6 +93,14 @@ export default function LabShell() {
           <button
             type="button"
             className={styles.searchTrigger}
+            onClick={() => setCaptureOpen(true)}
+            aria-label="Open capture"
+          >
+            Capture
+          </button>
+          <button
+            type="button"
+            className={styles.searchTrigger}
             onClick={() => setSearchOpen(true)}
             aria-label="Open search"
           >
@@ -104,17 +114,18 @@ export default function LabShell() {
           <Routes>
             <Route path="/" element={<Navigate to="/lab/today" replace />} />
             <Route path="/today" element={<LabToday />} />
-            <Route path="/notes" element={<LabEntityList type="note" />} />
-            <Route path="/tasks" element={<LabEntityList type="task" />} />
-            <Route path="/projects" element={<LabEntityList type="project" />} />
-            <Route path="/areas" element={<LabEntityList type="area" />} />
+            <Route path="/notes" element={<LabEntityList type="note" onOpenCapture={() => setCaptureOpen(true)} />} />
+            <Route path="/tasks" element={<LabEntityList type="task" onOpenCapture={() => setCaptureOpen(true)} />} />
+            <Route path="/projects" element={<LabEntityList type="project" onOpenCapture={() => setCaptureOpen(true)} />} />
+            <Route path="/areas" element={<LabEntityList type="area" onOpenCapture={() => setCaptureOpen(true)} />} />
             <Route path="/people" element={<LabPeople />} />
-            <Route path="/resources" element={<LabEntityList type="resource" />} />
+            <Route path="/resources" element={<LabEntityList type="resource" onOpenCapture={() => setCaptureOpen(true)} />} />
           </Routes>
         </main>
       </div>
 
       <LabSearch open={searchOpen} onClose={() => setSearchOpen(false)} />
+      <LabCapture open={captureOpen} onClose={() => setCaptureOpen(false)} />
     </div>
   );
 }

@@ -40,7 +40,7 @@ function formatStatus(entity) {
   return parts.join(' · ');
 }
 
-export default function LabEntityList({ type }) {
+export default function LabEntityList({ type, onOpenCapture }) {
   const [entities, setEntities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -107,9 +107,8 @@ export default function LabEntityList({ type }) {
         <button
           type="button"
           className={styles.captureButton}
-          disabled
-          aria-label={`Capture ${type} (coming in LAB-01)`}
-          title="Capture entry point coming in LAB-01"
+          onClick={onOpenCapture}
+          aria-label={`Capture ${type}`}
         >
           Capture
         </button>

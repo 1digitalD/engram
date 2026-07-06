@@ -320,11 +320,109 @@ def _run_capture_extraction(note, content, mode, thread_id=None):
     return applied_changes, suggestions, warnings
 
 
+def _entity_brief(entity_id):
+    if not entity_id:
+        return None
+    entity = db.session.get(Entity, entity_id)
+    if entity is None:
+        return None
+    return {"id": entity.id, "type": entity.type, "title": entity.title}
+
+
+def _event_reason_for_applied_change(change, events):
+    change_type = change.get("type")
+    if change_type == "entity_created":
+        entity_id = change.get("entity_id")
+        for event in events:
+            if event.event_type == "created" and event.entity_id == entity_id:
+                return event.reason
+    elif change_type == "entity_updated":
+        entity_id = change.get("entity_id")
+        for event in events:
+            if event.event_type == "ai_updated" and event.entity_id == entity_id:
+                return event.reason
+    elif change_type == "activity_update_added":
+        target_id = change.get("target_entity_id")
+        for event in events:
+            if event.event_type == "activity_update_added" and event.entity_id == target_id:
+                return event.reason
+    elif change_type == "relationship_added":
+        target_id = change.get("target_entity_id")
+        source_id = change.get("source_entity_id")
+        rel_type = change.get("relationship_type")
+        for event in events:
+            if event.event_type != "relationship_added":
+                continue
+            link_value = event.new_value or {}
+            if rel_type and link_value.get("relationship_type") != rel_type:
+                continue
+            if target_id and link_value.get("target_entity_id") == target_id:
+                return event.reason
+            if source_id and link_value.get("source_entity_id") == source_id:
+                return event.reason
+    elif change_type == "title_updated":
+        for event in events:
+            if event.event_type == "ai_updated" and event.reason == "ai_title_set":
+                return event.reason
+    return None
+
+
+def _matched_entity_for_applied_change(change):
+    change_type = change.get("type")
+    if change_type in ("entity_updated", "activity_update_added"):
+        return _entity_brief(change.get("entity_id") or change.get("target_entity_id"))
+    if change_type == "relationship_added":
+        return _entity_brief(change.get("target_entity_id"))
+    if change_type == "entity_created":
+        return _entity_brief(change.get("entity_id"))
+    return None
+
+
+def _enrich_applied_change(change, events):
+    enriched = dict(change)
+    if not enriched.get("reason"):
+        reason = _event_reason_for_applied_change(change, events)
+        if reason:
+            enriched["reason"] = reason
+    if "match_confidence" not in enriched and enriched.get("confidence") is not None:
+        enriched["match_confidence"] = enriched["confidence"]
+    if "matched_entity" not in enriched:
+        matched = _matched_entity_for_applied_change(change)
+        if matched:
+            enriched["matched_entity"] = matched
+    return enriched
+
+
+def _enrich_suggestion_item(suggestion):
+    enriched = dict(suggestion)
+    payload = enriched.get("payload") or {}
+    near_match = payload.get("near_match")
+    if near_match and "matched_entity" not in enriched:
+        entity_id = near_match.get("entity_id")
+        if entity_id:
+            enriched["matched_entity"] = {
+                "id": entity_id,
+                "type": payload.get("target_type") or near_match.get("type"),
+                "title": near_match.get("title") or payload.get("title"),
+            }
+    if "match_confidence" not in enriched:
+        if near_match and near_match.get("score") is not None:
+            enriched["match_confidence"] = near_match["score"]
+        elif enriched.get("confidence") is not None:
+            enriched["match_confidence"] = enriched["confidence"]
+    return enriched
+
+
 def _capture_result_payload(note, applied_changes, suggestions, warnings):
+    events = (
+        EntityEvent.query.filter_by(source_note_id=note.id)
+        .order_by(EntityEvent.created_at.asc())
+        .all()
+    )
     return {
         "source_note": _load_entity(note.id).to_dict(),
-        "applied_changes": applied_changes,
-        "suggestions": suggestions,
+        "applied_changes": [_enrich_applied_change(change, events) for change in applied_changes],
+        "suggestions": [_enrich_suggestion_item(suggestion) for suggestion in suggestions],
         "warnings": warnings,
     }
 
