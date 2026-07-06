@@ -129,10 +129,10 @@
         "cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/integration/test_v4_entity_links.py -q",
         "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- LabEntityDetail"
       ],
-      "blocked": false,
+      "blocked": true,
       "passes": false,
-      "attempts": 0,
-      "blockerReason": null
+      "attempts": 1,
+      "blockerReason": "Deterministic validation failed."
     },
     {
       "id": "lab-03-people-rollup",
