@@ -8,6 +8,7 @@ import { ArrowLeft, Plus } from 'lucide-react';
 import { v4API, friendlyApiError } from '../api/v4Client';
 import { normalizeSearchResults } from '../utils/searchResults';
 import EntityGlyphCircle from '../components/EntityGlyphCircle';
+import EntityDeleteButton from '../components/EntityDeleteButton';
 import InlineTitleEditor from '../components/InlineTitleEditor';
 import { entityTitleLabel } from '../utils/entityDisplay';
 import { labDetailPath } from './labPaths';
@@ -497,9 +498,19 @@ export default function LabEntityDetail() {
       </Link>
 
       <header className={styles.header}>
-        <div className={styles.typeMeta}>
-          <EntityGlyphCircle type={entity.type} />
-          <span>{entity.type}</span>
+        <div className={styles.headerTop}>
+          <div className={styles.typeMeta}>
+            <EntityGlyphCircle type={entity.type} />
+            <span>{entity.type}</span>
+          </div>
+          {entity.type === 'resource' ? (
+            <EntityDeleteButton
+              entity={entity}
+              disabled={saving}
+              onDeleted={() => navigate(listPath(entity.type))}
+              onError={setError}
+            />
+          ) : null}
         </div>
         <InlineTitleEditor
           title={entity.title || ''}

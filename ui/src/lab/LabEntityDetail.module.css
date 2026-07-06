@@ -7,6 +7,14 @@
   margin-bottom: 24px;
 }
 
+.headerTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
 .typeMeta {
   display: flex;
   align-items: center;
@@ -15,7 +23,6 @@
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--text-secondary, #6b7280);
-  margin-bottom: 8px;
 }
 
 .title {

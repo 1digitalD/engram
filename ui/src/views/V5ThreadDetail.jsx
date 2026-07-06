@@ -13,6 +13,7 @@ import { useReview } from '../context/ReviewContext';
 import { useSummary } from '../context/SummaryContext';
 import { entityTitleLabel } from '../utils/entityDisplay';
 import EntityContextChips from '../components/EntityContextChips';
+import EntityDeleteButton from '../components/EntityDeleteButton';
 import InlineTitleEditor from '../components/InlineTitleEditor';
 import { hasTaskContext } from '../utils/entityContext';
 import styles from '../styles/v5.module.css';
@@ -537,6 +538,8 @@ function ThreadDetailContent({
   onTitleSave,
   titleSaving = false,
   titleEditable = true,
+  onDeleteEntity,
+  onDeleteError,
 }) {
   const entity = detail.entity;
   const entityType = entity.type;
@@ -567,22 +570,31 @@ function ThreadDetailContent({
   return (
     <>
       <header className={styles.header}>
-        <div className={styles.typeMeta}>
-          <XGlyph type={entityType} />
-          <span>{entityType}</span>
-          <span aria-hidden="true">·</span>
-          <span className={styles.statusPill}>{statusLabel(entity.status)}</span>
-          {detail?.decisions_count ? (
-            <>
-              <span aria-hidden="true">·</span>
-              <a
-                href="#decisions-section"
-                className={styles.countChip}
-                title={`${detail.decisions_count} decision${detail.decisions_count === 1 ? '' : 's'}`}
-              >
-                {detail.decisions_count} decision{detail.decisions_count === 1 ? '' : 's'}
-              </a>
-            </>
+        <div className={styles.headerTop}>
+          <div className={styles.typeMeta}>
+            <XGlyph type={entityType} />
+            <span>{entityType}</span>
+            <span aria-hidden="true">·</span>
+            <span className={styles.statusPill}>{statusLabel(entity.status)}</span>
+            {detail?.decisions_count ? (
+              <>
+                <span aria-hidden="true">·</span>
+                <a
+                  href="#decisions-section"
+                  className={styles.countChip}
+                  title={`${detail.decisions_count} decision${detail.decisions_count === 1 ? '' : 's'}`}
+                >
+                  {detail.decisions_count} decision{detail.decisions_count === 1 ? '' : 's'}
+                </a>
+              </>
+            ) : null}
+          </div>
+          {entityType === 'resource' && onDeleteEntity ? (
+            <EntityDeleteButton
+              entity={entity}
+              onDeleted={onDeleteEntity}
+              onError={onDeleteError}
+            />
           ) : null}
         </div>
         {titleEditable && onTitleSave ? (
@@ -1279,6 +1291,19 @@ export default function V5ThreadDetail({
     }
   }, [detail, reloadThread, refreshSummary]);
 
+  const handleDeleteEntity = useCallback(() => {
+    if (!detail?.entity) return;
+    const listPath = detail.entity.type === 'person'
+      ? '/people'
+      : `/${detail.entity.type}s`;
+    navigate(location.state?.from || listPath);
+    refreshSummary();
+  }, [detail, navigate, location.state, refreshSummary]);
+
+  const handleDeleteError = useCallback((message) => {
+    setActionError(message);
+  }, []);
+
   const handleChipRemove = useCallback(async (item) => {
     if (!item?.relationship_id || !detail?.entity) return;
     try {
@@ -1483,6 +1508,8 @@ export default function V5ThreadDetail({
         onSectionRemove={handleSectionRemove}
         onTitleSave={handleTitleSave}
         titleSaving={titleSaving}
+        onDeleteEntity={detail.entity.type === 'resource' ? handleDeleteEntity : undefined}
+        onDeleteError={handleDeleteError}
       />
       <CitationEntitySheet
         entityId={citationEntityId}

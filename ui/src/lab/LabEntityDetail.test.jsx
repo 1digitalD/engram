@@ -14,6 +14,7 @@ vi.mock('../api/v4Client', () => ({
       update: vi.fn(),
       create: vi.fn(),
       createLink: vi.fn(),
+      delete: vi.fn(),
     },
     search: vi.fn(),
   },
@@ -70,6 +71,17 @@ const PROJECT_FIXTURE = {
       items: [],
     },
   ],
+};
+
+const RESOURCE_FIXTURE = {
+  entity: {
+    id: 'resource-1',
+    type: 'resource',
+    title: 'PRD draft',
+    status: 'active',
+    properties: {},
+  },
+  sections: [],
 };
 
 function renderDetail(path = '/lab/tasks/task-1') {
@@ -209,6 +221,27 @@ describe('LabEntityDetail', () => {
     expect(await screen.findByText('Activity')).toBeInTheDocument();
     expect(screen.getByText('Update: Pilot')).toBeInTheDocument();
     expect(screen.getByText('Mary will review by Friday.')).toBeInTheDocument();
+  });
+
+  it('shows delete for resources and removes them via the API', async () => {
+    v4API.entities.detail.mockResolvedValue(RESOURCE_FIXTURE);
+    v4API.entities.delete.mockResolvedValue({ data: RESOURCE_FIXTURE.entity });
+
+    renderDetail('/lab/resources/resource-1');
+
+    expect(await screen.findByRole('button', { name: /Delete PRD draft/i })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /Delete PRD draft/i }));
+
+    await waitFor(() => {
+      expect(v4API.entities.delete).toHaveBeenCalledWith('resource-1');
+    });
+  });
+
+  it('does not show delete for non-resource entities', async () => {
+    renderDetail();
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Write docs' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Delete/i })).not.toBeInTheDocument();
   });
 
   it('creates a child task on a project open tasks section', async () => {

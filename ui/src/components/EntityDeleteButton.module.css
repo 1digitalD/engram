@@ -1,0 +1,23 @@
+.button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--surface, #fff);
+  color: var(--text-muted, #6b7280);
+  font-size: var(--text-xs, 12px);
+  cursor: pointer;
+}
+
+.button:hover:not(:disabled) {
+  background: color-mix(in oklch, var(--red, #dc2626) 10%, var(--surface, #fff));
+  border-color: color-mix(in oklch, var(--red, #dc2626) 35%, var(--border-faint, #e5e7eb));
+  color: var(--red, #dc2626);
+}
+
+.button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}

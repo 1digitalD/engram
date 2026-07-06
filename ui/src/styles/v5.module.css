@@ -19,6 +19,13 @@
   gap: var(--space-2);
 }
 
+.headerTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
 .backLink {
   align-self: flex-start;
   color: var(--text-muted);
@@ -134,7 +141,6 @@
 }
 
 .actionLabel {
-  flex: 1 1 180px;
   font-size: var(--text-md);
   line-height: 1.4;
   color: var(--text);

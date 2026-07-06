@@ -17,6 +17,7 @@ vi.mock('../api/v4Client', () => ({
       events: vi.fn(),
       canonical: vi.fn(),
       update: vi.fn(),
+      delete: vi.fn(),
     },
     activityUpdates: {
       create: vi.fn(),
@@ -681,6 +682,19 @@ describe('V5ThreadDetail', () => {
     expect(within(currentLoad).getByRole('link', { name: /HITL Pilot/i })).toHaveAttribute('href', '/projects/p-hitl');
     expect(within(currentLoad).getByRole('link', { name: /Execution/i })).toHaveAttribute('href', '/areas/a-exec');
     expect(within(currentLoad).getByRole('link', { name: /^Mary$/i })).toHaveAttribute('href', '/people/person-mary');
+  });
+
+  it('shows delete on resource detail pages', async () => {
+    renderThread('resource');
+
+    expect(await screen.findByRole('button', { name: /Delete PRD v5 draft/i })).toBeInTheDocument();
+  });
+
+  it('does not show delete on task detail pages', async () => {
+    renderThread('task');
+
+    expect(await screen.findByRole('heading', { level: 1, name: /Review PR #847/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Delete /i })).not.toBeInTheDocument();
   });
 
   it('shows task context chips on project next actions', async () => {

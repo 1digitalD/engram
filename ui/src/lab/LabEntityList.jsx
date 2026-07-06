@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Search } from 'lucide-react';
 import { v4API, friendlyApiError } from '../api/v4Client';
+import CardActions from '../components/CardActions';
 import EntityGlyphCircle from '../components/EntityGlyphCircle';
 import { entityTitleLabel } from '../utils/entityDisplay';
 import { labDetailPath } from './labPaths';
@@ -129,20 +130,26 @@ export default function LabEntityList({ type, onOpenCapture }) {
       {filtered.length > 0 ? (
         <ul className={styles.list}>
           {filtered.map((entity) => (
-            <li key={entity.id}>
-              <Link
-                to={labDetailPath(entity)}
-                className={styles.row}
-                data-entity-type={entity.type}
-              >
-                <EntityGlyphCircle type={entity.type} />
-                <span className={styles.rowTitle}>
-                  {entityTitleLabel(entity, { includeType: false })}
-                </span>
-                {formatStatus(entity) ? (
-                  <span className={styles.rowMeta}>{formatStatus(entity)}</span>
-                ) : null}
-              </Link>
+            <li key={entity.id} className={styles.listItem}>
+              <article className={`${styles.row} cardActionsParent`} data-entity-type={entity.type}>
+                <Link to={labDetailPath(entity)} className={styles.rowLink}>
+                  <EntityGlyphCircle type={entity.type} />
+                  <span className={styles.rowTitle}>
+                    {entityTitleLabel(entity, { includeType: false })}
+                  </span>
+                  {formatStatus(entity) ? (
+                    <span className={styles.rowMeta}>{formatStatus(entity)}</span>
+                  ) : null}
+                </Link>
+                <CardActions
+                  entity={entity}
+                  onChanged={(change) => {
+                    if (change?.id && (change.kind === 'deleted' || change.kind === 'archived')) {
+                      setEntities((current) => current.filter((item) => item.id !== change.id));
+                    }
+                  }}
+                />
+              </article>
             </li>
           ))}
         </ul>
