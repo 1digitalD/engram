@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Engram vision — Mockup 6: Distilling a meeting transcript</title>
+<style>
+  :root{
+    --ink:#3d3d38; --dim:#8a8a82; --line:#c9c9c1; --paper:#fff; --bg:#ececea;
+    --ai:#7c5cbf; --ai-bg:#f3eefb; --note:#b45309; --note-bg:#fdf3e3;
+    --add:#2f7d4f; --add-bg:#eaf5ee;
+  }
+  *{box-sizing:border-box; margin:0}
+  body{background:var(--bg); color:var(--ink);
+       font:14px/1.45 ui-sans-serif,system-ui,"Helvetica Neue",sans-serif;
+       padding:28px; max-width:1180px; margin:0 auto}
+  h1{font-size:18px; margin-bottom:4px}
+  .sub{color:var(--dim); margin-bottom:20px; font-size:13px}
+  .frame{background:var(--paper); border:1px solid var(--line); border-radius:10px; overflow:hidden}
+  .layout{display:grid; grid-template-columns:300px 1fr}
+  .src-col{border-right:1px solid var(--line); background:#fafaf8; padding:14px}
+  .main{padding:16px}
+  .box{border:1px solid var(--line); border-radius:7px; background:var(--paper); padding:10px 12px}
+  .dim{color:var(--dim)} .small{font-size:12px}
+  .chip{display:inline-block; border:1px solid var(--line); border-radius:999px;
+        padding:1px 9px; font-size:12px; color:var(--dim); background:#f7f7f4; margin:2px 2px 0 0}
+  .chip.ai{border-color:#d6c8f0; background:var(--ai-bg); color:var(--ai)}
+  .btn{display:inline-block; border:1px solid var(--line); border-radius:6px;
+       padding:3px 10px; font-size:12px; background:#f7f7f4}
+  .btn.primary{background:#3d3d38; color:#fff; border-color:#3d3d38}
+  .who{display:inline-block; border-radius:4px; padding:0 6px; font-size:11px; font-weight:600;
+       background:#eee; color:var(--dim)}
+  .who.ai{background:var(--ai-bg); color:var(--ai)}
+  .who.p{background:#e7edf4; color:#4a6785}
+  .sec{margin:14px 0 6px; font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--dim)}
+  .q{border-left:3px solid var(--line); background:#f7f7f4; padding:4px 10px; font-size:12px;
+     color:var(--dim); border-radius:0 5px 5px 0; margin-top:6px; font-style:italic}
+  .rowline{display:flex; justify-content:space-between; gap:10px; align-items:flex-start}
+  .acts{white-space:nowrap; flex:none}
+  .acts u{margin-left:8px; font-size:12px; color:var(--dim); cursor:default}
+  .item{border:1px solid var(--line); border-radius:7px; padding:9px 12px; background:#fff; margin-top:6px}
+  .item.applied{border-color:#d6c8f0; background:#fdfcff}
+  .item.prop{border:1.5px dashed var(--ai)}
+  .age{color:#b3423a; font-size:11px; font-weight:600}
+  .kbd{border:1px solid var(--line); border-bottom-width:2px; border-radius:4px; background:#fff;
+       padding:0 5px; font:11px ui-monospace,monospace}
+  .noise{border:1px dashed var(--line); border-radius:7px; padding:8px 12px; color:var(--dim);
+         background:#fafaf8; font-size:12px; margin-top:6px}
+  .tw{font:11px/1.6 ui-monospace,monospace; color:var(--dim); background:#fff;
+      border:1px solid var(--line); border-radius:6px; padding:8px 10px; margin-top:8px;
+      max-height:150px; overflow:hidden; position:relative}
+  .tw::after{content:""; position:absolute; left:0; right:0; bottom:0; height:44px;
+             background:linear-gradient(transparent,#fff)}
+  .ann{display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px;
+       border-radius:50%; background:var(--note); color:#fff; font-size:11px; font-weight:700;
+       vertical-align:middle; margin-left:6px; flex:none}
+  .legend{margin-top:18px; border:1px dashed var(--note); background:var(--note-bg);
+          border-radius:8px; padding:14px 16px}
+  .legend h2{font-size:13px; color:var(--note); margin-bottom:8px}
+  .legend li{margin:6px 0 6px 4px; font-size:13px; list-style:none; display:flex; gap:8px}
+  .legend .ann{margin:1px 0 0}
+  .footer{border-top:1px solid var(--line); background:#fafaf8; padding:10px 16px;
+          display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap}
+  mark{background:#fdf3c9; padding:0 2px}
+  @media(max-width:900px){.layout{grid-template-columns:1fr}.src-col{border-right:none;border-bottom:1px solid var(--line)}}
+</style>
+</head>
+<body>
+<h1>Mockup 6 — One meeting, one minute: the distillation report</h1>
+<p class="sub">A 47-minute, 6-person staff meeting transcript was dropped into capture. One report per capture — routed, reconciled against existing work, deduplicated, noise set aside. The user reviews top-to-bottom and confirms.</p>
+
+<div class="frame">
+  <div class="layout">
+
+    <!-- SOURCE -->
+    <div class="src-col">
+      <p class="sec" style="margin-top:0">Source — immutable entry<span class="ann">1</span></p>
+      <div class="box">
+        <span class="who">you</span> <span class="small dim">Mon 11:52</span><br>
+        <b class="small">Staff meeting transcript — Mon 10:00</b><br>
+        <span class="small dim">47 min · 6 speakers · pasted text</span>
+        <div class="tw">[10:02] You: ok let's start with acme…<br>
+[10:04] Maria(sales): they want the revised pricing before their budget resets…<br>
+[10:11] Sam: landing page copy is done, QA runs Thursday…<br>
+[10:19] Priya: I'll redo the API estimate, realistically Wednesday…<br>
+[10:26] Dana: …so we're agreed, EU launch moves to Q4…<br>
+[10:31] Sam: I'll get the load test results out after QA…<br>
+[10:40] (scheduling discussion)…</div>
+        <span class="small"><u>open full entry ↗</u></span>
+      </div>
+      <p class="sec">Detected</p>
+      <div class="small dim">
+        <div>✦ topics: 3 → routed to 3 Spaces</div>
+        <div>✦ speakers matched: 5 of 6 known people</div>
+        <div>✦ 1 unknown voice → asked below<span class="ann">2</span></div>
+      </div>
+    </div>
+
+    <!-- REPORT -->
+    <div class="main">
+      <div class="rowline">
+        <div><span class="who ai">✦ Distiller</span> <b>Distillation report</b> <span class="small dim">· ~40s to review · <span class="kbd">j</span>/<span class="kbd">k</span> move · <span class="kbd">↵</span> accept · <span class="kbd">e</span> edit · <span class="kbd">⌫</span> dismiss</span></div>
+      </div>
+
+      <p class="sec">Routed — applied, undoable<span class="ann">3</span></p>
+      <div><span class="chip ai">✦ → Acme renewal</span><span class="chip ai">✦ → Platform v2</span><span class="chip ai">✦ → EU launch</span> <span class="small dim"><u>undo any</u></span></div>
+
+      <p class="sec">Progress on existing work — matched, no twins created<span class="ann">4</span></p>
+      <div class="item applied">
+        <div class="rowline">
+          <span>✦ Logged progress on <b>“Ship v2 landing page”</b> <span class="who p">Sam</span> — copy done, QA Thursday</span>
+          <span class="acts"><u>undo</u></span>
+        </div>
+      </div>
+      <div class="item prop">
+        <div class="rowline">
+          <span>✦ Proposes on <b>“Design review — v2 hero”</b>: status open → <b style="color:var(--add)">done</b> <span class="small dim">(Sam: “design review closed out last week”)</span></span>
+          <span class="acts"><span class="btn primary">Accept</span><u>dismiss</u></span>
+        </div>
+      </div>
+
+      <p class="sec">New commitments — yours<span class="ann">5</span></p>
+      <div class="item prop">
+        <div class="rowline">
+          <span><b>You:</b> send revised pricing to Maria <span class="chip">due-ish: before Aug budget reset</span> <span class="chip">Acme renewal</span></span>
+          <span class="acts"><span class="btn primary">Accept</span><u>edit</u><u>dismiss</u></span>
+        </div>
+        <div class="q">[10:06] You: “I'll get the <mark>revised pricing</mark> over to Maria this week.”</div>
+      </div>
+
+      <p class="sec">New commitments — waiting on others<span class="ann">6</span></p>
+      <div class="item prop">
+        <div class="rowline">
+          <span><span class="who p">Priya</span> revised API estimate <span class="chip">due-ish: Wed</span> <span class="chip">Platform v2</span></span>
+          <span class="acts"><span class="btn primary">Accept</span><u>edit</u><u>dismiss</u></span>
+        </div>
+        <div class="q">[10:19] Priya: “I'll <mark>redo the API estimate</mark>, realistically <mark>Wednesday</mark>.”</div>
+      </div>
+
+      <p class="sec">Same as existing? — reconciliation question<span class="ann">7</span></p>
+      <div class="item prop">
+        <div class="rowline">
+          <span><span class="who p">Sam</span> “load test results after QA” <b>looks like existing</b> “Perf testing before GA” <span class="chip">open 12d</span></span>
+          <span class="acts"><span class="btn primary">Same — fold in</span><span class="btn">Separate</span></span>
+        </div>
+        <div class="small dim" style="margin-top:4px">Folding in keeps one commitment with both receipts and refreshes its date.</div>
+      </div>
+
+      <p class="sec">Decision detected<span class="ann">8</span></p>
+      <div class="item prop">
+        <div class="rowline">
+          <span>✦ <b>Decision:</b> EU launch moves to Q4 <span class="small dim">— you, Dana · supersedes “EU launch in Q3” (logged 12 May)</span></span>
+          <span class="acts"><span class="btn primary">Accept</span><u>edit</u><u>dismiss</u></span>
+        </div>
+        <div class="q">[10:26] Dana: “…so we're agreed, <mark>EU launch moves to Q4</mark>.” You: “agreed.”</div>
+      </div>
+
+      <p class="sec">Needs you — one question<span class="ann">2</span></p>
+      <div class="item" style="border-color:var(--ai)">
+        <span>✦ One speaker isn't matched to a person: “JK” (spoke at 10:33 re: hiring). Who is this?</span>
+        <div style="margin-top:6px"><span class="btn">Jae Kim (new person)</span> <span class="btn">Someone existing…</span> <span class="btn">Ignore this voice</span></div>
+      </div>
+
+      <p class="sec">Set aside as noise — nothing extracted<span class="ann">9</span></p>
+      <div class="noise">▸ scheduling chatter (10:40–10:44) · smalltalk · recap of already-logged status on hiring — <u>expand if I missed something</u></div>
+
+    </div>
+  </div>
+
+  <div class="footer">
+    <span class="small dim">6 proposals · 2 auto-applied · 1 question — everything above is also in the Ledger</span>
+    <span><span class="btn primary">Accept all high-confidence (5)<span class="ann">10</span></span> <span class="btn">Review line-by-line</span></span>
+  </div>
+</div>
+
+<div class="legend">
+  <h2>Annotations</h2>
+  <ul>
+    <li><span class="ann">1</span><span>The transcript stays an immutable Stream entry. The report is structure derived <i>around</i> it — the source is one click away from every extracted line, forever.</span></li>
+    <li><span class="ann">2</span><span>Owner accuracy is what makes accountability work, so speaker identity gets a first-class question — one crisp ask, not a silent guess.</span></li>
+    <li><span class="ann">3</span><span>A multi-topic meeting routes to multiple Spaces; each Space's spine receives only its slice. Routing is annotate-tier: applied, marked, undoable.</span></li>
+    <li><span class="ann">4</span><span><b>Reconciliation before creation</b>: updates about existing work attach to it. Pure progress-logging is auto (undoable); anything that changes state (mark done) is a proposal diff.</span></li>
+    <li><span class="ann">5</span><span>Commitments are extracted with owner + due-ish + the quoted words that created them. Yours become tasks…</span></li>
+    <li><span class="ann">6</span><span>…others' become <b>waiting-ons</b> — the unit of accountability. Accepting one arms the follow-up engine: it ages visibly, ripens onto Today with a receipt-based nudge draft, and closes automatically when a later capture shows delivery.</span></li>
+    <li><span class="ann">7</span><span>Near-duplicates become explicit one-click questions rather than silent merges <i>or</i> silent twins. Shown dedup is what lets the user stop double-checking for redundancy.</span></li>
+    <li><span class="ann">8</span><span>Decisions are first-class records with participants, quote, and supersession links — the Space's decision log answers “why did we decide X?” months later.</span></li>
+    <li><span class="ann">9</span><span>What the distiller ignored is <i>visible but collapsed</i> — “set aside” must never read as “missed.” Expanding and rescuing something trains the distiller.</span></li>
+    <li><span class="ann">10</span><span>Batch-accept covers only high-confidence lines; the reconciliation question and the speaker question always require an explicit human answer. Target: one meeting, one minute.</span></li>
+  </ul>
+</div>
+</body>
+</html>

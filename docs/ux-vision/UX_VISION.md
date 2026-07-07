@@ -1,401 +1,414 @@
 # Engram — a UX vision from first principles
 
 *A clean-slate design exercise. This document deliberately ignores the current
-implementation and designs the experience from the stated goals alone:
-frictionless capture, effortless recall, AI-leveraged project work, and a UI
-that is a genuinely shared surface between one human and their agents.*
+implementation and designs the experience from the goals alone. The primary
+objective is **cognitive load reduction for someone running multiple
+initiatives with other people**: capture anything messy, and the system keeps
+progress, commitments, decisions, and follow-ups current — with the human
+reviewing, not bookkeeping. AI transparency matters here as the substrate
+that makes that delegation safe, not as the headline.*
 
 Mockups referenced throughout live in [`mockups/`](mockups/):
 
 | # | File | What it shows |
 |---|------|---------------|
-| 1 | [`01-today.html`](mockups/01-today.html) | Today — the attention surface ("needs you" vs. "in motion") |
-| 2 | [`02-capture-flow.html`](mockups/02-capture-flow.html) | Capture, in three time-steps, including async AI enrichment |
-| 3 | [`03-review-ledger.html`](mockups/03-review-ledger.html) | **AI activity surfacing for human review** — the proposal queue and the Ledger |
-| 4 | [`04-project-dossier.html`](mockups/04-project-dossier.html) | Working a project, with inline proposals and a live agent run |
+| 1 | [`01-today.html`](mockups/01-today.html) | Today — what needs me, who owes me, what's in motion |
+| 2 | [`02-capture-flow.html`](mockups/02-capture-flow.html) | Quick capture, in three time-steps, including async AI enrichment |
+| 3 | [`03-review-ledger.html`](mockups/03-review-ledger.html) | Reviewing AI proposals + the Ledger (the trust substrate) |
+| 4 | [`04-project-dossier.html`](mockups/04-project-dossier.html) | Working an initiative: brief, decisions, owned next actions, activity spine |
 | 5 | [`05-recall.html`](mockups/05-recall.html) | Recall — answers with receipts, trails, and time |
+| 6 | [`06-distill-transcript.html`](mockups/06-distill-transcript.html) | **The flagship flow**: a multi-topic meeting transcript distilled into one reviewable report — routed, reconciled, deduplicated |
 
 ---
 
-## 1. The outcomes this app must deliver
+## 1. The job this app is hired for
 
-Everything below is derived from four fixed goals: near-zero-friction capture,
-effortless recall, AI-assisted project/task execution, and trustable
-human+agent co-operation on one surface. Stated as jobs-to-be-done:
+The operator of Engram runs several concurrent initiatives involving other
+people. Their raw material is messy: meeting transcripts spanning multiple
+topics and speakers, short status updates, notes-to-self, feedback blurbs.
+The app's job, stated as outcomes:
 
-1. **Set a thought down in under three seconds, from anywhere in the app,
-   with zero filing decisions.** Capture must cost less than the thought is
-   worth, or it won't happen. No form, no folder, no type picker, no tags —
-   type, enter, gone.
+1. **I supply whatever I have — the system turns it into current state.**
+   Drop in a 45-minute multi-topic transcript and, within a minute of review,
+   every initiative it touched is up to date: progress logged, commitments
+   captured with owners, decisions recorded, follow-ups armed. My only
+   ongoing job is *review and confirm* — never re-typing, re-filing, or
+   reconstructing.
 
-2. **Trust that the system caught it.** A capture is visibly acknowledged,
-   asynchronously enriched, and never lost, silently mutated, or silently
-   converted into something else. The user should stop keeping backup copies
-   in their head.
+2. **At any moment I can see where each initiative stands** — what happened,
+   what's decided, what's next, who owes what — in one minute of reading,
+   even after two weeks away.
 
-3. **Open the app and know, within ten seconds: what needs me, what the AI
-   already handled, and what's in motion right now.** The home surface is an
-   attention instrument, not a dashboard of database tables.
+3. **Nothing slips through the cracks.** Every commitment — mine or someone
+   else's — has an owner, a source, and an age. Things going quiet get
+   surfaced before they become failures, not discovered after.
 
-4. **Nothing consequential happens without my say-so — and everything
-   automatic is inspectable and reversible.** Creating entities, changing
-   status, deleting, merging, unlinking: always a reviewable proposal. Tags,
-   metadata, links: applied automatically but always attributed, explained,
-   and one click from undo.
+4. **Accountability without policing.** For each person: what they committed
+   to, when, in which meeting, in their own words — so a follow-up is a
+   factual, one-click nudge with receipts, not a vague "any update?" and not
+   an hour of transcript archaeology.
 
-5. **Recall the way memory actually works: by fragment, association, and
-   time — and get answers with receipts.** "That thing about pricing from
-   around when I was talking to Maria" must work. Every AI-synthesized answer
-   cites the captures it came from.
+5. **Planning and follow-up cost minutes, not evenings.** Next steps are
+   proposed from actual state; the week starts with a prepared view of what
+   needs pushing; meeting prep for any person or initiative is generated on
+   demand.
 
-6. **Run a project by steering, not bookkeeping.** The AI keeps the summary,
-   status, next actions, and loose ends fresh; the human makes the calls.
-   Opening a project after two weeks away should take one minute to re-load
-   into your head, not twenty.
+6. **A durable, referenceable work record.** "Why did we decide X?" and
+   "what happened on Y in June?" are answered in seconds, with every claim
+   citing the original capture. Weekly summaries and status updates draft
+   themselves from this record.
 
-7. **Delegate work to agents and watch it happen — live, attributable,
-   interruptible — in the same place I do my own work.** Agent activity is
-   not a background process or a notifications tray; it is a colleague
-   working in the same room.
+7. **No noise, no duplication, no redundancy.** The same commitment mentioned
+   in three meetings is one commitment with three receipts. An update about
+   an existing task updates it rather than spawning a twin. Chatter and
+   smalltalk are visibly set aside, not extracted into clutter.
 
-A useful litmus test for every screen: **does this feel like a second brain
-with a competent assistant inside it, or like a database UI with forms bolted
-on?** Any surface that fails the test gets redesigned.
+And one enabling outcome that makes the other seven trustable:
+
+8. **Nothing consequential happens without my say-so, and everything
+   automatic is inspectable and reversible.** (§6.)
+
+The litmus test for every screen: **does this reduce what I have to hold in
+my head, or does it hand me homework?** Any surface that generates work
+instead of absorbing it gets redesigned.
 
 ---
 
 ## 2. The mental model: a Stream and a Fabric
 
-The user should hold exactly two concepts in their head.
+The user holds two concepts.
 
 ### The Stream — what happened
 
-An append-only, timestamped log of everything captured: thoughts, pasted
-links, images, meeting notes, snippets forwarded in by agents. Entries in the
-Stream are **immutable**. They are never edited in place, never converted
-into something else, never deleted by AI, never re-filed. (You can append a
-correction that links to the original, and you — never an agent — can delete
-an entry.)
+An append-only, timestamped log of everything supplied: transcripts, notes,
+updates, blurbs, pasted links, images, things forwarded in by agents. Entries
+are **immutable** — never edited in place, never converted into something
+else, never deleted by AI. (You can append a correction that links to the
+original; only you can delete.)
 
-Immutability isn't a technical nicety here; it is load-bearing for trust:
+Immutability is load-bearing for the *primary* job, not just for trust:
 
-- It's what lets capture be zero-decision — nothing you do at capture time
-  can be *wrong*, because nothing is being committed to except "this
-  happened."
-- It's what makes AI answers citable — a citation to an immutable entry means
-  the receipt can't drift out from under the claim.
-- It's what makes "the AI never silently changed my stuff" checkable rather
-  than a promise.
+- It makes capture zero-decision — nothing you do at capture time can be
+  *wrong*, because nothing is committed to except "this happened."
+- It makes accountability factual — "Sam committed to this on June 3" links
+  to the exact words, and the receipt can't drift out from under the claim.
+- It makes the work record durable — summaries and decisions cite ground
+  truth that never mutates.
 
 ### The Fabric — what it means
 
-Structure woven *from* the Stream: **Tasks**, **Spaces** (see below),
-**People**, and **Resources**, connected by relationships. Every piece of
-Fabric carries a visible thread back to the Stream entries it was derived
-from — structure always shows its receipts. Fabric is freely editable (with
-history), because meaning changes even when the record doesn't.
+The living state of your work, woven *from* the Stream and continuously
+reconciled against it:
 
-Two deliberate simplifications of the current entity taxonomy:
+- **Spaces** — durable contexts (an initiative, a team, an account, Home).
+  A Space may have a **finish line** (outcome + target date) — what we'd
+  otherwise call a project. Same surface either way; one less filing
+  taxonomy. *(Projects and areas collapse into this one container.)*
+- **Commitments** — the atom of execution: something someone said they'd do.
+  Every commitment has an **owner**. Owned by you, it's your task. Owned by
+  someone else, it's a **waiting-on** — the unit of accountability. Every
+  commitment carries its receipt: who took it on, when, in which capture, in
+  what words. Age is always visible.
+- **Decisions** — first-class records: what was decided, when, with whom,
+  the source quote, and status (active / superseded, with a link to what
+  superseded it). Each Space keeps a decision log. This is what makes the
+  record *referenceable* rather than merely searchable.
+- **People** — everyone who appears in your work. A person page aggregates
+  their open commitments, delivery history, recent mentions, and shared
+  decisions — the accountability view and the meeting-prep view in one.
+- **Resources** — documents, links, artifacts worth keeping addressable.
+
+Two deliberate simplifications of the usual taxonomy:
 
 - **"Note" is not an entity type.** Notes are simply Stream entries. The
-  moment "note" becomes a managed object with fields and status, capture has
-  friction again. Anything note-like that needs structure gets *derived*
-  Fabric attached to it, while the entry itself stays a plain fact in the log.
-- **Projects and Areas collapse into one container: the Space.** A Space is a
-  durable context (Health, Home, Acme Corp). A Space may have a **finish
-  line** — an outcome and a target — which is what we used to call a project.
-  Same surface, same behaviors; a finish line adds a goal header, progress,
-  and an "is this done yet?" lifecycle. This halves the taxonomy the user
-  must learn and eliminates the perennial "is this a project or an area?"
-  filing dilemma — another decision deferred instead of demanded.
+  moment "note" becomes a managed object with fields, capture has friction
+  again. Structure is *derived* and attached; the entry stays a plain fact.
+- **"Task" is subsumed by Commitment.** A to-do you invent for yourself is
+  just a commitment you own with yourself as the source. One concept covers
+  personal tasks and delegated work, which is exactly what lets "who owes
+  what" be a single question.
 
-Typed relationships (parent, blocks, mentions, derived-from, …) survive, but
-as **plumbing, not UI vocabulary**. The user sees *connections with
-plain-language reasons* ("linked because this capture mentions Maria and the
-Q3 deck"). The type taxonomy is for agents and queries; humans get sentences.
+Typed relationships (parent, blocks, mentions, derived-from, …) survive as
+**plumbing, not UI vocabulary**. Users see *connections with plain-language
+reasons*; the taxonomy is for agents and queries.
 
 ### Who touches what
 
 |  | Stream | Fabric |
 |---|---|---|
 | **Human** | append, delete own entries | create, edit, delete, anything |
-| **AI — automatic** | annotate only (tags, metadata, links) | annotate + refresh summaries |
-| **AI — by proposal** | — | create, status change, merge, unlink, delete |
-| **AI — never** | edit, delete, convert entries | act on merge/delete/status without approval |
+| **AI — automatic** | annotate only (tags, links, routing) | annotate, log matched progress, refresh briefs/summaries |
+| **AI — by proposal** | — | create commitments/decisions/spaces/people, change status, merge, unlink, delete |
+| **AI — never** | edit, delete, convert entries | act on create/merge/delete/status without approval |
 
 ---
 
-## 3. The trust architecture: a glass box
+## 3. The distillation engine — from messy input to current state
 
-AI in Engram has exactly **three verbs**, and every use of any verb lands in
-one place, the **Ledger**.
+*(Mockup 6 — the flagship flow)*
 
-### Annotate — automatic, marked, undoable
-Low-risk enrichment: tagging, extracting metadata (dates, people, URLs),
-linking related items, refreshing an AI-maintained summary. Applied
-instantly, because making the user approve every tag would drown the very
-attention the app exists to protect. But three invariants hold, always:
+This is the heart of the app: what happens between "I dropped in a
+transcript" and "everything is up to date."
 
-- **Marked.** Everything AI-authored wears the spark (✦) and is visually
-  distinct — one consistent accent color used *only* for AI activity, across
-  the whole app. Human-authored and AI-authored content are never
-  indistinguishable.
-- **Explained.** One hover/tap from any ✦ gets you the *because*: which
-  agent, when, triggered by what, reasoning in one sentence.
-- **Reversible.** One click from any ✦ is Undo — indefinitely, from the item
-  itself or from the Ledger. Undo is also a training signal: reverted
-  annotations teach the annotator.
+### One capture → one report
 
-### Propose — always consented
-Anything consequential: creating a task/space/person/resource, changing a
-status, merging, deleting, removing a relationship. A proposal is **a diff,
-not a notification**: before → after, the source entry it derives from
-(quoted), the agent's one-line reasoning, and its confidence. Proposals
-render **inline where they matter** (on the capture, in the project spine, on
-the task) *and* aggregate into a Review queue — the user never has to go
-somewhere else to stay in control, but can go one place to catch up.
-Un-reviewed proposals never auto-accept; they decay in prominence and roll up
-into a weekly digest instead of nagging.
+A substantive capture (a transcript, long meeting notes, a dense update)
+triggers **distillation**. The result is **one reviewable report per
+capture** — never a scatter of fourteen disconnected proposals dribbling
+into a queue. The report reads top-to-bottom in under a minute:
 
-### Run — delegated, live, interruptible
-Multi-step agent work the user hands off ("draft the brief," "chase down the
-three open questions in this space"). A run is a **live card**: which agent,
-acting on what, current step, a scrolling one-line log, elapsed time, and
-Pause / Stop controls. Run cards appear in Today's "In motion" column and in
-the spine of whatever Space the work belongs to. A run's *outputs* still obey
-the other two verbs — a run that wants to create three tasks produces three
-proposals, not three tasks.
+1. **Routed** — which Spaces this capture touches (a multi-topic meeting
+   routes to several; annotate-tier, applied, undoable).
+2. **Progress on existing work** — updates *matched to Fabric that already
+   exists*: "Sam says landing-page copy is done, QA Thursday" attaches to
+   the existing commitment as a progress event. Pure progress-logging is
+   annotate-tier; anything that changes state (mark done, move a due date)
+   is propose-tier, shown as a diff.
+3. **New commitments** — split **yours** vs. **theirs**, each with owner,
+   due-ish date, and the quoted words that created it. Propose-tier, always.
+4. **Decisions detected** — with participants and the operative quote.
+   Propose-tier. If a detected decision contradicts a logged one, the report
+   says so and proposes supersession, never silent replacement.
+5. **Reconciled, not duplicated** — near-matches surfaced as explicit
+   questions: "'Sam: run load tests' looks like existing 'Perf testing
+   before GA' — same thing?" One click folds it in (receipts merge); one
+   click keeps them separate. The system *shows* its deduplication so the
+   user learns to stop double-checking it.
+6. **Set aside as noise** — a collapsed line: "scheduling chatter,
+   smalltalk, recap of known status — nothing actionable." Visible so that
+   *ignored* never reads as *missed*; expandable when the user disagrees,
+   and that correction trains the distiller.
 
-### The Ledger and the Pulse
-The **Ledger** is the flight recorder: every annotate/propose/run event, by
-every agent, forever — filterable by agent, verb, object, and time, with undo
-available in place for anything auto-applied. The **Pulse** is its persistent
-one-line presence in the app chrome: `✦ 2 running · 5 to review`. Always
-visible, glanceable, expandable to a peek panel from anywhere. The user never
-wonders "is something happening right now?" — the answer is permanently on
-screen.
+The review affordance is calibrated to the content: batch-accept for
+high-confidence groups, line-by-line keyboard triage otherwise, edit-in-place
+anywhere. Target: **one meeting, one minute**.
 
-### The seven rules of the glass box
+### Reconciliation-first, everywhere
+
+The prime directive of every extracting agent: **search the Fabric before
+proposing creation.** Updates beat creations; merges beat twins. The same
+commitment voiced in three meetings is one commitment with three receipts
+and a fresher timestamp — not three entries. Confidence thresholds are
+tuned so the noise floor stays near zero: a manager who has to weed
+extraction spam will (correctly) stop trusting the system. When in doubt,
+the distiller asks one crisp question rather than guessing loudly.
+
+### Quick captures still work the same way
+
+The three-second capture line (Mockup 2) is unchanged — a one-line
+note-to-self simply produces a very small distillation (often just routing
+chips and maybe one proposed commitment). Capture cost stays near zero at
+every input size; review cost scales with substance, sublinearly.
+
+---
+
+## 4. Staying on top: Today, follow-ups, and the work record
+
+### Today — the attention instrument *(Mockup 1)*
+
+Two columns; the split is the point:
+
+- **Needs you**: blocked agent questions; distillation reports awaiting
+  review; **your commitments** due or overdue; **waiting-on follow-ups that
+  have ripened** — grouped by person, aged, each with a pre-drafted nudge;
+  and things going stale that need a keep/drop/delegate call.
+- **In motion**: live agent runs; a digest of auto-applied annotations (undo
+  in place); resurfaced relevant memories.
+
+Opening the app answers, in one glance: *what needs me, who owes me, what's
+being handled, what happened while I was away.*
+
+### The follow-up engine — nothing slips
+
+- Every waiting-on **ages visibly** everywhere it appears. Thresholds are
+  set per Space via standing orders ("flag anything idle 5+ days").
+- Ripened follow-ups surface on Today with a **drafted nudge built from
+  receipts**: *"Hi Sam — checking on the load-test results you mentioned in
+  Monday's staff meeting (you estimated Wednesday). Still on track?"* The
+  user edits/copies/sends; sending channels are a later integration, but
+  drafting from receipts is the leverage.
+- A reply or a mention in a later capture **reconciles automatically**: when
+  Thursday's transcript says Sam delivered, the waiting-on gets a proposed
+  "mark delivered" — the loop closes from ambient input, not manual
+  bookkeeping.
+- **Meeting prep on demand** (and eventually on calendar signal): ask the
+  omni-bar "prep me for Maria" → what you owe her, what she owes you, open
+  decisions you share, and what's changed since you last met — all cited.
+
+### The work record — summaries that write themselves
+
+- Each Space keeps an AI-maintained **Brief** (§5) and a **decision log**.
+- A **weekly summary** drafts itself from the Ledger and the Fabric: what
+  moved, what was decided, what stalled, what's next — cited, editable,
+  exportable as a status update. The Friday "what did this week even do"
+  reconstruction disappears.
+- Because every artifact cites the Stream, revisiting any activity or
+  decision months later lands on the original words in two clicks.
+
+---
+
+## 5. Working an initiative — the Dossier
+
+*(Mockup 4)*
+
+Opening a Space presents a **Dossier** — the one-minute re-load:
+
+- **Header**: name; finish line if any; a status the *human* owns (AI may
+  propose changing it; only the human applies it).
+- **The Brief**: AI-maintained — where things stand, open questions, risks.
+  Timestamped, regenerable, every sentence cited. The single
+  highest-leverage AI artifact in the app: it converts a pile of history
+  into a minute of reading.
+- **Decisions**: the Space's decision log — most recent first, each with
+  date, participants, and receipt; superseded ones struck through with a
+  link forward. "Why did we decide X?" lives here.
+- **Next actions**: the ordered short list of commitments that move this
+  Space, **grouped yours / waiting-on**, with owners and ages visible.
+  Delegate-to-agent is one click on any item you own; nudge-with-receipts is
+  one click on any item someone else owes.
+- **The Spine**: one merged chronological feed — captures routed here,
+  distillation events, progress updates, proposals (reviewable inline),
+  agent runs, human edits. Human and agent activity interleave, every event
+  attributed.
+- **Standing orders**: persistent human-written instructions scoped to the
+  Space — "watch the Stream for anything about Acme and attach it," "keep
+  the Brief fresh," "flag waiting-ons idle 5+ days." Scoped autonomy
+  granted in advance, every resulting action attributed back to its order.
+
+Commitment detail stays lightweight: what, owner, due-ish, receipts,
+activity. No twelve-field form, ever.
+
+---
+
+## 6. The trust substrate — why delegation this deep is safe
+
+Everything above asks the user to *stop double-checking*: to trust that a
+transcript was fully mined, that dedup worked, that nothing was invented.
+That trust has to be earned structurally, not asserted. AI in Engram has
+exactly **three verbs**, and every use of every verb lands in one place.
+
+- **Annotate — automatic, marked, undoable.** Low-risk enrichment: tagging,
+  routing/linking, progress-logging against existing items, refreshing
+  briefs and summaries. Applied instantly, because approving every tag would
+  drown the attention this app exists to protect. Three invariants, always:
+  **marked** (everything AI-authored wears the spark ✦, one accent color
+  reserved app-wide for AI activity), **explained** (one hover from any ✦ is
+  the *because*: which agent, triggered by what, reasoning in a sentence),
+  **reversible** (one click from any ✦ is undo, indefinitely — and undo is
+  a training signal).
+- **Propose — always consented.** Creating commitments/decisions/spaces/
+  people, changing status, merging, unlinking, deleting. A proposal is **a
+  diff with receipts, not a notification**: before → after, quoted source,
+  one-line reasoning, confidence. Proposals render inline where they matter
+  *and* aggregate (as distillation reports and a Review queue) — control
+  never depends on catching things scrolling by. Un-reviewed proposals never
+  auto-accept; they decay in prominence and roll into a weekly digest.
+  Dismissal is a signal; a repeatedly-dismissed pattern must stop being
+  proposed.
+- **Run — delegated, live, interruptible.** Multi-step agent work ("chase
+  the three open questions," "draft the brief") appears as a live card:
+  agent, current step, one-line log, Pause/Stop. A run's *outputs* still
+  obey the other two verbs.
+
+The **Ledger** is the flight recorder — every event by every author (human
+actions too; it's shared history, not an AI audit log), filterable, with
+in-place undo for anything auto-applied. The **Pulse** is its one-line
+presence in the chrome: `✦ 2 running · 5 to review` — the permanent answer
+to "is something happening right now?"
+
+**The seven rules of the glass box** — screens change, these don't:
+
 1. **One surface.** Agents act on the same objects the user sees — no shadow
-   copies, no separate "AI workspace."
-2. **Attributed.** Every event has an author chip; AI authorship is always
+   copies.
+2. **Attributed.** Every event has an author; AI authorship is always
    visually distinct.
-3. **Explained.** Every AI action is one interaction away from its *because*.
-4. **Reversible.** Every auto-applied action is one interaction away from
-   undo, indefinitely.
-5. **Consequential means consented.** Create, status, merge, unlink, delete —
-   proposed, never applied.
-6. **Cited.** AI never asserts from thin air: every claim in a synthesized
-   answer or AI-maintained summary links to Stream entries.
-7. **Interruptible.** Any running agent can be paused or stopped from
-   anywhere it is visible.
-
-These rules are the product. Screens change; these don't.
+3. **Explained.** Every AI action is one interaction from its *because*.
+4. **Reversible.** Every auto-applied action is one interaction from undo.
+5. **Consequential means consented.** Create, status, merge, unlink,
+   delete — proposed, never applied.
+6. **Cited.** Every claim in an answer, brief, or summary links to Stream
+   entries. No receipts, no claim.
+7. **Interruptible.** Any run can be paused or stopped from anywhere it's
+   visible.
 
 ---
 
-## 4. Information architecture
+## 7. Information architecture
 
-Five surfaces, plus three persistent chrome elements. Deliberately small: the
-IA fits in one breath.
+Five surfaces plus three persistent chrome elements — the IA fits in one
+breath:
 
 ```
 ┌────────────────────────────────────────────────────────────────┐
 │  CHROME (always present)                                       │
 │  · Capture line — one keystroke away, everywhere               │
-│  · Omni-bar — search + ask, everywhere                         │
+│  · Omni-bar — search / ask / prep-me-for, everywhere           │
 │  · Pulse — "✦ 2 running · 5 to review", expandable peek        │
 ├────────────────────────────────────────────────────────────────┤
-│  TODAY      the attention surface: needs-you vs. in-motion     │
+│  TODAY      needs-you (incl. ripened follow-ups) vs. in-motion │
 │  STREAM     the raw capture log, browsable by time             │
-│  REVIEW     proposal queue + the Ledger (AI flight recorder)   │
-│  SPACES     list of contexts → each opens as a Dossier         │
-│  (RECALL)   not a place — a mode of the omni-bar, from anywhere│
+│  REVIEW     distillation reports + proposals + the Ledger      │
+│  SPACES     initiatives & contexts → each opens as a Dossier   │
+│  PEOPLE     accountability & prep view per person              │
+│  (RECALL)   not a place — a mode of the omni-bar, everywhere   │
 └────────────────────────────────────────────────────────────────┘
 ```
 
-**Why each surface exists:**
+Recall itself *(Mockup 5)*: one omni-bar, no mode switch — fragments give
+instant ranked matches; questions give **answers with receipts** (every
+claim cites an entry; the AI states what it *couldn't* find rather than
+fabricating). Every result offers **trails** — temporal neighbors,
+connections, follow-up questions — because memory is associative and "I
+know it's in there" needs more than one door. Time is a first-class axis:
+the Stream scrubs by period and by landmark ("around the Berlin trip").
+And recall also comes to you: relevant old entries resurface quietly when
+you open related work — read-only, dismissible, never a proposal.
 
-- **Today** exists because outcome #3 ("what needs me?") deserves the front
-  door, and because it is where AI activity meets human attention — the two
-  columns *are* the trust model made spatial.
-- **Stream** exists because the raw record must be browsable as itself —
-  unfiled, chronological, honest. It's the surface that proves nothing was
-  lost or mutated.
-- **Review** exists so control never depends on catching things as they
-  scroll by. Inline proposals keep you in flow; Review lets you catch up
-  after a day away, keyboard-first.
-- **Spaces** exist because sustained work needs a home with memory — the
-  Dossier (§5.3).
-- **Recall is a mode, not a page**, because the moment recall requires
-  navigation it has friction. One keystroke, ask, answer — from anywhere.
-
-Nothing else. No settings-as-a-destination, no tag manager, no relationship
-editor. Those exist, but as flows inside these surfaces, not as places.
+No settings-as-a-destination, no tag manager, no relationship editor. Those
+exist as flows inside these surfaces, not as places.
 
 ---
 
-## 5. The interaction model
+## 8. What this vision refuses to do
 
-### 5.1 Capture — set it down, don't file it
-*(Mockup 2)*
-
-- **One keystroke anywhere** summons the capture line (it also sits
-  permanently at the top of Today and Stream). Type. Enter. A quiet "caught"
-  acknowledgment. Total cost: under three seconds, zero decisions.
-- **Anything pastes**: text, URLs, images, files. An entry is whatever you
-  set down.
-- **Hints, never gates.** As you type, the AI may float a ghost chip below
-  the line — *"looks like a task for Acme"* — accept it with Tab if you want
-  the head start, ignore it and it vanishes. Nothing at capture time is ever
-  required, and nothing you skip is lost — the same inference happens after
-  capture anyway.
-- **Optional fast paths** for people who want them: leading `todo:` or a
-  slash-verb pre-shapes the entry. Power feature, never taught in the
-  critical path.
-- **Enrichment arrives asynchronously.** Seconds later, the entry in the
-  Stream grows ✦-marked chips: tags, extracted dates and people, links to
-  related items (annotations — applied, undoable). Anything consequential the
-  AI saw in the entry — "this contains a task" — appears as a **pending
-  proposal chip** on the entry, visibly different from applied annotations.
-  The entry itself never changes.
-
-Capture is also **the agents' door**: an agent forwarding a web page, an
-email, or a meeting transcript appends Stream entries the same way, wearing
-its author chip. One log, two kinds of authors — rule 1.
-
-### 5.2 Triage and review — control without vigilance
-*(Mockup 3 — the required AI-review flow)*
-
-- **Proposals appear inline first.** On the capture that spawned them, in the
-  Space spine they affect, on the task whose status would change. Accept or
-  dismiss right there, in flow.
-- **Review is the catch-up surface.** All pending proposals, grouped by
-  provenance ("From: Tuesday's meeting note — 3 proposals") because
-  provenance-siblings share a fate — if the meeting note was real, its three
-  extracted tasks probably all are. Keyboard-first: `↵` accept, `e` edit then
-  accept, `⌫` dismiss, `j/k` move. Triaging ten proposals should take under
-  a minute.
-- **Every proposal is a diff with receipts**: before → after, quoted source
-  excerpt with a link to the full entry, agent, one-line reasoning,
-  confidence. High-confidence groups offer batch-accept; anything the AI is
-  unsure about says so and never batches.
-- **Dismissal is a signal**, not a shrug: dismissed proposals feed back to
-  the proposing agent, and a repeatedly-dismissed pattern should stop being
-  proposed.
-- **The Ledger tab** completes the loop: the full record of everything
-  applied automatically, with in-place undo, plus every proposal's outcome
-  and every run's transcript. Filter by agent to answer "what has the
-  research agent been doing all week?" in one view.
-
-### 5.3 Working a Space — the Dossier
-*(Mockup 4)*
-
-Opening a Space presents a **Dossier** — the one-minute re-load of context:
-
-- **Header**: name; if it has a finish line, the outcome, target date, and a
-  status the *human* owns (AI may propose changing it; only the human applies
-  it).
-- **The Brief** (left): an AI-maintained summary — where things stand, open
-  questions, loose ends. Prominently ✦-marked, timestamped ("as of 2h ago"),
-  regenerable on demand, and every sentence in it cites the Stream entries
-  and events it summarizes (rule 6). The Brief is the single highest-leverage
-  AI artifact in the app: it converts a pile of history into a minute of
-  reading.
-- **Next actions** (left): the ordered short list of tasks that move this
-  Space. Each task can be **delegated** — a `Delegate ▸` control hands it to
-  an agent and swaps the row into a live run chip.
-- **The Spine** (right): one merged, chronological feed of everything in this
-  Space — your captures that were linked here, agent annotations, proposals
-  (reviewable inline, right in the feed), run cards, status changes, human
-  edits. The Spine is where "shared surface" is most literal: human and agent
-  events interleave in one timeline, every one attributed.
-- **Standing orders**: persistent, human-written instructions scoped to the
-  Space — "watch the Stream for anything about Acme and attach it," "keep
-  the Brief fresh weekly," "flag tasks idle >7 days." Standing orders are
-  how autonomy gets *scoped by the human in advance* rather than begged for
-  action-by-action. They are visible, editable, and every action they cause
-  is attributed back to them ("via standing order: watch for Acme").
-
-Tasks themselves stay lightweight — a title, an optional due date, a Space, a
-state (open / doing / done / dropped), and their receipts. The task *detail*
-view is just a small dossier: description, its source thread, its activity.
-No twelve-field task form, ever.
-
-### 5.4 Recall — ask like you remember
-*(Mockup 5)*
-
-- **One omni-bar, two intents, no mode switch.** Type fragments, get instant
-  matches (entries, tasks, spaces, people) ranked by association with what
-  you're doing now. Phrase a question, get an **answer with receipts**: a
-  synthesized paragraph where every claim carries a citation chip to a Stream
-  entry — click to see the original in context. No citation, no claim.
-- **Trails, because memory is associative.** Beside any result: what was
-  captured *around the same time*, what *links to it*, what *else mentions
-  these people*. The failure mode of every notes app — "I know it's in there
-  but I can't find the door" — is solved by giving every result three more
-  doors.
-- **Time is a first-class axis.** The Stream scrubs by period ("March",
-  "around the Berlin trip"), because "when-ish" is often the strongest key
-  a human still holds.
-- **Resurfacing: recall that comes to you.** When you open a Space or start
-  a task, relevant old entries surface quietly ("from your stream, last
-  November"). Read-only, dismissible, never a proposal — the system acting
-  like a colleague with a good memory, not an eager filer.
-
-### 5.5 Today — the attention instrument
-*(Mockup 1)*
-
-Two columns, and the split *is* the point:
-
-- **Needs you**: agent questions (blocked runs asking for a decision — the
-  highest-priority item type in the app, because a waiting agent is wasted
-  leverage), a digest of pending proposals, today's and overdue tasks, and
-  things going stale (commitments idle so long they need a human call).
-- **In motion**: live run cards, a "while you were away" digest of
-  auto-applied annotations (with undo right in the digest), and gentle
-  resurfacings.
-
-Capture line on top; Pulse in the chrome. Opening the app answers, in one
-glance: *what needs me, what's being handled, what happened while I was
-gone.* Nothing on Today is a table.
-
----
-
-## 6. What this vision refuses to do
-
-Stances worth recording as explicitly as the features:
-
-- **No filing at capture time.** Every "which project? what type? which
-  tags?" moment is friction compounding into abandonment. Filing is the AI's
-  job, consent is the human's.
-- **No invisible AI.** No background process quietly improving things. If it
-  acted, it's in the Ledger, wearing the spark.
-- **No notification tray.** Notifications-as-a-list is where trust goes to
-  die. AI activity surfaces *in context* (inline chips, spine events, run
-  cards) or *in the Review queue* — always attached to the thing itself.
-- **No AI assertions without receipts.** Summaries, answers, briefs — every
-  claim cites the Stream.
+- **No filing at capture time.** Filing is the AI's job; consent is the
+  human's.
+- **No extraction spam.** Reconciliation before creation; confidence
+  thresholds tuned for near-zero noise; one report per capture, not a
+  proposal firehose. If daily review exceeds ~a minute per meeting, the
+  system — not the user — is what gets fixed.
+- **No silent dedup either.** Merges and fold-ins are shown, so "ignored"
+  never reads as "missed."
+- **No invisible AI.** If it acted, it's in the Ledger, wearing the spark.
+- **No notification tray.** AI activity surfaces in context or in Review —
+  always attached to the thing itself.
+- **No AI assertions without receipts.** Summaries, answers, briefs, nudge
+  drafts — every claim cites the Stream.
 - **No second workspace for agents.** One surface, two kinds of hands.
-- **No entity-forms UI.** If a screen ever looks like a CRUD form over a
-  schema, the design has failed at that spot and gets reworked.
+- **No CRUD-form screens.** If a screen looks like a form over a schema,
+  the design has failed at that spot.
 
 ---
 
-## 7. Open questions for the next pass
+## 9. Open questions for the next pass
 
-Deferred deliberately — they need validation, not more design:
-
-1. **Proposal volume tuning.** The whole model lives or dies on the review
-   queue staying under ~a minute a day. What confidence thresholds, batching,
-   and standing-order scoping keep it there in real use?
-2. **How many agents does the user perceive?** One assistant persona vs. a
-   visible cast of specialists (annotator, researcher, project-keeper).
-   Attribution design differs; start with a small named cast and watch
-   whether names carry meaning or noise.
-3. **Undo semantics at depth.** Undoing an annotation is trivial; undoing an
-   accepted merge weeks later is not. The Ledger makes everything *visible*;
-   how far back everything stays *reversible* needs definition.
-4. **Stream scale.** At 50k entries, does the chronological Stream stay a
-   surface people visit, or does it become pure substrate for Recall? Both
-   are fine — but the answer changes how much design the Stream deserves.
+1. **Extraction precision vs. recall.** "Nothing slips" pulls toward
+   aggressive extraction; "no noise" pulls toward conservatism. The
+   distillation report's "set aside as noise" line is the pressure valve —
+   but the thresholds, and how fast user corrections retune them, need
+   real-transcript validation.
+2. **Speaker identity in transcripts.** Commitments-with-owners depend on
+   knowing who said what. How does the system handle unattributed or
+   misattributed speakers — and how does it ask for help without becoming a
+   chore?
+3. **Nudge tone and cadence.** Drafted follow-ups must land as helpful, not
+   surveillance. Per-person tone preferences? Minimum intervals?
+4. **Proposal volume at scale.** Batching, standing-order scoping, and
+   confidence tuning to keep review under a minute a day across many active
+   Spaces.
+5. **Undo semantics at depth.** Undoing an annotation is trivial; unwinding
+   an accepted merge weeks later is not. The Ledger makes everything
+   *visible*; how far back everything stays *reversible* needs definition.
+6. **How many agents does the user perceive?** One assistant persona vs. a
+   small named cast (distiller, project-keeper, researcher). Start small and
+   watch whether names carry meaning or noise.

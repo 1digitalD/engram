@@ -59,7 +59,7 @@
 </head>
 <body>
 <h1>Mockup 1 — Today: the attention instrument</h1>
-<p class="sub">The front door. One glance answers: what needs me, what's being handled, what happened while I was away.</p>
+<p class="sub">The front door. One glance answers: what needs me, who owes me, what's being handled, what happened while I was away.</p>
 
 <div class="frame">
   <div class="chrome">
@@ -88,13 +88,24 @@
 
         <div class="box">
           <div class="row">
-            <b>5 proposals waiting</b>
-            <span class="btn">Open Review →</span>
+            <b>To review: Monday's staff meeting, distilled</b>
+            <span class="btn">Open report →</span>
           </div>
           <p class="small dim" style="margin-top:6px">
-            3 new tasks from Tuesday's meeting note · 1 status change on “Ship v2 landing page” ·
-            1 merge: two “Maria Chen” person records<span class="ann">5</span>
+            ✦ 6 proposals in one report — 2 commitments (1 yours, 1 waiting-on), 1 decision,
+            1 status change, 1 “same as existing?” question · ~40s<span class="ann">5</span>
           </p>
+        </div>
+
+        <div class="box">
+          <b>Waiting on people — ripe for a nudge</b><span class="ann">11</span>
+          <ul class="tasks" style="margin-top:6px">
+            <li>◻ <b>Sam</b> — load test results <span class="chip">committed Mon, staff mtg</span>
+                <span class="chip" style="color:#b3423a">4d quiet</span> <span class="btn">Nudge (drafted) ▸</span></li>
+            <li>◻ <b>Priya</b> — revised API estimate <span class="chip">due-ish Wed</span>
+                <span class="chip">2d</span> <span class="btn">Nudge (drafted) ▸</span></li>
+            <li class="dim small">✦ closed itself yesterday: Dana delivered the legal read — spotted in Thu's notes<span class="ann">12</span></li>
+          </ul>
         </div>
 
         <div class="box">
@@ -166,12 +177,14 @@
     <li><span class="ann">2</span><span>The <b>Pulse</b>: a persistent one-line answer to “is AI doing something right now?” Expands into a peek panel; clicks through to Review/Ledger. The violet ✦ accent is used <i>only</i> for AI activity, app-wide.</span></li>
     <li><span class="ann">3</span><span>Left column = things only the human can resolve. The two-column split is the trust model made spatial: my attention vs. delegated motion.</span></li>
     <li><span class="ann">4</span><span>A blocked agent question is the highest-priority card type — a waiting agent is wasted leverage. Answerable inline with one click.</span></li>
-    <li><span class="ann">5</span><span>Proposals are digested here, actioned in Review (Mockup 3) or inline where they occur. Consequential changes (create/status/merge) never auto-apply.</span></li>
+    <li><span class="ann">5</span><span>Substantive captures arrive as <b>one distillation report per meeting</b> (Mockup 6), not a scatter of proposals. Consequential changes (create/status/merge) never auto-apply.</span></li>
     <li><span class="ann">6</span><span>Staleness surfaces as a human decision — keep/drop/delegate — not as silent AI cleanup.</span></li>
     <li><span class="ann">7</span><span>Right column = leverage at work. Live run cards, not a notifications tray.</span></li>
     <li><span class="ann">8</span><span>Every run is interruptible from wherever it's visible (glass-box rule 7).</span></li>
     <li><span class="ann">9</span><span>Auto-applied annotations arrive as a digest with in-place <u>undo</u> — reviewable without being blocking. Full history lives in the Ledger.</span></li>
     <li><span class="ann">10</span><span>Resurfacing: recall that comes to you. Read-only and dismissible — never a proposal, never files anything.</span></li>
+    <li><span class="ann">11</span><span>The follow-up engine: waiting-ons age quietly and surface here only when ripe (thresholds set by your standing orders). Each comes with a nudge pre-drafted from receipts — who committed, when, in which meeting, in their words. Accountability as one click, not archaeology.</span></li>
+    <li><span class="ann">12</span><span>Loops close from ambient input: a later capture showing delivery reconciles the waiting-on automatically (as a proposal if state changes). No manual bookkeeping to keep the ledger honest.</span></li>
   </ul>
 </div>
 </body>
