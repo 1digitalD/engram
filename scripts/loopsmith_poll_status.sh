@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Poll Loopsmith drain status/blockers for the Iteration 21 (lab-surface-loop) drain.
+# Poll Loopsmith drain status/blockers for the active prd.json iteration.
 # Intended to be run every ~5 minutes (cron, launchd, or a Monitor loop) while a
 # `host-run --drain` is active in the background. Prints one line on state change
 # or blocker; silent (no output) when nothing new to report, so it's safe to run
@@ -54,8 +54,10 @@ print(json.dumps({"iteration": prd.get("iteration"), "tasks": summary}, sort_key
 PREV=""
 [[ -f "$STATE_FILE" ]] && PREV="$(cat "$STATE_FILE")"
 
+ITERATION_NAME="$(echo "$PRD_SUMMARY" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("iteration","unknown"))')"
+
 if [[ "$PRD_SUMMARY" != "$PREV" ]]; then
-  echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) lab-surface-loop state changed:"
+  echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) ${ITERATION_NAME} state changed:"
   echo "$PRD_SUMMARY" | python3 -m json.tool
   echo "$PRD_SUMMARY" > "$STATE_FILE"
 fi
@@ -66,7 +68,7 @@ d = json.load(sys.stdin)
 print(sum(1 for t in d.get("tasks", []) if t.get("blocked")))
 ')"
 if [[ "$BLOCKED_COUNT" != "0" ]]; then
-  echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) BLOCKER: $BLOCKED_COUNT task(s) blocked in lab-surface-loop"
+  echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) BLOCKER: $BLOCKED_COUNT task(s) blocked in ${ITERATION_NAME}"
 fi
 
 if ! pgrep -f "loopsmithctl.py host-run --repo $REPO --drain" >/dev/null 2>&1; then

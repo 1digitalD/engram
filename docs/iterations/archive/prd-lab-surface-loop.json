@@ -1,0 +1,180 @@
+{
+  "iteration": "lab-surface-loop",
+  "goal": "Ship a new, additive UI surface at /lab that proves out a redesigned capture-trust loop, standalone entity authoring, and a people/load rollup against real live data \u2014 without modifying any existing route, component, or API behavior, so the current app remains the permanent default and fallback.",
+  "riskLevel": "medium",
+  "userProblem": "Capture applies changes silently with no visible reasoning, so messy input isn't trusted enough to be captured regularly; entities have no manual 'add relationship' affordance (only remove exists); and seeing who's carrying what work requires opening each person's page one at a time. A disposable clickable prototype validated a redesigned shell for these gaps; this PRD builds the real, additive version of it.",
+  "whyNow": "UX interview + prototype review on 2026-07-05/06 confirmed the core primitives (capture, reconciliation, entity linking, per-person meeting prep/load) already work; the gap is visibility/trust framing plus two small aggregate capabilities. Product decision locked 2026-07-06: build at /lab inside the existing ui/ app, additive-only, real live data (not sandboxed), explicitly excluding multi-person/group meeting prep.",
+  "skills": [
+    "tdd",
+    "incremental-implementation",
+    "git-workflow"
+  ],
+  "doubt": false,
+  "scope": {
+    "filesAffected": [
+      "ui/src/App.jsx",
+      "ui/src/components/TopBar.jsx",
+      "ui/src/lab/LabShell.jsx",
+      "ui/src/lab/LabToday.jsx",
+      "ui/src/lab/LabEntityList.jsx",
+      "ui/src/lab/LabSearch.jsx",
+      "ui/src/lab/LabCapture.jsx",
+      "ui/src/lab/LabEntityDetail.jsx",
+      "ui/src/lab/LabPeople.jsx",
+      "api/v4_entities.py",
+      "tests/integration/test_v4_capture.py",
+      "tests/integration/test_v4_entity_links.py",
+      "docs/iterations/ITERATION_21_LAB_SURFACE.md",
+      "EXECUTION-TRACKER.md"
+    ],
+    "routesAffected": [
+      "GET /api/v4/today",
+      "GET /api/v4/entities",
+      "GET /api/v4/search",
+      "POST /api/v4/capture",
+      "POST /api/v4/entities/:id/links",
+      "GET /api/v4/entities/:id/capture-changes",
+      "POST /api/v4/events/:id/revert"
+    ],
+    "dataOrApiDependencies": [
+      "Tests must use TEST_DATABASE_URL on port 5433 only.",
+      "No schema migrations \u2014 EntityLink table already supports the manual-link use case.",
+      "Lab reads/writes the same live data as the current app; snapshot via scripts/backup_prod.sh before any deploy from LAB-01 onward, per V4_PRINCIPLES.md.",
+      "Any new fields added to the capture response (LAB-01) must be additive only \u2014 a contract test must assert existing fields/shape are unchanged, since V5CaptureSheet/V5ReviewSheet consume the same endpoint."
+    ],
+    "writePathsAffected": [
+      "None until LAB-01 (capture apply/undo \u2014 reuses existing apply + revert code paths)",
+      "New: manual EntityLink creation via POST /api/v4/entities/:id/links (LAB-02)"
+    ]
+  },
+  "tasks": [
+    {
+      "id": "lab-00-shell-scaffold",
+      "title": "Lab shell scaffold: real read-only data, additive route",
+      "description": "Add ui/src/lab/ (LabShell.jsx sidebar+topbar+sub-router, LabToday.jsx, LabEntityList.jsx, LabSearch.jsx) as new files only. Mount <Route path=\"/lab/*\" element={<LabShell />} /> in App.jsx as an additive line \u2014 do not touch any existing <Route>. All screens read through the existing v4API client against real /api/v4/today, /api/v4/entities, /api/v4/search. Add one link \"Try the redesign (beta)\" to the current TopBar.jsx pointing at /lab \u2014 the only edit to a previously-shipped file in this task. Capture entry point is present but disabled (\"coming in LAB-01\"); this task is read-only, no writes.",
+      "kind": "code",
+      "skills": [
+        "tdd",
+        "incremental-implementation",
+        "git-workflow"
+      ],
+      "risk": "low",
+      "dependencies": [],
+      "acceptanceCriteria": [
+        "Existing routes (/now, /tasks, /people, etc.) render identically to before this task \u2014 no diff in any previously-shipped component file except the single TopBar link addition.",
+        "/lab renders the shell with real Today data, real entity lists, and a working Cmd+K search overlay backed by real hybrid search results.",
+        "TopBar.test.jsx updated to cover the new link; no other existing test changes required.",
+        "cd ui && npm test && npm run build both green."
+      ],
+      "validationCommands": [
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build"
+      ],
+      "blocked": false,
+      "passes": true,
+      "attempts": 1,
+      "blockerReason": null,
+      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test\n\n> engram-ui@0.0.0 test\n> node scripts/run-tests.mjs\n\n\n RUN  v3.2.4 /Volumes/lex1t/dev/shared/repos/engram/ui\n\n \u2713 src/views/V5ReviewSheet.test.jsx (12 tests) 274ms\n \u2713 src/views/V5Now.test.jsx (12 tests) 283ms\n \u2713 src/views/V5AskSheet.test.jsx (3 tests) 205ms\n \u2713 src/views/V5Memory.test.jsx (8 tests) 326ms\n \u2713 src/App.test.jsx (9 tests) 631ms\n \u2713 src/views/V5EntityList.test.jsx (15 tests) 667ms\n \u2713 src/views/V5CaptureSheet.test.jsx (11 tests) 777ms\n \u2713 src/views/V5Recall.test.jsx (10 tests) 999ms\n \u2713 src/components/TopBar.test.jsx (7 tests) 222ms\n \u2713 src/components/MarkdownEditor.test.jsx (5 tests) 306ms\n \u2713 src/components/CardActions.test.jsx (2 tests) 187ms\n \u2713 src/components/CitationEntitySheet.test.jsx (9 tests) 239ms\n \u2713 src/components/CitationsList.test.jsx (10 tests) 141ms\n \u2713 src/components/mentionExtension.test.js (3 tests) 76ms\n \u2713 src/components/EntityContextChips.test.jsx (1 test) 62ms\n \u2713 src/views/V5Threads.test.jsx (2 tests) 79ms\n \u2713 src/utils/searchResults.test.js (3 tests) 3ms\n \u2713 src/views/V5RecallOpener.test.jsx (3 tests) 57ms\n \u2713 src/api/v4Client.test.js (9 tests) 4ms\n \u2713 src/utils/timelineGlyphs.test.js (3 tests) 1ms\n \u2713 src/components/MarkdownContent.test.jsx (1 test) 1ms\n \u2713 src/context/CaptureContext.test.jsx (2 tests) 3ms\n \u2713 src/utils/listMetadata.test.js (3 tests) 3ms\n \u2713 src/utils/captureStream.test.js (1 test) 2ms\n \u2713 src/utils/entityRowChrome.test.js (2 tests) 2ms\n \u2713 src/views/V5ThreadDetail.test.jsx (26 tests) 2711ms\n   \u2713 V5ThreadDetail > submits Add update via activityUpdates.create and reloads thread detail  1000ms\n\n Test Files  26 passed (26)\n      Tests  172 passed (172)\n   Start at  09:19:59\n   Duration  4.23s (transform 1.34s, setup 1.59s, collect 5.40s, tests 8.26s, environment 8.53s, prepare 1.67s)\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build\n\n> engram-ui@0.0.0 build\n> vite build\n\nvite v8.0.10 building client environment for production...\n\u001b[2K\ntransforming...\u2713 1866 modules transformed.\nrendering chunks...\ncomputing gzip size...\n../static/index.html                             1.95 kB \u2502 gzip:   0.86 kB\n../static/assets/index-mEojG95n.css             96.29 kB \u2502 gzip:  14.39 kB\n../static/assets/rolldown-runtime-jpDsebLB.js    0.56 kB \u2502 gzip:   0.36 kB\n../static/assets/vendor-icons-C8UFgheK.js        4.23 kB \u2502 gzip:   1.89 kB\n../static/assets/index-B9WzMThf.js             127.73 kB \u2502 gzip:  35.14 kB\n../static/assets/vendor-react-BGEX-UPF.js      230.07 kB \u2502 gzip:  72.98 kB\n../static/assets/vendor-D_WIgHEM.js            497.57 kB \u2502 gzip: 156.97 kB\n\n\u2713 built in 290ms"
+    },
+    {
+      "id": "lab-01-capture-trust-loop",
+      "title": "Capture trust loop wired to real data",
+      "description": "Build LabCapture.jsx sheet wired to real POST /api/v4/capture (mode: auto), rendering applied_changes/suggestions as a review-then-receipt flow (auto-applied items show match reasoning + confidence; ambiguous items are resolvable inline; commit transitions to a receipt with per-item Undo). Backend: before adding anything, inspect _capture_result_payload in api/v4_entities.py to see what reasoning/confidence fields already exist from Iteration 19 signal-quality work. Only add missing fields (e.g. reason, match_confidence, matched_entity) to applied_changes/suggestions items, additively \u2014 never rename or remove an existing field. Undo reuses the existing GET /api/v4/entities/:id/capture-changes + POST /api/v4/events/:id/revert pair (already shipped, Slice B3) \u2014 no new revert logic.",
+      "kind": "code",
+      "skills": [
+        "tdd",
+        "incremental-implementation",
+        "git-workflow"
+      ],
+      "risk": "medium",
+      "dependencies": [
+        "lab-00-shell-scaffold"
+      ],
+      "acceptanceCriteria": [
+        "A contract test asserts every field present in the capture response before this task is still present and unchanged in shape/type after \u2014 protects V5CaptureSheet/V5ReviewSheet, which consume the same endpoint.",
+        "Real capture of a fixture note in Lab shows auto-applied items with visible match reasoning, ambiguous items resolvable inline, and a receipt with working per-item Undo.",
+        "Existing capture/suggestions integration suites still pass unmodified in behavior (only additive assertions added).",
+        "npm test -- LabCapture green."
+      ],
+      "validationCommands": [
+        "cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/integration/test_v4_capture.py tests/integration/test_v4_suggestions.py -q",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- LabCapture"
+      ],
+      "blocked": false,
+      "passes": true,
+      "attempts": 2,
+      "blockerReason": null,
+      "validationEvidence": "Cherry-picked from cursor worktree 46a8b268 after Loopsmith merge failure. pytest test_v4_capture.py test_v4_suggestions.py: 30 passed. npm test -- LabCapture: 4 passed."
+    },
+    {
+      "id": "lab-02-entity-authoring",
+      "title": "Entity authoring: inline edit + manual relationship add",
+      "description": "Build LabEntityDetail.jsx wired to the existing entity-detail GET and existing update-entity PATCH (already used by current UI's edit mode) for status/priority/date. Add a new additive endpoint POST /api/v4/entities/:id/links with body { target_id, relationship_type }, reusing the existing _create_entity_link helper in api/v4_entities.py. Add request validation: relationship_type must be in the V4_PRINCIPLES.md allowed list, entity-type compatibility must hold, and blocks-cycle creation must be rejected by reusing the existing cycle-detection logic from the Phase C4 delegation work. Recorded actor/source must be manual/user, not agent:*. The \"+ add\" picker in the UI calls the existing hybrid search endpoint for candidate lookup, then the new link endpoint on selection.",
+      "kind": "code",
+      "skills": [
+        "tdd",
+        "incremental-implementation",
+        "git-workflow"
+      ],
+      "risk": "low",
+      "dependencies": [
+        "lab-00-shell-scaffold"
+      ],
+      "acceptanceCriteria": [
+        "New endpoint has unit + integration tests written first: valid link creates an EntityLink row; invalid relationship_type rejected with a clear error; cyclic blocks link rejected; existing _create_entity_link callers unaffected.",
+        "In Lab, editing status/priority/date on a real task persists and is reflected on that same entity's page in the current app.",
+        "Adding a relationship via the \"+ add\" picker creates a real EntityLink, visible as a chip in both Lab and the current app.",
+        "New tests/integration/test_v4_entity_links.py and npm test -- LabEntityDetail both green."
+      ],
+      "validationCommands": [
+        "cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/integration/test_v4_entity_links.py -q",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- LabEntityDetail"
+      ],
+      "blocked": false,
+      "passes": true,
+      "attempts": 2,
+      "blockerReason": null,
+      "validationEvidence": "Cherry-picked from opencode worktree 42083002 after Loopsmith venv path failure. pytest test_v4_entity_links.py: 9 passed. npm test -- LabEntityDetail: 6 passed."
+    },
+    {
+      "id": "lab-03-people-rollup",
+      "title": "People rollup (single-person data only, no group merge)",
+      "description": "Build LabPeople.jsx: a list of people showing open-task count, last-heard timestamp, and a gone-quiet flag, reusing the existing delegation-cadence logic (_person_pulse / _delegation_cadence_days) already computed for Today's 'needs a nudge' section. Prefer assembling this from existing /api/v4/entities?type=person plus each person's existing detail payload; only add a new additive GET /api/v4/people/load-summary batch endpoint if N+1 calls are measured to be too slow \u2014 do not pre-optimize. Clicking a person opens their existing single-person detail (meeting prep + current load) unchanged. Do not build multi-select, group meeting prep, or any cross-person aggregation \u2014 explicitly cut from this iteration's scope.",
+      "kind": "code",
+      "skills": [
+        "tdd",
+        "incremental-implementation",
+        "git-workflow"
+      ],
+      "risk": "low",
+      "dependencies": [
+        "lab-00-shell-scaffold"
+      ],
+      "acceptanceCriteria": [
+        "People list in Lab shows real load/last-heard/quiet-flag for every real person, computed from real data.",
+        "No multi-select UI exists on this screen.",
+        "If a batch endpoint was added, it is additive-only and a perf comparison against N+1 is recorded before being kept.",
+        "npm test -- LabPeople green; relevant backend suite green if a new endpoint was added."
+      ],
+      "validationCommands": [
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- LabPeople"
+      ],
+      "blocked": false,
+      "passes": true,
+      "attempts": 1,
+      "blockerReason": null,
+      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- LabPeople\n\n> engram-ui@0.0.0 test\n> node scripts/run-tests.mjs LabPeople\n\n\n RUN  v3.2.4 /Volumes/lex1t/dev/shared/repos/engram/ui\n\n \u2713 src/lab/LabPeople.test.jsx (6 tests) 52ms\n\n Test Files  1 passed (1)\n      Tests  6 passed (6)\n   Start at  10:40:00\n   Duration  455ms (transform 44ms, setup 22ms, collect 73ms, tests 52ms, environment 121ms, prepare 30ms)"
+    }
+  ],
+  "codingLoopPolicy": {
+    "primaryExecutor": "opencode",
+    "fallbackExecutors": [
+      "cursor",
+      "codex",
+      "claude"
+    ],
+    "platform": "openclaw",
+    "allowExecutorFallback": true,
+    "requireHumanForDependencies": true
+  }
+}
