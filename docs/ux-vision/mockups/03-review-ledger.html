@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Engram vision — Mockup 3: Review &amp; Ledger</title>
+<style>
+  :root{
+    --ink:#3d3d38; --dim:#8a8a82; --line:#c9c9c1; --paper:#fff; --bg:#ececea;
+    --ai:#7c5cbf; --ai-bg:#f3eefb; --note:#b45309; --note-bg:#fdf3e3;
+    --add:#2f7d4f; --add-bg:#eaf5ee; --del:#b3423a; --del-bg:#faeceb;
+  }
+  *{box-sizing:border-box; margin:0}
+  body{background:var(--bg); color:var(--ink);
+       font:14px/1.45 ui-sans-serif,system-ui,"Helvetica Neue",sans-serif;
+       padding:28px; max-width:1180px; margin:0 auto}
+  h1{font-size:18px; margin-bottom:4px}
+  .sub{color:var(--dim); margin-bottom:20px; font-size:13px}
+  .frame{background:var(--paper); border:1px solid var(--line); border-radius:10px; overflow:hidden; margin-bottom:26px}
+  .chrome{display:flex; gap:10px; align-items:center; padding:10px 16px;
+          border-bottom:1px solid var(--line); background:#fafaf8; font-size:12px; color:var(--dim)}
+  .tabs{display:flex; gap:16px; padding:10px 16px; border-bottom:1px solid var(--line); font-size:13px}
+  .tabs b{border-bottom:2px solid var(--ink); padding-bottom:8px; margin-bottom:-11px}
+  .layout{display:grid; grid-template-columns:280px 1fr; gap:0}
+  .queue{border-right:1px solid var(--line); padding:12px; background:#fafaf8}
+  .queue h3, .main h3{font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--dim); margin-bottom:8px}
+  .qgroup{border:1px solid var(--line); border-radius:7px; background:#fff; padding:8px 10px; margin-bottom:8px; font-size:12px}
+  .qgroup.active{border-color:var(--ink); border-width:1.5px}
+  .main{padding:16px}
+  .box{border:1px solid var(--line); border-radius:7px; background:var(--paper); padding:12px}
+  .dim{color:var(--dim)} .small{font-size:12px}
+  .chip{display:inline-block; border:1px solid var(--line); border-radius:999px;
+        padding:1px 9px; font-size:12px; color:var(--dim); background:#f7f7f4; margin:2px 2px 0 0}
+  .chip.ai{border-color:#d6c8f0; background:var(--ai-bg); color:var(--ai)}
+  .btn{display:inline-block; border:1px solid var(--line); border-radius:6px;
+       padding:3px 10px; font-size:12px; background:#f7f7f4}
+  .btn.primary{background:#3d3d38; color:#fff; border-color:#3d3d38}
+  .who{display:inline-block; border-radius:4px; padding:0 6px; font-size:11px; font-weight:600;
+       background:#eee; color:var(--dim)}
+  .who.ai{background:var(--ai-bg); color:var(--ai)}
+  .diff{border:1px solid var(--line); border-radius:7px; overflow:hidden; margin:10px 0; font-size:13px}
+  .diff .r{padding:7px 12px; display:flex; gap:10px}
+  .diff .before{background:var(--del-bg); color:var(--del)}
+  .diff .after{background:var(--add-bg); color:var(--add)}
+  .diff .lbl{width:52px; flex:none; font-size:11px; font-weight:700; text-transform:uppercase; padding-top:2px}
+  .src{border-left:3px solid var(--line); background:#f7f7f4; padding:8px 12px; font-size:13px;
+       color:var(--dim); border-radius:0 6px 6px 0; margin:10px 0}
+  .kbd{border:1px solid var(--line); border-bottom-width:2px; border-radius:4px; background:#fff;
+       padding:0 5px; font:11px ui-monospace,monospace}
+  .ann{display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px;
+       border-radius:50%; background:var(--note); color:#fff; font-size:11px; font-weight:700;
+       vertical-align:middle; margin-left:6px; flex:none}
+  .legend{margin-top:18px; border:1px dashed var(--note); background:var(--note-bg);
+          border-radius:8px; padding:14px 16px}
+  .legend h2{font-size:13px; color:var(--note); margin-bottom:8px}
+  .legend li{margin:6px 0 6px 4px; font-size:13px; list-style:none; display:flex; gap:8px}
+  .legend .ann{margin:1px 0 0}
+  table{width:100%; border-collapse:collapse; font-size:12.5px}
+  th{font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--dim); text-align:left;
+     border-bottom:1px solid var(--line); padding:6px 8px}
+  td{border-bottom:1px dashed #e2e2dc; padding:7px 8px; vertical-align:top}
+  h1.sec{font-size:15px; margin:0 0 10px}
+  @media(max-width:860px){.layout{grid-template-columns:1fr}.queue{border-right:none;border-bottom:1px solid var(--line)}}
+</style>
+</head>
+<body>
+<h1>Mockup 3 — Review &amp; the Ledger: AI activity surfacing for human consent</h1>
+<p class="sub">The catch-up surface. Proposals also appear inline wherever they occur (Mockups 2 &amp; 4) — this queue exists so control never depends on catching things as they scroll by.</p>
+
+<h1 class="sec">A · Review queue — triaging proposals, keyboard-first</h1>
+<div class="frame">
+  <div class="chrome">＋ Set something down… &nbsp;·&nbsp; ⌕ &nbsp;·&nbsp; <span style="color:var(--ai)">✦ 1 running · 5 to review</span></div>
+  <div class="tabs"><b>Proposals (5)</b> <span class="dim">Ledger</span></div>
+  <div class="layout">
+    <div class="queue">
+      <h3>Grouped by provenance<span class="ann">1</span></h3>
+      <div class="qgroup active">📄 <b>From: “team sync notes” (Tue)</b><br><span class="dim">3 proposals · Annotator ✦</span></div>
+      <div class="qgroup">📌 On task “Ship v2 landing page”<br><span class="dim">1 status change · Project-keeper ✦</span></div>
+      <div class="qgroup">🧬 Duplicate people detected<br><span class="dim">1 merge · Librarian ✦</span></div>
+      <p class="small dim" style="margin-top:10px"><span class="kbd">j</span>/<span class="kbd">k</span> move ·
+      <span class="kbd">↵</span> accept · <span class="kbd">e</span> edit · <span class="kbd">⌫</span> dismiss<span class="ann">2</span></p>
+    </div>
+
+    <div class="main">
+      <h3>Proposal 1 of 3 in this group</h3>
+      <div class="box" style="border-color:var(--ai)">
+        <div><span class="who ai">✦ Annotator</span> proposes: <b>create a task</b>
+          <span class="chip">confidence: high</span><span class="ann">3</span></div>
+
+        <div class="diff">
+          <div class="r before"><span class="lbl">before</span><span>— no task exists —</span></div>
+          <div class="r after"><span class="lbl">after</span><span><b>Task:</b> “Send deck to Maria” · due Fri · Space: Acme renewal</span></div>
+        </div>
+
+        <div class="small dim">Because — the entry commits you to an action with a deadline:</div>
+        <div class="src">“call w/ maria went well, <mark>she wants the deck by fri</mark>, budget resets in aug”
+          &nbsp;<u>open full entry ↗</u><span class="ann">4</span></div>
+
+        <span class="btn primary">Accept ↵</span>
+        <span class="btn">Edit, then accept e</span>
+        <span class="btn">Dismiss ⌫</span>
+        <span class="btn">Never propose this pattern<span class="ann">5</span></span>
+      </div>
+
+      <div class="box" style="margin-top:10px; background:#fafaf8">
+        <span class="small">Next in group: task “Book offsite venue” · task “Ping legal re: MSA clause 7”</span>
+        <span class="btn" style="float:right">Accept all 3 (all high-confidence)<span class="ann">6</span></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h1 class="sec">B · Ledger tab — the flight recorder</h1>
+<div class="frame">
+  <div class="tabs"><span class="dim">Proposals (5)</span> <b>Ledger</b></div>
+  <div class="main">
+    <div style="margin-bottom:10px">
+      <span class="chip">agent: all ▾</span><span class="chip">verb: all ▾</span>
+      <span class="chip">object: all ▾</span><span class="chip">this week ▾</span><span class="ann">7</span>
+    </div>
+    <table>
+      <tr><th>when</th><th>who</th><th>what</th><th></th></tr>
+      <tr><td>14:03</td><td><span class="who ai">✦ Annotator</span></td>
+          <td>annotated entry “call w/ maria…” — tags #acme, @Maria Chen; linked → Acme renewal</td>
+          <td><u>undo</u><span class="ann">8</span></td></tr>
+      <tr><td>14:03</td><td><span class="who ai">✦ Annotator</span></td>
+          <td>proposed task “Send deck to Maria” — <b>pending</b></td>
+          <td><u>view</u></td></tr>
+      <tr><td>13:58</td><td><span class="who">you</span></td>
+          <td>accepted proposal: task “Book offsite venue” <span class="dim">(as edited)</span></td>
+          <td><u>view</u></td></tr>
+      <tr><td>13:41</td><td><span class="who ai">✦ Researcher</span></td>
+          <td>run “venue options” — paused, awaiting your answer</td>
+          <td><u>open run</u></td></tr>
+      <tr><td>11:19</td><td><span class="who">you</span></td>
+          <td>undid: tag #travel on “reimburse flight” <span class="dim">→ fed back to Annotator</span><span class="ann">9</span></td>
+          <td></td></tr>
+      <tr><td>Tue</td><td><span class="who ai">✦ Librarian</span></td>
+          <td>proposed merge: “Maria Chen” + “M. Chen (Acme)” — <b>pending</b></td>
+          <td><u>view</u></td></tr>
+    </table>
+  </div>
+</div>
+
+<div class="legend">
+  <h2>Annotations</h2>
+  <ul>
+    <li><span class="ann">1</span><span>Proposals group by <b>provenance</b> (the capture or watch that spawned them) because provenance-siblings share a fate — if Tuesday's note was real, its three extracted tasks probably all are.</span></li>
+    <li><span class="ann">2</span><span>Keyboard-first triage. Target: ten proposals in under a minute. If daily review takes longer than that, proposal volume — not the user — is what gets fixed.</span></li>
+    <li><span class="ann">3</span><span>A proposal is a <b>diff, not a notification</b>: before → after, author, confidence, reasoning, receipts. Low-confidence proposals say so and are never batch-accepted.</span></li>
+    <li><span class="ann">4</span><span>The quoted source excerpt with the trigger phrase highlighted — judge the proposal without leaving the card; one click to the full immutable entry.</span></li>
+    <li><span class="ann">5</span><span>Dismissal is a signal: “never propose this pattern” tunes the agent. Repeatedly-dismissed patterns must stop appearing.</span></li>
+    <li><span class="ann">6</span><span>Batch-accept only within one provenance group, only when every member is high-confidence.</span></li>
+    <li><span class="ann">7</span><span>Filterable by agent/verb/object/time — “what has the Researcher done all week?” is one query, not an archaeology dig.</span></li>
+    <li><span class="ann">8</span><span>Everything auto-applied stays undoable from the Ledger, indefinitely. Human actions are logged too — this is the shared surface's shared history, not an AI-only audit log.</span></li>
+    <li><span class="ann">9</span><span>Undo events are visible <i>and</i> consumed as training feedback — the loop that keeps annotate-tier trustworthy enough to stay automatic.</span></li>
+  </ul>
+</div>
+</body>
+</html>

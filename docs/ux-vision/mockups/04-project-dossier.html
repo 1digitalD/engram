@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Engram vision — Mockup 4: Space Dossier</title>
+<style>
+  :root{
+    --ink:#3d3d38; --dim:#8a8a82; --line:#c9c9c1; --paper:#fff; --bg:#ececea;
+    --ai:#7c5cbf; --ai-bg:#f3eefb; --note:#b45309; --note-bg:#fdf3e3;
+  }
+  *{box-sizing:border-box; margin:0}
+  body{background:var(--bg); color:var(--ink);
+       font:14px/1.45 ui-sans-serif,system-ui,"Helvetica Neue",sans-serif;
+       padding:28px; max-width:1180px; margin:0 auto}
+  h1{font-size:18px; margin-bottom:4px}
+  .sub{color:var(--dim); margin-bottom:20px; font-size:13px}
+  .frame{background:var(--paper); border:1px solid var(--line); border-radius:10px; overflow:hidden}
+  .chrome{display:flex; gap:10px; align-items:center; padding:10px 16px;
+          border-bottom:1px solid var(--line); background:#fafaf8; font-size:12px; color:var(--dim)}
+  .head{padding:16px; border-bottom:1px solid var(--line)}
+  .cols{display:grid; grid-template-columns:1fr 1.25fr; gap:16px; padding:16px}
+  .col h3{font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--dim); margin:14px 0 8px}
+  .col h3:first-child{margin-top:0}
+  .box{border:1px solid var(--line); border-radius:7px; background:var(--paper); padding:12px}
+  .dim{color:var(--dim)} .small{font-size:12px}
+  .chip{display:inline-block; border:1px solid var(--line); border-radius:999px;
+        padding:1px 9px; font-size:12px; color:var(--dim); background:#f7f7f4; margin:2px 2px 0 0}
+  .chip.ai{border-color:#d6c8f0; background:var(--ai-bg); color:var(--ai)}
+  .cite{display:inline-flex; align-items:center; justify-content:center; min-width:16px; height:16px;
+        border-radius:4px; border:1px solid #d6c8f0; background:var(--ai-bg); color:var(--ai);
+        font-size:10px; padding:0 3px; vertical-align:super}
+  .btn{display:inline-block; border:1px solid var(--line); border-radius:6px;
+       padding:3px 10px; font-size:12px; background:#f7f7f4}
+  .btn.primary{background:#3d3d38; color:#fff; border-color:#3d3d38}
+  .who{display:inline-block; border-radius:4px; padding:0 6px; font-size:11px; font-weight:600;
+       background:#eee; color:var(--dim)}
+  .who.ai{background:var(--ai-bg); color:var(--ai)}
+  .ann{display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px;
+       border-radius:50%; background:var(--note); color:#fff; font-size:11px; font-weight:700;
+       vertical-align:middle; margin-left:6px; flex:none}
+  .legend{margin-top:18px; border:1px dashed var(--note); background:var(--note-bg);
+          border-radius:8px; padding:14px 16px}
+  .legend h2{font-size:13px; color:var(--note); margin-bottom:8px}
+  .legend li{margin:6px 0 6px 4px; font-size:13px; list-style:none; display:flex; gap:8px}
+  .legend .ann{margin:1px 0 0}
+  ul.tasks{list-style:none} ul.tasks li{padding:6px 0; border-bottom:1px dashed #e2e2dc; font-size:13px}
+  ul.tasks li:last-child{border-bottom:none}
+  .spine{position:relative; padding-left:18px}
+  .spine::before{content:""; position:absolute; left:5px; top:4px; bottom:4px; width:2px; background:#e2e2dc}
+  .ev{position:relative; margin-bottom:10px}
+  .ev::before{content:""; position:absolute; left:-17px; top:8px; width:8px; height:8px;
+              border-radius:50%; background:#c9c9c1}
+  .ev.ai::before{background:var(--ai)}
+  .runlog{font:11px/1.5 ui-monospace,monospace; color:var(--dim); background:#f7f7f4;
+          border:1px solid var(--line); border-radius:5px; padding:6px 8px; margin-top:8px}
+  .bar{height:8px; border:1px solid var(--line); border-radius:99px; background:#f7f7f4; overflow:hidden; margin-top:6px}
+  .bar i{display:block; height:100%; width:62%; background:#b9b9b2}
+  @media(max-width:860px){.cols{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<h1>Mockup 4 — The Space Dossier: steering, not bookkeeping</h1>
+<p class="sub">A Space with a finish line (what used to be a “project”). Left: the one-minute re-load. Right: the Spine — one timeline where human and agent activity interleave, and where proposals are reviewable in place.</p>
+
+<div class="frame">
+  <div class="chrome">＋ Set something down… &nbsp;·&nbsp; ⌕ &nbsp;·&nbsp; <span style="color:var(--ai)">✦ 1 running · 2 to review</span> &nbsp;·&nbsp; Today · Stream · Review · <b style="color:var(--ink)">Spaces</b></div>
+
+  <div class="head">
+    <div style="display:flex; justify-content:space-between; align-items:baseline; gap:12px; flex-wrap:wrap">
+      <div>
+        <b style="font-size:16px">Acme renewal</b>
+        <span class="chip">finish line: signed renewal by Aug 15<span class="ann">1</span></span>
+        <span class="chip">status: on track — set by you, 3d ago</span>
+      </div>
+      <div><span class="btn">Standing orders (3) ▾<span class="ann">2</span></span> <span class="btn">Connections</span></div>
+    </div>
+    <div class="bar"><i></i></div>
+  </div>
+
+  <div class="cols">
+    <!-- LEFT -->
+    <div class="col">
+      <h3>The brief <span class="chip ai">✦ Project-keeper · as of 2h ago</span><span class="ann">3</span></h3>
+      <div class="box" style="border-color:#d6c8f0">
+        <p>Maria confirmed intent to renew on Thursday's call <span class="cite">e41</span>; she needs the
+        pricing deck by Friday <span class="cite">e41</span>. Their budget resets in August — timing the
+        ask before then matters <span class="cite">e41</span> <span class="cite">e12</span>.
+        MSA is countersigned <span class="cite">e44</span>. <b>Open:</b> legal's read on clause 7
+        <span class="cite">t19</span>; venue for the joint offsite <span class="cite">run</span>.</p>
+        <div style="margin-top:8px"><span class="btn">Regenerate</span> <span class="btn">History</span>
+        <span class="small dim">— every sentence cites its receipts<span class="ann">4</span></span></div>
+      </div>
+
+      <h3>Next actions</h3>
+      <div class="box">
+        <ul class="tasks">
+          <li>◻ Send deck to Maria <span class="chip">due Fri</span> <span class="btn">Delegate ▸</span><span class="ann">5</span></li>
+          <li>◻ Ping legal re: MSA clause 7 <span class="btn">Delegate ▸</span></li>
+          <li><span class="who ai">✦ Researcher</span> Book offsite venue — <i>running, paused on your input</i> <span class="btn">Open run</span></li>
+          <li class="dim">◻ Draft renewal pricing options <span class="chip">later</span></li>
+        </ul>
+      </div>
+
+      <h3>Standing orders <span class="small dim">(scoped autonomy, written by you)</span></h3>
+      <div class="box small">
+        <div>· Watch the Stream for anything mentioning Acme or Maria; link it here. <span class="dim">annotate-tier</span></div>
+        <div>· Refresh the brief when 10+ new events accrue. <span class="dim">annotate-tier</span></div>
+        <div>· Flag any task idle &gt;7 days. <span class="dim">surfaces on Today</span></div>
+        <div style="margin-top:6px"><span class="btn">Edit orders</span></div>
+      </div>
+    </div>
+
+    <!-- RIGHT: SPINE -->
+    <div class="col">
+      <h3>Spine — everything, one timeline<span class="ann">6</span></h3>
+      <div class="spine">
+
+        <div class="ev ai">
+          <div class="box" style="border:1.5px dashed var(--ai)">
+            <span class="who ai">✦ Project-keeper</span> <b>proposes: status → “at risk”</b>
+            <p class="small" style="margin:6px 0">Because: deck due Friday is unstarted and legal hasn't answered on clause 7.</p>
+            <span class="btn primary">Accept</span> <span class="btn">Dismiss</span> <span class="btn">Why ▸</span><span class="ann">7</span>
+          </div>
+        </div>
+
+        <div class="ev ai">
+          <div class="box" style="border-color:var(--ai)">
+            <span class="who ai">✦ Researcher</span> <b>run:</b> venue options for joint offsite <span class="small dim">⏸ awaiting your pick</span>
+            <div class="runlog">▸ shortlisted 5 venues → 2 fit constraints<br>▸ asked you: Loft A vs Harbor Hall (see Today)</div>
+            <div style="margin-top:6px"><span class="btn">Answer</span> <span class="btn">Pause</span> <span class="btn">Stop</span></div>
+          </div>
+        </div>
+
+        <div class="ev">
+          <div class="box">
+            <span class="who">you</span> <span class="small dim">14:02</span> — captured: “call w/ maria went well, she wants the deck by fri…”
+            <div><span class="chip ai">✦ linked here by standing order<span class="ann">8</span></span></div>
+          </div>
+        </div>
+
+        <div class="ev ai">
+          <div class="box">
+            <span class="who ai">✦ mail-agent</span> <span class="small dim">13:40</span> — captured: fwd “Acme MSA countersigned” (attachment)
+          </div>
+        </div>
+
+        <div class="ev">
+          <div class="box">
+            <span class="who">you</span> <span class="small dim">Tue</span> — accepted 3 task proposals from “team sync notes”
+          </div>
+        </div>
+
+        <div class="ev">
+          <div class="box small dim">↓ older — scroll or jump: <span class="chip">this week</span><span class="chip">June</span><span class="chip">kickoff</span></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="legend">
+  <h2>Annotations</h2>
+  <ul>
+    <li><span class="ann">1</span><span>Projects and areas collapse into one container: a <b>Space</b>, optionally with a <b>finish line</b> (outcome + target). Same surface either way — one less filing taxonomy to learn.</span></li>
+    <li><span class="ann">2</span><span><b>Standing orders</b>: human-written, Space-scoped autonomy granted in advance. Every action they cause is attributed back to the order that authorized it.</span></li>
+    <li><span class="ann">3</span><span>The Brief is the highest-leverage AI artifact: the one-minute re-load after two weeks away. Clearly ✦-marked, timestamped, regenerable — never masquerading as human-written.</span></li>
+    <li><span class="ann">4</span><span>Citation chips (<span class="cite">e41</span>) link every claim to immutable Stream entries or Ledger events. No receipts, no claim (glass-box rule 6).</span></li>
+    <li><span class="ann">5</span><span>Delegation is one click on the task itself; the row becomes a live run chip. Run <i>outputs</i> still arrive as proposals — delegation never buys silent writes.</span></li>
+    <li><span class="ann">6</span><span>The Spine is the “shared surface” made literal: captures, agent runs, proposals, and human decisions interleave in one attributed timeline. Violet dots = AI events.</span></li>
+    <li><span class="ann">7</span><span>Consequential changes (here: status) surface as inline proposals in the flow of work — the user is never forced to a separate queue to stay in control. The same proposal also sits in Review (Mockup 3).</span></li>
+    <li><span class="ann">8</span><span>The capture from Mockup 2 arrives here automatically via a standing order — annotate-tier linking, marked and undoable. Capture required zero filing; the Space still caught it.</span></li>
+  </ul>
+</div>
+</body>
+</html>

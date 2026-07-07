@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Engram vision — Mockup 5: Recall</title>
+<style>
+  :root{
+    --ink:#3d3d38; --dim:#8a8a82; --line:#c9c9c1; --paper:#fff; --bg:#ececea;
+    --ai:#7c5cbf; --ai-bg:#f3eefb; --note:#b45309; --note-bg:#fdf3e3;
+  }
+  *{box-sizing:border-box; margin:0}
+  body{background:var(--bg); color:var(--ink);
+       font:14px/1.45 ui-sans-serif,system-ui,"Helvetica Neue",sans-serif;
+       padding:28px; max-width:1180px; margin:0 auto}
+  h1{font-size:18px; margin-bottom:4px}
+  .sub{color:var(--dim); margin-bottom:20px; font-size:13px}
+  .frame{background:var(--paper); border:1px solid var(--line); border-radius:10px; overflow:hidden}
+  .box{border:1px solid var(--line); border-radius:7px; background:var(--paper); padding:12px}
+  .dim{color:var(--dim)} .small{font-size:12px}
+  .chip{display:inline-block; border:1px solid var(--line); border-radius:999px;
+        padding:1px 9px; font-size:12px; color:var(--dim); background:#f7f7f4; margin:2px 2px 0 0}
+  .chip.ai{border-color:#d6c8f0; background:var(--ai-bg); color:var(--ai)}
+  .cite{display:inline-flex; align-items:center; justify-content:center; min-width:16px; height:16px;
+        border-radius:4px; border:1px solid #d6c8f0; background:var(--ai-bg); color:var(--ai);
+        font-size:10px; padding:0 3px; vertical-align:super}
+  .btn{display:inline-block; border:1px solid var(--line); border-radius:6px;
+       padding:3px 10px; font-size:12px; background:#f7f7f4}
+  .who{display:inline-block; border-radius:4px; padding:0 6px; font-size:11px; font-weight:600;
+       background:#eee; color:var(--dim)}
+  .who.ai{background:var(--ai-bg); color:var(--ai)}
+  .ann{display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px;
+       border-radius:50%; background:var(--note); color:#fff; font-size:11px; font-weight:700;
+       vertical-align:middle; margin-left:6px; flex:none}
+  .legend{margin-top:18px; border:1px dashed var(--note); background:var(--note-bg);
+          border-radius:8px; padding:14px 16px}
+  .legend h2{font-size:13px; color:var(--note); margin-bottom:8px}
+  .legend li{margin:6px 0 6px 4px; font-size:13px; list-style:none; display:flex; gap:8px}
+  .legend .ann{margin:1px 0 0}
+  .omni{margin:16px; border:1.5px solid var(--ink); border-radius:9px; padding:10px 14px; font-size:15px}
+  .body2{display:grid; grid-template-columns:1.5fr 1fr; gap:16px; padding:0 16px 16px}
+  .colh{font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--dim); margin:0 0 8px}
+  .stack{display:flex; flex-direction:column; gap:10px}
+  .scrub{border-top:1px solid var(--line); padding:12px 16px}
+  .scrubbar{display:flex; align-items:flex-end; gap:3px; height:40px; margin-top:8px}
+  .scrubbar i{display:block; width:100%; background:#d9d9d2; border-radius:2px 2px 0 0}
+  .scrubbar i.hot{background:#8a8a82}
+  .scrubbar i.sel{background:var(--ai)}
+  .months{display:flex; justify-content:space-between; font-size:10px; color:var(--dim); margin-top:4px}
+  mark{background:#fdf3c9; padding:0 2px}
+  @media(max-width:860px){.body2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<h1>Mockup 5 — Recall: ask like you remember</h1>
+<p class="sub">The omni-bar summoned over any surface (one keystroke). Fragments get instant matches; questions get answers with receipts; every result opens three more doors.</p>
+
+<div class="frame">
+  <div class="omni">⌕ what did maria say about their budget?<span class="ann">1</span></div>
+
+  <div class="body2">
+    <!-- LEFT: answer + matches -->
+    <div>
+      <p class="colh">Answer <span class="chip ai">✦ synthesized — every claim cited</span></p>
+      <div class="box" style="border-color:#d6c8f0">
+        <p>Maria said Acme's <mark>budget resets in August</mark> <span class="cite">e41</span>, and back in
+        November she mentioned <mark>unspent Q4 budget</mark> that had to be used or lost
+        <span class="cite">e12</span>. You noted timing the renewal ask before the reset matters
+        <span class="cite">e41</span>. Nothing in the Stream suggests a budget <i>amount</i> was ever
+        stated.<span class="ann">2</span></p>
+      </div>
+
+      <p class="colh" style="margin-top:14px">Receipts &amp; matches</p>
+      <div class="stack">
+        <div class="box">
+          <span class="cite">e41</span> <span class="who">you</span> <span class="small dim">today 14:02 · linked: Acme renewal</span>
+          <p class="small">“call w/ maria went well, she wants the deck by fri, <mark>budget resets in aug</mark>”</p>
+        </div>
+        <div class="box">
+          <span class="cite">e12</span> <span class="who">you</span> <span class="small dim">12 Nov · around the Berlin trip<span class="ann">3</span></span>
+          <p class="small">“maria offhand: they have <mark>unspent q4 budget</mark>, use-it-or-lose-it. remember this for renewal season”</p>
+        </div>
+        <div class="box small dim">Also matched: Person <b>Maria Chen</b> · Space <b>Acme renewal</b> · task “Draft renewal pricing options”</div>
+      </div>
+    </div>
+
+    <!-- RIGHT: trails -->
+    <div>
+      <p class="colh">Trails — more doors in<span class="ann">4</span></p>
+      <div class="stack">
+        <div class="box small">
+          <b>Captured around the same time</b> <span class="dim">(as e12, Nov)</span>
+          <div class="dim" style="margin-top:4px">· “berlin airport, ideas for acme pitch…”<br>· “dinner w/ maria + sam — notes”</div>
+        </div>
+        <div class="box small">
+          <b>Connected</b>
+          <div class="dim" style="margin-top:4px">· mentions <b>@Maria Chen</b> (person, 23 entries)<br>· linked to <b>Acme renewal</b> (Space)<br>· cited by <b>the Brief</b>, 2h ago</div>
+        </div>
+        <div class="box small">
+          <b>Ask a follow-up</b>
+          <div class="chip">when is the renewal due?</div>
+          <div class="chip">everything Maria promised us</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- time scrubber -->
+  <div class="scrub">
+    <span class="small"><b>Or browse by when</b> — the Stream, scrubbed by period<span class="ann">5</span></span>
+    <div class="scrubbar">
+      <i style="height:30%"></i><i style="height:45%"></i><i style="height:25%"></i><i class="sel" style="height:70%"></i>
+      <i style="height:40%"></i><i style="height:35%"></i><i style="height:55%"></i><i style="height:30%"></i>
+      <i class="hot" style="height:85%"></i><i style="height:50%"></i><i style="height:60%"></i><i style="height:75%"></i>
+    </div>
+    <div class="months"><span>Aug</span><span>Sep</span><span>Oct</span><span><b>Nov ◂ selected</b></span><span>Dec</span><span>Jan</span><span>Feb</span><span>Mar</span><span>Apr</span><span>May</span><span>Jun</span><span>Jul</span></div>
+    <p class="small dim" style="margin-top:6px">Jump by landmark, not just date: <span class="chip">the Berlin trip</span> <span class="chip">Acme kickoff</span> <span class="chip">last November</span><span class="ann">6</span></p>
+  </div>
+</div>
+
+<div class="legend">
+  <h2>Annotations</h2>
+  <ul>
+    <li><span class="ann">1</span><span>One bar, two intents, no mode switch: fragments give instant ranked matches as you type; a question shape triggers synthesis. Summonable from any surface — recall is a mode, not a page.</span></li>
+    <li><span class="ann">2</span><span>Answers carry receipts: every claim links to an immutable Stream entry (<span class="cite">e41</span>). The AI also says what it <i>couldn't</i> find — honest negatives beat confident fabrication.</span></li>
+    <li><span class="ann">3</span><span>Time references are humanized with landmarks (“around the Berlin trip”), because that's the key the user's own memory still holds.</span></li>
+    <li><span class="ann">4</span><span>Trails fix the “I know it's in there but can't find the door” failure: every result offers temporal neighbors, connections, and follow-ups — three more doors in.</span></li>
+    <li><span class="ann">5</span><span>Time is a first-class axis: the Stream scrubs by period, with volume as texture. Violet = periods matching the current query.</span></li>
+    <li><span class="ann">6</span><span>Landmark jumps (trips, kickoffs, seasons) are AI-annotated waypoints on the timeline — annotate-tier, so marked and undoable like any other enrichment.</span></li>
+  </ul>
+</div>
+</body>
+</html>

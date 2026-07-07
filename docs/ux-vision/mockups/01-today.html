@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Engram vision — Mockup 1: Today</title>
+<style>
+  :root{
+    --ink:#3d3d38; --dim:#8a8a82; --line:#c9c9c1; --paper:#fff; --bg:#ececea;
+    --ai:#7c5cbf; --ai-bg:#f3eefb; --note:#b45309; --note-bg:#fdf3e3;
+  }
+  *{box-sizing:border-box; margin:0}
+  body{background:var(--bg); color:var(--ink);
+       font:14px/1.45 ui-sans-serif,system-ui,"Helvetica Neue",sans-serif;
+       padding:28px; max-width:1180px; margin:0 auto}
+  h1{font-size:18px; margin-bottom:4px}
+  .sub{color:var(--dim); margin-bottom:20px; font-size:13px}
+  .frame{background:var(--paper); border:1px solid var(--line); border-radius:10px; overflow:hidden}
+  .box{border:1px solid var(--line); border-radius:7px; background:var(--paper); padding:12px}
+  .dim{color:var(--dim)} .small{font-size:12px}
+  .spark{color:var(--ai); font-weight:600}
+  .chip{display:inline-block; border:1px solid var(--line); border-radius:999px;
+        padding:1px 9px; font-size:12px; color:var(--dim); background:#f7f7f4; margin:2px 2px 0 0}
+  .chip.ai{border-color:#d6c8f0; background:var(--ai-bg); color:var(--ai)}
+  .btn{display:inline-block; border:1px solid var(--line); border-radius:6px;
+       padding:3px 10px; font-size:12px; background:#f7f7f4; color:var(--ink)}
+  .btn.primary{background:#3d3d38; color:#fff; border-color:#3d3d38}
+  .ann{display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px;
+       border-radius:50%; background:var(--note); color:#fff; font-size:11px; font-weight:700;
+       vertical-align:middle; margin-left:6px; flex:none}
+  .legend{margin-top:18px; border:1px dashed var(--note); background:var(--note-bg);
+          border-radius:8px; padding:14px 16px}
+  .legend h2{font-size:13px; color:var(--note); margin-bottom:8px}
+  .legend li{margin:6px 0 6px 4px; font-size:13px; list-style:none; display:flex; gap:8px}
+  .legend .ann{margin:1px 0 0}
+  /* chrome */
+  .chrome{display:flex; gap:10px; align-items:center; padding:12px 16px;
+          border-bottom:1px solid var(--line); background:#fafaf8}
+  .capture{flex:1; border:1.5px solid var(--ink); border-radius:8px; padding:8px 12px;
+           color:var(--dim); background:#fff}
+  .pulse{border:1px solid #d6c8f0; background:var(--ai-bg); color:var(--ai);
+         border-radius:999px; padding:5px 12px; font-size:12px; white-space:nowrap}
+  .nav{display:flex; gap:14px; padding:8px 16px; border-bottom:1px solid var(--line);
+       font-size:12px; color:var(--dim)}
+  .nav b{color:var(--ink)}
+  .cols{display:grid; grid-template-columns:1.1fr 1fr; gap:16px; padding:16px}
+  .col h3{font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--dim); margin-bottom:10px}
+  .stack{display:flex; flex-direction:column; gap:10px}
+  .who{display:inline-block; border-radius:4px; padding:0 6px; font-size:11px; font-weight:600;
+       background:#eee; color:var(--dim)}
+  .who.ai{background:var(--ai-bg); color:var(--ai)}
+  .runlog{font:11px/1.5 ui-monospace,monospace; color:var(--dim); background:#f7f7f4;
+          border:1px solid var(--line); border-radius:5px; padding:6px 8px; margin-top:8px}
+  .row{display:flex; justify-content:space-between; align-items:center; gap:8px}
+  ul.tasks{list-style:none} ul.tasks li{padding:5px 0; border-bottom:1px dashed #e2e2dc; font-size:13px}
+  ul.tasks li:last-child{border-bottom:none}
+  @media(max-width:800px){.cols{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<h1>Mockup 1 — Today: the attention instrument</h1>
+<p class="sub">The front door. One glance answers: what needs me, what's being handled, what happened while I was away.</p>
+
+<div class="frame">
+  <div class="chrome">
+    <div class="capture">＋ Set something down…  <span class="small">(press <b>c</b> anywhere)</span><span class="ann">1</span></div>
+    <div class="btn">⌕ Search or ask…</div>
+    <div class="pulse">✦ 2 running · 5 to review<span class="ann">2</span></div>
+  </div>
+  <div class="nav"><b>Today</b> · Stream · Review · Spaces</div>
+
+  <div class="cols">
+    <!-- NEEDS YOU -->
+    <div class="col">
+      <h3>Needs you<span class="ann">3</span></h3>
+      <div class="stack">
+
+        <div class="box" style="border-color:var(--ai)">
+          <div class="row">
+            <span><span class="who ai">✦ Researcher</span> <b>is blocked, asking you:</b><span class="ann">4</span></span>
+            <span class="small dim">12 min ago</span>
+          </div>
+          <p style="margin:8px 0">“Two venues fit the offsite constraints — Loft A ($3.2k, no AV) or
+          Harbor Hall ($4.1k, AV included). Which should I pursue?”</p>
+          <span class="btn primary">Loft A</span> <span class="btn primary">Harbor Hall</span>
+          <span class="btn">Neither — reply…</span> <span class="btn">View run</span>
+        </div>
+
+        <div class="box">
+          <div class="row">
+            <b>5 proposals waiting</b>
+            <span class="btn">Open Review →</span>
+          </div>
+          <p class="small dim" style="margin-top:6px">
+            3 new tasks from Tuesday's meeting note · 1 status change on “Ship v2 landing page” ·
+            1 merge: two “Maria Chen” person records<span class="ann">5</span>
+          </p>
+        </div>
+
+        <div class="box">
+          <b>Today's tasks</b>
+          <ul class="tasks" style="margin-top:6px">
+            <li>◻ Send deck to Maria <span class="chip">Acme renewal</span> <span class="chip">due today</span></li>
+            <li>◻ Book dentist <span class="chip">Health</span> <span class="chip ai">✦ resurfaced: captured 3w ago</span></li>
+            <li>◻ Review contractor quote <span class="chip">Home</span> <span class="chip">overdue 2d</span></li>
+          </ul>
+        </div>
+
+        <div class="box">
+          <b>Going stale</b><span class="ann">6</span>
+          <p class="small dim" style="margin-top:6px">“Intro Sam ↔ Priya” — untouched 21 days.
+          Keep, drop, or delegate?</p>
+          <span class="btn">Keep</span> <span class="btn">Drop</span> <span class="btn">Delegate ▸</span>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- IN MOTION -->
+    <div class="col">
+      <h3>In motion — AI is handling<span class="ann">7</span></h3>
+      <div class="stack">
+
+        <div class="box" style="border-color:var(--ai)">
+          <div class="row">
+            <span><span class="who ai">✦ Project-keeper</span> <b>running:</b> refreshing the Acme renewal brief</span>
+            <span class="small dim">2 min</span>
+          </div>
+          <div class="runlog">▸ read 14 new spine events since last brief<br>▸ drafting “where things stand”… </div>
+          <div style="margin-top:8px"><span class="btn">Pause</span> <span class="btn">Stop</span> <span class="btn">Watch</span><span class="ann">8</span></div>
+        </div>
+
+        <div class="box" style="border-color:var(--ai)">
+          <div class="row">
+            <span><span class="who ai">✦ Researcher</span> <b>running:</b> venue options for team offsite</span>
+            <span class="small dim">⏸ waiting on you</span>
+          </div>
+          <p class="small dim" style="margin-top:6px">Paused — see its question under “Needs you.”</p>
+        </div>
+
+        <div class="box">
+          <b>While you were away</b> <span class="small dim">— 11 automatic annotations</span><span class="ann">9</span>
+          <ul class="tasks" style="margin-top:6px">
+            <li><span class="who ai">✦</span> tagged 4 captures <span class="chip ai">#acme</span> <span class="chip ai">#pricing</span> <span class="small"><u>undo</u></span></li>
+            <li><span class="who ai">✦</span> linked “call notes 3 Jul” → Space: Acme renewal <span class="small"><u>undo</u></span></li>
+            <li><span class="who ai">✦</span> extracted due date “Fri” on “Send deck to Maria” <span class="small"><u>undo</u></span></li>
+          </ul>
+          <span class="small dim">See all 11 in the Ledger →</span>
+        </div>
+
+        <div class="box">
+          <b>From your stream</b> <span class="chip ai">✦ resurfaced</span>
+          <p class="small dim" style="margin-top:6px">“Maria mentioned their budget resets in August —
+          worth timing the renewal ask.” <i>captured last Nov</i> · relevant to today's Acme task<span class="ann">10</span></p>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="legend">
+  <h2>Annotations</h2>
+  <ul>
+    <li><span class="ann">1</span><span>The capture line is permanent chrome and summonable with one keystroke from any surface. No fields, no filing — type, enter, done (see Mockup 2).</span></li>
+    <li><span class="ann">2</span><span>The <b>Pulse</b>: a persistent one-line answer to “is AI doing something right now?” Expands into a peek panel; clicks through to Review/Ledger. The violet ✦ accent is used <i>only</i> for AI activity, app-wide.</span></li>
+    <li><span class="ann">3</span><span>Left column = things only the human can resolve. The two-column split is the trust model made spatial: my attention vs. delegated motion.</span></li>
+    <li><span class="ann">4</span><span>A blocked agent question is the highest-priority card type — a waiting agent is wasted leverage. Answerable inline with one click.</span></li>
+    <li><span class="ann">5</span><span>Proposals are digested here, actioned in Review (Mockup 3) or inline where they occur. Consequential changes (create/status/merge) never auto-apply.</span></li>
+    <li><span class="ann">6</span><span>Staleness surfaces as a human decision — keep/drop/delegate — not as silent AI cleanup.</span></li>
+    <li><span class="ann">7</span><span>Right column = leverage at work. Live run cards, not a notifications tray.</span></li>
+    <li><span class="ann">8</span><span>Every run is interruptible from wherever it's visible (glass-box rule 7).</span></li>
+    <li><span class="ann">9</span><span>Auto-applied annotations arrive as a digest with in-place <u>undo</u> — reviewable without being blocking. Full history lives in the Ledger.</span></li>
+    <li><span class="ann">10</span><span>Resurfacing: recall that comes to you. Read-only and dismissible — never a proposal, never files anything.</span></li>
+  </ul>
+</div>
+</body>
+</html>
