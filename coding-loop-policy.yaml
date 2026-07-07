@@ -24,6 +24,3 @@ sameExecutorCooldownSeconds: 60
 # Cross-executor retry budget. Slice is abandoned after this many
 # distinct executors have failed.
 maxCrossExecutorRetries: 2
-
-# v6 QC: validation timeout for full backend suite (~525 tests, serial).
-validationTimeoutSeconds: 1200

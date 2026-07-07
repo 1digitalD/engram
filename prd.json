@@ -1,6 +1,6 @@
 {
   "iteration": "v6-phase-0-foundations",
-  "goal": "Phase 0 foundations: split api/v4_entities.py into api/v4/ package (zero behavior change) and add operator_person_id setting — with implement→review→green QC on every slice.",
+  "goal": "Phase 0 foundations: split api/v4_entities.py into api/v4/ package (zero behavior change) and add operator_person_id setting \u2014 with implement\u2192review\u2192green QC on every slice.",
   "riskLevel": "medium",
   "userProblem": "The 7.6k-line api/v4_entities.py monolith blocks every v6 phase; operator identity for mine/waiting-on states has no dedicated setting yet.",
   "whyNow": "v6 planning is approved and merged to main. Phase 0 is the mechanical prerequisite for distillation reports, workboard, and the /next shell.",
@@ -30,7 +30,7 @@
       "EXECUTION-TRACKER.md"
     ],
     "routesAffected": [
-      "All existing /api/v4/* routes — shape unchanged",
+      "All existing /api/v4/* routes \u2014 shape unchanged",
       "GET /api/v4/settings/operator (new)",
       "PUT /api/v4/settings/operator (new)"
     ],
@@ -38,10 +38,10 @@
       "Tests must use TEST_DATABASE_URL on port 5433 only.",
       "No schema migrations in Phase 0.",
       "Route table must match docs/v6/fixtures/route_table_baseline.txt except for the two new operator settings routes (baseline will be refreshed by overseer after V6-02 lands).",
-      "QC loop: docs/v6/QC_LOOP.md — every implement task followed by a review task."
+      "QC loop: docs/v6/QC_LOOP.md \u2014 every implement task followed by a review task."
     ],
     "writePathsAffected": [
-      "Mechanical refactor only for V6-01 — no behavior changes",
+      "Mechanical refactor only for V6-01 \u2014 no behavior changes",
       "New: operator_person_id AppSetting + GET/PUT /settings/operator (V6-02)"
     ]
   },
@@ -49,7 +49,7 @@
     {
       "id": "v6-01-api-package-split",
       "title": "Split api/v4_entities.py into api/v4/ package",
-      "description": "Mechanical refactor per docs/iterations/ITERATION_v6_PHASE_0.md and SOLUTION_DESIGN §8.1. Move route handlers from api/v4_entities.py into api/v4/{capture,entities,links,today,recall,insights,system}.py; create empty stub modules for reports, workboard, markers. Assemble blueprint in api/v4/__init__.py; update api/__init__.py import. Delete v4_entities.py when empty. One commit per module group. Zero route/shape/behavior changes — no test file edits allowed.",
+      "description": "Mechanical refactor per docs/iterations/ITERATION_v6_PHASE_0.md and SOLUTION_DESIGN \u00a78.1. Move route handlers from api/v4_entities.py into api/v4/{capture,entities,links,today,recall,insights,system}.py; create empty stub modules for reports, workboard, markers. Assemble blueprint in api/v4/__init__.py; update api/__init__.py import. Delete v4_entities.py when empty. One commit per module group. Zero route/shape/behavior changes \u2014 no test file edits allowed.",
       "kind": "code",
       "skills": [
         "tdd",
@@ -60,7 +60,7 @@
       "dependencies": [],
       "acceptanceCriteria": [
         "api/v4_entities.py deleted; all routes live under api/v4/ package",
-        "CHECK_ROUTES=1 bash scripts/v6_validate_slice.sh passes — route table matches baseline",
+        "CHECK_ROUTES=1 bash scripts/v6_validate_slice.sh passes \u2014 route table matches baseline",
         "Full backend suite passes with zero modifications to any file under tests/",
         "flask --app app.py routes output is identical to docs/v6/fixtures/route_table_baseline.txt (method, rule, endpoint columns)"
       ],
@@ -76,7 +76,7 @@
     {
       "id": "v6-01-code-review",
       "title": "Code review: V6-01 API package split",
-      "description": "Review-only task per docs/v6/QC_LOOP.md. Run all five code-review passes on v6-01-api-package-split commits. Inspect git log -p commit-by-commit. Re-run CHECK_ROUTES=1 validation in a clean worktree (Pass 5). Fix BLOCK and REQUEST CHANGES findings only — no new features, no test edits unless fixing a review-discovered bug. Record review verdict in validationEvidence.",
+      "description": "Review-only task per docs/v6/QC_LOOP.md. Run all five code-review passes on v6-01-api-package-split commits. Inspect git log -p commit-by-commit. Re-run CHECK_ROUTES=1 validation in a clean worktree (Pass 5). Fix BLOCK and REQUEST CHANGES findings only \u2014 no new features, no test edits unless fixing a review-discovered bug. Record review verdict in validationEvidence.",
       "kind": "review",
       "skills": [
         "code-review",
@@ -88,7 +88,7 @@
       ],
       "acceptanceCriteria": [
         "Pass 1 Spec conformance: route table parity, zero test edits, monolith deleted",
-        "Pass 2 PREAMBLE: surgical diff only — no drive-by refactors or behavior tweaks",
+        "Pass 2 PREAMBLE: surgical diff only \u2014 no drive-by refactors or behavior tweaks",
         "Pass 3 Skill conformance: incremental commits, one logical change each, TDD rules honored",
         "Pass 4 Adversarial read: imports/circular deps, missing route registrations, broken blueprint assembly",
         "Pass 5 Verification reproduced: CHECK_ROUTES=1 bash scripts/v6_validate_slice.sh run fresh and passes",
@@ -106,7 +106,7 @@
     {
       "id": "v6-02-operator-identity",
       "title": "Operator identity setting + endpoints",
-      "description": "Add operator_person_id to AppSetting with GET/PUT /api/v4/settings/operator in api/v4/system.py. Response: {operator_person_id, configured: bool}. PUT accepts {operator_person_id} (person entity id). On GET when unset, backfill from existing owner_person_id AppSetting if present (read-only backfill for response — persist operator_person_id on first PUT or explicit backfill write). Write unit + integration tests first (TC-03). Do not remove owner_person_id.",
+      "description": "Add operator_person_id to AppSetting with GET/PUT /api/v4/settings/operator in api/v4/system.py. Response: {operator_person_id, configured: bool}. PUT accepts {operator_person_id} (person entity id). On GET when unset, backfill from existing owner_person_id AppSetting if present (read-only backfill for response \u2014 persist operator_person_id on first PUT or explicit backfill write). Write unit + integration tests first (TC-03). Do not remove owner_person_id.",
       "kind": "code",
       "skills": [
         "tdd",
@@ -203,6 +203,7 @@
     ],
     "platform": "openclaw",
     "allowExecutorFallback": true,
-    "requireHumanForDependencies": true
+    "requireHumanForDependencies": true,
+    "validationTimeoutSeconds": 1200
   }
 }
