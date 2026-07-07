@@ -70,3 +70,4 @@ bash scripts/loopsmith_poll_status.sh  # while drain runs
 - 2026-07-07 Phase 0 kickoff — prd `v6-phase-0-foundations`, QC loop, route baseline
 - _V6-01 API package split — in progress (Loopsmith)_
 - _V6-02 Operator identity — pending_
+- 2026-07-07T23:24:04.880417+00:00 v6-01-api-package-split accepted via opencode
