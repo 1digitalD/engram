@@ -74,3 +74,4 @@ bash scripts/loopsmith_poll_status.sh  # while drain runs
 - 2026-07-07T23:29:53.575719+00:00 v6-01-code-review accepted via opencode
 - 2026-07-07T23:37:54.779401+00:00 v6-01-code-review re-verified via opencode
 - 2026-07-07T23:40:35.144825+00:00 v6-01-code-review accepted via opencode
+- 2026-07-07T23:47:33.771228+00:00 v6-02-operator-identity accepted via opencode

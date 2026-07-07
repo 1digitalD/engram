@@ -132,6 +132,47 @@ def trust_metrics():
     })
 
 
+@api_v4_bp.route("/settings/operator", methods=["GET"])
+def get_operator_setting():
+    """Return the configured operator person identity.
+
+    If `operator_person_id` has never been persisted, backfill the response
+    from the legacy `owner_person_id` setting when present. The backfill is
+    read-only: it is not written to `operator_person_id` until a PUT persists
+    it explicitly.
+    """
+    operator_id = _clean_text(_get_app_setting("operator_person_id"))
+    configured = operator_id is not None
+
+    if operator_id is None:
+        operator_id = _clean_text(_get_app_setting("owner_person_id"))
+
+    return jsonify({"operator_person_id": operator_id, "configured": configured})
+
+
+@api_v4_bp.route("/settings/operator", methods=["PUT"])
+def put_operator_setting():
+    """Persist the operator person identity.
+
+    Body: { operator_person_id: <person entity id> }
+    """
+    data = request.get_json(silent=True) or {}
+    person_id = _clean_text(data.get("operator_person_id"))
+    if person_id is None:
+        return _error("operator_person_id is required")
+
+    person = db.session.get(Entity, person_id)
+    if person is None or person.type != "person":
+        return _error("operator_person_id must reference an existing person entity")
+
+    setting = _app_setting_row("operator_person_id")
+    setting.value = person_id
+    flag_modified(setting, "value")
+    db.session.commit()
+
+    return jsonify({"operator_person_id": person_id, "configured": True})
+
+
 @api_v4_bp.route("/agent-activity", methods=["GET"])
 def agent_activity():
     limit = max(1, min(request.args.get("limit", 50, type=int), 200))
