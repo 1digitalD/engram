@@ -1,213 +1,61 @@
 # Engram — Execution Tracker
 
-Fresh-agent handoff for the current v4 baseline. Use this to get oriented quickly,
-then read the active source docs before changing code.
+Fresh-agent handoff. Read the active sources of truth below before changing
+code. Full v4-era history (iterations 0–21, deploy log, harness notes) is
+archived at `docs/archive/EXECUTION-TRACKER-v4-history.md`.
 
-Last updated: 2026-07-06
-Branch: `main`
-Status: **Iteration 21 complete** — Lab Surface (additive UI at `/lab`).
-Previous: Iteration 20 complete (UI-CTX-01–09 deployed) — context, density, metadata, and color chrome.
+Last updated: 2026-07-07
+Branch: `claude/engram-ux-vision-aad07p`
+Status: **v6 planning complete** — awaiting Phase 0 kickoff.
 
-Runtime baseline: `/api/v4` only, fresh Postgres + pgvector schema, write-enabled MCP
-aligned with the active API.
-
-## MCP agent workflow update (2026-07-06)
-
-- `append_activity_update(entity_id, content, skip_extraction?)` — log activity without triggering lightweight extraction when `skip_extraction=true`.
-- `submit_candidates(entity_id, …)` — ingest pre-extracted candidates on any entity type (not notes only); project/task/area sources pass thread context and parent-link accepted tasks.
-- Validation: backend 505 passed, UI 190 passed, `npm run build` green.
-- Deploy: `backup engram_20260706_132040.sql` → `./scripts/engram-deploy.sh` (smoke green); MCP restarted via `com.engram.mcp.plist`.
-- Docs: `mcp_server/README_V4.md`, `README.md` MCP section.
-
-## Current loop: Iteration 21 — Lab Surface (2026-07-06) — complete
-
-- Plan: `docs/iterations/ITERATION_21_LAB_SURFACE.md`
-- Loopsmith overlay: `prd.json` (iteration `lab-surface-loop`)
-- Origin: UX interview + disposable clickable Artifact prototype (not in repo) validated a
-  redesigned capture-trust loop, standalone entity authoring, and a people/load rollup.
-- Product decisions locked 2026-07-06: additive-only `/lab/*` route inside `ui/`, current
-  app stays default/fallback untouched; Lab writes real live data (shared workspace, not
-  sandboxed); multi-person/group meeting prep explicitly cut from scope.
-- LAB-01 and LAB-02 landed via direct cherry-pick from Loopsmith worktrees after harness
-  failures (Claude credits, OpenCode venv path, Cursor merge symlink bug).
-
-| Slice | Status | Notes |
-|-------|--------|-------|
-| LAB-00 Shell scaffold (read-only) | **done** | `/lab` route + TopBar link |
-| LAB-01 Capture trust loop | **done** | cherry-picked `46a8b268`, LabShell conflict resolved |
-| LAB-02 Entity authoring | **done** | cherry-picked `42083002`, `POST /api/v4/entities/:id/links` |
-| LAB-03 People rollup | **done** | no group/multi-select, per product decision |
-
-### Final validation (2026-07-06, post-landing)
-
-- Backend: `pytest tests/integration/test_v4_capture.py test_v4_suggestions.py test_v4_entity_links.py` → 39 passed.
-- UI: `cd ui && npm test` → 188 passed. `npm run build` → succeeds.
-
-## Previous loop: Iteration 20 — UI Context, Density & Color (2026-07-03) — complete
-
-- Plan: `docs/iterations/ITERATION_20_UI_CONTEXT_DENSITY.md`
-- Slice docs: `SLICE_UICTX01_recall-search-fix.md` … (see plan)
-
-| Slice | Status | Notes |
-|-------|--------|-------|
-| UI-CTX-01 Recall fix + color | **done + deployed** | backup `engram_20260703_161840.sql` |
-| UI-CTX-02 Backend task context | **done + deployed** | backup `engram_20260703_162711.sql` |
-| UI-CTX-03 Detail + Recall chips | **done + deployed** | same deploy |
-| UI-CTX-04 Assignee chips | **done** | merged into UI-CTX-03 |
-| UI-CTX-05 List metadata | **done + deployed** | backup `engram_20260703_163114.sql` |
-| UI-CTX-06 Shared row chrome | **done + deployed** | same deploy |
-| UI-CTX-07 Project parent area | **done + deployed** | same deploy |
-| UI-CTX-08 TopBar nav | **deferred** | user: leave TopBar as-is |
-| UI-CTX-09 Polish | **done + deployed** | backup `engram_20260703_164147.sql` |
-
-## Previous loop: Iteration 19 — Signal Quality & Capture Intelligence (2026-07-02) — complete
-
-- Contract/Plan: `docs/iterations/ITERATION_19_SIGNAL_QUALITY_PLAN.md`
-- Loopsmith overlay: archived `docs/iterations/archive/prd-v5-signal-quality.json` (was `prd.json`, iteration `v5-signal-quality-loop`)
-- Archived prd: `docs/iterations/archive/prd-v5-productivity.json`
-
-### Milestones
-
-| Milestone | Slices | Status |
-|-----------|--------|--------|
-| M0 Model reallocation | SQ-00 | done (`.env`, not in git) |
-| M1 Broken trust primitives | SQ-01, SQ-02, SQ-03, SQ-04 | done (`8433f2cb`, `5c986f5c`, `dd448bca`, `feaf3b15`) |
-| M2 Route by intent | SQ-05, SQ-06 | done (`88d4f53d`, `4c991732`) |
-| M3 Precision extraction | SQ-07, SQ-08, SQ-09 | done (`7a98e70e`, `3a3046f3`, `4ef7078c`) |
-| M4 Learning loop | SQ-10, SQ-11 | done (`16ef2906`, `741b0607`) |
-
-M0-M2 were delivered directly via `Agent` tool sub-agents in isolated git worktrees
-(TDD, fast-forward merge to main), not via Loopsmith — orchestrated inline per explicit
-instruction rather than through `prd.json`. M3-M4 used the standard Loopsmith + LCS drain
-pattern (run-id `20260703T160154Z-f9737036`), with tasks chained serially (`dependencies`)
-since they share `api/v4_entities.py`. Each slice was independently code-reviewed against
-its `prd.json` acceptanceCriteria after landing.
-
-### Final validation (2026-07-03, post-drain)
-
-- Backend: `TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test
-  ./venv/bin/pytest -q` → 472 passed, 20 skipped, 0 failed.
-- UI: `cd ui && npm test` → 147 passed. `npm run build` → succeeds.
-- The 3 tests previously flagged as pre-existing failures (`test_v4_search.py` —
-  `test_semantic_search_with_mocked_embeddings`, `test_semantic_search_filters_weak_matches`,
-  `test_hybrid_search_uses_rrf`) now pass; the underlying pgvector/schema quirk appears to
-  have cleared after repeated schema rebuilds during the drain. No longer a known issue.
-
-## Previous loop: Iteration 18 — V5 Productivity & Trust (2026-07-02) — complete
-
-- Contract: `docs/iterations/ITERATION_18_V5_PRODUCTIVITY_LOOP.md`
-- Plan: `docs/iterations/V5_PRODUCTIVITY_IMPLEMENTATION_PLAN.md`
-- Full plan: `docs/superpowers/plans/2026-07-02-v5-productivity-trust-loop.md`
-- Loopsmith overlay: `prd.json` (iteration `v5-productivity-trust-loop`)
-- Archived prd: `docs/iterations/archive/prd-v5-hardening.json`
-- Slice docs: `SLICE_UI01_duplicate-fab.md` … `SLICE_UI10_collapse-empty-sections.md`, `SLICE_AU10_status-extraction.md`, `SLICE_AU11_follow-up-routing.md`
-
-### Milestones
-
-| Milestone | Tasks | Status |
-|-----------|-------|--------|
-| M1 Trust fixes | UI-01, UI-02, UI-03 | done |
-| M2 Activity intelligence | AU10, AU11 | done |
-| M3 Daily surface | UI-04 – UI-07 | done |
-| M4 Polish | UI-08 – UI-10 | done |
-
-### Iteration 18 outcome
-
-- Drain completed 2026-07-02 (UI-04→UI-10 in one clean-tree drain after M1–M2).
-- Head: `76db4896` (ui-10). Deploy after iteration: backup `engram_20260702_172910.sql`.
-- Retrospective: harness + product notes captured in chat; LCS/Loopsmith improvements queued.
-
-### Delivery model
-
-- **Loopsmith drain** runs slices from `prd.json` in isolated worktrees.
-- **LCS** via `loopsmithctl-lcs.sh` (PREAMBLE + TDD skills).
-- **Cursor overseer** monitors status, fixes harness drift, manual smoke at plan deploy gates, **takeover via pause-and-resume only** (see Harness notes).
-- **Retrospective** done (2026-07-02).
-
-### Overseer commands
-
-```bash
-bash /Volumes/lex1t/dev/shared/repos/loopsmith-coding-standards/scripts/loopsmithctl-lcs.sh \
-  status --repo /Volumes/lex1t/dev/shared/repos/engram
-
-bash /Volumes/lex1t/dev/shared/repos/loopsmith-coding-standards/scripts/loopsmithctl-lcs.sh \
-  host-run --repo /Volumes/lex1t/dev/shared/repos/engram --task-id ui-01-duplicate-fab
-
-# After M1 canary succeeds:
-bash .../loopsmithctl-lcs.sh host-run --repo .../engram --drain
-```
-
-### Harness notes (carry forward)
-
-- Strict doctor ~41s; do not block drain on strict probe timeout alone.
-- UI tasks: `coding-loop-policy.yaml` sets `executorLaunchTimeoutSeconds: 1800`.
-- Tests: `TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test` only.
-- Recovery: `bash scripts/loopsmith_recover.sh /Volumes/lex1t/dev/shared/repos/engram inspect`
-- **Overseer takeover (policy A):** pause drain — do not implement product code on `main` in parallel with an active attempt on the same `task-id`. Wait for attempt to finish/fail, or `reset-state`; land overseer commit; mark task `passes: true` in `prd.json`; resume drain.
-- **Deploy gates:** defined per iteration in the plan (milestone and/or end-of-cycle); not per slice. See `V5_PRODUCTIVITY_IMPLEMENTATION_PLAN.md` § Deploy gates.
-- **Loopsmith wrapper:** must resolve `LOOPSMITHCTL` portably (not OpenClaw-specific); any agent uses the same LCS wrapper.
-
-## Previous loop: Activity Update v2 (2026-07-02) — complete
-
-AU0–AU9 shipped. See `docs/iterations/ACTIVITY_UPDATE_V2_SPEC.md`.
-
-## Previous loop: Iteration 17 V5 Hardening (2026-07-01) — complete
-
-All 6 prd tasks passed. See archived `docs/iterations/archive/prd-v5-hardening.json`.
-
-## Active Sources of Truth
+## Current program: v6 (vision-driven rebuild)
 
 | Document | Purpose |
 |---|---|
-| `AGENTS.md` | Repo-wide working rules |
-| `docs/V4_PRINCIPLES.md` | Product and architecture rules |
-| `docs/V4_WORLD_MODEL_PLAN.md` | Active implementation plan |
-| `prd.json` | Loopsmith overlay — iteration `lab-surface-loop` (complete) |
-| `docs/iterations/ITERATION_21_LAB_SURFACE.md` | **Active UI iteration plan** |
-| `EXECUTION-TRACKER.md` | This file |
+| `docs/ux-vision/UX_VISION.md` | Product vision + adopted build stance (§10) |
+| `docs/v6/SOLUTION_DESIGN.md` | Architecture, schema, pipeline, trust policy |
+| `docs/v6/IMPLEMENTATION_PLAN.md` | Phases 0–6, slices, deploy gates |
+| `docs/v6/TEST_PLAN.md` | Use cases, test cases, edge cases, metrics |
 
-## Deploy + Validation Baseline
+Runtime baseline (unchanged): `/api/v4` only, Postgres + pgvector with real
+production data (additive-only migrations — see `docs/V4_PRINCIPLES.md`),
+write-enabled MCP at `mcp_server/server.py`.
 
-- Backup before deploy: `bash scripts/backup_prod.sh`
-- Backend tests serial on port 5433
-- Frontend: `cd ui && npm test && npm run build`
-- 2026-07-02T22:05:51.027347+00:00 ui-02-update-outcome-panel accepted via opencode
-- 2026-07-02T22:33:44.232614+00:00 au10-status-extraction accepted via cursor
-- 2026-07-02T22:35:20.042541+00:00 au11-follow-up-routing accepted via cursor
-- 2026-07-02T22:41:02.617279+00:00 ui-04-now-full-today accepted via cursor
-- 2026-07-02T22:42:26.816202+00:00 ui-05-meeting-prep accepted via cursor
-- 2026-07-02T22:43:50.416230+00:00 ui-06-honest-follow-up-actions accepted via cursor
-- 2026-07-02T22:50:30.120585+00:00 ui-07-recall-copy accepted via opencode
-- 2026-07-02T22:54:08.012460+00:00 ui-08-memory-digest accepted via opencode
-- 2026-07-02T23:02:55.342522+00:00 ui-09-decisions-section accepted via opencode
-- 2026-07-02T23:05:34.066365+00:00 ui-10-collapse-empty-sections accepted via opencode
-- 2026-07-03T16:24:55.538327+00:00 sq-07-precision-task-extraction accepted via opencode
-- 2026-07-03T16:51:49.198698+00:00 sq-08-person-hygiene accepted via opencode
-- 2026-07-03T17:18:16.256581+00:00 sq-09-retire-confidence-gating accepted via opencode
-- 2026-07-03T17:28:39.004645+00:00 sq-09-retire-confidence-gating accepted via opencode
-- 2026-07-03T17:36:58.436365+00:00 sq-09-retire-confidence-gating accepted via opencode
-- 2026-07-03T17:45:54.269108+00:00 sq-10-semantic-dismissal-memory accepted via opencode
-- 2026-07-03T18:01:44.723132+00:00 sq-11-dismissal-reasons accepted via opencode
-- 2026-07-03T18:07:23.327702+00:00 sq-11-dismissal-reasons accepted via opencode
+## Phase status
 
-## Post-Iteration 20 deploy (2026-07-03)
+| Phase | Status |
+|---|---|
+| 0 Foundations (archive ✓, API split, operator setting) | V6-00 done; V6-01/02 pending |
+| 1 Distillation report + trust policy | pending (measured gate — see plan) |
+| 2 Workboard | pending |
+| 3 Dossier + direct manipulation + pinning | pending |
+| 4 Today + markers + nudges | pending |
+| 5 Themes + insights | pending |
+| 6 Cutover + legacy UI deletion | pending |
 
-- Commit `10a2d85b`: UI-CTX-01 — Recall search fix, task context chips, compact layouts.
-- Deploy: `backup engram_20260703_161840.sql` → `./scripts/engram-deploy.sh` (smoke green).
-- Bugbot: 1 low finding (People count plural) — fixed before deploy.
+## What a fresh agent must know
 
-## Post-Iteration 19 review fix (2026-07-03)
+- Never `flask init-db` against prod (port 5432). Tests only on :5433.
+  `bash scripts/backup_prod.sh` before any schema change or deploy.
+- `api/v4_entities.py` is a 7.6k-line monolith until V6-01 splits it; after
+  V6-01, new routes go in the owning `api/v4/` module.
+- The legacy UI strata (`ui/src/views/`, `ui/src/lab/`) are scheduled for
+  deletion in Phase 6 — do not extend them; new UI work goes in
+  `ui/src/next/`.
+- `prd.json` at repo root is the Loopsmith overlay slot for the active
+  iteration; superseded PRDs live in `docs/iterations/archive/`.
+- Replay eval: `scripts/replay_eval.py`, results in
+  `docs/iterations/replay_results/` (path intentionally unchanged).
+- Known debt: post-Iteration-19 prod metrics never re-run; `engram.log` at
+  repo root is ignored but ~550MB — rotate/truncate locally when convenient.
 
-- PR [#7](https://github.com/1digitalD/engram/pull/7): Bugbot-driven capture/suggestion hardening (negated status guard, update_unresolved dedup apply, task-cap structural ranking, semantic-memory cap overflow, intent-route decisions, work-carrying persons).
-- Deploy: `backup engram_20260703_114953.sql` → `./scripts/engram-deploy.sh` (smoke green).
+## Validation baseline
 
-## Known tech debt (carry forward)
+```bash
+TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest -q   # serial
+cd ui && npm test && npm run build
+```
 
-- `api/v4_entities.py` (~7k lines): capture, reconciliation apply, and suggestion paths remain monolithic; split when the next loop touches this area heavily.
-- Post-Iteration 19 prod metrics not yet re-run (acceptance rate / agent-deletion SQL in `ITERATION_19_SIGNAL_QUALITY_PLAN.md` § Measurement).
-- Replay eval last run 2026-06-30 (`docs/iterations/replay_results/`); re-run after the next extraction change.
-- Code-default chat model is `gpt-5.4-nano`; prod `.env` overrides judgment paths to `-mini` (SQ-00). `.env.example` documents the intended prod policy.
-- 2026-07-06T16:20:04.851853+00:00 lab-00-shell-scaffold accepted via opencode
-- 2026-07-06T17:40:01.068597+00:00 lab-03-people-rollup accepted via opencode
-- 2026-07-06T18:15:00.000000+00:00 lab-01-capture-trust-loop accepted via cursor (cherry-pick from worktree)
-- 2026-07-06T18:15:00.000000+00:00 lab-02-entity-authoring accepted via cursor (cherry-pick from worktree)
+## Slice log (v6)
+
+- 2026-07-07 V6-00 archive & docs — done (this change series).

@@ -12,15 +12,19 @@ The active implementation is Engram v4.
 
 | Document | Purpose |
 |---|---|
-| `docs/V4_WORLD_MODEL_PLAN.md` | **Active implementation plan** (20 slices, Phases A–F) |
-| `docs/V4_PRINCIPLES.md` | Non-negotiable v4 product and architecture rules |
+| `docs/v6/IMPLEMENTATION_PLAN.md` | **Active implementation plan** (v6 Phases 0–6) |
+| `docs/v6/SOLUTION_DESIGN.md` | v6 architecture, schema changes, trust policy |
+| `docs/v6/TEST_PLAN.md` | v6 use cases, test cases, edge cases, metrics |
+| `docs/ux-vision/UX_VISION.md` | Product vision; §10 = adopted build stance |
+| `docs/V4_PRINCIPLES.md` | Non-negotiable product and architecture rules (still binding) |
 | `docs/SCHEMA.sql` | Canonical v4 Postgres schema |
 | `mcp_server/README_V4.md` | v4 MCP contract and tool surface |
 | `docs/DEPLOY.md` | Local launchd + Tailscale deployment workflow (API `:5001`, MCP `:8765`) |
-| `EXECUTION-TRACKER.md` | Fresh-agent handoff, current repo state, and archived milestones |
+| `EXECUTION-TRACKER.md` | Fresh-agent handoff and current phase status |
 
-`docs/V4_IMPLEMENTATION_PLAN.md` is archived history. `prd.json` is archived reference only.
-The current plan is `docs/V4_WORLD_MODEL_PLAN.md`.
+Everything under `docs/archive/` and `docs/iterations/archive/` is history —
+do not treat it as guidance. `prd.json` at repo root is the Loopsmith overlay
+slot for whichever slice is being drained.
 
 ## Non-Negotiable Rules
 
@@ -30,9 +34,13 @@ The current plan is `docs/V4_WORLD_MODEL_PLAN.md`.
 - All relationships must use `EntityLink` / relationship records.
 - Notes remain source artifacts. AI may extract from notes, never convert them.
 - Safe metadata and high-confidence linking may be auto-applied with audit events.
+  (v6 Phase 1 narrows this: entity *creation* is never auto-applied, and writes to
+  pinned fields demote to proposals — see `docs/v6/SOLUTION_DESIGN.md` §7.)
 - Risky creation, status, deletion, merge, and relationship-deletion work must be suggestions.
 - MCP is write-enabled for v4 and must stay aligned with the active `/api/v4` contract.
-- Work proceeds slice by slice (see `docs/V4_WORLD_MODEL_PLAN.md`) with validation before moving on.
+- Work proceeds slice by slice (see `docs/v6/IMPLEMENTATION_PLAN.md`) with validation before moving on.
+- UI: do not extend `ui/src/views/` or `ui/src/lab/` (deleted in v6 Phase 6);
+  new UI work goes in `ui/src/next/`.
 
 ## ⚠️ Production Data Safety (read before any schema or deploy work)
 
