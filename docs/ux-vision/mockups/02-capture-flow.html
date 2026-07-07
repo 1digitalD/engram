@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Engram vision — Mockup 2: Capture flow</title>
+<style>
+  :root{
+    --ink:#3d3d38; --dim:#8a8a82; --line:#c9c9c1; --paper:#fff; --bg:#ececea;
+    --ai:#7c5cbf; --ai-bg:#f3eefb; --note:#b45309; --note-bg:#fdf3e3;
+  }
+  *{box-sizing:border-box; margin:0}
+  body{background:var(--bg); color:var(--ink);
+       font:14px/1.45 ui-sans-serif,system-ui,"Helvetica Neue",sans-serif;
+       padding:28px; max-width:1180px; margin:0 auto}
+  h1{font-size:18px; margin-bottom:4px}
+  .sub{color:var(--dim); margin-bottom:20px; font-size:13px}
+  .steps{display:grid; grid-template-columns:repeat(3,1fr); gap:18px}
+  .step h2{font-size:13px; margin-bottom:8px}
+  .step .t{color:var(--dim); font-weight:400}
+  .frame{background:var(--paper); border:1px solid var(--line); border-radius:10px; padding:14px; min-height:290px}
+  .box{border:1px solid var(--line); border-radius:7px; background:var(--paper); padding:10px 12px}
+  .dim{color:var(--dim)} .small{font-size:12px}
+  .chip{display:inline-block; border:1px solid var(--line); border-radius:999px;
+        padding:1px 9px; font-size:12px; color:var(--dim); background:#f7f7f4; margin:3px 3px 0 0}
+  .chip.ai{border-color:#d6c8f0; background:var(--ai-bg); color:var(--ai)}
+  .chip.ghost{border-style:dashed; background:#fff; color:#b7a8d6; border-color:#d6c8f0}
+  .chip.pending{border:1.5px dashed var(--ai); background:#fff; color:var(--ai); font-weight:600}
+  .btn{display:inline-block; border:1px solid var(--line); border-radius:6px;
+       padding:3px 10px; font-size:12px; background:#f7f7f4}
+  .who{display:inline-block; border-radius:4px; padding:0 6px; font-size:11px; font-weight:600;
+       background:#eee; color:var(--dim)}
+  .who.ai{background:var(--ai-bg); color:var(--ai)}
+  .ann{display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px;
+       border-radius:50%; background:var(--note); color:#fff; font-size:11px; font-weight:700;
+       vertical-align:middle; margin-left:6px; flex:none}
+  .legend{margin-top:18px; border:1px dashed var(--note); background:var(--note-bg);
+          border-radius:8px; padding:14px 16px}
+  .legend h2{font-size:13px; color:var(--note); margin-bottom:8px}
+  .legend li{margin:6px 0 6px 4px; font-size:13px; list-style:none; display:flex; gap:8px}
+  .legend .ann{margin:1px 0 0}
+  .overlay{border:1.5px solid var(--ink); border-radius:9px; padding:10px 12px; background:#fff}
+  .caret{border-left:1.5px solid var(--ink); animation:none; margin-left:1px}
+  .toast{display:inline-block; border-radius:999px; background:#3d3d38; color:#fff;
+         font-size:12px; padding:4px 12px}
+  .entry-meta{display:flex; justify-content:space-between; font-size:11px; color:var(--dim); margin-bottom:6px}
+  .fade{opacity:.45}
+  @media(max-width:900px){.steps{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<h1>Mockup 2 — Capture: set it down, don't file it</h1>
+<p class="sub">One flow in three time-steps. The entry never changes; understanding accrues <i>around</i> it, marked and undoable — and anything consequential waits for consent.</p>
+
+<div class="steps">
+
+  <!-- STEP A -->
+  <div class="step">
+    <h2>① T+0s — one keystroke, anywhere <span class="t">(user presses <b>c</b> mid-project-view)</span></h2>
+    <div class="frame">
+      <div class="fade small dim" style="margin-bottom:10px">…Acme renewal dossier (dimmed behind overlay)…</div>
+      <div class="overlay">
+        call w/ maria went well, she wants the deck by fri, budget resets in aug<span class="caret">&nbsp;</span><span class="ann">1</span>
+        <div style="margin-top:8px">
+          <span class="chip ghost">✦ looks like: task “send deck to Maria” · Space: Acme renewal — Tab to pre-accept, or just ignore</span><span class="ann">2</span>
+        </div>
+      </div>
+      <p class="small dim" style="margin-top:10px">No type picker. No project field. No tags. Enter = done.<br>
+      Paste works for anything: text, URL, image, file.</p>
+    </div>
+  </div>
+
+  <!-- STEP B -->
+  <div class="step">
+    <h2>② T+3s — caught, and honest about it <span class="t">(entry lands in the Stream, plain)</span></h2>
+    <div class="frame">
+      <div style="margin-bottom:10px"><span class="toast">✓ Caught</span><span class="ann">3</span></div>
+      <div class="box">
+        <div class="entry-meta"><span class="who">you</span><span>today 14:02</span></div>
+        call w/ maria went well, she wants the deck by fri, budget resets in aug
+      </div>
+      <p class="small dim" style="margin-top:10px">The entry is immutable from this moment: never edited,
+      converted, re-filed, or deleted by AI.<span class="ann">4</span></p>
+      <div class="box" style="margin-top:10px; border-style:dashed">
+        <div class="entry-meta"><span class="who ai">✦ mail-agent</span><span>today 13:40</span></div>
+        <span class="small dim">fwd: Acme MSA countersigned (attachment) — <i>agents append to the same Stream, wearing their author chip</i></span><span class="ann">5</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP C -->
+  <div class="step">
+    <h2>③ T+40s — understanding accrues around it <span class="t">(async enrichment arrives)</span></h2>
+    <div class="frame">
+      <div class="box">
+        <div class="entry-meta"><span class="who">you</span><span>today 14:02</span></div>
+        call w/ maria went well, she wants the deck by fri, budget resets in aug
+        <div style="margin-top:8px">
+          <span class="chip ai">✦ #acme</span>
+          <span class="chip ai">✦ @Maria Chen</span>
+          <span class="chip ai">✦ linked → Acme renewal</span><span class="ann">6</span>
+        </div>
+        <div style="margin-top:8px">
+          <span class="chip pending">✦ proposed: new task “Send deck to Maria — due Fri” · review ▸</span><span class="ann">7</span>
+        </div>
+      </div>
+      <p class="small dim" style="margin-top:10px">Hover any ✦ chip → “added by Annotator, because the entry
+      mentions Maria Chen and the Q3 deck” + <u>undo</u>.<span class="ann">8</span></p>
+      <p class="small dim" style="margin-top:6px">Applied chips (solid) vs. pending proposal (dashed):
+      two visibly different promises.</p>
+    </div>
+  </div>
+
+</div>
+
+<div class="legend">
+  <h2>Annotations</h2>
+  <ul>
+    <li><span class="ann">1</span><span>Capture is summoned over whatever the user is doing — no navigation, sub-3-seconds end to end, zero required decisions.</span></li>
+    <li><span class="ann">2</span><span>Hints, never gates: a ghost chip offers pre-structure (Tab to take it), and vanishes if ignored. Skipping it costs nothing — the same inference runs after capture anyway.</span></li>
+    <li><span class="ann">3</span><span>Acknowledgment is explicit. The user should stop keeping backup copies in their head.</span></li>
+    <li><span class="ann">4</span><span>Immutability is the trust anchor: nothing at capture time can be “wrong,” and citations to entries can never drift.</span></li>
+    <li><span class="ann">5</span><span>Capture is also the agents' door — one Stream, two kinds of authors, every entry attributed (glass-box rules 1–2).</span></li>
+    <li><span class="ann">6</span><span>Low-risk enrichment (tags, people, links) is <b>annotate</b>-tier: auto-applied, ✦-marked, explained, undoable, logged in the Ledger.</span></li>
+    <li><span class="ann">7</span><span>Entity creation is <b>propose</b>-tier: the extracted task is a dashed pending chip, reviewable here inline or later in Review (Mockup 3). Never auto-applied.</span></li>
+    <li><span class="ann">8</span><span>Every AI mark is one interaction from its “because” and one from undo — undo doubles as a training signal.</span></li>
+  </ul>
+</div>
+</body>
+</html>

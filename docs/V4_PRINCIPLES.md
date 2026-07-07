@@ -1,6 +1,7 @@
 # Engram v4 Principles
 
-Source of truth: `docs/V4_WORLD_MODEL_PLAN.md` (supersedes GitHub issue #1 as of 2026-06-09).
+Active program: v6 (`docs/v6/`) — these rules remain binding under it.
+Historical source: `docs/archive/V4_WORLD_MODEL_PLAN.md` (superseded GitHub issue #1 as of 2026-06-09).
 
 ## Production Data Safety (added 2026-06-09 — supersedes "clean cutover" clause)
 

@@ -117,11 +117,16 @@ Schema reset validation is destructive: `flask --app app.py init-db`.
 
 ## Active Documentation
 
-- `docs/V4_PRINCIPLES.md`
-- `docs/V4_IMPLEMENTATION_PLAN.md`
+- `docs/v6/IMPLEMENTATION_PLAN.md` — active implementation plan (v6)
+- `docs/v6/SOLUTION_DESIGN.md` — v6 architecture and trust policy
+- `docs/v6/TEST_PLAN.md` — v6 use cases, test cases, edge cases, metrics
+- `docs/ux-vision/UX_VISION.md` — product vision (§10 = adopted build stance)
+- `docs/V4_PRINCIPLES.md` — non-negotiable rules, incl. production data safety
 - `docs/SCHEMA.sql`
 - `docs/DEPLOY.md`
 - `mcp_server/README_V4.md`
 - `EXECUTION-TRACKER.md`
 
-`prd.json` remains in the repo as archived reference material only and is not an active v4 source of truth.
+History lives under `docs/archive/` and `docs/iterations/archive/` and is not
+guidance. `prd.json` at the repo root is the Loopsmith overlay slot for the
+active slice only.
