@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Engram vision — Mockup 7: Workboard</title>
+<style>
+  :root{
+    --ink:#3d3d38; --dim:#8a8a82; --line:#c9c9c1; --paper:#fff; --bg:#ececea;
+    --ai:#7c5cbf; --ai-bg:#f3eefb; --note:#b45309; --note-bg:#fdf3e3;
+    --risk:#b3423a; --risk-bg:#fbeeed;
+  }
+  *{box-sizing:border-box; margin:0}
+  body{background:var(--bg); color:var(--ink);
+       font:14px/1.45 ui-sans-serif,system-ui,"Helvetica Neue",sans-serif;
+       padding:28px; max-width:1180px; margin:0 auto}
+  h1{font-size:18px; margin-bottom:4px}
+  .sub{color:var(--dim); margin-bottom:20px; font-size:13px}
+  .frame{background:var(--paper); border:1px solid var(--line); border-radius:10px; overflow:hidden}
+  .box{border:1px solid var(--line); border-radius:7px; background:var(--paper); padding:12px}
+  .dim{color:var(--dim)} .small{font-size:12px}
+  .chip{display:inline-block; border:1px solid var(--line); border-radius:999px;
+        padding:1px 9px; font-size:12px; color:var(--dim); background:#f7f7f4; margin:2px 2px 0 0}
+  .chip.ai{border-color:#d6c8f0; background:var(--ai-bg); color:var(--ai)}
+  .chip.risk{border-color:#e6c4c1; background:var(--risk-bg); color:var(--risk)}
+  .chip.on{border-color:var(--ink); background:var(--ink); color:#fff}
+  .btn{display:inline-block; border:1px solid var(--line); border-radius:6px;
+       padding:3px 10px; font-size:12px; background:#f7f7f4; color:var(--ink)}
+  .btn.primary{background:#3d3d38; color:#fff; border-color:#3d3d38}
+  .ann{display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px;
+       border-radius:50%; background:var(--note); color:#fff; font-size:11px; font-weight:700;
+       vertical-align:middle; margin-left:6px; flex:none}
+  .legend{margin-top:18px; border:1px dashed var(--note); background:var(--note-bg);
+          border-radius:8px; padding:14px 16px}
+  .legend h2{font-size:13px; color:var(--note); margin-bottom:8px}
+  .legend li{margin:6px 0 6px 4px; font-size:13px; list-style:none; display:flex; gap:8px}
+  .legend .ann{margin:1px 0 0}
+  .chrome{display:flex; gap:10px; align-items:center; padding:12px 16px;
+          border-bottom:1px solid var(--line); background:#fafaf8}
+  .capture{flex:1; border:1.5px solid var(--ink); border-radius:8px; padding:8px 12px;
+           color:var(--dim); background:#fff}
+  .pulse{border:1px solid #d6c8f0; background:var(--ai-bg); color:var(--ai);
+         border-radius:999px; padding:5px 12px; font-size:12px; white-space:nowrap}
+  .nav{display:flex; gap:14px; padding:8px 16px; border-bottom:1px solid var(--line);
+       font-size:12px; color:var(--dim)}
+  .nav b{color:var(--ink)}
+  .filters{display:flex; flex-wrap:wrap; gap:6px; align-items:center; padding:12px 16px;
+           border-bottom:1px solid var(--line); background:#fafaf8}
+  .filters .sep{flex:1}
+  .body{padding:16px; display:flex; flex-direction:column; gap:14px}
+  .space h3{font-size:13px; margin-bottom:2px}
+  .space .meta{font-size:12px; color:var(--dim); margin-bottom:8px}
+  ul.rows{list-style:none}
+  ul.rows li{display:flex; align-items:baseline; gap:8px; flex-wrap:wrap;
+             padding:6px 0; border-bottom:1px dashed #e2e2dc; font-size:13px}
+  ul.rows li:last-child{border-bottom:none}
+  .who{display:inline-block; border-radius:4px; padding:0 6px; font-size:11px; font-weight:600;
+       background:#eee; color:var(--dim)}
+  .grow{flex:1}
+  .riskline{border-left:3px solid var(--risk); background:var(--risk-bg); border-radius:0 6px 6px 0;
+            padding:6px 10px; font-size:12px; color:var(--risk); margin-bottom:8px}
+  .themes{border:1px solid var(--line); border-radius:7px; background:#fafaf8; padding:12px}
+  @media(max-width:800px){ul.rows li{gap:6px}}
+</style>
+</head>
+<body>
+<h1>Mockup 7 — Workboard: the whole portfolio on one screen</h1>
+<p class="sub">Today answers “what needs me.” The Workboard answers “what is <i>everything</i> we're working on — and what's trailing?”</p>
+
+<div class="frame">
+  <div class="chrome">
+    <div class="capture">＋ Set something down…</div>
+    <div class="btn">⌕ Search or ask…</div>
+    <div class="pulse">✦ 2 running · 5 to review</div>
+  </div>
+  <div class="nav">Today · <b>Workboard</b> · Stream · Review · Spaces</div>
+
+  <div class="filters">
+    <span class="chip on">Everything · 23</span>
+    <span class="chip">Mine · 9</span>
+    <span class="chip">Waiting-on · 14</span>
+    <span class="chip risk">Overdue · 3</span>
+    <span class="chip risk">Stale · 4</span>
+    <span class="chip">Blocked · 2</span>
+    <span class="chip risk">At-risk · 2</span><span class="ann">1</span>
+    <span class="sep"></span>
+    <span class="small dim">group: <b>by Space</b> · by Person</span><span class="ann">2</span>
+  </div>
+
+  <div class="body">
+
+    <!-- SPACE: at risk -->
+    <div class="space">
+      <h3>Acme renewal <span class="chip">finish line: Aug 15</span> <span class="chip risk">⚑ at-risk</span></h3>
+      <div class="riskline">⚑ Finish line in 5 weeks; 2 of 4 open commitments silent 10+ days · Spine quiet since Jun 26 → evidence<span class="ann">3</span></div>
+      <ul class="rows">
+        <li>◻ Send revised pricing deck <span class="who">you</span> <span class="chip">overdue 2d</span>
+            <span class="grow"></span> <span class="btn">Done ✓</span> <span class="btn">Log update ▸</span><span class="ann">4</span></li>
+        <li>◻ Security questionnaire <span class="who">Sam</span> <span class="chip risk">12d quiet</span>
+            <span class="chip">📌 nudge Fri</span><span class="ann">5</span>
+            <span class="grow"></span> <span class="btn">Nudge (drafted) ▸</span></li>
+        <li>◻ Legal review of MSA edits <span class="who">Dana</span> <span class="chip">blocked: awaiting Acme redlines</span>
+            <span class="grow"></span> <span class="btn">📌 Mark…</span></li>
+      </ul>
+    </div>
+
+    <!-- SPACE: healthy -->
+    <div class="space">
+      <h3>Website relaunch <span class="chip">finish line: Sep 30</span> <span class="chip">on pace</span></h3>
+      <ul class="rows">
+        <li>◻ Landing-page copy → QA <span class="who">Sam</span> <span class="chip">updated yesterday</span>
+            <span class="grow"></span> <span class="btn">📌 Mark…</span></li>
+        <li>◻ Choose CMS migration path <span class="who">you</span> <span class="chip">📌 discuss in next 1:1 · Priya</span>
+            <span class="grow"></span> <span class="btn">Done ✓</span></li>
+        <li>◻ Revised API estimate <span class="who">Priya</span> <span class="chip">due-ish Wed</span>
+            <span class="grow"></span> <span class="btn">Nudge (drafted) ▸</span></li>
+        <li class="dim small">＋ add a commitment to this Space…<span class="ann">6</span></li>
+      </ul>
+    </div>
+
+    <!-- SPACE: no finish line -->
+    <div class="space">
+      <h3>Home <span class="chip">no finish line</span></h3>
+      <ul class="rows">
+        <li>◻ Review contractor quote <span class="who">you</span> <span class="chip">overdue 2d</span>
+            <span class="grow"></span> <span class="btn">Done ✓</span></li>
+        <li>◻ Intro Sam ↔ Priya <span class="who">you</span> <span class="chip risk">stale 21d</span>
+            <span class="grow"></span> <span class="btn">Keep</span> <span class="btn">Drop</span> <span class="btn">Delegate ▸</span></li>
+      </ul>
+    </div>
+
+    <!-- MONTHLY BRIEFING -->
+    <div class="box" style="border-color:#d6c8f0">
+      <b><span class="chip ai">✦</span> Portfolio health — June</b> <span class="small dim">monthly briefing · every claim cited</span><span class="ann">7</span>
+      <ul class="rows" style="margin-top:6px">
+        <li class="small">• <b>Dana</b> has gone quiet — no activity across any Space in 3 weeks (last: Jun 12 legal read)</li>
+        <li class="small">• <b>Acme renewal</b> newly at-risk (see flag above)</li>
+        <li class="small">• <b>“EU expansion”</b> theme idle past its stated horizon check-in</li>
+        <li class="small">• 2 commitments have <b>no owner</b> — surfaced from May's planning notes</li>
+      </ul>
+    </div>
+
+    <!-- THEMES RAIL -->
+    <div class="themes">
+      <b>Themes — ahead of the work</b><span class="ann">8</span>
+      <ul class="rows" style="margin-top:6px">
+        <li>◇ EU expansion <span class="chip">horizon: maybe Q4</span> <span class="chip">2 decisions · 3 open questions</span>
+            <span class="chip risk">idle 3w</span> <span class="grow"></span> <span class="btn">Promote to Space ▸</span><span class="ann">9</span></li>
+        <li>◇ Reset the hiring bar <span class="chip">no horizon</span> <span class="chip">1 decision</span>
+            <span class="grow"></span> <span class="btn">Open</span></li>
+        <li class="dim small">＋ name a theme…</li>
+      </ul>
+    </div>
+
+  </div>
+</div>
+
+<div class="legend">
+  <h2>Annotations</h2>
+  <ul>
+    <li><span class="ann">1</span><span>One filter bar over the whole portfolio: every open commitment across every Space and person. <b>Overdue / stale / blocked / at-risk</b> are derived states with counts — “what's trailing” is one click, not a saved search.</span></li>
+    <li><span class="ann">2</span><span>Grouping pivots between <b>by Space</b> and <b>by Person</b>. “What is Priya carrying across everything?” and “what's open on Acme?” are the same screen, one toggle apart.</span></li>
+    <li><span class="ann">3</span><span>At-risk is <b>derived, with a stated reason</b> — finish-line proximity vs. aged commitments and a quiet Spine — never a status dropdown someone forgot to update. The flag links to its evidence.</span></li>
+    <li><span class="ann">4</span><span>Fast paths, inline on any row: <b>Done ✓</b> and <b>Log update</b> each write a human-authored Ledger event (“closed by you, here, now”) — no form, no silent field edit. Same affordances on the Dossier and Today.</span></li>
+    <li><span class="ann">5</span><span>An explicit <b>follow-up marker</b> (“📌 nudge Fri”, “📌 discuss in next 1:1”) — human-set, one line. It fires into Today on its date and rides into meeting prep for its person. The complement to passive ripening.</span></li>
+    <li><span class="ann">6</span><span>Add-a-commitment inline, right where it belongs — a Ledger event with you as author. Capture is not the only door.</span></li>
+    <li><span class="ann">7</span><span>The monthly horizon of insights: <b>portfolio health as a briefing, not a dashboard</b> — quiet people, at-risk Spaces, idle themes, unowned work. Daily watch items live on Today; the weekly digest lives in Review. Same signals, three packagings.</span></li>
+    <li><span class="ann">8</span><span>Themes: forward-looking intent that isn't work yet — a name, a sentence, an optional horizon, plus any decisions and questions that have attached. Visible next to active work without pretending to be in motion.</span></li>
+    <li><span class="ann">9</span><span>When work starts, <b>promote to Space</b> — history comes along. Until then no Gantt bars, no swimlanes: enough structure for planning, deliberately short of a roadmap product.</span></li>
+  </ul>
+</div>
+</body>
+</html>

@@ -18,6 +18,7 @@ Mockups referenced throughout live in [`mockups/`](mockups/):
 | 4 | [`04-project-dossier.html`](mockups/04-project-dossier.html) | Working an initiative: brief, decisions, owned next actions, activity spine |
 | 5 | [`05-recall.html`](mockups/05-recall.html) | Recall — answers with receipts, trails, and time |
 | 6 | [`06-distill-transcript.html`](mockups/06-distill-transcript.html) | **The flagship flow**: a multi-topic meeting transcript distilled into one reviewable report — routed, reconciled, deduplicated |
+| 7 | [`07-workboard.html`](mockups/07-workboard.html) | Workboard — the whole portfolio on one screen: every Space, every open commitment, what's trailing |
 
 ---
 
@@ -37,7 +38,9 @@ The app's job, stated as outcomes:
 
 2. **At any moment I can see where each initiative stands** — what happened,
    what's decided, what's next, who owes what — in one minute of reading,
-   even after two weeks away.
+   even after two weeks away. And I can see **all of it at once**: one
+   screen that rolls up everything the team is on, across every Space and
+   person, with what's trailing plainly flagged.
 
 3. **Nothing slips through the cracks.** Every commitment — mine or someone
    else's — has an owner, a source, and an age. Things going quiet get
@@ -104,6 +107,12 @@ reconciled against it:
   A Space may have a **finish line** (outcome + target date) — what we'd
   otherwise call a project. Same surface either way; one less filing
   taxonomy. *(Projects and areas collapse into this one container.)*
+- **Themes** — the lightest container: a named intent that isn't work yet
+  ("EU expansion, maybe Q4"). A name, a sentence of intent, an optional
+  horizon, and whatever decisions and questions have attached to it so far.
+  When work actually starts, one click **promotes it to a Space** and its
+  history comes along. Themes give forward-looking planning a home without
+  building a roadmap product — they hold intent, not schedules.
 - **Commitments** — the atom of execution: something someone said they'd do.
   Every commitment has an **owner**. Owned by you, it's your task. Owned by
   someone else, it's a **waiting-on** — the unit of accountability. Every
@@ -202,7 +211,7 @@ every input size; review cost scales with substance, sublinearly.
 
 ---
 
-## 4. Staying on top: Today, follow-ups, and the work record
+## 4. Staying on top: Today, the Workboard, follow-ups, and insights
 
 ### Today — the attention instrument *(Mockup 1)*
 
@@ -217,6 +226,34 @@ Two columns; the split is the point:
 
 Opening the app answers, in one glance: *what needs me, who owes me, what's
 being handled, what happened while I was away.*
+
+Today is deliberately narrow — it shows what needs attention *now*. The
+breadth view is its own surface:
+
+### The Workboard — the whole portfolio on one screen *(Mockup 7)*
+
+Today answers "what needs me"; the Workboard answers **"what is everything
+we're working on, and what's trailing?"** It is a roll-up across every
+Space and every person: all open commitments (yours and waiting-ons), each
+with owner, Space, age, and due-ish date — filterable in one screen by
+person, Space, and state (*mine / waiting-on / overdue / stale / blocked /
+at-risk*). Grouping pivots between by-Space and by-person, so "what is
+Priya carrying across everything?" and "what's open on Acme?" are the same
+screen with one toggle.
+
+At-risk is a **derived signal with receipts, not a status field anyone
+maintains**: a finish line is flagged when its date is approaching while
+its critical commitments are aged or its Spine has gone quiet; a commitment
+is flagged when it has aged past the Space's standing-order threshold or
+sits blocked on something unresolved. Every flag says *why* in one line —
+"finish line Aug 15, two of four open commitments silent 10+ days" — and
+clicks through to the evidence. Themes appear here too, as a quiet bottom
+rail: named intents with horizons, so forward-looking work stays visible
+next to active work without pretending to be in motion.
+
+The Workboard is read-mostly but not read-only: nudge, keep/drop/delegate,
+and mark-done are available inline on any row, exactly as they are on Today
+and the Dossier.
 
 ### The follow-up engine — nothing slips
 
@@ -234,14 +271,40 @@ being handled, what happened while I was away.*
 - **Meeting prep on demand** (and eventually on calendar signal): ask the
   omni-bar "prep me for Maria" → what you owe her, what she owes you, open
   decisions you share, and what's changed since you last met — all cited.
+- Aging and ripening are the *passive* path. There is an explicit one too:
+  any commitment can carry a **follow-up marker** — "nudge on Friday,"
+  "discuss in next 1:1 with Sam." A marker is one line, human-set, attached
+  in place (Today, Workboard, Dossier, or a person page). It fires into
+  Today on its date and rides along into meeting prep for its person.
+  Passive ripening catches what you forgot to schedule; markers catch what
+  you already know needs a date. Both land in the same follow-up queue, so
+  there is still only one place to look.
+
+### Insights at three horizons — briefings, not dashboards
+
+The same underlying signals — age, silence, at-risk flags, delivery
+history — get **packaged three ways**, matched to how often each is worth
+reading:
+
+- **Daily**, on Today: watch items only — ripened follow-ups, fired
+  markers, anything newly at-risk since yesterday. Never a report, just
+  the day's exceptions.
+- **Weekly**, in Review: the digest — what moved, what was decided, what
+  stalled, what's next — cited, editable, exportable as a status update.
+  The Friday "what did this week even do" reconstruction disappears.
+- **Monthly**, on the Workboard: portfolio health — people gone quiet,
+  Spaces at risk, Themes idle past their horizon, work nobody owns. The
+  slow drifts that no daily view can show.
+
+Each is a short, cited briefing that names what deserves attention and
+why — never a wall of charts. If a horizon has nothing to say, it says
+nothing.
 
 ### The work record — summaries that write themselves
 
 - Each Space keeps an AI-maintained **Brief** (§5) and a **decision log**.
-- A **weekly summary** drafts itself from the Ledger and the Fabric: what
-  moved, what was decided, what stalled, what's next — cited, editable,
-  exportable as a status update. The Friday "what did this week even do"
-  reconstruction disappears.
+- The weekly digest above drafts itself from the Ledger and the Fabric —
+  no one sits down to write it.
 - Because every artifact cites the Stream, revisiting any activity or
   decision months later lands on the original words in two clicks.
 
@@ -274,9 +337,17 @@ Opening a Space presents a **Dossier** — the one-minute re-load:
   Space — "watch the Stream for anything about Acme and attach it," "keep
   the Brief fresh," "flag waiting-ons idle 5+ days." Scoped autonomy
   granted in advance, every resulting action attributed back to its order.
+- **Fast paths**: capture isn't the only way in. Right on the Dossier (and
+  on any commitment row anywhere): **add a commitment**, **log an update**,
+  **mark done** — each a single inline line, and each recorded as a
+  human-authored **Ledger event**, never a form and never a silent field
+  edit. "Mark done" writes "closed by you, here, now" into the record the
+  same way a distilled transcript would. Hands-on management stays
+  first-class without reintroducing CRUD screens: the event stream is the
+  edit model, for both kinds of hands.
 
 Commitment detail stays lightweight: what, owner, due-ish, receipts,
-activity. No twelve-field form, ever.
+activity, follow-up marker if any. No twelve-field form, ever.
 
 ---
 
@@ -335,7 +406,7 @@ to "is something happening right now?"
 
 ## 7. Information architecture
 
-Five surfaces plus three persistent chrome elements — the IA fits in one
+Six surfaces plus three persistent chrome elements — the IA fits in one
 breath:
 
 ```
@@ -346,6 +417,8 @@ breath:
 │  · Pulse — "✦ 2 running · 5 to review", expandable peek        │
 ├────────────────────────────────────────────────────────────────┤
 │  TODAY      needs-you (incl. ripened follow-ups) vs. in-motion │
+│  WORKBOARD  portfolio roll-up — all commitments, all Spaces,   │
+│             what's trailing; Themes rail for what's ahead      │
 │  STREAM     the raw capture log, browsable by time             │
 │  REVIEW     distillation reports + proposals + the Ledger      │
 │  SPACES     initiatives & contexts → each opens as a Dossier   │
@@ -386,7 +459,14 @@ exist as flows inside these surfaces, not as places.
   drafts — every claim cites the Stream.
 - **No second workspace for agents.** One surface, two kinds of hands.
 - **No CRUD-form screens.** If a screen looks like a form over a schema,
-  the design has failed at that spot.
+  the design has failed at that spot. Direct manipulation lives in the
+  fast paths — inline, one line, recorded as Ledger events.
+- **No roadmap product.** Themes hold a name, an intent, and a horizon —
+  no Gantt bars, no swimlanes, no quarterly planning ceremony. When a
+  theme becomes work, it becomes a Space.
+- **No status anyone has to maintain.** At-risk, stale, quiet, trailing —
+  all derived from the record with a stated reason, never a dropdown
+  someone forgets to update.
 
 ---
 
@@ -412,3 +492,10 @@ exist as flows inside these surfaces, not as places.
 6. **How many agents does the user perceive?** One assistant persona vs. a
    small named cast (distiller, project-keeper, researcher). Start small and
    watch whether names carry meaning or noise.
+7. **At-risk calibration.** The Workboard's derived flags face the same
+   precision/recall tension as extraction: flag too early and "at-risk"
+   becomes wallpaper; too late and it's a post-mortem. What the default
+   heuristics are (days quiet vs. finish-line proximity vs. blocked
+   chains), and how standing orders override them per Space, needs a pass
+   with real portfolios. Plan-slip history (how a finish line moved over
+   time) is deliberately deferred — the record makes it derivable later.
