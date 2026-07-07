@@ -27,6 +27,15 @@ Mockups referenced throughout live in [`mockups/`](mockups/):
 The operator of Engram runs several concurrent initiatives involving other
 people. Their raw material is messy: meeting transcripts spanning multiple
 topics and speakers, short status updates, notes-to-self, feedback blurbs.
+
+Scope, stated plainly: **one operator**. Teammates appear everywhere — as
+owners, in transcripts, on person pages — but they never log in; this is
+the cockpit of the person overseeing the work, not a collaboration suite.
+And input arrives **by hand**: transcripts are pasted in, not piped from
+recorders or calendars. Both constraints cut enormous accidental scope
+(permissions, presence, integrations) and both can be revisited later
+without changing the model.
+
 The app's job, stated as outcomes:
 
 1. **I supply whatever I have — the system turns it into current state.**
@@ -164,7 +173,11 @@ transcript" and "everything is up to date."
 A substantive capture (a transcript, long meeting notes, a dense update)
 triggers **distillation**. The result is **one reviewable report per
 capture** — never a scatter of fourteen disconnected proposals dribbling
-into a queue. The report reads top-to-bottom in under a minute:
+into a queue. Because transcripts arrive pasted — in whatever shape the
+source tool exported, speaker labels intact, mangled, or absent — the
+report *asks* about uncertain attribution ("who committed to this?") as
+one of its line items rather than guessing an owner (§9.2). The report
+reads top-to-bottom in under a minute:
 
 1. **Routed** — which Spaces this capture touches (a multi-topic meeting
    routes to several; annotate-tier, applied, undoable).
@@ -342,9 +355,43 @@ Opening a Space presents a **Dossier** — the one-minute re-load:
   **mark done** — each a single inline line, and each recorded as a
   human-authored **Ledger event**, never a form and never a silent field
   edit. "Mark done" writes "closed by you, here, now" into the record the
-  same way a distilled transcript would. Hands-on management stays
-  first-class without reintroducing CRUD screens: the event stream is the
-  edit model, for both kinds of hands.
+  same way a distilled transcript would.
+
+### Direct manipulation — the human's full toolkit
+
+The no-CRUD refusal (§8) bans *form-over-schema screens*, not human
+authority over the record. The operator can change anything, in place,
+through **typed affordances** — each one specific to what it touches:
+
+- **Status and dates** — inline on any commitment or Space: status,
+  due-ish date, follow-up marker. Click the chip, change it, done.
+- **Re-homing** — specific moves, never a generic relationship editor:
+  move a commitment to a different Space; file a Space under a parent
+  context; hand a commitment to a different owner; attach a Stream entry
+  to the Space, commitment, or person it belongs with. Each is one
+  gesture, offered where the thing lives.
+- **Correcting updates** — a logged update can be amended in place; the
+  prior wording stays in the Ledger (old → new), so the record never lies
+  about what it used to say.
+- **Archive and delete** — archive is the everyday verb: instant, inline,
+  undoable. Delete is the rare one: confirmed, and recorded as a tombstone
+  event. Stream entries are the exception to casual deletion — they are
+  the receipts everything else cites — but the operator can still redact
+  one (a mispaste, something sensitive); redaction visibly breaks any
+  citation that pointed at it rather than silently orphaning claims.
+
+Three invariants keep this from decaying back into CRUD:
+
+1. **Single-purpose, in place.** Every affordance edits one thing where it
+   appears. There is no "edit entity" screen, ever.
+2. **Everything is a Ledger event.** Human edits are as attributed and
+   inspectable as AI actions — same flight recorder, two kinds of hands.
+3. **Human edits pin.** A value the operator set by hand is authoritative.
+   Reconciliation may *propose* changing it when new evidence arrives —
+   "Thursday's transcript suggests this moved to Friday" — but never
+   overwrites it automatically, even at annotate tier. And corrections are
+   training signal: a re-homed commitment or a fixed owner teaches the
+   distiller the same way a dismissal does.
 
 Commitment detail stays lightweight: what, owner, due-ish, receipts,
 activity, follow-up marker if any. No twelve-field form, ever.
@@ -387,7 +434,7 @@ in-place undo for anything auto-applied. The **Pulse** is its one-line
 presence in the chrome: `✦ 2 running · 5 to review` — the permanent answer
 to "is something happening right now?"
 
-**The seven rules of the glass box** — screens change, these don't:
+**The eight rules of the glass box** — screens change, these don't:
 
 1. **One surface.** Agents act on the same objects the user sees — no shadow
    copies.
@@ -401,6 +448,8 @@ to "is something happening right now?"
    entries. No receipts, no claim.
 7. **Interruptible.** Any run can be paused or stopped from anywhere it's
    visible.
+8. **Human edits win.** A value set by hand is pinned — AI may propose
+   against it with new evidence, but never overwrites it automatically.
 
 ---
 
@@ -499,3 +548,37 @@ exist as flows inside these surfaces, not as places.
    chains), and how standing orders override them per Space, needs a pass
    with real portfolios. Plan-slip history (how a finish line moved over
    time) is deliberately deferred — the record makes it derivable later.
+
+---
+
+## 10. Adopted build stance (decided 2026-07-07)
+
+The document above is clean-slate by design. Reviewing it against the v4
+codebase produced these decisions, recorded here so the next planning pass
+starts from them:
+
+- **The backend substrate stays.** The v4 data model maps almost
+  one-to-one onto this vision: `note`→Stream entry, `project`+`area`→Space,
+  `task`+`assigned_to`→Commitment, `Decision` as-is, `EntityEvent`+
+  `ChangeBatch`→Ledger, `AiSuggestion`→proposals, plus search, embeddings,
+  brief, attention, and MCP services. Renames live in the UI vocabulary
+  and DTOs, **not** the database — schema changes remain additive-only per
+  `docs/V4_PRINCIPLES.md`.
+- **The UI is rebuilt clean.** A new app shell implementing this IA talks
+  to the existing `/api/v4`; the legacy views, the V5 generation, and the
+  `/lab` surface are retired (not extended) once Today + Review + Dossier
+  reach parity. Three additive UI strata was the failure mode; a fourth is
+  not the fix.
+- **Auto-create at confidence ≥0.9 is retired** in favor of rule 5
+  (consequential means consented). It ships in the same change as the
+  distillation report's batch-accept — one without the other makes review
+  worse, not better.
+- **Deferred from scope**: agent runs / the Pulse's run cards (the ✦
+  conventions stay so they can land later), natural-language standing
+  orders (per-Space threshold *settings* ship instead), sending channels
+  for nudges, calendar/recorder integrations, plan-slip history.
+- **Build order**: distillation report quality first (it is the load-
+  bearing bet; measure review-time-per-meeting with the existing replay
+  eval), Workboard early (cheap — it's queries over data `/today` already
+  computes), then Dossier + direct manipulation, then markers, Themes,
+  and insight horizons.
