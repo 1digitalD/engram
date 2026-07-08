@@ -314,6 +314,12 @@ def ask_question(question: str, top_k: int = ASK_TOP_K) -> dict:
     if not question:
         raise ValueError("question is required")
 
+    from services.v4_meeting_prep import answer_prep_question, parse_prep_question
+
+    prep_target = parse_prep_question(question)
+    if prep_target is not None:
+        return answer_prep_question(prep_target)
+
     results = search_entities(question, mode="hybrid", limit=top_k)
     citations = _build_citations(results, question)
 

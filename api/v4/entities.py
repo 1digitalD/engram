@@ -145,7 +145,13 @@ def get_entity_detail(entity_id):
         detail["current_load"] = _person_current_load(tasks, latest_update)
         detail["pulse"] = pulse
         detail["dependency_watch"] = _task_dependency_watch(tasks, latest_update)
-        detail["meeting_prep"] = _person_meeting_prep(entity, tasks, latest_update, pulse)
+        from services.v4_meeting_prep import build_meeting_prep_payload
+
+        base_prep = _person_meeting_prep(entity, tasks, latest_update, pulse)
+        detail["meeting_prep"] = build_meeting_prep_payload(
+            entity,
+            base_meeting_prep=base_prep,
+        )
     if entity.type == "project":
         tasks = _project_open_tasks(entity)
         _attach_task_context(tasks)
