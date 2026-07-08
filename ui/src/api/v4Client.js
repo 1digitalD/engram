@@ -127,6 +127,7 @@ export const v4API = {
   brief: (params = {}) => v4Request('GET', '/brief', null, params),
   metrics: {
     trust: (params = {}) => v4Request('GET', '/metrics/trust', null, params),
+    recordReview: (data) => v4Request('POST', '/metrics/trust/review', data),
   },
   recent: (params = {}) => v4Request('GET', '/recent', null, params),
   inbox: (params = {}) => v4Request('GET', '/inbox', null, params),

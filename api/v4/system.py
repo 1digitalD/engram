@@ -3,6 +3,58 @@
 from api import api_v4_bp
 from api.v4._shared import *
 
+
+REVIEW_METRICS_KEY = "review_metrics"
+REVIEW_METRICS_MAX_EVENTS = 200
+
+
+def _review_metrics_events():
+    raw = _get_app_setting(REVIEW_METRICS_KEY) or {}
+    events = raw.get("events") if isinstance(raw, dict) else []
+    return events if isinstance(events, list) else []
+
+
+def _parse_review_completed_at(value):
+    try:
+        return _parse_datetime(value)
+    except Exception:
+        return None
+
+
+def _review_metrics_summary(days):
+    since = datetime.now(timezone.utc) - timedelta(days=days)
+    events = []
+    for event in _review_metrics_events():
+        if not isinstance(event, dict):
+            continue
+        completed_at = _parse_review_completed_at(event.get("completed_at"))
+        duration_ms = event.get("duration_ms")
+        if completed_at is None or completed_at < since:
+            continue
+        if not isinstance(duration_ms, int) or duration_ms < 0:
+            continue
+        events.append({**event, "completed_at": completed_at, "duration_ms": duration_ms})
+
+    durations = sorted(event["duration_ms"] for event in events)
+    median_duration_ms = None
+    if durations:
+        midpoint = len(durations) // 2
+        if len(durations) % 2:
+            median_duration_ms = durations[midpoint]
+        else:
+            median_duration_ms = round((durations[midpoint - 1] + durations[midpoint]) / 2)
+
+    return {
+        "completed_reports": len(events),
+        "median_duration_ms": median_duration_ms,
+        "median_duration_seconds": round(median_duration_ms / 1000, 1)
+        if median_duration_ms is not None
+        else None,
+        "total_duration_ms": sum(durations),
+        "last_completed_at": _iso(max((event["completed_at"] for event in events), default=None)),
+    }
+
+
 @api_v4_bp.route("/health", methods=["GET"])
 def health():
     database_ready, database_reason = runtime_health.probe_database_connection()
@@ -107,6 +159,7 @@ def trust_metrics():
         }
         for w in weeks
     ]
+    review = _review_metrics_summary(days)
 
     return jsonify({
         "window_days": days,
@@ -127,8 +180,43 @@ def trust_metrics():
             "quick_kills": quick_kills,
         },
         "correction_rate": round(corrections_total / agent_total, 3) if agent_total else None,
+        "review": review,
         "weekly": weekly,
     })
+
+
+@api_v4_bp.route("/metrics/trust/review", methods=["POST"])
+def record_review_metrics():
+    """Record one completed v6 review session duration."""
+    data = request.get_json(silent=True) or {}
+    duration_ms = data.get("duration_ms")
+    report_id = _clean_text(data.get("report_id"))
+
+    if not isinstance(duration_ms, int):
+        return _error("duration_ms must be an integer")
+    if duration_ms < 0:
+        return _error("duration_ms must be >= 0")
+
+    completed_at = datetime.now(timezone.utc)
+    event = {
+        "report_id": report_id,
+        "duration_ms": duration_ms,
+        "completed_at": completed_at.isoformat(),
+    }
+
+    suggestion_count = data.get("suggestion_count")
+    if isinstance(suggestion_count, int) and suggestion_count >= 0:
+        event["suggestion_count"] = suggestion_count
+
+    setting = _app_setting_row(REVIEW_METRICS_KEY)
+    value = setting.value if isinstance(setting.value, dict) else {}
+    events = value.get("events") if isinstance(value.get("events"), list) else []
+    events.append(event)
+    setting.value = {"events": events[-REVIEW_METRICS_MAX_EVENTS:]}
+    flag_modified(setting, "value")
+    db.session.commit()
+
+    return jsonify({"data": event}), 201
 
 
 @api_v4_bp.route("/settings/operator", methods=["GET"])
@@ -209,5 +297,4 @@ def agent_activity():
         counts[item["category"]] = counts.get(item["category"], 0) + 1
 
     return jsonify({"data": items, "meta": {"total": len(items), "limit": limit, "counts": counts}})
-
 

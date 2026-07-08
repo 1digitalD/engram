@@ -222,10 +222,10 @@ Recorded in `metrics/trust` + replay results; baseline row filled at V6-14.
 
 | Metric | Source | Baseline (fill in) | Target |
 |---|---|---|---|
-| Median review time per pasted transcript | client instrumentation | — | < 90s (stretch 60s) |
+| Median review time per pasted transcript | client instrumentation | 0 completed reviews / no median yet (2026-07-07 baseline) | < 90s (stretch 60s) |
 | Report items accepted without edit | resolve payloads | — | ≥ 70% |
 | Corrections after acceptance (re-home/owner/date fixes within 7d) | Ledger events | — | ≤ 10% of accepted items |
 | Auto-created entities | events | (current: >0) | 0 |
-| Replay eval extraction precision / recall | `scripts/replay_eval.py` | last run 2026-06-30 | no regression; grouping score added |
+| Replay eval extraction precision / recall | `scripts/replay_eval.py` | grouping 1.000, sectioning 1.000 across 11 fixture-backed reports (`--dry-run`, 2026-07-07) | no regression; grouping score added |
 | At-risk flags active at once | workboard | — | ≤ 5, all judged legitimate in weekly check |
 | Suggestion queue leakage (suggestions with no `report_id`) | SQL | — | 0 after Phase 1 |

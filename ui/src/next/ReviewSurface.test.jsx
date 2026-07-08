@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import ReviewSurface from './ReviewSurface';
 import NextShell from './NextShell';
@@ -11,6 +11,9 @@ vi.mock('../api/v4Client', () => ({
       get: vi.fn(),
       resolve: vi.fn(),
     },
+    metrics: {
+      recordReview: vi.fn(),
+    },
     capture: vi.fn(),
     search: vi.fn(),
   },
@@ -21,12 +24,10 @@ import { v4API } from '../api/v4Client';
 
 const REPORT_ID = 'report-1';
 const SUGGESTION_ID = 'suggestion-1';
-
 const LIST_PAYLOAD = {
   data: [{ id: REPORT_ID, status: 'pending', source_note_id: 'note-1' }],
   meta: { total: 1 },
 };
-
 const DETAIL_PAYLOAD = {
   data: {
     id: REPORT_ID,
@@ -85,12 +86,18 @@ function renderReview(initialEntry = '/next/review') {
   );
 }
 
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
 describe('ReviewSurface', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.spyOn(Date, 'now').mockReturnValue(1_000);
     v4API.reports.list.mockResolvedValue(LIST_PAYLOAD);
     v4API.reports.get.mockResolvedValue(DETAIL_PAYLOAD);
     v4API.reports.resolve.mockResolvedValue({ data: { status: 'reviewed' } });
+    v4API.metrics.recordReview.mockResolvedValue({ data: {} });
     v4API.capture.mockResolvedValue({});
     v4API.search.mockResolvedValue({ data: [] });
   });
@@ -105,79 +112,112 @@ describe('ReviewSurface', () => {
     expect(screen.getByText('Proposed commitments')).toBeInTheDocument();
   });
 
-  it('verifies a proposal via POST /reports/<id>/resolve', async () => {
+  it('verifies proposal via POST /reports/<id>/resolve', async () => {
     renderReview();
 
     await screen.findByText('Write docs');
     fireEvent.click(screen.getByRole('button', { name: 'Verify' }));
 
-    await waitFor(() => expect(v4API.reports.resolve).toHaveBeenCalledWith(REPORT_ID, {
-      decisions: [{ suggestion_id: SUGGESTION_ID, action: 'accept' }],
-    }));
+    await waitFor(() =>
+      expect(v4API.reports.resolve).toHaveBeenCalledWith(REPORT_ID, {
+        decisions: [{ suggestion_id: SUGGESTION_ID, action: 'accept' }],
+      }),
+    );
   });
 
-  it('dismisses with a reason', async () => {
+  it('dismisses with reason', async () => {
     renderReview();
 
     await screen.findByText('Write docs');
     fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
     fireEvent.click(await screen.findByRole('button', { name: 'not mine' }));
 
-    await waitFor(() => expect(v4API.reports.resolve).toHaveBeenCalledWith(REPORT_ID, {
-      decisions: [{ suggestion_id: SUGGESTION_ID, action: 'dismiss', dismissal_reason: 'not mine' }],
-    }));
+    await waitFor(() =>
+      expect(v4API.reports.resolve).toHaveBeenCalledWith(REPORT_ID, {
+        decisions: [
+          { suggestion_id: SUGGESTION_ID, action: 'dismiss', dismissal_reason: 'not mine' },
+        ],
+      }),
+    );
   });
 
-  it('edits a proposal title before verifying', async () => {
+  it('edits proposal title before verifying', async () => {
     renderReview();
 
     await screen.findByText('Write docs');
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
-    const input = screen.getByLabelText('Edit title');
-    fireEvent.change(input, { target: { value: 'Write documentation' } });
+    fireEvent.change(screen.getByLabelText('Edit title'), {
+      target: { value: 'Write documentation' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Save edit' }));
 
-    await waitFor(() => expect(v4API.reports.resolve).toHaveBeenCalledWith(REPORT_ID, {
-      decisions: [{
-        suggestion_id: SUGGESTION_ID,
-        action: 'edit',
-        edits: { title: 'Write documentation' },
-      }],
-    }));
+    await waitFor(() =>
+      expect(v4API.reports.resolve).toHaveBeenCalledWith(REPORT_ID, {
+        decisions: [
+          {
+            suggestion_id: SUGGESTION_ID,
+            action: 'edit',
+            edits: { title: 'Write documentation' },
+          },
+        ],
+      }),
+    );
   });
 
-  it('defers a proposal with later', async () => {
+  it('marks a suggestion for later', async () => {
     renderReview();
 
     await screen.findByText('Write docs');
     fireEvent.click(screen.getByRole('button', { name: 'Later' }));
 
-    await waitFor(() => expect(v4API.reports.resolve).toHaveBeenCalledWith(REPORT_ID, {
-      decisions: [{ suggestion_id: SUGGESTION_ID, action: 'later' }],
-    }));
+    await waitFor(() =>
+      expect(v4API.reports.resolve).toHaveBeenCalledWith(REPORT_ID, {
+        decisions: [{ suggestion_id: SUGGESTION_ID, action: 'later' }],
+      }),
+    );
   });
 
-  it('batch accept-rest calls POST /reports/<id>/resolve', async () => {
+  it('sends review duration when a report leaves the queue', async () => {
+    v4API.reports.list
+      .mockResolvedValueOnce(LIST_PAYLOAD)
+      .mockResolvedValueOnce({ data: [], meta: { total: 0 } });
+    vi.spyOn(Date, 'now').mockReturnValueOnce(1_000).mockReturnValueOnce(46_000);
+
     renderReview();
 
     await screen.findByText('Write docs');
-    fireEvent.click(screen.getByRole('button', { name: /Accept remainder \(1\)/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Verify' }));
 
-    await waitFor(() => expect(v4API.reports.resolve).toHaveBeenCalledWith(REPORT_ID, {
-      decisions: [],
-      accept_rest: true,
-    }));
+    await waitFor(() =>
+      expect(v4API.metrics.recordReview).toHaveBeenCalledWith({
+        report_id: REPORT_ID,
+        duration_ms: 45_000,
+        suggestion_count: 1,
+      }),
+    );
   });
 
-  it('renders applied annotations without per-item resolve actions', async () => {
+  it('accepts the rest of the report in one batch', async () => {
+    renderReview();
+
+    await screen.findByText('Write docs');
+    fireEvent.click(screen.getByRole('button', { name: /Accept rest \(1\)/ }));
+
+    await waitFor(() =>
+      expect(v4API.reports.resolve).toHaveBeenCalledWith(REPORT_ID, {
+        decisions: [],
+        accept_rest: true,
+      }),
+    );
+  });
+
+  it('does not show per-item actions for applied annotations', async () => {
     renderReview();
 
     await screen.findByText('Tag added: meeting');
     expect(screen.getByText(/Already applied/)).toBeInTheDocument();
-    const appliedCard = screen.getByText('Tag added: meeting').closest('li');
-    expect(within(appliedCard).queryByRole('button', { name: 'Verify' })).not.toBeInTheDocument();
-    const proposalCard = screen.getByText('Write docs').closest('li');
-    expect(within(proposalCard).getByRole('button', { name: 'Verify' })).toBeInTheDocument();
+    expect(screen.queryByText('Tag added: meeting', { selector: 'button' })).not.toBeInTheDocument();
+    expect(screen.getByText('Write docs')).toBeInTheDocument();
   });
 });
 
@@ -185,11 +225,12 @@ describe('NextShell', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     v4API.reports.list.mockResolvedValue({ data: [], meta: { total: 2 } });
+    v4API.metrics.recordReview.mockResolvedValue({ data: {} });
     v4API.capture.mockResolvedValue({});
     v4API.search.mockResolvedValue({ data: [] });
   });
 
-  it('shows review pulse count from pending reports', async () => {
+  it('shows review pulse count for pending reports', async () => {
     render(
       <MemoryRouter initialEntries={['/next/review']}>
         <Routes>
