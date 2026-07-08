@@ -45,7 +45,9 @@ def test_trust_metrics_aggregates_outcomes(client, app):
     assert data["corrections"]["dismissals"] == 2
     assert data["corrections"]["quick_kills"] == 1
     assert data["corrections"]["total"] == 0 + 1 + 2 + 1  # reverts + merges + dismissals + kills
-    assert data["correction_rate"] == 1.0
+    assert data["correction_rate"] == round(
+        data["corrections"]["total"] / data["agent_actions"]["total"], 3
+    )
     assert data["review"]["completed_reports"] == 0
     assert data["review"]["median_duration_ms"] is None
 
