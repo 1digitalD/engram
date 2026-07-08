@@ -1,7 +1,6 @@
 """Engram v4 links API."""
 
 from api import api_v4_bp
-from api import v4_entities as _v4e
 from api.v4._shared import *
 
 @api_v4_bp.route("/entities/<entity_id>/owner", methods=["POST"])
