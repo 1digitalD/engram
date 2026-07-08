@@ -1,9 +1,9 @@
 {
-  "iteration": "v6-phase-1-distillation",
-  "goal": "Phase 1 flagship: distillation reports (one capture \u2192 one report), resolve API, retire auto-create, /next Review UI, replay eval + metrics \u2014 with enforced implement\u2192review\u2192fix\u2192APPROVE QC loop.",
-  "riskLevel": "high",
-  "userProblem": "Capture still auto-creates entities and dumps loose suggestions; there is no batch-review report contract or Review surface to trust messy input.",
-  "whyNow": "Phase 0 API package and operator setting are done and retro-reviewed. Phase 1 is the load-bearing bet per IMPLEMENTATION_PLAN.",
+  "iteration": "v6-phase-2-workboard",
+  "goal": "Phase 2: derived workboard states + GET /workboard endpoint, Workboard surface, Stream surface — with implement→review→APPROVE QC.",
+  "riskLevel": "medium",
+  "userProblem": "No portfolio view of commitments by derived state (mine, waiting-on, overdue, stale, blocked, at-risk); capture stream is buried.",
+  "whyNow": "Phase 1 distillation + Review surface shipped. Workboard is the cheapest high-value win per IMPLEMENTATION_PLAN.",
   "skills": [
     "tdd",
     "incremental-implementation",
@@ -12,242 +12,91 @@
   "doubt": false,
   "scope": {
     "filesAffected": [
-      "scripts/migrations/006_distillation_reports.sql",
-      "services/v4_report.py",
-      "services/v4_reconciliation.py",
-      "services/v4_extraction.py",
-      "api/v4/reports.py",
-      "api/v4/capture.py",
-      "models.py",
-      "ui/src/next/",
-      "scripts/replay_eval.py",
+      "services/v4_workboard.py",
+      "api/v4/workboard.py",
+      "ui/src/next/WorkboardSurface.jsx",
+      "ui/src/next/StreamSurface.jsx",
+      "ui/src/next/NextShell.jsx",
+      "ui/src/next/NextApp.jsx",
+      "ui/src/api/v4Client.js",
       "tests/",
       "docs/v6/reviews/",
+      "docs/v6/fixtures/route_table_baseline.txt",
       "EXECUTION-TRACKER.md"
     ],
     "routesAffected": [
-      "GET /api/v4/reports",
-      "GET /api/v4/reports/<id>",
-      "POST /api/v4/reports/<id>/resolve",
-      "POST /api/v4/capture (returns report_id)",
-      "Retired: auto-create entity path"
+      "GET /api/v4/workboard"
     ],
     "dataOrApiDependencies": [
-      "Tests must use TEST_DATABASE_URL on port 5433 only.",
-      "Migration 006_distillation_reports.sql additive only \u2014 test DB first.",
-      "bash scripts/backup_prod.sh before prod migration deploy.",
-      "Review verdict required: docs/v6/reviews/<implement-task-id>.md + v6_check_review_verdict.sh"
+      "operator_person_id from GET /settings/operator for mine/waiting_on",
+      "Per-Space thresholds in project properties.thresholds",
+      "TEST_DATABASE_URL port 5433 only"
     ],
     "writePathsAffected": [
-      "distillation_reports table + ai_suggestions.report_id",
-      "Report assembler in job worker",
-      "Batch resolve endpoint",
-      "Delete AUTO_CREATE threshold paths",
-      "New ui/src/next/ shell at /next"
+      "Read-only derived query endpoint; UI surfaces under ui/src/next/"
     ]
   },
   "tasks": [
     {
-      "id": "v6-10-report-assembler",
-      "title": "Migration + report assembler + job integration",
-      "description": "Per SOLUTION_DESIGN \u00a75.1 and \u00a76. Add scripts/migrations/006_distillation_reports.sql (distillation_reports + ai_suggestions.report_id). Implement services/v4_report.py: group all candidates from one capture into one report, order sections (routing summary \u2192 applied annotations \u2192 proposed commitments \u2192 decisions \u2192 questions \u2192 leftovers), emit attribution questions when owner ambiguous, supersede prior report on re-distill. Wire into job worker after reconciliation. Register routes stub in api/v4/reports.py only if needed for imports \u2014 full HTTP in V6-11. Tests: TEST_PLAN TC-10..13, TC-17.",
+      "id": "v6-20-workboard-endpoint",
+      "title": "Derived states + GET /workboard",
+      "description": "Implement services/v4_workboard.py per SOLUTION_DESIGN §10.1: mine/waiting_on (operator_person_id), overdue, stale (per-Space threshold default 10d), blocked (open blocks links), at_risk v1 with reason strings + hysteresis (clear at threshold-2d). Wire GET /api/v4/workboard?group=space|person&state=... in api/v4/workboard.py. Tests: TEST_PLAN TC-20..24, EC-10..14.",
       "kind": "code",
-      "skills": [
-        "tdd",
-        "incremental-implementation",
-        "git-workflow"
-      ],
-      "risk": "high",
+      "skills": ["tdd", "incremental-implementation", "git-workflow"],
+      "risk": "medium",
       "dependencies": [],
       "acceptanceCriteria": [
-        "Migration 006 applies cleanly on test DB",
-        "N candidates from one capture \u2192 one distillation_reports row; all ai_suggestions.report_id set",
-        "Section ordering stable per TEST_PLAN TC-11",
-        "Speaker-less commitment \u2192 question item, never guessed owner (TC-12)",
-        "Re-distill supersedes prior report (TC-17)",
-        "Unit tests for assembler; integration test for pipeline grouping"
+        "GET /workboard returns grouped portfolio with state filters",
+        "Each state predicate has unit tests; integration tests use seeded fixture",
+        "At-risk flags include non-empty reason + receipt refs",
+        "Hysteresis behavior tested (TC-23)",
+        "Per-Space threshold override tested (TC-24)"
       ],
       "validationCommands": [
-        "cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/unit/test_v4_report.py tests/integration/test_v4_reports.py -q",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/unit/test_v4_workboard.py tests/integration/test_v4_workboard.py -q",
         "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_validate_slice.sh"
       ],
       "blocked": false,
-      "passes": true,
-      "attempts": 1,
+      "passes": false,
+      "attempts": 0,
       "blockerReason": null,
-      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/unit/test_v4_report.py tests/integration/test_v4_reports.py -q\n........                                                                 [100%]\n8 passed in 0.32s\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_validate_slice.sh\n== v6 slice validation (TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test) ==\n-- full backend suite (serial)\nssssssssssssssssssss.................................................... [ 13%]\n........................................................................ [ 26%]\n........................................................................ [ 40%]\n........................................................................ [ 53%]\n........................................................................ [ 66%]\n........................................................................ [ 80%]\n........................................................................ [ 93%]\n....................................                                     [100%]\n=============================== warnings summary ===============================\ntests/integration/test_v4_capture_extraction.py: 7 warnings\ntests/integration/test_v4_suggestions.py: 8 warnings\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:704: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_capture_extraction.py::test_capture_suppresses_recently_dismissed_duplicate_suggestion\ntests/integration/test_v4_suggestions.py::test_dismiss_suggestion_does_not_mutate_entities\ntests/integration/test_v4_suggestions.py::test_dismiss_suggestion_stores_reason\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:1186: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_capture_intent_routing.py::test_update_unresolved_suggestion_resolves_to_existing_target\ntests/integration/test_v4_capture_intent_routing.py::test_update_unresolved_resolve_applies_extraction_when_au_note_deduped\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:1143: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_decisions.py::test_decision_always_suggestion_not_auto\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:774: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_resolve_review_marks_note_resolved_and_clears_it_from_inbox\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:1304: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_accept_link_existing_suggestion_creates_entity_link\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:836: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_accept_update_entity_suggestion_updates_task_and_links_source_note\ntests/integration/test_v4_suggestions.py::test_accept_update_entity_suggestion_sets_priority\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:988: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_reconcile_suggestions_expires_stale_link_existing_suggestion\ntests/integration/test_v4_suggestions.py::test_reconcile_suggestions_expires_stale_create_entity_suggestion\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/_shared.py:4831: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_resolve_suggestion_to_existing_links_instead_of_creating\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:1069: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n520 passed, 20 skipped, 28 warnings in 39.78s\n== slice validation OK =="
+      "validationEvidence": null
     },
     {
-      "id": "v6-10-code-review",
-      "title": "Code review: V6-10 report assembler",
-      "description": "5-pass review per docs/v6/QC_LOOP.md on v6-10-report-assembler. Write docs/v6/reviews/v6-10-report-assembler.md (TEMPLATE). Fix BLOCK/REQUEST CHANGES product issues in this worktree. Do NOT set passes:true until Verdict: APPROVE and v6_check_review_verdict.sh passes.",
+      "id": "v6-20-code-review",
+      "title": "Code review: V6-20 workboard endpoint",
+      "description": "5-pass review per QC_LOOP on v6-20-workboard-endpoint. Write docs/v6/reviews/v6-20-workboard-endpoint.md. Fix before APPROVE.",
       "kind": "review",
-      "skills": [
-        "code-review",
-        "debugging"
-      ],
+      "skills": ["code-review", "debugging"],
       "risk": "medium",
-      "dependencies": [
-        "v6-10-report-assembler"
-      ],
+      "dependencies": ["v6-20-workboard-endpoint"],
       "acceptanceCriteria": [
-        "docs/v6/reviews/v6-10-report-assembler.md with Verdict: APPROVE and Passes 1-5 PASS",
-        "bash scripts/v6_check_review_verdict.sh v6-10-report-assembler exits 0",
-        "Focused + full backend suite green after any review fixes"
+        "docs/v6/reviews/v6-20-workboard-endpoint.md Verdict: APPROVE",
+        "bash scripts/v6_check_review_verdict.sh v6-20-workboard-endpoint exits 0"
       ],
       "validationCommands": [
-        "cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/unit/test_v4_report.py tests/integration/test_v4_reports.py -q",
         "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_validate_slice.sh",
-        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_check_review_verdict.sh v6-10-report-assembler"
+        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_check_review_verdict.sh v6-20-workboard-endpoint"
       ],
       "blocked": false,
-      "passes": true,
-      "attempts": 2,
+      "passes": false,
+      "attempts": 0,
       "blockerReason": null,
-      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/unit/test_v4_report.py tests/integration/test_v4_reports.py -q\n.........                                                                [100%]\n9 passed in 0.31s\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_validate_slice.sh\n== v6 slice validation (TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test) ==\n-- full backend suite (serial)\nssssssssssssssssssss.................................................... [ 13%]\n........................................................................ [ 26%]\n........................................................................ [ 39%]\n........................................................................ [ 53%]\n........................................................................ [ 66%]\n........................................................................ [ 79%]\n........................................................................ [ 93%]\n.....................................                                    [100%]\n=============================== warnings summary ===============================\ntests/integration/test_v4_capture_extraction.py: 7 warnings\ntests/integration/test_v4_suggestions.py: 8 warnings\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:704: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_capture_extraction.py::test_capture_suppresses_recently_dismissed_duplicate_suggestion\ntests/integration/test_v4_suggestions.py::test_dismiss_suggestion_does_not_mutate_entities\ntests/integration/test_v4_suggestions.py::test_dismiss_suggestion_stores_reason\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:1186: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_capture_intent_routing.py::test_update_unresolved_suggestion_resolves_to_existing_target\ntests/integration/test_v4_capture_intent_routing.py::test_update_unresolved_resolve_applies_extraction_when_au_note_deduped\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:1143: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_decisions.py::test_decision_always_suggestion_not_auto\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:774: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_resolve_review_marks_note_resolved_and_clears_it_from_inbox\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:1304: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_accept_link_existing_suggestion_creates_entity_link\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:836: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_accept_update_entity_suggestion_updates_task_and_links_source_note\ntests/integration/test_v4_suggestions.py::test_accept_update_entity_suggestion_sets_priority\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:988: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_reconcile_suggestions_expires_stale_link_existing_suggestion\ntests/integration/test_v4_suggestions.py::test_reconcile_suggestions_expires_stale_create_entity_suggestion\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/_shared.py:4831: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_resolve_suggestion_to_existing_links_instead_of_creating\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:1069: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n521 passed, 20 skipped, 28 warnings in 41.92s\n== slice validation OK ==\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_check_review_verdict.sh v6-10-report-assembler\nOK review verdict: /Volumes/lex1t/dev/shared/repos/engram/scripts/../docs/v6/reviews/v6-10-report-assembler.md (Verdict: APPROVE, Passes 1-5 PASS)"
+      "validationEvidence": null
     },
     {
-      "id": "v6-11-resolve-endpoint",
-      "title": "Reports HTTP API + batch resolve",
-      "description": "Implement api/v4/reports.py: GET /reports?status=pending, GET /reports/<id>, POST /reports/<id>/resolve per SOLUTION_DESIGN \u00a76. Body: {decisions: [{suggestion_id, action: accept|edit|dismiss|later, edits?, dismissal_reason?}], accept_rest: bool}. One ChangeBatch for whole review; later \u2192 partial status. Wire dismissal memory. Tests TC-14..16, EC-07.",
+      "id": "v6-21-workboard-surface",
+      "title": "Workboard surface in /next",
+      "description": "ui/src/next/WorkboardSurface.jsx: filter chips with counts from /workboard, group toggle (space/person), commitment rows with inline actions (done, nudge-draft placeholder, marker placeholder). Themes rail placeholder. Wire route in NextApp/NextShell. Vitest component tests. UC-3.",
       "kind": "code",
-      "skills": [
-        "tdd",
-        "incremental-implementation",
-        "git-workflow"
-      ],
-      "risk": "high",
-      "dependencies": [
-        "v6-10-code-review"
-      ],
-      "acceptanceCriteria": [
-        "GET /reports lists pending reports",
-        "GET /reports/<id> returns narrative sections + receipts",
-        "POST resolve applies atomically as one ChangeBatch",
-        "Undo ChangeBatch reverts review; dismissals retained (TC-15)",
-        "later leaves partial report (TC-16)",
-        "Integration tests pass"
-      ],
-      "validationCommands": [
-        "cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/integration/test_v4_reports.py -q",
-        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_validate_slice.sh"
-      ],
-      "blocked": false,
-      "passes": true,
-      "attempts": 1,
-      "blockerReason": null,
-      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/integration/test_v4_reports.py -q\n.........                                                                [100%]\n9 passed in 0.50s\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_validate_slice.sh\n== v6 slice validation (TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test) ==\n-- full backend suite (serial)\nssssssssssssssssssss.................................................... [ 13%]\n........................................................................ [ 26%]\n........................................................................ [ 39%]\n........................................................................ [ 52%]\n........................................................................ [ 65%]\n........................................................................ [ 78%]\n........................................................................ [ 91%]\n............................................                             [100%]\n=============================== warnings summary ===============================\ntests/integration/test_v4_capture_extraction.py: 7 warnings\ntests/integration/test_v4_suggestions.py: 8 warnings\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:704: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_capture_extraction.py::test_capture_suppresses_recently_dismissed_duplicate_suggestion\ntests/integration/test_v4_suggestions.py::test_dismiss_suggestion_does_not_mutate_entities\ntests/integration/test_v4_suggestions.py::test_dismiss_suggestion_stores_reason\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:1186: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_capture_intent_routing.py::test_update_unresolved_suggestion_resolves_to_existing_target\ntests/integration/test_v4_capture_intent_routing.py::test_update_unresolved_resolve_applies_extraction_when_au_note_deduped\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:1143: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_decisions.py::test_decision_always_suggestion_not_auto\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:774: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_resolve_review_marks_note_resolved_and_clears_it_from_inbox\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:1304: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_accept_link_existing_suggestion_creates_entity_link\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:836: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_accept_update_entity_suggestion_updates_task_and_links_source_note\ntests/integration/test_v4_suggestions.py::test_accept_update_entity_suggestion_sets_priority\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:988: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_reconcile_suggestions_expires_stale_link_existing_suggestion\ntests/integration/test_v4_suggestions.py::test_reconcile_suggestions_expires_stale_create_entity_suggestion\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/_shared.py:4832: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_resolve_suggestion_to_existing_links_instead_of_creating\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:1069: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n528 passed, 20 skipped, 28 warnings in 49.85s\n== slice validation OK =="
-    },
-    {
-      "id": "v6-11-code-review",
-      "title": "Code review: V6-11 resolve endpoint",
-      "description": "5-pass review per QC_LOOP on v6-11-resolve-endpoint. Write docs/v6/reviews/v6-11-resolve-endpoint.md. Fix product issues before APPROVE.",
-      "kind": "review",
-      "skills": [
-        "code-review",
-        "debugging"
-      ],
+      "skills": ["tdd", "incremental-implementation", "git-workflow"],
       "risk": "medium",
-      "dependencies": [
-        "v6-11-resolve-endpoint"
-      ],
+      "dependencies": ["v6-20-code-review"],
       "acceptanceCriteria": [
-        "docs/v6/reviews/v6-11-resolve-endpoint.md Verdict: APPROVE",
-        "bash scripts/v6_check_review_verdict.sh v6-11-resolve-endpoint exits 0",
-        "Full backend suite green"
-      ],
-      "validationCommands": [
-        "cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/integration/test_v4_reports.py -q",
-        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_validate_slice.sh",
-        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_check_review_verdict.sh v6-11-resolve-endpoint"
-      ],
-      "blocked": false,
-      "passes": true,
-      "attempts": 2,
-      "blockerReason": null,
-      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/integration/test_v4_reports.py -q\n..........                                                               [100%]\n10 passed in 0.54s\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_validate_slice.sh\n== v6 slice validation (TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test) ==\n-- full backend suite (serial)\nssssssssssssssssssss.................................................... [ 13%]\n........................................................................ [ 26%]\n........................................................................ [ 39%]\n........................................................................ [ 52%]\n........................................................................ [ 65%]\n........................................................................ [ 78%]\n........................................................................ [ 91%]\n.............................................                            [100%]\n=============================== warnings summary ===============================\ntests/integration/test_v4_capture_extraction.py: 7 warnings\ntests/integration/test_v4_suggestions.py: 8 warnings\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:704: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_capture_extraction.py::test_capture_suppresses_recently_dismissed_duplicate_suggestion\ntests/integration/test_v4_suggestions.py::test_dismiss_suggestion_does_not_mutate_entities\ntests/integration/test_v4_suggestions.py::test_dismiss_suggestion_stores_reason\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:1186: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_capture_intent_routing.py::test_update_unresolved_suggestion_resolves_to_existing_target\ntests/integration/test_v4_capture_intent_routing.py::test_update_unresolved_resolve_applies_extraction_when_au_note_deduped\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:1143: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_decisions.py::test_decision_always_suggestion_not_auto\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:774: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_resolve_review_marks_note_resolved_and_clears_it_from_inbox\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:1304: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_accept_link_existing_suggestion_creates_entity_link\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:836: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_accept_update_entity_suggestion_updates_task_and_links_source_note\ntests/integration/test_v4_suggestions.py::test_accept_update_entity_suggestion_sets_priority\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:988: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_reconcile_suggestions_expires_stale_link_existing_suggestion\ntests/integration/test_v4_suggestions.py::test_reconcile_suggestions_expires_stale_create_entity_suggestion\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/_shared.py:4836: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_resolve_suggestion_to_existing_links_instead_of_creating\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:1069: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n529 passed, 20 skipped, 28 warnings in 43.21s\n== slice validation OK ==\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_check_review_verdict.sh v6-11-resolve-endpoint\nOK review verdict: /Volumes/lex1t/dev/shared/repos/engram/scripts/../docs/v6/reviews/v6-11-resolve-endpoint.md (Verdict: APPROVE, Passes 1-5 PASS)"
-    },
-    {
-      "id": "v6-12-retire-auto-create",
-      "title": "Retire auto-create; annotate lines in report",
-      "description": "Delete AUTO_CREATE threshold paths (not set to 1.0 \u2014 remove dead code per SOLUTION_DESIGN \u00a77.1). All entity-creation candidates land in reports as proposals. Annotate-tier items appear in report as undoable lines referencing EntityEvent (TC-13). capture returns report_id. Re-run replay eval baseline. Tests TC-18.",
-      "kind": "code",
-      "skills": [
-        "tdd",
-        "incremental-implementation",
-        "git-workflow"
-      ],
-      "risk": "high",
-      "dependencies": [
-        "v6-11-code-review"
-      ],
-      "acceptanceCriteria": [
-        "No new agent:* entity-creation events on capture fixtures (TC-18)",
-        "0.95-confidence create candidate \u2192 proposal only, no entity row",
-        "Annotate-tier items visible in report narrative as undoable",
-        "POST /capture response includes report_id",
-        "Existing capture integration suites pass"
-      ],
-      "validationCommands": [
-        "cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/integration/test_v4_capture.py tests/integration/test_v4_reports.py tests/integration/test_v4_suggestions.py -q",
-        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_validate_slice.sh"
-      ],
-      "blocked": false,
-      "passes": true,
-      "attempts": 1,
-      "blockerReason": null,
-      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/integration/test_v4_capture.py tests/integration/test_v4_reports.py tests/integration/test_v4_suggestions.py -q\n..........................................                               [100%]\n=============================== warnings summary ===============================\ntests/integration/test_v4_suggestions.py::test_resolve_review_marks_note_resolved_and_clears_it_from_inbox\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:1304: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_accept_create_task_suggestion_creates_task_and_derived_from_link\ntests/integration/test_v4_suggestions.py::test_accept_create_task_suggestion_applies_assigned_to_person_link\ntests/integration/test_v4_suggestions.py::test_accept_create_new_entity_suggestion_from_activity_update_links_to_target_entity\ntests/integration/test_v4_suggestions.py::test_accept_create_person_project_area_resource_suggestions\ntests/integration/test_v4_suggestions.py::test_accept_create_person_project_area_resource_suggestions\ntests/integration/test_v4_suggestions.py::test_accept_create_person_project_area_resource_suggestions\ntests/integration/test_v4_suggestions.py::test_accept_create_person_project_area_resource_suggestions\ntests/integration/test_v4_suggestions.py::test_accept_project_ingest_task_suggestion_parent_links_task\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:704: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_accept_link_existing_suggestion_creates_entity_link\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:836: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_accept_update_entity_suggestion_updates_task_and_links_source_note\ntests/integration/test_v4_suggestions.py::test_accept_update_entity_suggestion_sets_priority\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:988: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_dismiss_suggestion_does_not_mutate_entities\ntests/integration/test_v4_suggestions.py::test_dismiss_suggestion_stores_reason\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:1186: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_reconcile_suggestions_expires_stale_link_existing_suggestion\ntests/integration/test_v4_suggestions.py::test_reconcile_suggestions_expires_stale_create_entity_suggestion\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/_shared.py:4772: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_resolve_suggestion_to_existing_links_instead_of_creating\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:1069: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n42 passed, 17 warnings in 12.77s\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_validate_slice.sh\n== v6 slice validation (TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test) ==\n-- full backend suite (serial)\nssssssssssssssssssss.................................................... [ 13%]\n........................................................................ [ 26%]\n........................................................................ [ 39%]\n........................................................................ [ 52%]\n........................................................................ [ 65%]\n........................................................................ [ 78%]\n........................................................................ [ 92%]\n...........................................                              [100%]\n=============================== warnings summary ===============================\ntests/integration/test_v4_capture_extraction.py: 7 warnings\ntests/integration/test_v4_suggestions.py: 8 warnings\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:704: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_capture_extraction.py::test_capture_suppresses_recently_dismissed_duplicate_suggestion\ntests/integration/test_v4_suggestions.py::test_dismiss_suggestion_does_not_mutate_entities\ntests/integration/test_v4_suggestions.py::test_dismiss_suggestion_stores_reason\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:1186: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_capture_intent_routing.py::test_update_unresolved_suggestion_resolves_to_existing_target\ntests/integration/test_v4_capture_intent_routing.py::test_update_unresolved_resolve_applies_extraction_when_au_note_deduped\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:1143: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_decisions.py::test_decision_always_suggestion_not_auto\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:774: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_resolve_review_marks_note_resolved_and_clears_it_from_inbox\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:1304: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_accept_link_existing_suggestion_creates_entity_link\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:836: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_accept_update_entity_suggestion_updates_task_and_links_source_note\ntests/integration/test_v4_suggestions.py::test_accept_update_entity_suggestion_sets_priority\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:988: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_reconcile_suggestions_expires_stale_link_existing_suggestion\ntests/integration/test_v4_suggestions.py::test_reconcile_suggestions_expires_stale_create_entity_suggestion\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/_shared.py:4772: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_resolve_suggestion_to_existing_links_instead_of_creating\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:1069: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n527 passed, 20 skipped, 28 warnings in 61.69s (0:01:01)\n== slice validation OK =="
-    },
-    {
-      "id": "v6-12-code-review",
-      "title": "Code review: V6-12 retire auto-create",
-      "description": "5-pass review per QC_LOOP on v6-12-retire-auto-create. Write docs/v6/reviews/v6-12-retire-auto-create.md. Verify auto-create code deleted not disabled. Fix before APPROVE.",
-      "kind": "review",
-      "skills": [
-        "code-review",
-        "debugging"
-      ],
-      "risk": "medium",
-      "dependencies": [
-        "v6-12-retire-auto-create"
-      ],
-      "acceptanceCriteria": [
-        "docs/v6/reviews/v6-12-retire-auto-create.md Verdict: APPROVE",
-        "bash scripts/v6_check_review_verdict.sh v6-12-retire-auto-create exits 0",
-        "Grep confirms AUTO_CREATE threshold logic removed from reconciliation/capture paths"
-      ],
-      "validationCommands": [
-        "cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/integration/test_v4_capture.py tests/integration/test_v4_reports.py -q",
-        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_validate_slice.sh",
-        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_check_review_verdict.sh v6-12-retire-auto-create"
-      ],
-      "blocked": false,
-      "passes": true,
-      "attempts": 1,
-      "blockerReason": null,
-      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/integration/test_v4_capture.py tests/integration/test_v4_reports.py -q\n................                                                         [100%]\n16 passed in 0.63s\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_validate_slice.sh\n== v6 slice validation (TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test) ==\n-- full backend suite (serial)\nssssssssssssssssssss.................................................... [ 13%]\n........................................................................ [ 26%]\n........................................................................ [ 39%]\n........................................................................ [ 52%]\n........................................................................ [ 65%]\n........................................................................ [ 78%]\n........................................................................ [ 92%]\n...........................................                              [100%]\n=============================== warnings summary ===============================\ntests/integration/test_v4_capture_extraction.py: 7 warnings\ntests/integration/test_v4_suggestions.py: 8 warnings\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:704: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_capture_extraction.py::test_capture_suppresses_recently_dismissed_duplicate_suggestion\ntests/integration/test_v4_suggestions.py::test_dismiss_suggestion_does_not_mutate_entities\ntests/integration/test_v4_suggestions.py::test_dismiss_suggestion_stores_reason\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:1186: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_capture_intent_routing.py::test_update_unresolved_suggestion_resolves_to_existing_target\ntests/integration/test_v4_capture_intent_routing.py::test_update_unresolved_resolve_applies_extraction_when_au_note_deduped\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:1143: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_decisions.py::test_decision_always_suggestion_not_auto\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:774: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_resolve_review_marks_note_resolved_and_clears_it_from_inbox\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:1304: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_accept_link_existing_suggestion_creates_entity_link\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:836: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_accept_update_entity_suggestion_updates_task_and_links_source_note\ntests/integration/test_v4_suggestions.py::test_accept_update_entity_suggestion_sets_priority\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:988: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_reconcile_suggestions_expires_stale_link_existing_suggestion\ntests/integration/test_v4_suggestions.py::test_reconcile_suggestions_expires_stale_create_entity_suggestion\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/_shared.py:4772: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_resolve_suggestion_to_existing_links_instead_of_creating\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:1069: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n527 passed, 20 skipped, 28 warnings in 43.05s\n== slice validation OK ==\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_check_review_verdict.sh v6-12-retire-auto-create\nOK review verdict: /Volumes/lex1t/dev/shared/repos/engram/scripts/../docs/v6/reviews/v6-12-retire-auto-create.md (Verdict: APPROVE, Passes 1-5 PASS)"
-    },
-    {
-      "id": "v6-13-next-review-ui",
-      "title": "New /next shell + Review surface",
-      "description": "Create ui/src/next/ mounted at /next (additive Route in App.jsx). Shell chrome: capture field, omni-bar, review pulse count. Review surface: render distillation reports with per-item verify/edit/dismiss + accept-rest. ui/src/next/vocab.js for vision terms. Vitest component tests. Manual UC-1 script documented in test plan. Do not extend ui/src/views/ or ui/src/lab/.",
-      "kind": "code",
-      "skills": [
-        "tdd",
-        "incremental-implementation",
-        "git-workflow"
-      ],
-      "risk": "high",
-      "dependencies": [
-        "v6-12-code-review"
-      ],
-      "acceptanceCriteria": [
-        "/next renders new shell without breaking existing routes",
-        "Review surface loads pending reports from GET /reports",
-        "Batch accept-rest calls POST /reports/<id>/resolve",
-        "Per-item actions wired (accept/edit/dismiss/later)",
-        "Vitest tests for Review components pass",
-        "cd ui && npm run build green"
+        "Workboard loads from v4API workboard endpoint",
+        "State filter chips show counts matching API",
+        "Group toggle switches space vs person grouping",
+        "Component tests cover filter + group behavior"
       ],
       "validationCommands": [
         "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- next",
@@ -255,115 +104,93 @@
         "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_validate_slice.sh"
       ],
       "blocked": false,
-      "passes": true,
-      "attempts": 1,
+      "passes": false,
+      "attempts": 0,
       "blockerReason": null,
-      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- next\n\n> engram-ui@0.0.0 test\n> node scripts/run-tests.mjs next\n\n\n RUN  v3.2.4 /Volumes/lex1t/dev/shared/repos/engram/ui\n\n \u2713 src/next/vocab.test.js (5 tests) 1ms\n \u2713 src/components/mentionExtension.test.js (3 tests) 30ms\n \u2713 src/next/ReviewSurface.test.jsx (8 tests) 127ms\n\n Test Files  3 passed (3)\n      Tests  16 passed (16)\n   Start at  22:13:45\n   Duration  923ms (transform 113ms, setup 189ms, collect 279ms, tests 159ms, environment 981ms, prepare 122ms)\n\nnpm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\nnpm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build\n\n> engram-ui@0.0.0 build\n> vite build\n\nvite v8.0.10 building client environment for production...\n\u001b[2K\ntransforming...\u2713 1884 modules transformed.\nrendering chunks...\ncomputing gzip size...\n../static/index.html                             1.95 kB \u2502 gzip:   0.86 kB\n../static/assets/index-DNOgPoNS.css            111.73 kB \u2502 gzip:  16.84 kB\n../static/assets/rolldown-runtime-jpDsebLB.js    0.56 kB \u2502 gzip:   0.36 kB\n../static/assets/vendor-icons-C8UFgheK.js        4.23 kB \u2502 gzip:   1.89 kB\n../static/assets/index-C8dpmLFC.js             167.51 kB \u2502 gzip:  45.18 kB\n../static/assets/vendor-react-C6600fzf.js      231.14 kB \u2502 gzip:  73.37 kB\n../static/assets/vendor-D_WIgHEM.js            497.57 kB \u2502 gzip: 156.97 kB\n\n\u2713 built in 259ms\nnpm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_validate_slice.sh\n== v6 slice validation (TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test) ==\n-- full backend suite (serial)\nssssssssssssssssssss.................................................... [ 13%]\n........................................................................ [ 26%]\n........................................................................ [ 39%]\n........................................................................ [ 52%]\n........................................................................ [ 65%]\n........................................................................ [ 78%]\n........................................................................ [ 92%]\n...........................................                              [100%]\n=============================== warnings summary ===============================\ntests/integration/test_v4_capture_extraction.py: 7 warnings\ntests/integration/test_v4_suggestions.py: 8 warnings\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:704: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_capture_extraction.py::test_capture_suppresses_recently_dismissed_duplicate_suggestion\ntests/integration/test_v4_suggestions.py::test_dismiss_suggestion_does_not_mutate_entities\ntests/integration/test_v4_suggestions.py::test_dismiss_suggestion_stores_reason\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:1186: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_capture_intent_routing.py::test_update_unresolved_suggestion_resolves_to_existing_target\ntests/integration/test_v4_capture_intent_routing.py::test_update_unresolved_resolve_applies_extraction_when_au_note_deduped\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:1143: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_decisions.py::test_decision_always_suggestion_not_auto\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:774: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_resolve_review_marks_note_resolved_and_clears_it_from_inbox\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:1304: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_accept_link_existing_suggestion_creates_entity_link\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:836: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_accept_update_entity_suggestion_updates_task_and_links_source_note\ntests/integration/test_v4_suggestions.py::test_accept_update_entity_suggestion_sets_priority\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:988: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_reconcile_suggestions_expires_stale_link_existing_suggestion\ntests/integration/test_v4_suggestions.py::test_reconcile_suggestions_expires_stale_create_entity_suggestion\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/_shared.py:4772: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_resolve_suggestion_to_existing_links_instead_of_creating\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:1069: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n527 passed, 20 skipped, 28 warnings in 39.02s\n== slice validation OK =="
+      "validationEvidence": null
     },
     {
-      "id": "v6-13-code-review",
-      "title": "Code review: V6-13 /next Review UI",
-      "description": "5-pass review per QC_LOOP on v6-13-next-review-ui. Write docs/v6/reviews/v6-13-next-review-ui.md. Check vocab.js used for vision terms. Fix before APPROVE.",
+      "id": "v6-21-code-review",
+      "title": "Code review: V6-21 workboard surface",
+      "description": "5-pass review per QC_LOOP on v6-21-workboard-surface. Write docs/v6/reviews/v6-21-workboard-surface.md.",
       "kind": "review",
-      "skills": [
-        "code-review",
-        "debugging"
-      ],
-      "risk": "medium",
-      "dependencies": [
-        "v6-13-next-review-ui"
-      ],
-      "acceptanceCriteria": [
-        "docs/v6/reviews/v6-13-next-review-ui.md Verdict: APPROVE",
-        "bash scripts/v6_check_review_verdict.sh v6-13-next-review-ui exits 0",
-        "npm test + build green after any fixes"
-      ],
-      "validationCommands": [
-        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- next",
-        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build",
-        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_check_review_verdict.sh v6-13-next-review-ui"
-      ],
-      "blocked": false,
-      "passes": true,
-      "attempts": 3,
-      "blockerReason": null,
-      "validationEvidence": "Overseer takeover: docs/v6/reviews/v6-13-next-review-ui.md APPROVE; npm test -- next + build green"
-    },
-    {
-      "id": "v6-14-eval-metrics",
-      "title": "Replay eval grouping score + review-time metrics",
-      "description": "Extend scripts/replay_eval.py to score report grouping/sectioning. Add client review-time instrumentation posting to metrics/trust. Record baseline row in docs/v6/TEST_PLAN.md \u00a75 table (or docs/v6/fixtures/ if table is markdown-only). Tests for eval scoring function.",
-      "kind": "code",
-      "skills": [
-        "tdd",
-        "incremental-implementation",
-        "git-workflow"
-      ],
-      "risk": "medium",
-      "dependencies": [
-        "v6-13-code-review"
-      ],
-      "acceptanceCriteria": [
-        "replay_eval.py outputs grouping/sectioning score",
-        "Client instrumentation sends review duration events",
-        "GET /metrics/trust includes new fields or documented extension",
-        "Baseline numbers recorded in repo docs",
-        "Unit tests for scoring pass"
-      ],
-      "validationCommands": [
-        "cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/unit/test_replay_eval_report.py -q",
-        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_validate_slice.sh"
-      ],
-      "blocked": false,
-      "passes": true,
-      "attempts": 2,
-      "blockerReason": null,
-      "validationEvidence": "Overseer landed codex worktree + test fixes; pytest + v6_validate_slice.sh green"
-    },
-    {
-      "id": "v6-14-code-review",
-      "title": "Code review: V6-14 eval + metrics",
-      "description": "5-pass review per QC_LOOP on v6-14-eval-metrics. Write docs/v6/reviews/v6-14-eval-metrics.md. Fix before APPROVE.",
-      "kind": "review",
-      "skills": [
-        "code-review",
-        "debugging"
-      ],
+      "skills": ["code-review", "debugging"],
       "risk": "low",
-      "dependencies": [
-        "v6-14-eval-metrics"
-      ],
+      "dependencies": ["v6-21-workboard-surface"],
       "acceptanceCriteria": [
-        "docs/v6/reviews/v6-14-eval-metrics.md Verdict: APPROVE",
-        "bash scripts/v6_check_review_verdict.sh v6-14-eval-metrics exits 0"
+        "docs/v6/reviews/v6-21-workboard-surface.md Verdict: APPROVE",
+        "bash scripts/v6_check_review_verdict.sh v6-21-workboard-surface exits 0"
       ],
       "validationCommands": [
-        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_validate_slice.sh",
-        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_check_review_verdict.sh v6-14-eval-metrics"
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- next",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_check_review_verdict.sh v6-21-workboard-surface"
       ],
       "blocked": false,
-      "passes": true,
-      "attempts": 1,
+      "passes": false,
+      "attempts": 0,
       "blockerReason": null,
-      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_validate_slice.sh\n== v6 slice validation (TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test) ==\n-- full backend suite (serial)\nssssssssssssssssssss.................................................... [ 13%]\n........................................................................ [ 26%]\n........................................................................ [ 39%]\n........................................................................ [ 52%]\n........................................................................ [ 65%]\n........................................................................ [ 78%]\n........................................................................ [ 91%]\n..............................................                           [100%]\n=============================== warnings summary ===============================\ntests/integration/test_v4_capture_extraction.py: 7 warnings\ntests/integration/test_v4_suggestions.py: 8 warnings\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:704: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_capture_extraction.py::test_capture_suppresses_recently_dismissed_duplicate_suggestion\ntests/integration/test_v4_suggestions.py::test_dismiss_suggestion_does_not_mutate_entities\ntests/integration/test_v4_suggestions.py::test_dismiss_suggestion_stores_reason\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:1186: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_capture_intent_routing.py::test_update_unresolved_suggestion_resolves_to_existing_target\ntests/integration/test_v4_capture_intent_routing.py::test_update_unresolved_resolve_applies_extraction_when_au_note_deduped\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:1143: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_decisions.py::test_decision_always_suggestion_not_auto\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:774: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_resolve_review_marks_note_resolved_and_clears_it_from_inbox\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:1304: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_accept_link_existing_suggestion_creates_entity_link\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:836: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_accept_update_entity_suggestion_updates_task_and_links_source_note\ntests/integration/test_v4_suggestions.py::test_accept_update_entity_suggestion_sets_priority\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:988: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_reconcile_suggestions_expires_stale_link_existing_suggestion\ntests/integration/test_v4_suggestions.py::test_reconcile_suggestions_expires_stale_create_entity_suggestion\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/_shared.py:4772: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_resolve_suggestion_to_existing_links_instead_of_creating\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:1069: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n530 passed, 20 skipped, 28 warnings in 38.83s\n== slice validation OK ==\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_check_review_verdict.sh v6-14-eval-metrics\nOK review verdict: /Volumes/lex1t/dev/shared/repos/engram/scripts/../docs/v6/reviews/v6-14-eval-metrics.md (Verdict: APPROVE, Passes 1-5 PASS)"
+      "validationEvidence": null
     },
     {
-      "id": "v6-phase-1-gate",
-      "title": "Phase 1 gate: full validation + tracker",
-      "description": "Phase completion. Full backend + UI validation. Confirm all docs/v6/reviews/v6-1*.md exist with APPROVE. Update EXECUTION-TRACKER.md Phase 1 done. Archive prd to docs/iterations/archive/. Do not start Phase 2.",
+      "id": "v6-22-stream-surface",
+      "title": "Stream surface in /next",
+      "description": "ui/src/next/StreamSurface.jsx: chronological capture log (notes list + day grouping + type glyphs). Wire route. Vitest tests.",
+      "kind": "code",
+      "skills": ["tdd", "incremental-implementation", "git-workflow"],
+      "risk": "low",
+      "dependencies": ["v6-21-code-review"],
+      "acceptanceCriteria": [
+        "Stream shows captures grouped by day",
+        "Type glyphs/labels use vocab.js",
+        "Component tests pass"
+      ],
+      "validationCommands": [
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- next",
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_validate_slice.sh"
+      ],
+      "blocked": false,
+      "passes": false,
+      "attempts": 0,
+      "blockerReason": null,
+      "validationEvidence": null
+    },
+    {
+      "id": "v6-22-code-review",
+      "title": "Code review: V6-22 stream surface",
+      "description": "5-pass review per QC_LOOP on v6-22-stream-surface. Write docs/v6/reviews/v6-22-stream-surface.md.",
+      "kind": "review",
+      "skills": ["code-review", "debugging"],
+      "risk": "low",
+      "dependencies": ["v6-22-stream-surface"],
+      "acceptanceCriteria": [
+        "docs/v6/reviews/v6-22-stream-surface.md Verdict: APPROVE",
+        "bash scripts/v6_check_review_verdict.sh v6-22-stream-surface exits 0"
+      ],
+      "validationCommands": [
+        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- next",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_check_review_verdict.sh v6-22-stream-surface"
+      ],
+      "blocked": false,
+      "passes": false,
+      "attempts": 0,
+      "blockerReason": null,
+      "validationEvidence": null
+    },
+    {
+      "id": "v6-phase-2-gate",
+      "title": "Phase 2 gate: full validation + tracker",
+      "description": "Full backend + UI validation. All docs/v6/reviews/v6-2*.md APPROVE. Update EXECUTION-TRACKER.md Phase 2 done. Archive prd. Do not start Phase 3.",
       "kind": "gate",
-      "skills": [
-        "git-workflow"
-      ],
+      "skills": ["git-workflow"],
       "risk": "low",
-      "dependencies": [
-        "v6-14-code-review"
-      ],
+      "dependencies": ["v6-22-code-review"],
       "acceptanceCriteria": [
         "bash scripts/v6_validate_slice.sh passes",
         "cd ui && npm test && npm run build green",
-        "All Phase 1 review verdict files present and APPROVE",
-        "EXECUTION-TRACKER.md Phase 1 marked done"
+        "All Phase 2 review verdict files APPROVE",
+        "EXECUTION-TRACKER.md Phase 2 marked done"
       ],
       "validationCommands": [
         "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_validate_slice.sh",
@@ -371,19 +198,15 @@
         "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build"
       ],
       "blocked": false,
-      "passes": true,
-      "attempts": 1,
+      "passes": false,
+      "attempts": 0,
       "blockerReason": null,
-      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_validate_slice.sh\n== v6 slice validation (TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test) ==\n-- full backend suite (serial)\nssssssssssssssssssss.................................................... [ 13%]\n........................................................................ [ 26%]\n........................................................................ [ 39%]\n........................................................................ [ 52%]\n........................................................................ [ 65%]\n........................................................................ [ 78%]\n........................................................................ [ 91%]\n..............................................                           [100%]\n=============================== warnings summary ===============================\ntests/integration/test_v4_capture_extraction.py: 7 warnings\ntests/integration/test_v4_suggestions.py: 8 warnings\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:704: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_capture_extraction.py::test_capture_suppresses_recently_dismissed_duplicate_suggestion\ntests/integration/test_v4_suggestions.py::test_dismiss_suggestion_does_not_mutate_entities\ntests/integration/test_v4_suggestions.py::test_dismiss_suggestion_stores_reason\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:1186: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_capture_intent_routing.py::test_update_unresolved_suggestion_resolves_to_existing_target\ntests/integration/test_v4_capture_intent_routing.py::test_update_unresolved_resolve_applies_extraction_when_au_note_deduped\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:1143: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_decisions.py::test_decision_always_suggestion_not_auto\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:774: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_resolve_review_marks_note_resolved_and_clears_it_from_inbox\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:1304: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_accept_link_existing_suggestion_creates_entity_link\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:836: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_accept_update_entity_suggestion_updates_task_and_links_source_note\ntests/integration/test_v4_suggestions.py::test_accept_update_entity_suggestion_sets_priority\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:988: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_reconcile_suggestions_expires_stale_link_existing_suggestion\ntests/integration/test_v4_suggestions.py::test_reconcile_suggestions_expires_stale_create_entity_suggestion\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/_shared.py:4772: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_resolve_suggestion_to_existing_links_instead_of_creating\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:1069: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n530 passed, 20 skipped, 28 warnings in 34.94s\n== slice validation OK ==\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test\n\n> engram-ui@0.0.0 test\n> node scripts/run-tests.mjs\n\n\n RUN  v3.2.4 /Volumes/lex1t/dev/shared/repos/engram/ui\n\n \u2713 src/components/InlineTitleEditor.test.jsx (5 tests) 246ms\n \u2713 src/views/V5Now.test.jsx (12 tests) 554ms\n \u2713 src/views/V5Memory.test.jsx (8 tests) 484ms\n \u2713 src/lab/LabEntityDetail.test.jsx (11 tests) 737ms\n \u2713 src/views/V5EntityList.test.jsx (15 tests) 716ms\n \u2713 src/App.test.jsx (9 tests) 737ms\n \u2713 src/views/V5Recall.test.jsx (10 tests) 1111ms\n \u2713 src/views/V5ReviewSheet.test.jsx (12 tests) 375ms\n \u2713 src/views/V5CaptureSheet.test.jsx (11 tests) 1260ms\n \u2713 src/lab/LabCapture.test.jsx (4 tests) 210ms\n \u2713 src/components/MarkdownEditor.test.jsx (5 tests) 252ms\n \u2713 src/components/CitationEntitySheet.test.jsx (9 tests) 218ms\n \u2713 src/components/CardActions.test.jsx (2 tests) 183ms\n \u2713 src/next/ReviewSurface.test.jsx (10 tests) 340ms\n \u2713 src/views/V5AskSheet.test.jsx (3 tests) 235ms\n \u2713 src/views/V5Threads.test.jsx (2 tests) 103ms\n \u2713 src/components/TopBar.test.jsx (7 tests) 245ms\n \u2713 src/components/EntityContextChips.test.jsx (1 test) 84ms\n \u2713 src/lab/LabPeople.test.jsx (6 tests) 174ms\n \u2713 src/components/CitationsList.test.jsx (10 tests) 154ms\n \u2713 src/utils/searchResults.test.js (3 tests) 2ms\n \u2713 src/context/CaptureContext.test.jsx (2 tests) 6ms\n \u2713 src/components/EntityDeleteButton.test.jsx (2 tests) 60ms\n \u2713 src/views/V5RecallOpener.test.jsx (3 tests) 66ms\n \u2713 src/utils/entityRowChrome.test.js (2 tests) 5ms\n \u2713 src/components/mentionExtension.test.js (3 tests) 80ms\n \u2713 src/api/v4Client.test.js (9 tests) 3ms\n \u2713 src/next/vocab.test.js (5 tests) 1ms\n \u2713 src/utils/listMetadata.test.js (3 tests) 2ms\n \u2713 src/utils/captureStream.test.js (1 test) 2ms\n \u2713 src/utils/timelineGlyphs.test.js (3 tests) 1ms\n \u2713 src/components/MarkdownContent.test.jsx (1 test) 1ms\n \u2713 src/views/V5ThreadDetail.test.jsx (28 tests) 3138ms\n   \u2713 V5ThreadDetail > renders all thread regions for project  385ms\n   \u2713 V5ThreadDetail > submits Add update via activityUpdates.create and reloads thread detail  673ms\n   \u2713 V5ThreadDetail > shows applied and suggested outcomes after a successful update  799ms\n\n Test Files  33 passed (33)\n      Tests  217 passed (217)\n   Start at  23:48:40\n   Duration  4.46s (transform 1.35s, setup 1.46s, collect 6.40s, tests 11.79s, environment 9.56s, prepare 1.57s)\n\nnpm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\nnpm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\nstderr | src/lab/LabEntityDetail.test.jsx > LabEntityDetail > shows delete for resources and removes them via the API\nNo routes matched location \"/lab/resources\"\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build\n\n> engram-ui@0.0.0 build\n> vite build\n\nvite v8.0.10 building client environment for production...\n\u001b[2K\ntransforming...\u2713 1884 modules transformed.\nrendering chunks...\ncomputing gzip size...\n../static/index.html                             1.95 kB \u2502 gzip:   0.86 kB\n../static/assets/index-DNOgPoNS.css            111.73 kB \u2502 gzip:  16.84 kB\n../static/assets/rolldown-runtime-jpDsebLB.js    0.56 kB \u2502 gzip:   0.36 kB\n../static/assets/vendor-icons-C8UFgheK.js        4.23 kB \u2502 gzip:   1.89 kB\n../static/assets/index-CFncQS6n.js             168.07 kB \u2502 gzip:  45.33 kB\n../static/assets/vendor-react-C6600fzf.js      231.14 kB \u2502 gzip:  73.37 kB\n../static/assets/vendor-D_WIgHEM.js            497.57 kB \u2502 gzip: 156.97 kB\n\n\u2713 built in 235ms\nnpm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options."
+      "validationEvidence": null
     }
   ],
   "codingLoopPolicy": {
-    "primaryExecutor": "opencode",
-    "fallbackExecutors": [
-      "cursor",
-      "codex",
-      "claude"
-    ],
+    "primaryExecutor": "codex",
+    "fallbackExecutors": ["cursor", "claude", "opencode"],
     "platform": "openclaw",
     "allowExecutorFallback": true,
     "requireHumanForDependencies": true,

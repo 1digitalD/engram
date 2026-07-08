@@ -5,7 +5,7 @@ code. Full v4-era history is archived at `docs/archive/EXECUTION-TRACKER-v4-hist
 
 Last updated: 2026-07-08
 Branch: `main`
-Status: **v6 Phase 1 active** — Loopsmith drain `v6-phase-1-distillation` pending kickoff.
+Status: **v6 Phase 2 active** — Loopsmith drain `v6-phase-2-workboard`.
 
 ## Current program: v6 (vision-driven rebuild)
 
@@ -16,7 +16,7 @@ Status: **v6 Phase 1 active** — Loopsmith drain `v6-phase-1-distillation` pend
 | `docs/v6/IMPLEMENTATION_PLAN.md` | Phases 0–6, slices, deploy gates |
 | `docs/v6/TEST_PLAN.md` | Use cases, test cases, edge cases, metrics |
 | `docs/v6/QC_LOOP.md` | Implement → review → fix → APPROVE loop |
-| `docs/iterations/ITERATION_v6_PHASE_1.md` | Active Loopsmith iteration spec |
+| `docs/iterations/ITERATION_v6_PHASE_2.md` | Active Loopsmith iteration spec |
 
 Runtime baseline: `/api/v4` only, Postgres + pgvector, write-enabled MCP.
 
@@ -25,8 +25,8 @@ Runtime baseline: `/api/v4` only, Postgres + pgvector, write-enabled MCP.
 | Phase | Status |
 |---|---|
 | 0 Foundations | **done** (retro-reviewed 2026-07-08) |
-| 1 Distillation report + trust policy | **active** — prd ready |
-| 2 Workboard | pending |
+| 1 Distillation report + trust policy | **done** (2026-07-08) |
+| 2 Workboard | **active** — prd ready |
 | 3 Dossier + direct manipulation + pinning | pending |
 | 4 Today + markers + nudges | pending |
 | 5 Themes + insights | pending |
@@ -55,14 +55,6 @@ bash scripts/v6_check_review_verdict.sh <implement-task-id>   # review tasks
 - 2026-07-07 V6-00 archive & docs — done
 - 2026-07-08 Phase 0 Loopsmith drain — done (API split, operator setting)
 - 2026-07-08 Phase 0 retro review — done (verdict files, QC loop tightened)
-- _Phase 1 distillation — prd ready, drain pending_
-- 2026-07-08T03:40:26.901130+00:00 v6-10-report-assembler accepted via opencode
-- 2026-07-08T03:56:13.379365+00:00 v6-10-code-review accepted via opencode
-- 2026-07-08T04:16:42.338564+00:00 v6-11-resolve-endpoint accepted via opencode
-- 2026-07-08T04:32:06.086631+00:00 v6-11-code-review accepted via opencode
-- 2026-07-08 v6-12-retire-auto-create — implemented
-- 2026-07-08T04:56:53.013706+00:00 v6-12-retire-auto-create accepted via opencode
-- 2026-07-08T05:05:56.359559+00:00 v6-12-code-review accepted via opencode
-- 2026-07-08T05:14:26.206838+00:00 v6-13-next-review-ui accepted via cursor
-- 2026-07-08T06:37:12.289534+00:00 v6-14-code-review accepted via codex
+- 2026-07-08 Phase 1 Loopsmith drain — done (distillation, Review UI, metrics)
 - 2026-07-08T06:48:45.485346+00:00 v6-phase-1-gate accepted via codex
+- _Phase 2 workboard — prd ready, drain starting_
