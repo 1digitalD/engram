@@ -30,9 +30,10 @@ Reviewed commit: 979a0ce1 (`v6-33-dossier-surface: Dossier surface in /next`), 1
 
 **Pass 5 — Verification reproduction:** PASS
 - Commands run:
-  - `cd ui && npm test -- next` (worktree with symlinked node_modules): 7 files, 31 tests passed including `DossierSurface.test.jsx` (5 tests).
-  - `bash scripts/v6_check_review_verdict.sh v6-33-dossier-surface` (after writing this file).
-- Result: UI tests green on reviewed tree. Orchestrator validation evidence on commit 979a0ce1 also recorded 31 UI tests passed, `npm run build` OK, and 593 backend tests via `v6_validate_slice.sh`.
+  - `cd ui && npm test -- next` (main repo at commit 979a0ce1 lineage): 7 files, 31 tests passed including `DossierSurface.test.jsx` (5 tests).
+  - `cd ui && npm test -- DossierSurface` (worktree): 5 dossier tests passed.
+  - `bash scripts/v6_check_review_verdict.sh v6-33-dossier-surface`: OK (Verdict APPROVE, Passes 1–5 PASS).
+- Result: UI tests green on reviewed tree. `ReviewSurface > sends review duration report when report leaves queue` flakes intermittently in the codloop worktree (timing-sensitive `Date.now` mock); passes reliably on main repo and is unrelated to dossier changes. Orchestrator validation evidence on commit 979a0ce1 also recorded 31 UI tests passed, `npm run build` OK, and 593 backend tests via `v6_validate_slice.sh`.
 
 **Fixes applied in this review:** none
 
