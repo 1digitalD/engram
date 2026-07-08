@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
+
 import { friendlyApiError, v4API } from '../api/v4Client';
+import { EntryAttachAffordance } from './TypedAffordances';
 import { ENTITY_TYPE_GLYPHS, SURFACE_LABELS, entityTypeLabel } from './vocab';
 import styles from './StreamSurface.module.css';
 
@@ -50,33 +52,63 @@ function streamEntryTitle(entry) {
 
 export default function StreamSurface() {
   const [entries, setEntries] = useState([]);
+  const [targets, setTargets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [actionNote, setActionNote] = useState('');
 
   const loadStream = useCallback(async () => {
     setLoading(true);
     setError('');
-
     try {
       const payload = await v4API.entities.list({
         type: 'note',
-        limit: 100,
-        sort: 'created_at',
-        order: 'desc',
         lifecycle: 'active',
+        limit: 100,
       });
       setEntries(payload?.data || []);
     } catch (err) {
-      setEntries([]);
       setError(friendlyApiError(err, 'Could not load stream.'));
+      setEntries([]);
     } finally {
       setLoading(false);
+    }
+  }, []);
+
+  const loadTargets = useCallback(async () => {
+    try {
+      const [tasks, projects, areas, people] = await Promise.all([
+        v4API.entities.list({ type: 'task', limit: 50 }),
+        v4API.entities.list({ type: 'project', limit: 50 }),
+        v4API.entities.list({ type: 'area', limit: 50 }),
+        v4API.entities.list({ type: 'person', limit: 50 }),
+      ]);
+      setTargets([...(tasks?.data || []), ...(projects?.data || []), ...(areas?.data || []), ...(people?.data || [])]);
+    } catch (err) {
+      setError((current) => current || friendlyApiError(err, 'Could not load attach targets.'));
     }
   }, []);
 
   useEffect(() => {
     loadStream();
   }, [loadStream]);
+
+  useEffect(() => {
+    loadTargets();
+  }, [loadTargets]);
+
+  async function handleAttach(entryId, targetId) {
+    setError('');
+    try {
+      await v4API.entities.createLink(entryId, {
+        target_id: targetId,
+        relationship_type: 'related',
+      });
+      setActionNote('Stream entry attached.');
+    } catch (err) {
+      setError(friendlyApiError(err, 'Could not attach stream entry.'));
+    }
+  }
 
   const groups = groupEntriesByDay(entries);
 
@@ -85,11 +117,17 @@ export default function StreamSurface() {
       <header className={styles.header}>
         <h1 className={styles.title}>{SURFACE_LABELS.stream}</h1>
         <p className={styles.subtitle}>
-          Recent captures, grouped by day so the stream reads like a chronological work log.
+          Chronological capture log for notes and updates that landed in the workspace. Attach a receipt inline when it
+          belongs with a person, space, or commitment.
         </p>
       </header>
 
-      {error ? <p className={styles.error} role="alert">{error}</p> : null}
+      {actionNote ? <p className={styles.subtitle}>{actionNote}</p> : null}
+      {error ? (
+        <p className={styles.error} role="alert">
+          {error}
+        </p>
+      ) : null}
       {loading ? <p className={styles.empty}>Loading stream…</p> : null}
       {!loading && groups.length === 0 ? <p className={styles.empty}>No captures in stream yet.</p> : null}
 
@@ -106,6 +144,7 @@ export default function StreamSurface() {
                 {group.items.map((entry) => {
                   const type = entry?.type || 'note';
                   const stamp = entryDate(entry);
+                  const title = streamEntryTitle(entry);
                   return (
                     <li key={entry.id} className={styles.entry}>
                       <div className={styles.entryGlyph} aria-hidden="true">
@@ -120,9 +159,16 @@ export default function StreamSurface() {
                             </time>
                           ) : null}
                         </div>
-                        <p className={styles.entryTitle}>{streamEntryTitle(entry)}</p>
+                        <p className={styles.entryTitle}>{title}</p>
                         {entry?.content && entry.content !== entry.title ? (
                           <p className={styles.entryContent}>{entry.content}</p>
+                        ) : null}
+                        {type === 'note' ? (
+                          <EntryAttachAffordance
+                            entryTitle={title}
+                            targets={targets}
+                            onAttach={(targetId) => handleAttach(entry.id, targetId)}
+                          />
                         ) : null}
                       </div>
                     </li>

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+
 import NextApp from './NextApp';
 
 vi.mock('../api/v4Client', () => ({
@@ -10,6 +11,7 @@ vi.mock('../api/v4Client', () => ({
     },
     entities: {
       list: vi.fn(),
+      createLink: vi.fn(),
     },
     capture: vi.fn(),
     search: vi.fn(),
@@ -48,6 +50,8 @@ const STREAM_PAYLOAD = {
   ],
 };
 
+const TARGETS = { data: [{ id: 'space-apollo', title: 'Apollo' }] };
+
 const JULY7_LOCAL_TIME = new Intl.DateTimeFormat('en-US', {
   hour: 'numeric',
   minute: '2-digit',
@@ -67,27 +71,27 @@ describe('StreamSurface', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     v4API.reports.list.mockResolvedValue({ data: [], meta: { total: 0 } });
-    v4API.entities.list.mockResolvedValue(STREAM_PAYLOAD);
+    v4API.entities.list
+      .mockResolvedValueOnce(STREAM_PAYLOAD)
+      .mockResolvedValueOnce({ data: [] })
+      .mockResolvedValueOnce(TARGETS)
+      .mockResolvedValueOnce({ data: [] })
+      .mockResolvedValueOnce({ data: [] });
+    v4API.entities.createLink.mockResolvedValue({ data: {} });
     v4API.capture.mockResolvedValue({});
     v4API.search.mockResolvedValue({ data: [] });
   });
 
-  it('loads the stream route and requests recent notes', async () => {
+  it('loads stream entries and groups them by local day', async () => {
     renderStream();
 
     expect(await screen.findByRole('heading', { name: 'Stream' })).toBeInTheDocument();
     expect(v4API.entities.list).toHaveBeenCalledWith({
       type: 'note',
-      limit: 100,
-      sort: 'created_at',
-      order: 'desc',
       lifecycle: 'active',
+      limit: 100,
     });
     expect(screen.getByRole('link', { name: 'Stream' })).toBeInTheDocument();
-  });
-
-  it('groups captures by day and shows note vocabulary badge', async () => {
-    renderStream();
 
     const july8 = await screen.findByRole('heading', { name: 'Jul 8, 2026' });
     const july7 = screen.getByRole('heading', { name: 'Jul 7, 2026' });
@@ -105,5 +109,26 @@ describe('StreamSurface', () => {
 
     expect(within(july7Section).getByText('Morning standup')).toBeInTheDocument();
     expect(within(july7Section).getByText(JULY7_LOCAL_TIME)).toBeInTheDocument();
+  });
+
+  it('attaches a stream entry to a selected target', async () => {
+    renderStream();
+
+    expect(await screen.findByText('Morning standup')).toBeInTheDocument();
+
+    const row = screen.getByText('Morning standup').closest('li');
+    expect(row).not.toBeNull();
+
+    fireEvent.change(within(row).getByLabelText('Attach Morning standup'), {
+      target: { value: 'space-apollo' },
+    });
+    fireEvent.click(within(row).getByRole('button', { name: 'Attach entry' }));
+
+    await waitFor(() =>
+      expect(v4API.entities.createLink).toHaveBeenCalledWith('note-1', {
+        target_id: 'space-apollo',
+        relationship_type: 'related',
+      }),
+    );
   });
 });

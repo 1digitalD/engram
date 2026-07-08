@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+
 import NextApp from './NextApp';
 
 vi.mock('../api/v4Client', () => ({
@@ -11,6 +12,15 @@ vi.mock('../api/v4Client', () => ({
     workboard: vi.fn(),
     capture: vi.fn(),
     search: vi.fn(),
+    entities: {
+      list: vi.fn(),
+      update: vi.fn(),
+      create: vi.fn(),
+      createLink: vi.fn(),
+    },
+    activityUpdates: {
+      create: vi.fn(),
+    },
   },
   friendlyApiError: (err, fallback) => err?.message || fallback || 'Something went wrong.',
 }));
@@ -24,6 +34,7 @@ const SPACE_PAYLOAD = {
         key: 'space-apollo',
         label: 'Apollo',
         kind: 'space',
+        entity_id: 'space-apollo',
         counts: {
           total: 2,
           mine: 1,
@@ -77,11 +88,7 @@ const SPACE_PAYLOAD = {
               blocked: false,
               at_risk: false,
             },
-            at_risk: {
-              flag: false,
-              reason: '',
-              receipts: [],
-            },
+            at_risk: { flag: false, reason: '', receipts: [] },
           },
         ],
       },
@@ -109,6 +116,7 @@ const PERSON_PAYLOAD = {
         key: 'person-operator',
         label: 'Operator',
         kind: 'person',
+        entity_id: 'person-operator',
         counts: {
           total: 1,
           mine: 1,
@@ -125,6 +133,7 @@ const PERSON_PAYLOAD = {
         key: 'person-sam',
         label: 'Sam',
         kind: 'person',
+        entity_id: 'person-sam',
         counts: {
           total: 1,
           mine: 0,
@@ -142,17 +151,13 @@ const PERSON_PAYLOAD = {
   meta: {
     group: 'person',
     total: 2,
-    counts: {
-      total: 2,
-      mine: 1,
-      waiting_on: 1,
-      overdue: 1,
-      stale: 1,
-      blocked: 1,
-      at_risk: 1,
-    },
+    counts: SPACE_PAYLOAD.meta.counts,
   },
 };
+
+const PROJECTS = { data: [{ id: 'space-apollo', title: 'Apollo' }, { id: 'space-orbit', title: 'Orbit' }] };
+const AREAS = { data: [] };
+const PEOPLE = { data: [{ id: 'person-operator', title: 'Operator' }, { id: 'person-sam', title: 'Sam' }] };
 
 function renderWorkboard() {
   return render(
@@ -174,7 +179,16 @@ describe('WorkboardSurface', () => {
       .mockResolvedValueOnce(SPACE_PAYLOAD)
       .mockResolvedValueOnce(PERSON_PAYLOAD)
       .mockResolvedValueOnce(PERSON_PAYLOAD)
-      .mockResolvedValueOnce(SPACE_PAYLOAD);
+      .mockResolvedValueOnce(SPACE_PAYLOAD)
+      .mockResolvedValue(SPACE_PAYLOAD);
+    v4API.entities.list
+      .mockResolvedValueOnce(PROJECTS)
+      .mockResolvedValueOnce(AREAS)
+      .mockResolvedValueOnce(PEOPLE);
+    v4API.entities.update.mockResolvedValue({ data: {} });
+    v4API.entities.create.mockResolvedValue({ data: { id: 'task-new' } });
+    v4API.entities.createLink.mockResolvedValue({ data: {} });
+    v4API.activityUpdates.create.mockResolvedValue({ data: {} });
   });
 
   it('loads the workboard route and shows filter chip counts from the API', async () => {
@@ -182,11 +196,10 @@ describe('WorkboardSurface', () => {
 
     expect(await screen.findByRole('heading', { name: 'Workboard' })).toBeInTheDocument();
     expect(v4API.workboard).toHaveBeenCalledWith({ group: 'space' });
-
     expect(screen.getByRole('button', { name: 'Mine 1' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Waiting on 1' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Blocked 1' })).toBeInTheDocument();
-    expect(screen.getByText('Apollo')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Apollo' })).toBeInTheDocument();
     expect(screen.getByText('Close contract')).toBeInTheDocument();
   });
 
@@ -197,11 +210,10 @@ describe('WorkboardSurface', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Person' }));
 
     await waitFor(() => expect(v4API.workboard).toHaveBeenNthCalledWith(2, { group: 'person' }));
-    expect(await screen.findByText('Operator')).toBeInTheDocument();
-    expect(screen.getByText('Sam')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Operator' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Sam' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Overdue 1' }));
-
     await waitFor(() =>
       expect(v4API.workboard).toHaveBeenNthCalledWith(3, { group: 'person', state: ['overdue'] }),
     );
@@ -210,10 +222,26 @@ describe('WorkboardSurface', () => {
     expect(overdueChip.getAttribute('aria-pressed')).toBe('true');
 
     fireEvent.click(screen.getByRole('button', { name: 'Space' }));
-
     await waitFor(() =>
       expect(v4API.workboard).toHaveBeenNthCalledWith(4, { group: 'space', state: ['overdue'] }),
     );
-    expect(within(screen.getByRole('main')).getByText('Apollo')).toBeInTheDocument();
+    expect(within(screen.getByRole('main')).getByRole('heading', { name: 'Apollo' })).toBeInTheDocument();
+  });
+
+  it('executes inline affordance actions through the API client', async () => {
+    renderWorkboard();
+
+    expect(await screen.findByText('Close contract')).toBeInTheDocument();
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Mark done' })[0]);
+    await waitFor(() => expect(v4API.entities.update).toHaveBeenCalledWith('task-close-contract', { status: 'done' }));
+
+    fireEvent.change(screen.getAllByLabelText('Close contract log update')[0], {
+      target: { value: 'Sent revised draft.' },
+    });
+    fireEvent.click(screen.getAllByRole('button', { name: 'Log update' })[0]);
+    await waitFor(() =>
+      expect(v4API.activityUpdates.create).toHaveBeenCalledWith('task-close-contract', 'Sent revised draft.'),
+    );
   });
 });

@@ -1,0 +1,68 @@
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  margin-top: 1rem;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: end;
+}
+
+.field,
+.fieldWide {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 10rem;
+}
+
+.fieldWide {
+  flex: 1 1 14rem;
+}
+
+.label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.input,
+.select,
+.button,
+.buttonPrimary {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+}
+
+.input,
+.select {
+  min-height: 2.3rem;
+  padding: 0.45rem 0.7rem;
+}
+
+.button,
+.buttonPrimary {
+  min-height: 2.3rem;
+  padding: 0.45rem 0.8rem;
+  cursor: pointer;
+}
+
+.buttonPrimary {
+  border-color: color-mix(in oklch, var(--accent) 50%, var(--border));
+  background: color-mix(in oklch, var(--accent) 12%, var(--surface));
+}
+
+.button:disabled,
+.buttonPrimary:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}

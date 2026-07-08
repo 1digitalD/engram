@@ -363,6 +363,7 @@ def _group_items(included_tasks, *, group, now, space_activity_days):
                 "key": key,
                 "label": label,
                 "kind": kind,
+                "entity_id": owner.id if group == "person" and owner else space.id if space else None,
                 "items": [],
                 "counts": _empty_counts(),
                 "at_risk": at_risk,
