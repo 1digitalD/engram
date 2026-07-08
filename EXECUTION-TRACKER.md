@@ -5,7 +5,7 @@ code. Full v4-era history is archived at `docs/archive/EXECUTION-TRACKER-v4-hist
 
 Last updated: 2026-07-08
 Branch: `main`
-Status: **v6 Phase 2 done** — standing up Phase 3 next.
+Status: **v6 Phase 3 drain active** — Dossier + pinning + manipulation.
 
 ## Current program: v6 (vision-driven rebuild)
 
@@ -17,6 +17,7 @@ Status: **v6 Phase 2 done** — standing up Phase 3 next.
 | `docs/v6/TEST_PLAN.md` | Use cases, test cases, edge cases, metrics |
 | `docs/v6/QC_LOOP.md` | Implement → review → fix → APPROVE loop |
 | `docs/iterations/ITERATION_v6_PHASE_2.md` | Phase 2 iteration (archived) |
+| `docs/iterations/ITERATION_v6_PHASE_3.md` | Phase 3 iteration (active) |
 
 Runtime baseline: `/api/v4` only, Postgres + pgvector, write-enabled MCP.
 
@@ -27,7 +28,7 @@ Runtime baseline: `/api/v4` only, Postgres + pgvector, write-enabled MCP.
 | 0 Foundations | **done** (retro-reviewed 2026-07-08) |
 | 1 Distillation report + trust policy | **done** (2026-07-08) |
 | 2 Workboard | **done** (2026-07-08) |
-| 3 Dossier + direct manipulation + pinning | pending |
+| 3 Dossier + direct manipulation + pinning | **in progress** (drain started 2026-07-08) |
 | 4 Today + markers + nudges | pending |
 | 5 Themes + insights | pending |
 | 6 Cutover + legacy UI deletion | pending |
@@ -62,3 +63,5 @@ bash scripts/v6_check_review_verdict.sh <implement-task-id>   # review tasks
 - 2026-07-08T15:35:10.583653+00:00 v6-21-code-review accepted via codex
 - 2026-07-08T15:44:26.587607+00:00 v6-22-stream-surface accepted via codex
 - 2026-07-08T15:48:22.353456+00:00 v6-22-code-review accepted via codex
+- 2026-07-08 Phase 2 gate — done (overseer)
+- _Phase 3 dossier — prd ready, drain starting_

@@ -1,9 +1,9 @@
 {
-  "iteration": "v6-phase-2-workboard",
-  "goal": "Phase 2: derived workboard states + GET /workboard endpoint, Workboard surface, Stream surface \u2014 with implement\u2192review\u2192APPROVE QC.",
-  "riskLevel": "medium",
-  "userProblem": "No portfolio view of commitments by derived state (mine, waiting-on, overdue, stale, blocked, at-risk); capture stream is buried.",
-  "whyNow": "Phase 1 distillation + Review surface shipped. Workboard is the cheapest high-value win per IMPLEMENTATION_PLAN.",
+  "iteration": "v6-phase-3-dossier",
+  "goal": "Phase 3: pin enforcement + typed affordances + amend/archive/redact/delete + Dossier surface \u2014 with implement\u2192review\u2192APPROVE QC.",
+  "riskLevel": "high",
+  "userProblem": "No Space dossier for cold-start; AI can overwrite human corrections; destructive verbs and note redaction are missing; inline manipulation is buried in legacy UI.",
+  "whyNow": "Phase 2 Workboard + Stream shipped. Phase 3 is trust + direct manipulation per IMPLEMENTATION_PLAN before Today/markers.",
   "skills": [
     "tdd",
     "incremental-implementation",
@@ -12,12 +12,16 @@
   "doubt": false,
   "scope": {
     "filesAffected": [
-      "services/v4_workboard.py",
-      "api/v4/workboard.py",
-      "ui/src/next/WorkboardSurface.jsx",
-      "ui/src/next/StreamSurface.jsx",
-      "ui/src/next/NextShell.jsx",
+      "scripts/migrations/008_pinned_fields.sql",
+      "scripts/migrations/009_redacted_lifecycle.sql",
+      "services/v4_trust.py",
+      "services/v4_reconciliation.py",
+      "api/v4/entities.py",
+      "api/v4/links.py",
+      "models.py",
+      "ui/src/next/DossierSurface.jsx",
       "ui/src/next/NextApp.jsx",
+      "ui/src/next/NextShell.jsx",
       "ui/src/api/v4Client.js",
       "tests/",
       "docs/v6/reviews/",
@@ -25,78 +29,87 @@
       "EXECUTION-TRACKER.md"
     ],
     "routesAffected": [
-      "GET /api/v4/workboard"
+      "POST /api/v4/entities/<id>/pin",
+      "POST /api/v4/entities/<id>/unpin",
+      "POST /api/v4/entities/<id>/redact",
+      "PATCH /api/v4/entities/<id> (pinned-field demotion)",
+      "Existing entity/link routes used by typed affordances"
     ],
     "dataOrApiDependencies": [
-      "operator_person_id from GET /settings/operator for mine/waiting_on",
-      "Per-Space thresholds in project properties.thresholds",
-      "TEST_DATABASE_URL port 5433 only"
+      "Migrations 008 + 009 additive only \u2014 test DB (:5433) first, backup before prod",
+      "services/v4_brief.py + GET /brief for Dossier brief panel",
+      "GET /timeline for Spine",
+      "TEST_DATABASE_URL port 5433 only",
+      "Review verdict: docs/v6/reviews/<implement-task-id>.md + v6_check_review_verdict.sh"
     ],
     "writePathsAffected": [
-      "Read-only derived query endpoint; UI surfaces under ui/src/next/"
+      "entities.pinned_fields JSONB column",
+      "redacted lifecycle on notes",
+      "Pin demotion in reconciliation + suggestion-apply",
+      "Human-authored events for all typed affordances"
     ]
   },
   "tasks": [
     {
-      "id": "v6-20-workboard-endpoint",
-      "title": "Derived states + GET /workboard",
-      "description": "Implement services/v4_workboard.py per SOLUTION_DESIGN \u00a710.1: mine/waiting_on (operator_person_id), overdue, stale (per-Space threshold default 10d), blocked (open blocks links), at_risk v1 with reason strings + hysteresis (clear at threshold-2d). Wire GET /api/v4/workboard?group=space|person&state=... in api/v4/workboard.py. Tests: TEST_PLAN TC-20..24, EC-10..14.",
+      "id": "v6-30-pin-enforcement",
+      "title": "Pin enforcement + pin/unpin endpoints",
+      "description": "Add scripts/migrations/008_pinned_fields.sql (entities.pinned_fields JSONB). Implement services/v4_trust.py: check_pin(entity, field, actor), record_pin on human writes to pinnable fields (status, due_at, title, owner, parent). Wire POST /entities/<id>/pin and /unpin. Consult check_pin in reconciliation and suggestion-apply \u2014 AI writes to pinned fields demote to propose with pin surfaced in reason. Tests: TEST_PLAN TC-30..32.",
       "kind": "code",
       "skills": [
         "tdd",
         "incremental-implementation",
         "git-workflow"
       ],
-      "risk": "medium",
+      "risk": "high",
       "dependencies": [],
       "acceptanceCriteria": [
-        "GET /workboard returns grouped portfolio with state filters",
-        "Each state predicate has unit tests; integration tests use seeded fixture",
-        "At-risk flags include non-empty reason + receipt refs",
-        "Hysteresis behavior tested (TC-23)",
-        "Per-Space threshold override tested (TC-24)"
+        "Migration 008 applies on test DB",
+        "Parameterized matrix: field \u00d7 actor \u00d7 pin-state \u2192 write / pin / demote (TC-30)",
+        "Accept proposal on pinned field updates value, keeps pin (TC-31)",
+        "Unpin \u2192 next AI annotate write succeeds (TC-32)",
+        "Pin/unpin endpoints write entity_events"
       ],
       "validationCommands": [
-        "cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/unit/test_v4_workboard.py tests/integration/test_v4_workboard.py -q",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/unit/test_v4_trust.py tests/integration/test_v4_pins.py -q",
         "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_validate_slice.sh"
       ],
       "blocked": false,
-      "passes": true,
-      "attempts": 2,
+      "passes": false,
+      "attempts": 0,
       "blockerReason": null,
-      "validationEvidence": "Overseer fix: orphan exclusion + activity-event staleness + rewind trigger bypass; unit+integration 10 passed"
+      "validationEvidence": null
     },
     {
-      "id": "v6-20-code-review",
-      "title": "Code review: V6-20 workboard endpoint",
-      "description": "5-pass review per QC_LOOP on v6-20-workboard-endpoint. Write docs/v6/reviews/v6-20-workboard-endpoint.md. Fix before APPROVE.",
+      "id": "v6-30-code-review",
+      "title": "Code review: V6-30 pin enforcement",
+      "description": "5-pass review per QC_LOOP on v6-30-pin-enforcement. Write docs/v6/reviews/v6-30-pin-enforcement.md. Fix before APPROVE.",
       "kind": "review",
       "skills": [
         "code-review",
         "debugging"
       ],
-      "risk": "medium",
+      "risk": "high",
       "dependencies": [
-        "v6-20-workboard-endpoint"
+        "v6-30-pin-enforcement"
       ],
       "acceptanceCriteria": [
-        "docs/v6/reviews/v6-20-workboard-endpoint.md Verdict: APPROVE",
-        "bash scripts/v6_check_review_verdict.sh v6-20-workboard-endpoint exits 0"
+        "docs/v6/reviews/v6-30-pin-enforcement.md Verdict: APPROVE",
+        "bash scripts/v6_check_review_verdict.sh v6-30-pin-enforcement exits 0"
       ],
       "validationCommands": [
         "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_validate_slice.sh",
-        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_check_review_verdict.sh v6-20-workboard-endpoint"
+        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_check_review_verdict.sh v6-30-pin-enforcement"
       ],
       "blocked": false,
-      "passes": true,
-      "attempts": 1,
+      "passes": false,
+      "attempts": 0,
       "blockerReason": null,
-      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_validate_slice.sh\n== v6 slice validation (TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test) ==\n-- full backend suite (serial)\nssssssssssssssssssss.................................................... [ 12%]\n........................................................................ [ 25%]\n........................................................................ [ 38%]\n........................................................................ [ 50%]\n........................................................................ [ 63%]\n........................................................................ [ 76%]\n........................................................................ [ 89%]\n.............................................................            [100%]\n=============================== warnings summary ===============================\ntests/integration/test_v4_capture_extraction.py: 7 warnings\ntests/integration/test_v4_suggestions.py: 8 warnings\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:704: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_capture_extraction.py::test_capture_suppresses_recently_dismissed_duplicate_suggestion\ntests/integration/test_v4_suggestions.py::test_dismiss_suggestion_does_not_mutate_entities\ntests/integration/test_v4_suggestions.py::test_dismiss_suggestion_stores_reason\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:1186: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_capture_intent_routing.py::test_update_unresolved_suggestion_resolves_to_existing_target\ntests/integration/test_v4_capture_intent_routing.py::test_update_unresolved_resolve_applies_extraction_when_au_note_deduped\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:1143: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_decisions.py::test_decision_always_suggestion_not_auto\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:774: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_resolve_review_marks_note_resolved_and_clears_it_from_inbox\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:1304: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_accept_link_existing_suggestion_creates_entity_link\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:836: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_accept_update_entity_suggestion_updates_task_and_links_source_note\ntests/integration/test_v4_suggestions.py::test_accept_update_entity_suggestion_sets_priority\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:988: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_reconcile_suggestions_expires_stale_link_existing_suggestion\ntests/integration/test_v4_suggestions.py::test_reconcile_suggestions_expires_stale_create_entity_suggestion\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/_shared.py:4772: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_resolve_suggestion_to_existing_links_instead_of_creating\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:1069: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n545 passed, 20 skipped, 28 warnings in 75.06s (0:01:15)\n== slice validation OK ==\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_check_review_verdict.sh v6-20-workboard-endpoint\nOK review verdict: /Volumes/lex1t/dev/shared/repos/engram/scripts/../docs/v6/reviews/v6-20-workboard-endpoint.md (Verdict: APPROVE, Passes 1-5 PASS)"
+      "validationEvidence": null
     },
     {
-      "id": "v6-21-workboard-surface",
-      "title": "Workboard surface in /next",
-      "description": "ui/src/next/WorkboardSurface.jsx: filter chips with counts from /workboard, group toggle (space/person), commitment rows with inline actions (done, nudge-draft placeholder, marker placeholder). Themes rail placeholder. Wire route in NextApp/NextShell. Vitest component tests. UC-3.",
+      "id": "v6-31-typed-affordances",
+      "title": "Typed affordances (inline manipulation)",
+      "description": "Inline status/due chips, move-to-Space, hand-to-owner, attach-entry, fast paths (add commitment, log update, mark done) \u2014 all via existing PATCH/links endpoints writing human-authored events. Shared affordance components under ui/src/next/ reused by Workboard rows where applicable. Tests: TEST_PLAN TC-33, UC-4, UC-5.",
       "kind": "code",
       "skills": [
         "tdd",
@@ -105,71 +118,131 @@
       ],
       "risk": "medium",
       "dependencies": [
-        "v6-20-code-review"
+        "v6-30-code-review"
       ],
       "acceptanceCriteria": [
-        "Workboard loads from v4API workboard endpoint",
-        "State filter chips show counts matching API",
-        "Group toggle switches space vs person grouping",
-        "Component tests cover filter + group behavior"
+        "Move-to-Space: old parent link removed, new created, single ChangeBatch (TC-33)",
+        "Inline status/due edits pin fields on human write",
+        "Fast paths write Ledger events with user actor",
+        "Component + integration tests for affordance flows"
       ],
       "validationCommands": [
+        "cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/integration/test_v4_affordances.py -q",
         "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- next",
         "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build",
         "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_validate_slice.sh"
       ],
       "blocked": false,
-      "passes": true,
-      "attempts": 1,
+      "passes": false,
+      "attempts": 0,
       "blockerReason": null,
-      "validationEvidence": "Overseer fix: stabilize review timing test mocks; npm test -- next 20 passed; npm run build green"
+      "validationEvidence": null
     },
     {
-      "id": "v6-21-code-review",
-      "title": "Code review: V6-21 workboard surface",
-      "description": "5-pass review per QC_LOOP on v6-21-workboard-surface. Write docs/v6/reviews/v6-21-workboard-surface.md.",
+      "id": "v6-31-code-review",
+      "title": "Code review: V6-31 typed affordances",
+      "description": "5-pass review per QC_LOOP on v6-31-typed-affordances. Write docs/v6/reviews/v6-31-typed-affordances.md.",
       "kind": "review",
       "skills": [
         "code-review",
         "debugging"
       ],
-      "risk": "low",
+      "risk": "medium",
       "dependencies": [
-        "v6-21-workboard-surface"
+        "v6-31-typed-affordances"
       ],
       "acceptanceCriteria": [
-        "docs/v6/reviews/v6-21-workboard-surface.md Verdict: APPROVE",
-        "bash scripts/v6_check_review_verdict.sh v6-21-workboard-surface exits 0"
+        "docs/v6/reviews/v6-31-typed-affordances.md Verdict: APPROVE",
+        "bash scripts/v6_check_review_verdict.sh v6-31-typed-affordances exits 0"
       ],
       "validationCommands": [
         "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- next",
-        "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build",
-        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_check_review_verdict.sh v6-21-workboard-surface"
+        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_validate_slice.sh",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_check_review_verdict.sh v6-31-typed-affordances"
       ],
       "blocked": false,
-      "passes": true,
-      "attempts": 1,
+      "passes": false,
+      "attempts": 0,
       "blockerReason": null,
-      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- next\n\n> engram-ui@0.0.0 test\n> node scripts/run-tests.mjs next\n\n\n RUN  v3.2.4 /Volumes/lex1t/dev/shared/repos/engram/ui\n\n \u2713 src/next/vocab.test.js (5 tests) 1ms\n \u2713 src/components/mentionExtension.test.js (3 tests) 27ms\n \u2713 src/next/WorkboardSurface.test.jsx (2 tests) 122ms\n \u2713 src/next/ReviewSurface.test.jsx (10 tests) 144ms\n\n Test Files  4 passed (4)\n      Tests  20 passed (20)\n   Start at  08:35:09\n   Duration  939ms (transform 145ms, setup 272ms, collect 456ms, tests 294ms, environment 1.38s, prepare 183ms)\n\nnpm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\nnpm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build\n\n> engram-ui@0.0.0 build\n> vite build\n\nvite v8.0.10 building client environment for production...\n\u001b[2K\ntransforming...\u2713 1886 modules transformed.\nrendering chunks...\ncomputing gzip size...\n../static/index.html                             1.95 kB \u2502 gzip:   0.86 kB\n../static/assets/index-B29nm13z.css            115.87 kB \u2502 gzip:  17.57 kB\n../static/assets/rolldown-runtime-jpDsebLB.js    0.56 kB \u2502 gzip:   0.36 kB\n../static/assets/vendor-icons-C8UFgheK.js        4.23 kB \u2502 gzip:   1.89 kB\n../static/assets/index-Dr-srMdC.js             174.61 kB \u2502 gzip:  47.02 kB\n../static/assets/vendor-react-C6600fzf.js      231.14 kB \u2502 gzip:  73.37 kB\n../static/assets/vendor-D_WIgHEM.js            497.57 kB \u2502 gzip: 156.97 kB\n\n\u2713 built in 234ms\nnpm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_check_review_verdict.sh v6-21-workboard-surface\nOK review verdict: /Volumes/lex1t/dev/shared/repos/engram/scripts/../docs/v6/reviews/v6-21-workboard-surface.md (Verdict: APPROVE, Passes 1-5 PASS)"
+      "validationEvidence": null
     },
     {
-      "id": "v6-22-stream-surface",
-      "title": "Stream surface in /next",
-      "description": "ui/src/next/StreamSurface.jsx: chronological capture log (notes list + day grouping + type glyphs). Wire route. Vitest tests.",
+      "id": "v6-32-amend-archive-redact-delete",
+      "title": "Amend, archive, redact, delete",
+      "description": "Add scripts/migrations/009_redacted_lifecycle.sql (extend chk_entities_lifecycle with redacted). Amend activity updates with old\u2192new in EntityEvent. Archive as default destructive verb (reversible, excluded from Workboard). Delete with tombstone event. POST /entities/<id>/redact for notes: tombstone content, delete entity_chunks, citing items show redacted state, event has no old content. Tests: TEST_PLAN TC-34..36, EC-20..23.",
       "kind": "code",
       "skills": [
         "tdd",
         "incremental-implementation",
         "git-workflow"
       ],
-      "risk": "low",
+      "risk": "high",
       "dependencies": [
-        "v6-21-code-review"
+        "v6-31-code-review"
       ],
       "acceptanceCriteria": [
-        "Stream shows captures grouped by day",
-        "Type glyphs/labels use vocab.js",
-        "Component tests pass"
+        "Migration 009 applies on test DB",
+        "Amend update: EntityEvent has old+new (TC-34)",
+        "Archive reversible + excluded from Workboard; delete tombstone (TC-35)",
+        "Redact note: chunks gone, no vector hits, citations broken visibly (TC-36)",
+        "EC-22 redacted note cited by commitment renders redacted state"
+      ],
+      "validationCommands": [
+        "cd /Volumes/lex1t/dev/shared/repos/engram && TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test ./venv/bin/pytest tests/integration/test_v4_lifecycle.py -q",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_validate_slice.sh"
+      ],
+      "blocked": false,
+      "passes": false,
+      "attempts": 0,
+      "blockerReason": null,
+      "validationEvidence": null
+    },
+    {
+      "id": "v6-32-code-review",
+      "title": "Code review: V6-32 amend/archive/redact/delete",
+      "description": "5-pass review per QC_LOOP on v6-32-amend-archive-redact-delete. Write docs/v6/reviews/v6-32-amend-archive-redact-delete.md.",
+      "kind": "review",
+      "skills": [
+        "code-review",
+        "debugging"
+      ],
+      "risk": "high",
+      "dependencies": [
+        "v6-32-amend-archive-redact-delete"
+      ],
+      "acceptanceCriteria": [
+        "docs/v6/reviews/v6-32-amend-archive-redact-delete.md Verdict: APPROVE",
+        "bash scripts/v6_check_review_verdict.sh v6-32-amend-archive-redact-delete exits 0"
+      ],
+      "validationCommands": [
+        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_validate_slice.sh",
+        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_check_review_verdict.sh v6-32-amend-archive-redact-delete"
+      ],
+      "blocked": false,
+      "passes": false,
+      "attempts": 0,
+      "blockerReason": null,
+      "validationEvidence": null
+    },
+    {
+      "id": "v6-33-dossier-surface",
+      "title": "Dossier surface in /next",
+      "description": "ui/src/next/DossierSurface.jsx per mockup 04: Brief panel (GET /brief scoped to Space), Spine (GET /timeline), open commitments + decisions + questions, Ledger tab (entity events). Wire route from Workboard/Spaces nav. Pin/unpin affordances on pinned fields. Vitest component tests. UC-2 manual pass.",
+      "kind": "code",
+      "skills": [
+        "tdd",
+        "incremental-implementation",
+        "git-workflow"
+      ],
+      "risk": "medium",
+      "dependencies": [
+        "v6-32-code-review"
+      ],
+      "acceptanceCriteria": [
+        "Dossier loads Brief + Spine for a Space entity",
+        "Open commitments, decisions, questions sections render",
+        "Ledger tab shows attributed timeline with amend history",
+        "Component tests cover Brief/Spine/Ledger tabs"
       ],
       "validationCommands": [
         "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- next",
@@ -177,55 +250,56 @@
         "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_validate_slice.sh"
       ],
       "blocked": false,
-      "passes": true,
-      "attempts": 1,
+      "passes": false,
+      "attempts": 0,
       "blockerReason": null,
-      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- next\n\n> engram-ui@0.0.0 test\n> node scripts/run-tests.mjs next\n\n\n RUN  v3.2.4 /Volumes/lex1t/dev/shared/repos/engram/ui\n\n \u2713 src/next/vocab.test.js (5 tests) 2ms\n \u2713 src/components/mentionExtension.test.js (3 tests) 31ms\n \u2713 src/next/StreamSurface.test.jsx (2 tests) 62ms\n \u2713 src/next/ReviewSurface.test.jsx (10 tests) 156ms\n \u2713 src/next/WorkboardSurface.test.jsx (2 tests) 134ms\n\n Test Files  5 passed (5)\n      Tests  22 passed (22)\n   Start at  08:43:10\n   Duration  889ms (transform 216ms, setup 315ms, collect 679ms, tests 385ms, environment 1.40s, prepare 278ms)\n\nnpm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\nnpm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build\n\n> engram-ui@0.0.0 build\n> vite build\n\nvite v8.0.10 building client environment for production...\n\u001b[2K\ntransforming...\u2713 1888 modules transformed.\nrendering chunks...\ncomputing gzip size...\n../static/index.html                             1.95 kB \u2502 gzip:   0.86 kB\n../static/assets/index-9-7hO3Dp.css            118.16 kB \u2502 gzip:  17.92 kB\n../static/assets/rolldown-runtime-jpDsebLB.js    0.56 kB \u2502 gzip:   0.36 kB\n../static/assets/vendor-icons-C8UFgheK.js        4.23 kB \u2502 gzip:   1.89 kB\n../static/assets/index-C4MXQyrW.js             177.87 kB \u2502 gzip:  47.76 kB\n../static/assets/vendor-react-C6600fzf.js      231.14 kB \u2502 gzip:  73.37 kB\n../static/assets/vendor-D_WIgHEM.js            497.57 kB \u2502 gzip: 156.97 kB\n\n\u2713 built in 229ms\nnpm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_validate_slice.sh\n== v6 slice validation (TEST_DATABASE_URL=postgresql://engram:engram@localhost:5433/engram_test) ==\n-- full backend suite (serial)\nssssssssssssssssssss.................................................... [ 12%]\n........................................................................ [ 25%]\n........................................................................ [ 38%]\n........................................................................ [ 50%]\n........................................................................ [ 63%]\n........................................................................ [ 76%]\n........................................................................ [ 89%]\n.............................................................            [100%]\n=============================== warnings summary ===============================\ntests/integration/test_v4_capture_extraction.py: 7 warnings\ntests/integration/test_v4_suggestions.py: 8 warnings\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:704: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_capture_extraction.py::test_capture_suppresses_recently_dismissed_duplicate_suggestion\ntests/integration/test_v4_suggestions.py::test_dismiss_suggestion_does_not_mutate_entities\ntests/integration/test_v4_suggestions.py::test_dismiss_suggestion_stores_reason\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:1186: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_capture_intent_routing.py::test_update_unresolved_suggestion_resolves_to_existing_target\ntests/integration/test_v4_capture_intent_routing.py::test_update_unresolved_resolve_applies_extraction_when_au_note_deduped\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:1143: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_decisions.py::test_decision_always_suggestion_not_auto\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:774: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_resolve_review_marks_note_resolved_and_clears_it_from_inbox\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:1304: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_accept_link_existing_suggestion_creates_entity_link\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:836: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_accept_update_entity_suggestion_updates_task_and_links_source_note\ntests/integration/test_v4_suggestions.py::test_accept_update_entity_suggestion_sets_priority\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:988: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_reconcile_suggestions_expires_stale_link_existing_suggestion\ntests/integration/test_v4_suggestions.py::test_reconcile_suggestions_expires_stale_create_entity_suggestion\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/_shared.py:4772: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\ntests/integration/test_v4_suggestions.py::test_resolve_suggestion_to_existing_links_instead_of_creating\n  /Volumes/lex1t/dev/shared/repos/engram/api/v4/entities.py:1069: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    suggestion.resolved_at = datetime.utcnow()\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n545 passed, 20 skipped, 28 warnings in 74.29s (0:01:14)\n== slice validation OK =="
+      "validationEvidence": null
     },
     {
-      "id": "v6-22-code-review",
-      "title": "Code review: V6-22 stream surface",
-      "description": "5-pass review per QC_LOOP on v6-22-stream-surface. Write docs/v6/reviews/v6-22-stream-surface.md.",
+      "id": "v6-33-code-review",
+      "title": "Code review: V6-33 dossier surface",
+      "description": "5-pass review per QC_LOOP on v6-33-dossier-surface. Write docs/v6/reviews/v6-33-dossier-surface.md.",
       "kind": "review",
       "skills": [
         "code-review",
         "debugging"
       ],
-      "risk": "low",
+      "risk": "medium",
       "dependencies": [
-        "v6-22-stream-surface"
+        "v6-33-dossier-surface"
       ],
       "acceptanceCriteria": [
-        "docs/v6/reviews/v6-22-stream-surface.md Verdict: APPROVE",
-        "bash scripts/v6_check_review_verdict.sh v6-22-stream-surface exits 0"
+        "docs/v6/reviews/v6-33-dossier-surface.md Verdict: APPROVE",
+        "bash scripts/v6_check_review_verdict.sh v6-33-dossier-surface exits 0"
       ],
       "validationCommands": [
         "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- next",
-        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_check_review_verdict.sh v6-22-stream-surface"
+        "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_check_review_verdict.sh v6-33-dossier-surface"
       ],
       "blocked": false,
-      "passes": true,
-      "attempts": 1,
+      "passes": false,
+      "attempts": 0,
       "blockerReason": null,
-      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- next\n\n> engram-ui@0.0.0 test\n> node scripts/run-tests.mjs next\n\n\n RUN  v3.2.4 /Volumes/lex1t/dev/shared/repos/engram/ui\n\n \u2713 src/next/vocab.test.js (5 tests) 2ms\n \u2713 src/components/mentionExtension.test.js (3 tests) 30ms\n \u2713 src/next/StreamSurface.test.jsx (2 tests) 63ms\n \u2713 src/next/ReviewSurface.test.jsx (10 tests) 157ms\n \u2713 src/next/WorkboardSurface.test.jsx (2 tests) 137ms\n\n Test Files  5 passed (5)\n      Tests  22 passed (22)\n   Start at  08:48:21\n   Duration  880ms (transform 213ms, setup 263ms, collect 683ms, tests 390ms, environment 1.39s, prepare 233ms)\n\nnpm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\nnpm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_check_review_verdict.sh v6-22-stream-surface\nOK review verdict: /Volumes/lex1t/dev/shared/repos/engram/scripts/../docs/v6/reviews/v6-22-stream-surface.md (Verdict: APPROVE, Passes 1-5 PASS)"
+      "validationEvidence": null
     },
     {
-      "id": "v6-phase-2-gate",
-      "title": "Phase 2 gate: full validation + tracker",
-      "description": "Full backend + UI validation. All docs/v6/reviews/v6-2*.md APPROVE. Update EXECUTION-TRACKER.md Phase 2 done. Archive prd. Do not start Phase 3.",
+      "id": "v6-phase-3-gate",
+      "title": "Phase 3 gate: full validation + tracker",
+      "description": "Full backend + UI validation. All docs/v6/reviews/v6-3*.md APPROVE. Update EXECUTION-TRACKER.md Phase 3 done. Archive prd. Do not start Phase 4.",
       "kind": "gate",
       "skills": [
         "git-workflow"
       ],
       "risk": "low",
       "dependencies": [
-        "v6-22-code-review"
+        "v6-33-code-review"
       ],
       "acceptanceCriteria": [
         "bash scripts/v6_validate_slice.sh passes",
         "cd ui && npm test && npm run build green",
-        "All Phase 2 review verdict files APPROVE",
-        "EXECUTION-TRACKER.md Phase 2 marked done"
+        "All Phase 3 review verdict files APPROVE",
+        "EXECUTION-TRACKER.md Phase 3 marked done",
+        "Migrations 008 + 009 documented in tracker slice log"
       ],
       "validationCommands": [
         "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_validate_slice.sh",
@@ -233,10 +307,10 @@
         "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build"
       ],
       "blocked": false,
-      "passes": true,
-      "attempts": 1,
+      "passes": false,
+      "attempts": 0,
       "blockerReason": null,
-      "validationEvidence": "Overseer gate: v6_validate_slice 545 passed; npm test 221 passed; npm run build green; all v6-2* verdicts APPROVE"
+      "validationEvidence": null
     }
   ],
   "codingLoopPolicy": {
