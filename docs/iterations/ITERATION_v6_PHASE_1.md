@@ -54,3 +54,22 @@ bash /Volumes/lex1t/dev/shared/repos/loopsmith-coding-standards/scripts/loopsmit
 
 Phase 0 retro review complete — see `docs/v6/reviews/v6-01-*.md` and
 `v6-02-*.md`.
+
+## Loopsmith friction log (Phase 1 drain)
+
+Captured for Loopsmith reinforcement — each entry: symptom → root cause →
+workaround → proposed harness fix. Raw evidence lives in `.codloop/runs/*.json`
+(archived under `.codloop/runs/.archive-*`).
+
+| Date | Task | Failure class | Symptom | Root cause | Workaround | Proposed Loopsmith fix |
+|---|---|---|---|---|---|---|
+| 2026-07-08 | v6-13-code-review | `merge_conflict` | Cursor attempts a062/a063 blocked | Review-only task; UI already green on `main`; executor tried to merge/publish with nothing to land | Overseer takeover: write verdict file, mark `passes: true`, `clean-all`, resume | Classify review tasks with zero product delta as **verdict-only**; skip integrate-before-validate when implement task already on `main` |
+| 2026-07-08 | v6-13-code-review | `tool_unavailable` | OpenCode attempt a061 | OpenCode credits exhausted | Fallback to Cursor (also failed) → overseer | Surface credits error earlier; auto-fallback without stale-blocker exit |
+| 2026-07-08 | v6-14-eval-metrics | `validation_failure` | Codex a064 blocked | (1) test asserted `corrections.total == 3` but formula yields 4; (2) `replay_eval.py` not executable | Overseer cherry-pick worktree + fix assertions + `chmod +x` | Post-impl lint: flag executable scripts referenced by unit tests; validation summary should highlight **assertion mismatch** vs code bug |
+| 2026-07-08 | (harness) | policy | First drain blocked | `validationTimeoutSeconds` in `coding-loop-policy.yaml` stripped by `doctor` | Move timeout to `prd.json` → `codingLoopPolicy` | Document protected keys; `doctor` should warn not silently strip |
+| 2026-07-08 | (harness) | stale state | Resume exits in ~10s | Prior `blocked` attempt still in `.codloop/state.json` | `loopsmith_recover.sh clean-all` before retry | `host-run --drain` should auto-clear stale blocker when `passes: true` already set on blocked task |
+| 2026-07-08 | Phase 0 reviews | QC gap | Review tasks `passes: true` without verdict files | Validation = pytest only, no verdict gate | Phase 1 retro + `v6_check_review_verdict.sh` | Review tasks must include verdict script in `validationCommands` (now in prd template) |
+
+**Feedback targets:** `loopsmith/docs/proving-runs.md` (orchestration evidence),
+`loopsmith/docs/failure-model.md` (recovery rules), overseer skill common-blockers
+table. Engram-side backlog: `docs/v6/QC_LOOP.md` §Loopsmith harness backlog.

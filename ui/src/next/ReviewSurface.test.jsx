@@ -23,11 +23,23 @@ vi.mock('../api/v4Client', () => ({
 import { v4API } from '../api/v4Client';
 
 const REPORT_ID = 'report-1';
+const REPORT_ID_2 = 'report-2';
 const SUGGESTION_ID = 'suggestion-1';
+const SUGGESTION_ID_2 = 'suggestion-2';
+
 const LIST_PAYLOAD = {
   data: [{ id: REPORT_ID, status: 'pending', source_note_id: 'note-1' }],
   meta: { total: 1 },
 };
+
+const LIST_PAYLOAD_TWO_REPORTS = {
+  data: [
+    { id: REPORT_ID, status: 'pending', source_note_id: 'note-1' },
+    { id: REPORT_ID_2, status: 'pending', source_note_id: 'note-2' },
+  ],
+  meta: { total: 2 },
+};
+
 const DETAIL_PAYLOAD = {
   data: {
     id: REPORT_ID,
@@ -74,6 +86,40 @@ const DETAIL_PAYLOAD = {
   ],
 };
 
+const DETAIL_PAYLOAD_2 = {
+  data: {
+    id: REPORT_ID_2,
+    status: 'pending',
+    narrative: {
+      sections: [
+        {
+          name: 'proposed_commitments',
+          title: 'Proposed commitments',
+          items: [
+            {
+              id: SUGGESTION_ID_2,
+              kind: 'create_entity',
+              title: 'Send recap',
+              reason: 'Send recap today',
+              payload: { title: 'Send recap', evidence: 'Send recap today' },
+            },
+          ],
+        },
+      ],
+    },
+  },
+  source_note: { id: 'note-2', title: 'Recap note' },
+  suggestions: [
+    {
+      id: SUGGESTION_ID_2,
+      status: 'pending',
+      suggestion_type: 'create_task',
+      operation_type: 'create_entity',
+      payload: { type: 'task', title: 'Send recap', evidence: 'Send recap today' },
+    },
+  ],
+};
+
 function renderReview(initialEntry = '/next/review') {
   return render(
     <MemoryRouter initialEntries={[initialEntry]}>
@@ -102,7 +148,7 @@ describe('ReviewSurface', () => {
     v4API.search.mockResolvedValue({ data: [] });
   });
 
-  it('loads pending reports from GET /reports', async () => {
+  it('loads pending reports via GET /reports', async () => {
     renderReview();
 
     expect(await screen.findByRole('heading', { name: 'Review' })).toBeInTheDocument();
@@ -112,7 +158,7 @@ describe('ReviewSurface', () => {
     expect(screen.getByText('Proposed commitments')).toBeInTheDocument();
   });
 
-  it('verifies proposal via POST /reports/<id>/resolve', async () => {
+  it('verifies a proposal via POST /reports/<id>/resolve', async () => {
     renderReview();
 
     await screen.findByText('Write docs');
@@ -125,7 +171,7 @@ describe('ReviewSurface', () => {
     );
   });
 
-  it('dismisses with reason', async () => {
+  it('dismisses a proposal with a reason', async () => {
     renderReview();
 
     await screen.findByText('Write docs');
@@ -141,7 +187,7 @@ describe('ReviewSurface', () => {
     );
   });
 
-  it('edits proposal title before verifying', async () => {
+  it('edits a proposal title before verifying', async () => {
     renderReview();
 
     await screen.findByText('Write docs');
@@ -177,7 +223,7 @@ describe('ReviewSurface', () => {
     );
   });
 
-  it('sends review duration when a report leaves the queue', async () => {
+  it('sends review duration when the report leaves the queue', async () => {
     v4API.reports.list
       .mockResolvedValueOnce(LIST_PAYLOAD)
       .mockResolvedValueOnce({ data: [], meta: { total: 0 } });
@@ -197,7 +243,39 @@ describe('ReviewSurface', () => {
     );
   });
 
-  it('accepts the rest of the report in one batch', async () => {
+  it('resets review timing when switching to another report', async () => {
+    v4API.reports.list
+      .mockResolvedValueOnce(LIST_PAYLOAD_TWO_REPORTS)
+      .mockResolvedValueOnce({ data: [{ id: REPORT_ID_2, status: 'pending', source_note_id: 'note-2' }], meta: { total: 1 } })
+      .mockResolvedValueOnce({ data: [], meta: { total: 0 } });
+    v4API.reports.get.mockImplementation(async (reportId) => {
+      if (reportId === REPORT_ID_2) {
+        return DETAIL_PAYLOAD_2;
+      }
+      return DETAIL_PAYLOAD;
+    });
+    vi.spyOn(Date, 'now')
+      .mockReturnValueOnce(1_000)
+      .mockReturnValueOnce(5_000)
+      .mockReturnValueOnce(25_000);
+
+    renderReview();
+
+    await screen.findByText('Write docs');
+    fireEvent.click(screen.getByRole('button', { name: /report-2/i }));
+    await screen.findByText('Send recap');
+    fireEvent.click(screen.getByRole('button', { name: 'Verify' }));
+
+    await waitFor(() =>
+      expect(v4API.metrics.recordReview).toHaveBeenCalledWith({
+        report_id: REPORT_ID_2,
+        duration_ms: 20_000,
+        suggestion_count: 1,
+      }),
+    );
+  });
+
+  it('accepts the rest of a report in one batch', async () => {
     renderReview();
 
     await screen.findByText('Write docs');
@@ -230,7 +308,7 @@ describe('NextShell', () => {
     v4API.search.mockResolvedValue({ data: [] });
   });
 
-  it('shows review pulse count for pending reports', async () => {
+  it('shows the review pulse count from pending reports', async () => {
     render(
       <MemoryRouter initialEntries={['/next/review']}>
         <Routes>

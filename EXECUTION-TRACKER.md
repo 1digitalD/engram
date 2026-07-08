@@ -64,3 +64,4 @@ bash scripts/v6_check_review_verdict.sh <implement-task-id>   # review tasks
 - 2026-07-08T04:56:53.013706+00:00 v6-12-retire-auto-create accepted via opencode
 - 2026-07-08T05:05:56.359559+00:00 v6-12-code-review accepted via opencode
 - 2026-07-08T05:14:26.206838+00:00 v6-13-next-review-ui accepted via cursor
+- 2026-07-08T06:37:12.289534+00:00 v6-14-code-review accepted via codex

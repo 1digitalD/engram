@@ -94,7 +94,18 @@ Quality metrics tracked in parallel via V6-14 — not calendar-blocking.
 
 ## Loopsmith harness backlog
 
+Engram-side QC infra (done in Phase 0–1):
+
 - [x] Route-table baseline + diff script
 - [x] Formal review verdict files + `v6_check_review_verdict.sh`
 - [x] Phase 0 retro review completed
+- [x] Phase 1 friction log started (`docs/iterations/ITERATION_v6_PHASE_1.md` §Loopsmith friction log)
+
+Loopsmith reinforcement candidates (feed to `loopsmith` repo):
+
+- [ ] Review-only tasks: skip merge/publish when implement slice already on `main` (avoid `merge_conflict` false blocks)
+- [ ] `validation_failure` triage: distinguish assertion/test bugs vs product bugs in blocked summary
+- [ ] Auto-clear stale `.codloop/state.json` blocker when overseer marks task `passes: true`
+- [ ] `doctor` warn (not strip) non-protected `coding-loop-policy.yaml` keys; document `codingLoopPolicy` in prd.json
+- [ ] Executable-bit check for scripts referenced in `validationCommands` / unit tests
 - [ ] Post-Phase 1 retro: did review tasks produce verdict files without re-dispatch churn?

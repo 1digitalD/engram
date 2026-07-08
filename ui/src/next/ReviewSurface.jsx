@@ -216,6 +216,10 @@ export default function ReviewSurface() {
   }, [activeReportId, loadReportDetail]);
 
   useEffect(() => {
+    setReviewStartedAt(null);
+  }, [activeReportId]);
+
+  useEffect(() => {
     if (!activeReportId) {
       setReviewStartedAt(null);
       return;
