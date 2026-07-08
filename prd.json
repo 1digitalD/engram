@@ -1,6 +1,6 @@
 {
   "iteration": "v6-phase-1-distillation",
-  "goal": "Phase 1 flagship: distillation reports (one capture → one report), resolve API, retire auto-create, /next Review UI, replay eval + metrics — with enforced implement→review→fix→APPROVE QC loop.",
+  "goal": "Phase 1 flagship: distillation reports (one capture \u2192 one report), resolve API, retire auto-create, /next Review UI, replay eval + metrics \u2014 with enforced implement\u2192review\u2192fix\u2192APPROVE QC loop.",
   "riskLevel": "high",
   "userProblem": "Capture still auto-creates entities and dumps loose suggestions; there is no batch-review report contract or Review surface to trust messy input.",
   "whyNow": "Phase 0 API package and operator setting are done and retro-reviewed. Phase 1 is the load-bearing bet per IMPLEMENTATION_PLAN.",
@@ -34,7 +34,7 @@
     ],
     "dataOrApiDependencies": [
       "Tests must use TEST_DATABASE_URL on port 5433 only.",
-      "Migration 006_distillation_reports.sql additive only — test DB first.",
+      "Migration 006_distillation_reports.sql additive only \u2014 test DB first.",
       "bash scripts/backup_prod.sh before prod migration deploy.",
       "Review verdict required: docs/v6/reviews/<implement-task-id>.md + v6_check_review_verdict.sh"
     ],
@@ -50,16 +50,20 @@
     {
       "id": "v6-10-report-assembler",
       "title": "Migration + report assembler + job integration",
-      "description": "Per SOLUTION_DESIGN §5.1 and §6. Add scripts/migrations/006_distillation_reports.sql (distillation_reports + ai_suggestions.report_id). Implement services/v4_report.py: group all candidates from one capture into one report, order sections (routing summary → applied annotations → proposed commitments → decisions → questions → leftovers), emit attribution questions when owner ambiguous, supersede prior report on re-distill. Wire into job worker after reconciliation. Register routes stub in api/v4/reports.py only if needed for imports — full HTTP in V6-11. Tests: TEST_PLAN TC-10..13, TC-17.",
+      "description": "Per SOLUTION_DESIGN \u00a75.1 and \u00a76. Add scripts/migrations/006_distillation_reports.sql (distillation_reports + ai_suggestions.report_id). Implement services/v4_report.py: group all candidates from one capture into one report, order sections (routing summary \u2192 applied annotations \u2192 proposed commitments \u2192 decisions \u2192 questions \u2192 leftovers), emit attribution questions when owner ambiguous, supersede prior report on re-distill. Wire into job worker after reconciliation. Register routes stub in api/v4/reports.py only if needed for imports \u2014 full HTTP in V6-11. Tests: TEST_PLAN TC-10..13, TC-17.",
       "kind": "code",
-      "skills": ["tdd", "incremental-implementation", "git-workflow"],
+      "skills": [
+        "tdd",
+        "incremental-implementation",
+        "git-workflow"
+      ],
       "risk": "high",
       "dependencies": [],
       "acceptanceCriteria": [
         "Migration 006 applies cleanly on test DB",
-        "N candidates from one capture → one distillation_reports row; all ai_suggestions.report_id set",
+        "N candidates from one capture \u2192 one distillation_reports row; all ai_suggestions.report_id set",
         "Section ordering stable per TEST_PLAN TC-11",
-        "Speaker-less commitment → question item, never guessed owner (TC-12)",
+        "Speaker-less commitment \u2192 question item, never guessed owner (TC-12)",
         "Re-distill supersedes prior report (TC-17)",
         "Unit tests for assembler; integration test for pipeline grouping"
       ],
@@ -78,9 +82,14 @@
       "title": "Code review: V6-10 report assembler",
       "description": "5-pass review per docs/v6/QC_LOOP.md on v6-10-report-assembler. Write docs/v6/reviews/v6-10-report-assembler.md (TEMPLATE). Fix BLOCK/REQUEST CHANGES product issues in this worktree. Do NOT set passes:true until Verdict: APPROVE and v6_check_review_verdict.sh passes.",
       "kind": "review",
-      "skills": ["code-review", "debugging"],
+      "skills": [
+        "code-review",
+        "debugging"
+      ],
       "risk": "medium",
-      "dependencies": ["v6-10-report-assembler"],
+      "dependencies": [
+        "v6-10-report-assembler"
+      ],
       "acceptanceCriteria": [
         "docs/v6/reviews/v6-10-report-assembler.md with Verdict: APPROVE and Passes 1-5 PASS",
         "bash scripts/v6_check_review_verdict.sh v6-10-report-assembler exits 0",
@@ -100,11 +109,17 @@
     {
       "id": "v6-11-resolve-endpoint",
       "title": "Reports HTTP API + batch resolve",
-      "description": "Implement api/v4/reports.py: GET /reports?status=pending, GET /reports/<id>, POST /reports/<id>/resolve per SOLUTION_DESIGN §6. Body: {decisions: [{suggestion_id, action: accept|edit|dismiss|later, edits?, dismissal_reason?}], accept_rest: bool}. One ChangeBatch for whole review; later → partial status. Wire dismissal memory. Tests TC-14..16, EC-07.",
+      "description": "Implement api/v4/reports.py: GET /reports?status=pending, GET /reports/<id>, POST /reports/<id>/resolve per SOLUTION_DESIGN \u00a76. Body: {decisions: [{suggestion_id, action: accept|edit|dismiss|later, edits?, dismissal_reason?}], accept_rest: bool}. One ChangeBatch for whole review; later \u2192 partial status. Wire dismissal memory. Tests TC-14..16, EC-07.",
       "kind": "code",
-      "skills": ["tdd", "incremental-implementation", "git-workflow"],
+      "skills": [
+        "tdd",
+        "incremental-implementation",
+        "git-workflow"
+      ],
       "risk": "high",
-      "dependencies": ["v6-10-code-review"],
+      "dependencies": [
+        "v6-10-code-review"
+      ],
       "acceptanceCriteria": [
         "GET /reports lists pending reports",
         "GET /reports/<id> returns narrative sections + receipts",
@@ -128,9 +143,14 @@
       "title": "Code review: V6-11 resolve endpoint",
       "description": "5-pass review per QC_LOOP on v6-11-resolve-endpoint. Write docs/v6/reviews/v6-11-resolve-endpoint.md. Fix product issues before APPROVE.",
       "kind": "review",
-      "skills": ["code-review", "debugging"],
+      "skills": [
+        "code-review",
+        "debugging"
+      ],
       "risk": "medium",
-      "dependencies": ["v6-11-resolve-endpoint"],
+      "dependencies": [
+        "v6-11-resolve-endpoint"
+      ],
       "acceptanceCriteria": [
         "docs/v6/reviews/v6-11-resolve-endpoint.md Verdict: APPROVE",
         "bash scripts/v6_check_review_verdict.sh v6-11-resolve-endpoint exits 0",
@@ -150,14 +170,20 @@
     {
       "id": "v6-12-retire-auto-create",
       "title": "Retire auto-create; annotate lines in report",
-      "description": "Delete AUTO_CREATE threshold paths (not set to 1.0 — remove dead code per SOLUTION_DESIGN §7.1). All entity-creation candidates land in reports as proposals. Annotate-tier items appear in report as undoable lines referencing EntityEvent (TC-13). capture returns report_id. Re-run replay eval baseline. Tests TC-18.",
+      "description": "Delete AUTO_CREATE threshold paths (not set to 1.0 \u2014 remove dead code per SOLUTION_DESIGN \u00a77.1). All entity-creation candidates land in reports as proposals. Annotate-tier items appear in report as undoable lines referencing EntityEvent (TC-13). capture returns report_id. Re-run replay eval baseline. Tests TC-18.",
       "kind": "code",
-      "skills": ["tdd", "incremental-implementation", "git-workflow"],
+      "skills": [
+        "tdd",
+        "incremental-implementation",
+        "git-workflow"
+      ],
       "risk": "high",
-      "dependencies": ["v6-11-code-review"],
+      "dependencies": [
+        "v6-11-code-review"
+      ],
       "acceptanceCriteria": [
         "No new agent:* entity-creation events on capture fixtures (TC-18)",
-        "0.95-confidence create candidate → proposal only, no entity row",
+        "0.95-confidence create candidate \u2192 proposal only, no entity row",
         "Annotate-tier items visible in report narrative as undoable",
         "POST /capture response includes report_id",
         "Existing capture integration suites pass"
@@ -177,9 +203,14 @@
       "title": "Code review: V6-12 retire auto-create",
       "description": "5-pass review per QC_LOOP on v6-12-retire-auto-create. Write docs/v6/reviews/v6-12-retire-auto-create.md. Verify auto-create code deleted not disabled. Fix before APPROVE.",
       "kind": "review",
-      "skills": ["code-review", "debugging"],
+      "skills": [
+        "code-review",
+        "debugging"
+      ],
       "risk": "medium",
-      "dependencies": ["v6-12-retire-auto-create"],
+      "dependencies": [
+        "v6-12-retire-auto-create"
+      ],
       "acceptanceCriteria": [
         "docs/v6/reviews/v6-12-retire-auto-create.md Verdict: APPROVE",
         "bash scripts/v6_check_review_verdict.sh v6-12-retire-auto-create exits 0",
@@ -201,9 +232,15 @@
       "title": "New /next shell + Review surface",
       "description": "Create ui/src/next/ mounted at /next (additive Route in App.jsx). Shell chrome: capture field, omni-bar, review pulse count. Review surface: render distillation reports with per-item verify/edit/dismiss + accept-rest. ui/src/next/vocab.js for vision terms. Vitest component tests. Manual UC-1 script documented in test plan. Do not extend ui/src/views/ or ui/src/lab/.",
       "kind": "code",
-      "skills": ["tdd", "incremental-implementation", "git-workflow"],
+      "skills": [
+        "tdd",
+        "incremental-implementation",
+        "git-workflow"
+      ],
       "risk": "high",
-      "dependencies": ["v6-12-code-review"],
+      "dependencies": [
+        "v6-12-code-review"
+      ],
       "acceptanceCriteria": [
         "/next renders new shell without breaking existing routes",
         "Review surface loads pending reports from GET /reports",
@@ -228,9 +265,14 @@
       "title": "Code review: V6-13 /next Review UI",
       "description": "5-pass review per QC_LOOP on v6-13-next-review-ui. Write docs/v6/reviews/v6-13-next-review-ui.md. Check vocab.js used for vision terms. Fix before APPROVE.",
       "kind": "review",
-      "skills": ["code-review", "debugging"],
+      "skills": [
+        "code-review",
+        "debugging"
+      ],
       "risk": "medium",
-      "dependencies": ["v6-13-next-review-ui"],
+      "dependencies": [
+        "v6-13-next-review-ui"
+      ],
       "acceptanceCriteria": [
         "docs/v6/reviews/v6-13-next-review-ui.md Verdict: APPROVE",
         "bash scripts/v6_check_review_verdict.sh v6-13-next-review-ui exits 0",
@@ -250,11 +292,17 @@
     {
       "id": "v6-14-eval-metrics",
       "title": "Replay eval grouping score + review-time metrics",
-      "description": "Extend scripts/replay_eval.py to score report grouping/sectioning. Add client review-time instrumentation posting to metrics/trust. Record baseline row in docs/v6/TEST_PLAN.md §5 table (or docs/v6/fixtures/ if table is markdown-only). Tests for eval scoring function.",
+      "description": "Extend scripts/replay_eval.py to score report grouping/sectioning. Add client review-time instrumentation posting to metrics/trust. Record baseline row in docs/v6/TEST_PLAN.md \u00a75 table (or docs/v6/fixtures/ if table is markdown-only). Tests for eval scoring function.",
       "kind": "code",
-      "skills": ["tdd", "incremental-implementation", "git-workflow"],
+      "skills": [
+        "tdd",
+        "incremental-implementation",
+        "git-workflow"
+      ],
       "risk": "medium",
-      "dependencies": ["v6-13-code-review"],
+      "dependencies": [
+        "v6-13-code-review"
+      ],
       "acceptanceCriteria": [
         "replay_eval.py outputs grouping/sectioning score",
         "Client instrumentation sends review duration events",
@@ -277,9 +325,14 @@
       "title": "Code review: V6-14 eval + metrics",
       "description": "5-pass review per QC_LOOP on v6-14-eval-metrics. Write docs/v6/reviews/v6-14-eval-metrics.md. Fix before APPROVE.",
       "kind": "review",
-      "skills": ["code-review", "debugging"],
+      "skills": [
+        "code-review",
+        "debugging"
+      ],
       "risk": "low",
-      "dependencies": ["v6-14-eval-metrics"],
+      "dependencies": [
+        "v6-14-eval-metrics"
+      ],
       "acceptanceCriteria": [
         "docs/v6/reviews/v6-14-eval-metrics.md Verdict: APPROVE",
         "bash scripts/v6_check_review_verdict.sh v6-14-eval-metrics exits 0"
@@ -299,9 +352,13 @@
       "title": "Phase 1 gate: full validation + tracker",
       "description": "Phase completion. Full backend + UI validation. Confirm all docs/v6/reviews/v6-1*.md exist with APPROVE. Update EXECUTION-TRACKER.md Phase 1 done. Archive prd to docs/iterations/archive/. Do not start Phase 2.",
       "kind": "gate",
-      "skills": ["git-workflow"],
+      "skills": [
+        "git-workflow"
+      ],
       "risk": "low",
-      "dependencies": ["v6-14-code-review"],
+      "dependencies": [
+        "v6-14-code-review"
+      ],
       "acceptanceCriteria": [
         "bash scripts/v6_validate_slice.sh passes",
         "cd ui && npm test && npm run build green",
@@ -322,7 +379,11 @@
   ],
   "codingLoopPolicy": {
     "primaryExecutor": "opencode",
-    "fallbackExecutors": ["cursor", "codex", "claude"],
+    "fallbackExecutors": [
+      "cursor",
+      "codex",
+      "claude"
+    ],
     "platform": "openclaw",
     "allowExecutorFallback": true,
     "requireHumanForDependencies": true,
