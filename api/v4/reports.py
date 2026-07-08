@@ -717,6 +717,7 @@ def _resolve_update_unresolved(suggestion, source_note, change_batch_id):
         actor="agent:v4-review",
         confidence=suggestion.confidence,
         source_note_id=source_note.id,
+        change_batch_id=change_batch_id,
     )
     if au_note is not None:
         extraction = {
@@ -728,6 +729,7 @@ def _resolve_update_unresolved(suggestion, source_note, change_batch_id):
         _apply_activity_update_policy(
             source_note, target, content, extraction, follow_on_suggestions,
             actor="agent:v4-review",
+            change_batch_id=change_batch_id,
         )
         from services.v4_summarization import queue_summarize_if_needed
         queue_summarize_if_needed(target.id, has_existing_summary=bool(target.ai_summary))

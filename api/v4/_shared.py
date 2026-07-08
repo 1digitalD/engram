@@ -1156,7 +1156,7 @@ def _find_near_duplicate_activity_update(target, content):
     return None
 
 
-def _create_activity_update_note(target, content, actor="user", confidence=None, evidence=None, source_note_id=None):
+def _create_activity_update_note(target, content, actor="user", confidence=None, evidence=None, source_note_id=None, change_batch_id=None):
     """Create (or reuse) an activity-update note linked to `target`.
 
     Returns (note, created, skip_reason). skip_reason is set when created is
@@ -1214,14 +1214,15 @@ def _create_activity_update_note(target, content, actor="user", confidence=None,
         confidence=confidence,
         reason=evidence,
         source_note_id=event_source_note_id,
+        change_batch_id=change_batch_id,
     )
-    _refresh_delegation_cadence(target, source_note_id=event_source_note_id, actor=actor)
+    _refresh_delegation_cadence(target, source_note_id=event_source_note_id, actor=actor, change_batch_id=change_batch_id)
     if target.type == "task":
         _touch_parent_projects(target)
     return note, True, None
 
 
-def _refresh_delegation_cadence(target, source_note_id=None, actor="user"):
+def _refresh_delegation_cadence(target, source_note_id=None, actor="user", change_batch_id=None):
     """If `target` is a task delegated to a non-owner person, push follow_up_at
     forward by the delegation cadence following an activity update."""
     if target.type != "task":
@@ -1251,10 +1252,11 @@ def _refresh_delegation_cadence(target, source_note_id=None, actor="user"):
         actor=actor,
         reason="delegation cadence refresh",
         source_note_id=source_note_id,
+        change_batch_id=change_batch_id,
     )
 
 
-def _apply_activity_update_policy(note, target, content, extraction, suggestions, actor="agent:activity-update"):
+def _apply_activity_update_policy(note, target, content, extraction, suggestions, actor="agent:activity-update", change_batch_id=None):
     """Shared Add-update policy: status auto-apply/suggest, follow-up routing
     (sq-02 semantics), and spin-off task suggestions.
 
@@ -1291,6 +1293,7 @@ def _apply_activity_update_policy(note, target, content, extraction, suggestions
                 confidence=status_confidence,
                 reason="extracted from activity update",
                 source_note_id=note.id,
+                change_batch_id=change_batch_id,
             )
             _queue_embed_job(target.id, "activity_update_auto_status")
         else:
@@ -1340,6 +1343,7 @@ def _apply_activity_update_policy(note, target, content, extraction, suggestions
             actor=actor,
             reason="extracted from activity update",
             source_note_id=note.id,
+            change_batch_id=change_batch_id,
         )
 
     # ── New tasks from update content ────────────────────────────────────

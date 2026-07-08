@@ -5,7 +5,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from extensions import db
-from models import AiSuggestion, DistillationReport, Entity, Job
+from models import AiSuggestion, DistillationReport, Entity, EntityEvent, EntityLink, Job
 from services.job_worker import get_handler, process_job
 
 
@@ -380,6 +380,57 @@ def test_undo_report_review_reverts_applied_and_retains_dismissals(client, app):
             EntityEvent.event_type == "reverted",
         ).count()
         assert reverted_count > 0
+
+
+def test_undo_report_update_unresolved_reverts_activity_update(client, app):
+    """Undo of update_unresolved reverts activity-update note and auto-applied status."""
+    target = client.post(
+        "/api/v4/entities", json={"type": "task", "title": "Track item", "status": "open"}
+    ).get_json()["data"]
+    note_id = _create_note(app, title="Update note")
+    s_update = _create_suggestion(
+        app,
+        note_id,
+        "update_task",
+        {
+            "target_entity_id": target["id"],
+            "content": "Track item is done",
+            "status": "done",
+            "status_confidence": 0.9,
+            "follow_up_at": None,
+            "tasks": [],
+            "evidence": "done",
+        },
+        operation_type="update_unresolved",
+    )
+    report_id = _assemble_report_for_note(app, note_id)
+
+    resolve_response = client.post(
+        f"/api/v4/reports/{report_id}/resolve",
+        json={"decisions": [{"suggestion_id": s_update, "action": "accept"}]},
+    )
+    assert resolve_response.status_code == 200
+    batch_id = resolve_response.get_json()["change_batch"]["id"]
+
+    with app.app_context():
+        target_entity = db.session.get(Entity, target["id"])
+        assert target_entity.status == "done"
+        au_link = EntityLink.query.filter_by(
+            target_entity_id=target["id"], relationship_type="activity_update"
+        ).first()
+        assert au_link is not None
+        au_note = db.session.get(Entity, au_link.source_entity_id)
+        assert au_note.lifecycle == "active"
+        assert EntityEvent.query.filter_by(change_batch_id=batch_id).count() > 0
+
+    undo_response = client.post(f"/api/v4/reports/{report_id}/undo")
+    assert undo_response.status_code == 200
+
+    with app.app_context():
+        target_entity = db.session.get(Entity, target["id"])
+        assert target_entity.status == "open"
+        au_note = db.session.get(Entity, au_link.source_entity_id)
+        assert au_note.lifecycle == "archived"
 
 
 def test_resolve_report_with_later_leaves_partial(client, app):
