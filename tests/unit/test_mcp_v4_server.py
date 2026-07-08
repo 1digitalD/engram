@@ -243,6 +243,23 @@ def test_capture_omits_source_when_none(monkeypatch):
     server.capture("Quick note")
 
 
+def test_capture_includes_report_id(monkeypatch):
+    def fake_api(method, path, **kwargs):
+        return {
+            "source_note": {"id": "n3", "title": "Review items"},
+            "applied_changes": [],
+            "suggestions": [{"suggestion_type": "create_task", "payload": {"title": "Follow up"}}],
+            "warnings": [],
+            "report_id": "r3",
+        }
+
+    monkeypatch.setattr(server, "_api", fake_api)
+    text = server.capture("Review items")
+
+    assert "r3" in text
+    assert "Report" in text
+
+
 def test_create_entity_posts_correct_body(monkeypatch):
     calls = []
 

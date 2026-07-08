@@ -5,7 +5,6 @@ import pytest
 from api.v4_entities import (
     _title_has_deliverable_shape,
     _task_structural_score,
-    _task_auto_create_ok,
     _task_suggest_ok,
     _suggestion_task_structural_score,
     _collect_work_carrying_persons,
@@ -75,34 +74,6 @@ class TestTaskStructuralScore:
         candidate = {"title": "Attend all hands in Vancouver"}
         decision = {"top_match_score": 0.0}
         assert _task_structural_score(None, candidate, decision) == 0
-
-
-class TestTaskAutoCreateGate:
-    def test_perfect_score_and_high_confidence_auto_creates(self):
-        candidate = {
-            "title": "Ship the L2 rollout plan",
-            "assigned_to": "Akash",
-            "due_at": "2026-07-10",
-        }
-        decision = {"top_match_score": 0.8}
-        assert _task_auto_create_ok(None, candidate, decision, 0.91) is True
-
-    def test_perfect_score_low_confidence_does_not_auto_create(self):
-        candidate = {
-            "title": "Ship the L2 rollout plan",
-            "assigned_to": "Akash",
-            "due_at": "2026-07-10",
-        }
-        decision = {"top_match_score": 0.8}
-        assert _task_auto_create_ok(None, candidate, decision, 0.55) is False
-
-    def test_partial_score_never_auto_creates(self):
-        candidate = {
-            "title": "Follow up with Henry on rollout",
-            "assigned_to": "Henry",
-        }
-        decision = {"top_match_score": 0.0}
-        assert _task_auto_create_ok(None, candidate, decision, 0.99) is False
 
 
 class TestTaskSuggestGate:

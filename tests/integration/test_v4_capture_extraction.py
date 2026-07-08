@@ -61,7 +61,7 @@ def test_capture_stream_emits_all_events(client, app):
     ]
     assert events[0][1]["content_length"] > 0
     assert events[2][1]["count"] == 1
-    assert set(events[-1][1]) == {"source_note", "applied_changes", "suggestions", "warnings"}
+    assert set(events[-1][1]) == {"source_note", "applied_changes", "suggestions", "warnings", "report_id"}
 
 
 def test_capture_stream_done_event_matches_single_shot(client, app):
@@ -137,9 +137,9 @@ def test_capture_stream_error_event(client, app):
         assert note is None
 
 
-def test_capture_auto_creates_structurally_strong_task(client, app):
-    """SQ-07: a task with owner, deliverable title, date, and resolvable target
-    auto-creates when confidence is high enough."""
+def test_capture_retired_auto_create_becomes_proposal(client, app):
+    """TC-18: a high-confidence, structurally-strong task is a proposal only;
+    no entity row and no agent:* entity-creation event."""
     project = client.post(
         "/api/v4/entities", json={"type": "project", "title": "Rollout", "content": "Project"}
     ).get_json()["data"]
@@ -160,7 +160,7 @@ def test_capture_auto_creates_structurally_strong_task(client, app):
                 "content": "Ask Henry for rollout status.",
                 "assigned_to": "Henry",
                 "due_at": "2026-07-10",
-                "confidence": 0.91,
+                "confidence": 0.95,
                 "evidence": "ask Henry about rollout",
             }
         ],
@@ -176,7 +176,7 @@ def test_capture_auto_creates_structurally_strong_task(client, app):
         {
             "action": "new",
             "relationship_type": "derived_from",
-            "confidence": 0.91,
+            "confidence": 0.95,
             "reason": "new task",
         },
     ]
@@ -187,15 +187,22 @@ def test_capture_auto_creates_structurally_strong_task(client, app):
 
     assert response.status_code == 201
     data = response.get_json()
-    assert any(
+    assert not any(
         c["type"] == "entity_created" and c["entity_type"] == "task"
         for c in data["applied_changes"]
     )
-    assert data["suggestions"] == []
+    assert len(data["suggestions"]) == 1
+    assert data["suggestions"][0]["suggestion_type"] == "create_task"
+    assert data["suggestions"][0]["confidence"] == 0.95
+    assert data.get("report_id")
 
     with app.app_context():
-        assert Entity.query.filter_by(type="task").count() == 1
-        assert AiSuggestion.query.filter_by(suggestion_type="create_task").count() == 0
+        assert Entity.query.filter_by(type="task").count() == 0
+        assert AiSuggestion.query.filter_by(suggestion_type="create_task").count() == 1
+        assert EntityEvent.query.filter(
+            EntityEvent.actor.like("agent:%"),
+            EntityEvent.event_type == "created",
+        ).count() == 0
 
 
 def test_capture_high_confidence_task_goes_to_review_queue(client, app):
@@ -531,7 +538,7 @@ def test_capture_links_bare_first_name_to_existing_full_name(client, app):
 
 def test_capture_first_name_assignee_links_to_existing_full_name(client, app):
     """SQ-08: a task assigned to a first name links to the existing full-name
-    person instead of creating a bare first-name duplicate."""
+    person via a create_task proposal; no entity is auto-created."""
     existing = client.post(
         "/api/v4/entities",
         json={"type": "person", "title": "Priya Dhandapani"},
@@ -588,17 +595,13 @@ def test_capture_first_name_assignee_links_to_existing_full_name(client, app):
     data = response.get_json()
     with app.app_context():
         assert Entity.query.filter_by(type="person").count() == 1
-        task = Entity.query.filter_by(type="task").one()
-        EntityLink.query.filter_by(
-            source_entity_id=task.id,
-            target_entity_id=existing["id"],
-            relationship_type="assigned_to",
-        ).one()
+        assert Entity.query.filter_by(type="task").count() == 0
+        assert len(data["suggestions"]) == 1
+        assert data["suggestions"][0]["suggestion_type"] == "create_task"
 
 
-def test_capture_auto_creates_person_who_carries_work(client, app):
-    """SQ-08: a person who is the assignee/delegation target of a task in the
-    same note may still be auto-created when no existing match is found."""
+def test_capture_person_who_carries_work_becomes_proposal(client, app):
+    """SQ-08/TC-18: a work-carrying person is proposed, not auto-created."""
     extraction = {
         "entities": [
             {
@@ -622,19 +625,19 @@ def test_capture_auto_creates_person_who_carries_work(client, app):
 
     assert response.status_code == 201
     data = response.get_json()
-    assert any(
-        c.get("type") == "entity_created" and c.get("entity_type") == "person" and c.get("title") == "Henry"
+    assert not any(
+        c.get("type") == "entity_created" and c.get("entity_type") == "person"
         for c in data["applied_changes"]
     )
 
     with app.app_context():
-        assert Entity.query.filter_by(type="person", title="Henry").count() == 1
+        assert Entity.query.filter_by(type="person", title="Henry").count() == 0
+        assert any(s["suggestion_type"] == "create_person" for s in data["suggestions"])
 
 
-def test_capture_transcript_six_names_two_assignees_creates_at_most_two_people(client, app):
-    """SQ-08: a transcript with many bare name mentions plus a couple of action
-    items should not mint a person entity for every name. Only the assignees
-    (or people with an existing match) are created/linked; the rest are dropped."""
+def test_capture_transcript_six_names_no_auto_created_people(client, app):
+    """SQ-08/TC-18: bare name mentions are never auto-created as people during
+    capture; they become proposals or are dropped."""
     existing_priya = client.post(
         "/api/v4/entities",
         json={"type": "person", "title": "Priya Dhandapani"},
@@ -677,13 +680,12 @@ def test_capture_transcript_six_names_two_assignees_creates_at_most_two_people(c
         c for c in data["applied_changes"]
         if c.get("type") == "entity_created" and c.get("entity_type") == "person"
     ]
-    assert len(person_creates) <= 2, f"expected <=2 person creates, got {len(person_creates)}: {person_creates}"
+    assert len(person_creates) == 0, f"expected 0 person creates, got {len(person_creates)}: {person_creates}"
 
     with app.app_context():
         people = Entity.query.filter_by(type="person").all()
-        assert len(people) <= 2
-        # Priya should have been linked to the existing full-name person, not created.
-        assert any(p.id == existing_priya["id"] for p in people)
+        assert len(people) == 1
+        assert people[0].id == existing_priya["id"]
 
 
 def test_capture_suppresses_tentative_low_value_task(client, app):
@@ -1099,10 +1101,10 @@ def test_duplicate_candidates_within_capture_are_deduped(client, app):
     assert response.status_code == 201
     data = response.get_json()
     person_creates = [c for c in data["applied_changes"] if c.get("entity_type") == "person"]
-    assert len(person_creates) == 1, f"expected 1 person create, got {len(person_creates)}: {person_creates}"
+    assert len(person_creates) == 0, f"expected 0 person creates, got {len(person_creates)}: {person_creates}"
 
     with app.app_context():
-        assert Entity.query.filter_by(type="person").count() == 1
+        assert Entity.query.filter_by(type="person").count() == 0
 
 
 def test_exact_duplicate_capture_is_skipped_without_reprocessing(client, app):

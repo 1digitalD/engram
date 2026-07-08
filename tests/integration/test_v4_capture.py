@@ -7,7 +7,7 @@ from models import Entity, Job
 from services.job_worker import get_handler, process_job
 
 
-CAPTURE_RESPONSE_TOP_KEYS = {"source_note", "applied_changes", "suggestions", "warnings"}
+CAPTURE_RESPONSE_TOP_KEYS = {"source_note", "applied_changes", "suggestions", "warnings", "report_id"}
 
 SOURCE_NOTE_BASELINE_FIELDS = {
     "id": str,
@@ -99,12 +99,13 @@ def test_capture_saves_source_note_and_queues_embedding(client, app):
 
     assert response.status_code == 201
     data = response.get_json()
-    assert set(data) == {"source_note", "applied_changes", "suggestions", "warnings"}
+    assert set(data) == {"source_note", "applied_changes", "suggestions", "warnings", "report_id"}
     assert data["source_note"]["type"] == "note"
     assert data["source_note"]["content"] == "Remember to ask Henry about rollout"
     assert data["applied_changes"] == []
     assert data["suggestions"] == []
     assert data["warnings"] == []
+    assert data["report_id"] is None
 
     with app.app_context():
         note = Entity.query.filter_by(type="note").one()
@@ -213,9 +214,13 @@ def test_capture_response_contract_preserves_baseline_shape(client, app):
     assert response.status_code == 201
     data = response.get_json()
     _assert_capture_response_contract(data)
+    assert data["report_id"]
 
-    created = next(c for c in data["applied_changes"] if c["type"] == "entity_created")
-    assert created["confidence"] == 0.91
-    assert created.get("reason")
-    assert created.get("match_confidence") == 0.91
-    assert created.get("matched_entity", {}).get("title") == "Follow up with Henry on rollout"
+    assert not any(
+        c["type"] == "entity_created" and c["entity_type"] == "task"
+        for c in data["applied_changes"]
+    )
+    assert len(data["suggestions"]) == 1
+    suggestion = data["suggestions"][0]
+    assert suggestion["suggestion_type"] == "create_task"
+    assert suggestion["confidence"] == 0.91

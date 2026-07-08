@@ -135,23 +135,22 @@ DEFAULT_DELEGATION_CADENCE_DAYS = 3
 # predictive (deleted vs surviving tasks averaged 0.94 vs 0.95), so the model
 # is no longer asked to self-grade for gating decisions.
 AUTO_APPLY_CONFIDENCE = 0.8
-AUTO_CREATE_ENTITY_CONFIDENCE = 0.85
 LOW_CONFIDENCE_THRESHOLD = 0.5
 
 RISKY_ENTITY_CREATION_TYPES = {"task", "project", "area", "resource", "person"}
 # Entity types that can anchor ingest_candidates / reconciliation thread context.
 THREAD_INGEST_SOURCE_TYPES = {"project", "task", "area"}
-# Types that must never be auto-created from capture — always reviewed.
+# Types that are always routed to the review queue rather than created
+# directly from capture.
 SUGGEST_ONLY_CREATION_TYPES = {"project", "area"}
-# SQ-07: task auto-create/suggest gate. A task candidate must pass structural
-# checks before confidence is consulted; confidence is a tiebreaker, not the gate.
+# SQ-07: task suggest gate. A task candidate must pass structural checks
+# before confidence is consulted; confidence is a tiebreaker, not the gate.
 # Score interpretation (documented inline in _task_structural_score):
-#   4 checks passed: eligible for auto-create if confidence is high enough, else suggest.
-#   2-3 checks passed: suggest if confidence is above the low threshold, else drop.
+#   2-4 checks passed: suggest if confidence is above the low threshold, else drop.
 #   0-1 checks passed: drop (meeting logistics, stance fragments, restatements).
 TASK_SUGGESTION_CAP_PER_NOTE = 8
 # Reconciliation similarity at or above which a "new" decision is treated as
-# a potential duplicate and routed to the review queue instead of auto-created.
+# a potential duplicate and routed to the review queue.
 NEAR_DUPLICATE_SCORE = 0.75
 CAPTURE_INTENTS = {"update", "task_signal", "follow_up", "blocker", "delegation", "reference", "junk", "note"}
 INBOX_INTENT_PRIORITY = {
@@ -325,18 +324,20 @@ def _enrich_suggestion_item(suggestion):
     return enriched
 
 
-def _capture_result_payload(note, applied_changes, suggestions, warnings):
+def _capture_result_payload(note, applied_changes, suggestions, warnings, report_id=None):
     events = (
         EntityEvent.query.filter_by(source_note_id=note.id)
         .order_by(EntityEvent.created_at.asc())
         .all()
     )
-    return {
+    payload = {
         "source_note": _load_entity(note.id).to_dict(),
         "applied_changes": [_enrich_applied_change(change, events) for change in applied_changes],
         "suggestions": [_enrich_suggestion_item(suggestion) for suggestion in suggestions],
         "warnings": warnings,
+        "report_id": report_id,
     }
+    return payload
 
 
 def _count_extraction_candidates(extraction):
@@ -2102,9 +2103,9 @@ def _process_capture_extraction(note, content, extraction, thread_id=None):
     if note.ai_status == "pending":
         note.ai_status = "done"
 
-    _queue_assemble_report_if_needed(note.id)
+    report_id = _assemble_report_for_note_sync(note.id)
 
-    return applied_changes, suggestions
+    return applied_changes, suggestions, report_id
 
 
 def _route_capture_update_intent(note, content, extraction, thread_id, applied_changes, suggestions):
@@ -2250,11 +2251,15 @@ def _embedding_update_target(content):
     return entity
 
 
-def _queue_assemble_report_if_needed(note_id):
-    """Enqueue the post-reconciliation report assembler once per capture."""
-    from services.v4_report import queue_assemble_report_job
+def _assemble_report_for_note_sync(note_id):
+    """Assemble the distillation report for a note synchronously.
 
-    queue_assemble_report_job(note_id)
+    Returns the report id, or None if there is nothing to report.
+    """
+    from services.v4_report import assemble_report_for_note
+
+    report = assemble_report_for_note(note_id)
+    return report.id if report is not None else None
 
 
 def _reconcile_capture_candidates(note, extraction, thread_id=None):
@@ -2339,9 +2344,9 @@ def _reconcile_capture_candidates(note, extraction, thread_id=None):
     if note.ai_status == "pending":
         note.ai_status = "done"
 
-    _queue_assemble_report_if_needed(note.id)
+    report_id = _assemble_report_for_note_sync(note.id)
 
-    return applied_changes, suggestions
+    return applied_changes, suggestions, report_id
 
 
 def _apply_reconciliation_decision(note, candidate, decision, applied_changes, suggestions, work_carrying_persons=None):
@@ -2665,56 +2670,11 @@ def _apply_reconciliation_decision(note, candidate, decision, applied_changes, s
         if not _person_carries_work(title, work_carrying_persons):
             return
 
-    # SQ-09: tentative task phrasing is a structural drop signal; confidence
-    # only refines the threshold (high-confidence tentative tasks are still
-    # suppressed because the phrasing is the stronger predictor).
-    if (
-        entity_type == "task"
-        and confidence < AUTO_CREATE_ENTITY_CONFIDENCE
-        and _task_candidate_looks_tentative(candidate)
-    ):
+    # SQ-09: tentative task phrasing is a structural drop signal.
+    if entity_type == "task" and _task_candidate_looks_tentative(candidate):
         return
-    if _can_auto_create_entity(entity_type, confidence, top_match_score, note=note, candidate=candidate, decision=decision):
-        entity = _auto_create_entity(
-            entity_type=entity_type,
-            title=title,
-            content=content,
-            due_at=decision.get("fields", {}).get("due_at") or _candidate_value(candidate, "due_at"),
-            follow_up_at=decision.get("fields", {}).get("follow_up_at") or _candidate_value(candidate, "follow_up_at"),
-        )
-        found_existing = getattr(entity, "_auto_create_found_existing", False)
-        link_source, link_target = _candidate_link_endpoints(note, entity, relationship_type)
-        link = _create_entity_link(link_source, link_target, relationship_type, confidence, evidence)
-        if not found_existing:
-            _write_event(entity, "created", new_value=entity.to_dict(), actor="agent:v4-capture", confidence=confidence, reason=evidence, source_note_id=note.id)
-            applied_changes.append({
-                "type": "entity_created",
-                "entity_id": entity.id,
-                "entity_type": entity_type,
-                "title": title,
-                "confidence": confidence,
-            })
-        if link is not None:
-            _write_event(note, "relationship_added", new_value=link.to_dict(), actor="agent:v4-capture", confidence=confidence, reason=evidence, source_note_id=note.id)
-            applied_changes.append({
-                "type": "relationship_added",
-                "target_entity_id": entity.id,
-                "relationship_type": relationship_type,
-                "confidence": confidence,
-            })
-        _apply_assignee_and_record(
-            note,
-            entity,
-            _candidate_value(candidate, "assigned_to"),
-            confidence,
-            evidence,
-            applied_changes,
-            source="ai",
-            actor="agent:v4-capture",
-        )
-        if entity_type == "task":
-            _link_task_to_note_projects(note, entity, confidence, evidence, applied_changes)
-    elif entity_type in {"project", "area"}:
+
+    if entity_type in {"project", "area"}:
         # Projects/areas proposed as "new" from a capture have never been a
         # useful suggestion in practice (0% acceptance) — they're almost
         # always either an existing project described slightly differently,
@@ -2747,43 +2707,44 @@ def _apply_reconciliation_decision(note, candidate, decision, applied_changes, s
                     },
                     reason=decision.get("reason"),
                 )
-    else:
-        # SQ-07: tasks must pass the structural suggest gate; otherwise they are
-        # dropped as noise (logistics, stance fragments, restatements).
-        if entity_type == "task" and not _task_suggest_ok(note, candidate, decision, confidence):
-            return
-        task_payload = {
-            "type": entity_type,
-            "title": title,
-            "content": content,
-            "due_at": _candidate_value(candidate, "due_at"),
-            "assigned_to": _candidate_value(candidate, "assigned_to"),
-            "source_entity_id": note.id,
-            "evidence": evidence,
-            "relationship_type": relationship_type,
-            "near_match": {
-                "entity_id": decision.get("top_match_id"),
-                "title": decision.get("top_match_title"),
-                "score": top_match_score,
-            } if decision.get("top_match_id") else None,
-        }
-        if entity_type == "task" and note.type in THREAD_INGEST_SOURCE_TYPES:
-            task_payload["target_entity_id"] = note.id
-            task_payload["relationship_type"] = "derived_from"
-        _append_capture_suggestion(
-            note,
-            candidate,
-            action="new",
-            entity_type=entity_type,
-            relationship_type=relationship_type,
-            confidence=confidence,
-            evidence=evidence,
-            suggestions=suggestions,
-            suggestion_type=f"create_{entity_type}",
-            operation_type="create_entity",
-            payload=task_payload,
-            reason=suggestion_reason,
-        )
+        return
+
+    # SQ-07: tasks must pass the structural suggest gate; otherwise they are
+    # dropped as noise (logistics, stance fragments, restatements).
+    if entity_type == "task" and not _task_suggest_ok(note, candidate, decision, confidence):
+        return
+    task_payload = {
+        "type": entity_type,
+        "title": title,
+        "content": content,
+        "due_at": _candidate_value(candidate, "due_at"),
+        "assigned_to": _candidate_value(candidate, "assigned_to"),
+        "source_entity_id": note.id,
+        "evidence": evidence,
+        "relationship_type": relationship_type,
+        "near_match": {
+            "entity_id": decision.get("top_match_id"),
+            "title": decision.get("top_match_title"),
+            "score": top_match_score,
+        } if decision.get("top_match_id") else None,
+    }
+    if entity_type == "task" and note.type in THREAD_INGEST_SOURCE_TYPES:
+        task_payload["target_entity_id"] = note.id
+        task_payload["relationship_type"] = "derived_from"
+    _append_capture_suggestion(
+        note,
+        candidate,
+        action="new",
+        entity_type=entity_type,
+        relationship_type=relationship_type,
+        confidence=confidence,
+        evidence=evidence,
+        suggestions=suggestions,
+        suggestion_type=f"create_{entity_type}",
+        operation_type="create_entity",
+        payload=task_payload,
+        reason=suggestion_reason,
+    )
 
 
 def _link_task_to_note_projects(note, task, confidence, evidence, applied_changes):
@@ -4140,30 +4101,6 @@ def _parse_iso_date(value):
 
 
 
-def _auto_create_entity(entity_type, title, content=None, properties=None, due_at=None, follow_up_at=None):
-    existing = _find_existing_entity(entity_type, title)
-    if existing is not None:
-        existing._auto_create_found_existing = True
-        return existing
-    entity = Entity(
-        type=entity_type,
-        title=title,
-        content=content,
-        status="open" if entity_type == "task" else "active",
-        lifecycle="active",
-        source="ai_capture",
-        properties=properties or {},
-        ai_meta={},
-        ai_status="pending",
-        due_at=_parse_iso_date(due_at),
-        follow_up_at=_parse_iso_date(follow_up_at),
-    )
-    db.session.add(entity)
-    db.session.flush()
-    _queue_embed_job(entity.id, "capture_auto_create")
-    return entity
-
-
 def _create_suggestion(note, suggestion_type, operation_type, payload, confidence=None, reason=None):
     fingerprint = _suggestion_fingerprint(suggestion_type, operation_type, payload)
     existing_pending = _existing_pending_suggestion(fingerprint)
@@ -4566,12 +4503,11 @@ def _should_emit_capture_suggestion(note, candidate, action, entity_type, relati
         and confidence < INTENT_SUGGESTION_CONFIDENCE_FLOOR
     ):
         return False
-    # SQ-09: tentative phrasing is the structural drop signal here; confidence
-    # only refines which tentative tasks are suppressed.
+    # SQ-09: tentative phrasing is a structural drop signal; all tentative
+    # task candidates are suppressed as noise regardless of confidence.
     if (
         entity_type == "task"
         and action == "new"
-        and confidence < AUTO_CREATE_ENTITY_CONFIDENCE
         and _task_candidate_looks_tentative(candidate)
     ):
         return False
@@ -5144,61 +5080,19 @@ def _task_structural_score(note, candidate, decision):
     return score
 
 
-def _task_auto_create_ok(note, candidate, decision, confidence):
-    """SQ-07: structural score gate for auto-creating a task.
-
-    Confidence is a tiebreaker: candidates with a perfect structural score
-    (4/4) may auto-create if they are also high-confidence. Candidates with
-    a strong-but-imperfect score (3/4) are surfaced for review. Lower scores
-    are dropped as noise (logistics, stance fragments, restatements).
-    """
-    score = _task_structural_score(note, candidate, decision)
-    if score == 4:
-        return confidence >= AUTO_CREATE_ENTITY_CONFIDENCE
-    return False
-
-
 def _task_suggest_ok(note, candidate, decision, confidence):
     """SQ-07: structural score gate for suggesting a task.
 
     A candidate must have at least half the structural signals to be worth
-    a review slot; confidence only breaks ties when capping. Score 2-3 goes
-    to the review queue, score 4 goes to auto-create and is excluded here.
+    a review slot; confidence only breaks ties when capping. Score 4
+    candidates are now proposed (auto-create is retired).
     """
     score = _task_structural_score(note, candidate, decision)
     if score < 2:
         return False
-    if score == 4:
-        # SQ-09: perfect structural score lets the candidate auto-create;
-        # confidence only decides whether it crosses the auto-create threshold.
-        return confidence < AUTO_CREATE_ENTITY_CONFIDENCE
-    # SQ-09: partial structural score (2-3) makes the candidate eligible for
-    # review; confidence is the tiebreaker that keeps very low-confidence
+    # SQ-09: confidence is the tiebreaker that keeps very low-confidence
     # noise out of the review queue.
     return confidence >= LOW_CONFIDENCE_THRESHOLD
-
-
-def _can_auto_create_entity(entity_type, confidence, top_match_score=0.0, note=None, candidate=None, decision=None):
-    if entity_type not in RISKY_ENTITY_CREATION_TYPES:
-        return False
-    # Projects and areas are low-volume and expensive to dedupe after the
-    # fact — creation always goes through the review queue.
-    if entity_type in SUGGEST_ONLY_CREATION_TYPES:
-        return False
-    # A plausible near-duplicate exists: route to review instead of creating
-    # a sibling, regardless of how confident the model is that this is "new".
-    if (top_match_score or 0.0) >= NEAR_DUPLICATE_SCORE:
-        return False
-    # SQ-07: tasks use a structural score gate; confidence is a tiebreaker.
-    if entity_type == "task":
-        return _task_auto_create_ok(note, candidate, decision or {}, confidence)
-    # SQ-09: for non-task risky entities (person, resource), the structural
-    # preconditions are the SQ-08 person-hygiene check and the near-duplicate
-    # check above. Confidence is the tiebreaker that decides auto-create vs.
-    # review, with a floor to filter obvious noise.
-    if confidence < LOW_CONFIDENCE_THRESHOLD:
-        return False
-    return confidence >= AUTO_CREATE_ENTITY_CONFIDENCE
 
 
 def _reconciliation_confidence(candidate, decision):
@@ -5364,4 +5258,4 @@ def _delete_incoming_activity_updates(entity):
     for (note_id,) in activity_note_ids:
         db.session.delete(db.session.get(Entity, note_id))
 
-__all__ = ['datetime', 'time', 'timezone', 'timedelta', 'hashlib', 'json', 'logging', 're', 'time_module', 'Response', 'current_app', 'jsonify', 'request', 'stream_with_context', 'func', 'or_', 'text', 'flag_modified', 'selectinload', 'db', 'AiSuggestion', 'AppSetting', 'Decision', 'Entity', 'EntityChunk', 'EntityEvent', 'EntityLink', 'EntityTag', 'Job', 'Tag', '_iso', 'runtime_health', 'attention_for_entity', 'today_attention_count', 'today_attention_items', 'narrate_event', 'title_or_placeholder', 'logger', 'TOPIC_CLUSTER_SIMILARITY', 'TOPIC_CLUSTER_TIME_BUDGET_MS', 'STATUS_BY_TYPE', 'ENTITY_TYPES', 'PRIORITY_LEVELS', 'PRIORITY_ORDER', 'DEFAULT_STATUS', 'VALID_STATUS', 'VALID_LIFECYCLE', 'WRITABLE_FIELDS', 'RELATIONSHIP_PROPERTY_KEYS', 'RELATIONSHIP_TYPES', 'RELATIONSHIP_COMPATIBILITY', 'DEFAULT_OWNER_ALIASES', 'DEFAULT_DELEGATION_CADENCE_DAYS', 'AUTO_APPLY_CONFIDENCE', 'AUTO_CREATE_ENTITY_CONFIDENCE', 'LOW_CONFIDENCE_THRESHOLD', 'RISKY_ENTITY_CREATION_TYPES', 'THREAD_INGEST_SOURCE_TYPES', 'SUGGEST_ONLY_CREATION_TYPES', 'TASK_SUGGESTION_CAP_PER_NOTE', 'NEAR_DUPLICATE_SCORE', 'CAPTURE_INTENTS', 'INBOX_INTENT_PRIORITY', 'INTENT_SUGGESTION_CONFIDENCE_FLOOR', 'INTENT_ROUTE_CONFIDENCE', 'INTENT_ROUTE_MAX_CONTENT_CHARS', 'UPDATE_TARGET_SIMILARITY', 'SUGGESTION_DUPLICATE_MEMORY_DAYS', 'SUGGESTION_SEMANTIC_MEMORY_DAYS', 'SUGGESTION_SEMANTIC_SIMILARITY_THRESHOLD', 'COMPACT_LINK_COUNT_RULES', 'CAPTURE_STREAM_EVENTS', '_format_capture_sse_event', '_create_capture_note', '_entity_brief', '_event_reason_for_applied_change', '_matched_entity_for_applied_change', '_enrich_applied_change', '_enrich_suggestion_item', '_capture_result_payload', '_count_extraction_candidates', '_count_capture_summarize_jobs', '_timeline_thread_entity_ids', '_timeline_thread_map', 'ENTITY_TYPE_PLURAL', 'ENTITY_TYPE_BY_PLURAL', 'MENTION_TYPES_PER_GROUP', 'DONE_TASK_STATUSES', 'OPEN_TASK_STATUSES', 'FOLLOW_UP_ENTITY_TYPES', 'STALE_PROJECT_DAYS', 'ARCHIVAL_SUGGESTION_DAYS', 'PERSON_PULSE_QUIET_DAYS', '_build_today_payload', '_decisions_count_for_entity', '_needs_review_query', '_needs_review_count', '_pending_suggestions_count', '_entity_with_attention', '_inherited_task_priorities', '_staleness_days_for', '_child_task_ids_by_project', '_project_staleness_days', '_latest_event_at', '_blocking_impact_counts', '_agent_event_item', '_agent_suggestion_item', '_agent_failed_note_item', '_audit_entity', '_clear_review_resolution', '_mark_review_resolved', '_merge_entities', 'TYPE_CONVERSIONS', 'CONVERSION_STATUS_MAP', 'CAPTURE_CHANGE_EVENT_TYPES', 'DEFAULT_ACTIVITY_UPDATES_PAGE_SIZE', 'MAX_ACTIVITY_UPDATES_PAGE_SIZE', 'DETAIL_ACTIVITY_UPDATES_LIMIT', 'ACTIVITY_UPDATE_DEDUP_HOURS', 'NEAR_DUPLICATE_ACTIVITY_UPDATE_THRESHOLD', '_normalize_activity_update_content', '_activity_update_content_tokens', '_activity_update_content_similarity', '_recent_activity_update_notes', '_find_near_duplicate_activity_update', '_create_activity_update_note', '_refresh_delegation_cadence', '_apply_activity_update_policy', 'VALID_DISMISS_REASONS', '_entity_query', '_load_entity', '_relationship_detail_sections', '_task_detail_sections', '_activity_updates_order', '_activity_updates_query', '_serialize_activity_update', '_activity_updates_section', '_fetch_activity_updates', '_project_detail_sections', '_area_detail_sections', '_note_detail_sections', '_person_detail_sections', '_resource_detail_sections', '_section', '_link_items', '_related_entity_for_link', '_entity_map_for_links', '_attach_project_task_counts', '_attach_project_context', '_attach_task_context', '_enrich_search_results_with_task_context', '_attach_compact_link_counts', '_replace_tags', '_add_tag', '_write_event', '_validate_status', '_is_relationship_compatible', '_validate_lifecycle', '_validate_properties', '_find_relationship_property_key', '_parse_datetime', '_parse_datetime_or_error', '_error', '_title_from_content', '_activity_update_title', '_capture_thread_id_from_data', '_capture_thread_entity_dict', '_run_basic_capture_extraction', '_extract_decision_candidates', '_decision_thread_id_for_note', '_valid_decided_by', '_apply_capture_extraction_metadata', '_capture_intent_route', '_process_capture_extraction', '_route_capture_update_intent', '_resolve_update_target', '_embedding_update_target', '_reconcile_capture_candidates', '_apply_reconciliation_decision', '_link_task_to_note_projects', '_touch_parent_projects', '_apply_entity_update', '_get_app_setting', '_app_setting_row', '_set_app_setting', '_owner_person_id', '_owner_aliases', '_is_owner', '_record_owner_identity_change', '_delegation_cadence_days', '_add_working_days', '_latest_activity_updates', '_ensure_utc', '_days_since', '_person_open_tasks', '_project_open_tasks', '_person_current_load', '_person_pulse', '_person_pulse_headline', '_person_recent_notes', '_person_meeting_prep', '_meeting_prep_headline', '_coordination_radar', '_coordination_radar_people', '_today_dependency_interventions', '_coordination_radar_projects', '_aggregate_attention_reasons', '_thread_attention_score', '_entity_recent_notes', '_thread_last_context', '_thread_last_activity_at', '_build_thread_key_items', '_person_thread', '_project_thread', '_people_threads', '_project_threads', '_notes_linked_to_parent_entities', '_topic_thread_name', '_topic_threads', '_project_pulse', '_task_dependency_watch', '_project_dependency_watch_headline', '_project_pulse_headline', '_delegations_quiet', '_parse_iso_date', '_auto_create_entity', '_create_suggestion', '_creates_blocks_cycle', 'EXPLICIT_MENTION_PATTERN', '_apply_explicit_mentions', '_create_entity_link', '_find_existing_entity', '_find_existing_person', '_person_carries_work', '_default_relationship_type', '_is_create_suggestion_operation', '_accepted_suggestion_link', '_candidate_link_endpoints', '_candidate_value', '_candidate_confidence', '_apply_capture_intent', '_capture_intent', '_sort_inbox_notes', '_inbox_sort_key', '_capture_suggestion_reason', '_append_capture_suggestion', '_should_emit_capture_suggestion', '_task_candidate_looks_tentative', '_status_keyword_is_affirmed', '_status_term_is_negated', '_status_change_is_explicit', '_append_decision_suggestions', '_FOLLOW_UP_OWNER_RE', '_collect_work_carrying_persons', '_suggestion_task_structural_score', '_cap_and_group_task_suggestions', '_expire_stale_suggestion_if_needed', '_expire_suggestion', '_suggested_fields_would_change', '_relationship_exists_between', '_suggestion_fingerprint', '_normalized_suggestion_payload', '_existing_pending_suggestion', '_semantic_embedding_text', '_recently_resolved_duplicate', '_recently_resolved_semantic_duplicate', '_TASK_DELIVERABLE_VERBS', '_TASK_LOGISTICS_VERBS', '_title_has_deliverable_shape', '_task_has_owner', '_task_has_date', '_task_target_resolvable', '_task_structural_score', '_task_auto_create_ok', '_task_suggest_ok', '_can_auto_create_entity', '_reconciliation_confidence', '_find_duplicate_capture_note', '_apply_assignee_and_record', '_apply_assignee', '_queue_embed_job', '_clean_text', '_archive_incoming_activity_updates', '_delete_incoming_activity_updates']
+__all__ = ['datetime', 'time', 'timezone', 'timedelta', 'hashlib', 'json', 'logging', 're', 'time_module', 'Response', 'current_app', 'jsonify', 'request', 'stream_with_context', 'func', 'or_', 'text', 'flag_modified', 'selectinload', 'db', 'AiSuggestion', 'AppSetting', 'Decision', 'Entity', 'EntityChunk', 'EntityEvent', 'EntityLink', 'EntityTag', 'Job', 'Tag', '_iso', 'runtime_health', 'attention_for_entity', 'today_attention_count', 'today_attention_items', 'narrate_event', 'title_or_placeholder', 'logger', 'TOPIC_CLUSTER_SIMILARITY', 'TOPIC_CLUSTER_TIME_BUDGET_MS', 'STATUS_BY_TYPE', 'ENTITY_TYPES', 'PRIORITY_LEVELS', 'PRIORITY_ORDER', 'DEFAULT_STATUS', 'VALID_STATUS', 'VALID_LIFECYCLE', 'WRITABLE_FIELDS', 'RELATIONSHIP_PROPERTY_KEYS', 'RELATIONSHIP_TYPES', 'RELATIONSHIP_COMPATIBILITY', 'DEFAULT_OWNER_ALIASES', 'DEFAULT_DELEGATION_CADENCE_DAYS', 'AUTO_APPLY_CONFIDENCE', 'LOW_CONFIDENCE_THRESHOLD', 'RISKY_ENTITY_CREATION_TYPES', 'THREAD_INGEST_SOURCE_TYPES', 'SUGGEST_ONLY_CREATION_TYPES', 'TASK_SUGGESTION_CAP_PER_NOTE', 'NEAR_DUPLICATE_SCORE', 'CAPTURE_INTENTS', 'INBOX_INTENT_PRIORITY', 'INTENT_SUGGESTION_CONFIDENCE_FLOOR', 'INTENT_ROUTE_CONFIDENCE', 'INTENT_ROUTE_MAX_CONTENT_CHARS', 'UPDATE_TARGET_SIMILARITY', 'SUGGESTION_DUPLICATE_MEMORY_DAYS', 'SUGGESTION_SEMANTIC_MEMORY_DAYS', 'SUGGESTION_SEMANTIC_SIMILARITY_THRESHOLD', 'COMPACT_LINK_COUNT_RULES', 'CAPTURE_STREAM_EVENTS', '_format_capture_sse_event', '_create_capture_note', '_entity_brief', '_event_reason_for_applied_change', '_matched_entity_for_applied_change', '_enrich_applied_change', '_enrich_suggestion_item', '_capture_result_payload', '_count_extraction_candidates', '_count_capture_summarize_jobs', '_timeline_thread_entity_ids', '_timeline_thread_map', 'ENTITY_TYPE_PLURAL', 'ENTITY_TYPE_BY_PLURAL', 'MENTION_TYPES_PER_GROUP', 'DONE_TASK_STATUSES', 'OPEN_TASK_STATUSES', 'FOLLOW_UP_ENTITY_TYPES', 'STALE_PROJECT_DAYS', 'ARCHIVAL_SUGGESTION_DAYS', 'PERSON_PULSE_QUIET_DAYS', '_build_today_payload', '_decisions_count_for_entity', '_needs_review_query', '_needs_review_count', '_pending_suggestions_count', '_entity_with_attention', '_inherited_task_priorities', '_staleness_days_for', '_child_task_ids_by_project', '_project_staleness_days', '_latest_event_at', '_blocking_impact_counts', '_agent_event_item', '_agent_suggestion_item', '_agent_failed_note_item', '_audit_entity', '_clear_review_resolution', '_mark_review_resolved', '_merge_entities', 'TYPE_CONVERSIONS', 'CONVERSION_STATUS_MAP', 'CAPTURE_CHANGE_EVENT_TYPES', 'DEFAULT_ACTIVITY_UPDATES_PAGE_SIZE', 'MAX_ACTIVITY_UPDATES_PAGE_SIZE', 'DETAIL_ACTIVITY_UPDATES_LIMIT', 'ACTIVITY_UPDATE_DEDUP_HOURS', 'NEAR_DUPLICATE_ACTIVITY_UPDATE_THRESHOLD', '_normalize_activity_update_content', '_activity_update_content_tokens', '_activity_update_content_similarity', '_recent_activity_update_notes', '_find_near_duplicate_activity_update', '_create_activity_update_note', '_refresh_delegation_cadence', '_apply_activity_update_policy', 'VALID_DISMISS_REASONS', '_entity_query', '_load_entity', '_relationship_detail_sections', '_task_detail_sections', '_activity_updates_order', '_activity_updates_query', '_serialize_activity_update', '_activity_updates_section', '_fetch_activity_updates', '_project_detail_sections', '_area_detail_sections', '_note_detail_sections', '_person_detail_sections', '_resource_detail_sections', '_section', '_link_items', '_related_entity_for_link', '_entity_map_for_links', '_attach_project_task_counts', '_attach_project_context', '_attach_task_context', '_enrich_search_results_with_task_context', '_attach_compact_link_counts', '_replace_tags', '_add_tag', '_write_event', '_validate_status', '_is_relationship_compatible', '_validate_lifecycle', '_validate_properties', '_find_relationship_property_key', '_parse_datetime', '_parse_datetime_or_error', '_error', '_title_from_content', '_activity_update_title', '_capture_thread_id_from_data', '_capture_thread_entity_dict', '_run_basic_capture_extraction', '_extract_decision_candidates', '_decision_thread_id_for_note', '_valid_decided_by', '_apply_capture_extraction_metadata', '_capture_intent_route', '_process_capture_extraction', '_route_capture_update_intent', '_resolve_update_target', '_embedding_update_target', '_reconcile_capture_candidates', '_apply_reconciliation_decision', '_link_task_to_note_projects', '_touch_parent_projects', '_apply_entity_update', '_get_app_setting', '_app_setting_row', '_set_app_setting', '_owner_person_id', '_owner_aliases', '_is_owner', '_record_owner_identity_change', '_delegation_cadence_days', '_add_working_days', '_latest_activity_updates', '_ensure_utc', '_days_since', '_person_open_tasks', '_project_open_tasks', '_person_current_load', '_person_pulse', '_person_pulse_headline', '_person_recent_notes', '_person_meeting_prep', '_meeting_prep_headline', '_coordination_radar', '_coordination_radar_people', '_today_dependency_interventions', '_coordination_radar_projects', '_aggregate_attention_reasons', '_thread_attention_score', '_entity_recent_notes', '_thread_last_context', '_thread_last_activity_at', '_build_thread_key_items', '_person_thread', '_project_thread', '_people_threads', '_project_threads', '_notes_linked_to_parent_entities', '_topic_thread_name', '_topic_threads', '_project_pulse', '_task_dependency_watch', '_project_dependency_watch_headline', '_project_pulse_headline', '_delegations_quiet', '_parse_iso_date', '_create_suggestion', '_creates_blocks_cycle', 'EXPLICIT_MENTION_PATTERN', '_apply_explicit_mentions', '_create_entity_link', '_find_existing_entity', '_find_existing_person', '_person_carries_work', '_default_relationship_type', '_is_create_suggestion_operation', '_accepted_suggestion_link', '_candidate_link_endpoints', '_candidate_value', '_candidate_confidence', '_apply_capture_intent', '_capture_intent', '_sort_inbox_notes', '_inbox_sort_key', '_capture_suggestion_reason', '_append_capture_suggestion', '_should_emit_capture_suggestion', '_task_candidate_looks_tentative', '_status_keyword_is_affirmed', '_status_term_is_negated', '_status_change_is_explicit', '_append_decision_suggestions', '_FOLLOW_UP_OWNER_RE', '_collect_work_carrying_persons', '_suggestion_task_structural_score', '_cap_and_group_task_suggestions', '_expire_stale_suggestion_if_needed', '_expire_suggestion', '_suggested_fields_would_change', '_relationship_exists_between', '_suggestion_fingerprint', '_normalized_suggestion_payload', '_existing_pending_suggestion', '_semantic_embedding_text', '_recently_resolved_duplicate', '_recently_resolved_semantic_duplicate', '_TASK_DELIVERABLE_VERBS', '_TASK_LOGISTICS_VERBS', '_title_has_deliverable_shape', '_task_has_owner', '_task_has_date', '_task_target_resolvable', '_task_structural_score', '_task_suggest_ok', '_reconciliation_confidence', '_find_duplicate_capture_note', '_apply_assignee_and_record', '_apply_assignee', '_queue_embed_job', '_clean_text', '_archive_incoming_activity_updates', '_delete_incoming_activity_updates']

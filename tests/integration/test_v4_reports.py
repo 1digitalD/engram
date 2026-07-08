@@ -122,11 +122,6 @@ def test_pipeline_groups_candidates_into_one_report(client, app, mock_embed):
     note_id = data["source_note"]["id"]
 
     with app.app_context():
-        job = Job.query.filter_by(job_type="assemble_report", entity_id=note_id).one()
-        assert get_handler("assemble_report") is not None
-        process_job(job)
-        assert job.status == "done"
-
         report = DistillationReport.query.filter_by(source_note_id=note_id).one()
         assert report.status == "pending"
 
@@ -146,8 +141,11 @@ def test_pipeline_groups_candidates_into_one_report(client, app, mock_embed):
         ]
 
         assert len(narrative["sections"][0]["items"]) == 1
-        assert any(i["kind"] == "tag_added" for i in narrative["sections"][1]["items"])
-        assert any(i["kind"] == "relationship_added" for i in narrative["sections"][1]["items"])
+        applied_items = narrative["sections"][1]["items"]
+        assert any(i["kind"] == "tag_added" for i in applied_items)
+        assert any(i["kind"] == "relationship_added" for i in applied_items)
+        # TC-13: annotate-tier lines carry event_id so they are undoable.
+        assert all(i.get("event_id") for i in applied_items)
 
         commitments = narrative["sections"][2]["items"]
         assert len(commitments) == 1

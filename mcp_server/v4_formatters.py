@@ -247,6 +247,9 @@ def format_capture_result(payload):
                 lines.append(f"  + {change_type}")
     if suggestions:
         lines.append(f"{len(suggestions)} suggestion(s) queued for review.")
+    report_id = payload.get("report_id")
+    if report_id:
+        lines.append(f"Report `{report_id}` is ready for review.")
     for w in warnings:
         lines.append(f"Warning: {w}")
     return "\n".join(lines)

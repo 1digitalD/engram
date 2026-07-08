@@ -33,14 +33,14 @@ def capture():
 
     note = _create_capture_note(data, content, user_title)
     thread_id = _capture_thread_id_from_data(data)
-    applied_changes, suggestions, warnings = _run_capture_extraction(
+    applied_changes, suggestions, warnings, report_id = _run_capture_extraction(
         note,
         content,
         data.get("mode") or "auto",
         thread_id=thread_id,
     )
     db.session.commit()
-    return jsonify(_capture_result_payload(note, applied_changes, suggestions, warnings)), 201
+    return jsonify(_capture_result_payload(note, applied_changes, suggestions, warnings, report_id=report_id)), 201
 
 
 def _capture_sse_stream(data, content, user_title):
@@ -55,6 +55,7 @@ def _capture_sse_stream(data, content, user_title):
         applied_changes = []
         suggestions = []
         warnings = []
+        report_id = None
         applied_changes.extend(_apply_explicit_mentions(note, content))
 
         mode = data.get("mode") or "auto"
@@ -76,7 +77,7 @@ def _capture_sse_stream(data, content, user_title):
 
         if not warnings:
             try:
-                extraction_changes, extraction_suggestions = _process_capture_extraction(
+                extraction_changes, extraction_suggestions, extraction_report_id = _process_capture_extraction(
                     note,
                     content,
                     extraction,
@@ -84,6 +85,7 @@ def _capture_sse_stream(data, content, user_title):
                 )
                 applied_changes.extend(extraction_changes)
                 suggestions.extend(extraction_suggestions)
+                report_id = extraction_report_id
             except Exception as exc:
                 warnings.append(str(exc))
                 note.ai_status = "failed"
@@ -100,7 +102,7 @@ def _capture_sse_stream(data, content, user_title):
         db.session.commit()
         yield _format_capture_sse_event(
             "done",
-            _capture_result_payload(note, applied_changes, suggestions, warnings),
+            _capture_result_payload(note, applied_changes, suggestions, warnings, report_id=report_id),
         )
     except Exception as exc:
         db.session.rollback()
@@ -111,10 +113,11 @@ def _run_capture_extraction(note, content, mode, thread_id=None):
     applied_changes = []
     suggestions = []
     warnings = []
+    report_id = None
     applied_changes.extend(_apply_explicit_mentions(note, content))
     try:
         result = _v4e._run_basic_capture_extraction(note, mode, thread_id=thread_id)
-        extraction_changes, extraction_suggestions = _process_capture_extraction(
+        extraction_changes, extraction_suggestions, extraction_report_id = _process_capture_extraction(
             note,
             content,
             result or {},
@@ -122,11 +125,12 @@ def _run_capture_extraction(note, content, mode, thread_id=None):
         )
         applied_changes.extend(extraction_changes)
         suggestions.extend(extraction_suggestions)
+        report_id = extraction_report_id
     except Exception as exc:
         warnings.append(str(exc))
         note.ai_status = "failed"
         _apply_capture_intent(note, {})
-    return applied_changes, suggestions, warnings
+    return applied_changes, suggestions, warnings, report_id
 
 
 @api_v4_bp.route("/entities/<entity_id>/ingest_candidates", methods=["POST"])
@@ -144,7 +148,7 @@ def ingest_candidates(entity_id):
 
     thread_id = entity.id if entity.type in THREAD_INGEST_SOURCE_TYPES else None
     try:
-        applied_changes, suggestions = _reconcile_capture_candidates(
+        applied_changes, suggestions, report_id = _reconcile_capture_candidates(
             entity, extraction, thread_id=thread_id
         )
     except Exception as exc:
@@ -159,6 +163,7 @@ def ingest_candidates(entity_id):
         "applied_changes": applied_changes,
         "suggestions": suggestions,
         "warnings": [],
+        "report_id": report_id,
     })
 
 
@@ -187,15 +192,16 @@ def reprocess_entity(entity_id):
 
     applied_changes = []
     suggestions = []
+    report_id = None
     try:
         result = _v4e._run_basic_capture_extraction(entity, "auto")
-        applied_changes, suggestions = _reconcile_capture_candidates(entity, result or {})
+        applied_changes, suggestions, report_id = _reconcile_capture_candidates(entity, result or {})
     except Exception as exc:
         entity.ai_status = "failed"
         db.session.commit()
         return _error(f"extraction failed: {exc}", 500)
 
     db.session.commit()
-    return jsonify({"applied_changes": applied_changes, "suggestions": suggestions})
+    return jsonify({"applied_changes": applied_changes, "suggestions": suggestions, "report_id": report_id})
 
 
