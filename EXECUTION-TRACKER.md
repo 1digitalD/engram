@@ -5,7 +5,7 @@ code. Full v4-era history is archived at `docs/archive/EXECUTION-TRACKER-v4-hist
 
 Last updated: 2026-07-08
 Branch: `main`
-Status: **v6 Phase 4 drain active** — Today + markers + nudges.
+Status: **v6 Phase 4 done** — Phase 5 pending (overseer).
 
 ## Current program: v6 (vision-driven rebuild)
 
@@ -18,7 +18,7 @@ Status: **v6 Phase 4 drain active** — Today + markers + nudges.
 | `docs/v6/QC_LOOP.md` | Implement → review → fix → APPROVE loop |
 | `docs/iterations/ITERATION_v6_PHASE_2.md` | Phase 2 iteration (archived) |
 | `docs/iterations/ITERATION_v6_PHASE_3.md` | Phase 3 iteration (archived) |
-| `docs/iterations/ITERATION_v6_PHASE_4.md` | Phase 4 iteration (active) |
+| `docs/iterations/ITERATION_v6_PHASE_4.md` | Phase 4 iteration (archived) |
 
 Runtime baseline: `/api/v4` only, Postgres + pgvector, write-enabled MCP.
 
@@ -30,7 +30,7 @@ Runtime baseline: `/api/v4` only, Postgres + pgvector, write-enabled MCP.
 | 1 Distillation report + trust policy | **done** (2026-07-08) |
 | 2 Workboard | **done** (2026-07-08) |
 | 3 Dossier + direct manipulation + pinning | **done** (2026-07-08) |
-| 4 Today + markers + nudges | **in progress** (drain started 2026-07-08) |
+| 4 Today + markers + nudges | **done** (2026-07-08) |
 | 5 Themes + insights | pending |
 | 6 Cutover + legacy UI deletion | pending |
 
@@ -85,3 +85,6 @@ bash scripts/v6_check_review_verdict.sh <implement-task-id>   # review tasks
 - 2026-07-08T19:38:51.805843+00:00 v6-42-code-review accepted via cursor
 - 2026-07-08T19:42:09.285380+00:00 v6-43-meeting-prep accepted via cursor
 - 2026-07-08T19:44:02.130492+00:00 v6-43-code-review accepted via cursor
+- 2026-07-08 v6-40-markers-backend — migration 010 (`followup_markers` table) on test DB
+- 2026-07-08 Phase 4 gate — done (cursor)
+- 2026-07-08T19:49:00.446424+00:00 v6-phase-4-gate accepted via cursor

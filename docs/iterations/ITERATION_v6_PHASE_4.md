@@ -1,7 +1,7 @@
 # Iteration v6 Phase 4 — Today + markers + nudges
 
 Date: 2026-07-08
-Status: **active**
+Status: **archived** (2026-07-08)
 Design: `docs/v6/SOLUTION_DESIGN.md` §5.3
 Plan: `docs/v6/IMPLEMENTATION_PLAN.md` Phase 4
 QC: `docs/v6/QC_LOOP.md`
