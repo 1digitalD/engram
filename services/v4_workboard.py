@@ -12,6 +12,14 @@ TASK_AT_RISK_DUE_DAYS = 7
 SPACE_FINISH_LINE_DAYS = 21
 SPACE_ACTIVITY_DAYS = 14
 HYSTERESIS_DAYS = 2
+# Link/create events should not reset staleness — only substantive activity.
+ACTIVITY_EVENT_TYPES = {
+    "updated",
+    "status_changed",
+    "activity_update_added",
+    "ai_updated",
+    "decision_recorded",
+}
 OPEN_TASK_STATUSES = {"open", "in_progress", "waiting", "blocked"}
 VALID_STATES = {
     "mine",
@@ -51,10 +59,11 @@ def get_workboard(*, group="space", state_filters=None, now=None):
     task_ids = [task.id for task in tasks]
     spaces_by_task, owners_by_task = _task_relationship_maps(task_ids)
     included_tasks = []
+    # Tasks without a parent Space are excluded (orphan blockers stay off-board).
     grouped_spaces = {
         task_id: space
         for task_id, space in spaces_by_task.items()
-        if space is None or space.lifecycle == "active"
+        if space is not None and space.lifecycle == "active"
     }
     tasks = [task for task in tasks if task.id in grouped_spaces]
     spaces = [space for space in grouped_spaces.values() if space is not None]
@@ -556,7 +565,7 @@ def _latest_non_creation_event_at(entity_ids):
         db.session.query(EntityEvent.entity_id, db.func.max(EntityEvent.created_at))
         .filter(
             EntityEvent.entity_id.in_(entity_ids),
-            EntityEvent.event_type != "created",
+            EntityEvent.event_type.in_(ACTIVITY_EVENT_TYPES),
         )
         .group_by(EntityEvent.entity_id)
         .all()

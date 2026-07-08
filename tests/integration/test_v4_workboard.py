@@ -37,11 +37,19 @@ def _set_operator(app, person_id):
 
 
 def _rewind_entity(app, entity_id, *, days):
+    """Backdate created_at/updated_at past the entities_updated_at trigger."""
     with app.app_context():
-        entity = db.session.get(Entity, entity_id)
         ts = datetime.now(timezone.utc) - timedelta(days=days)
-        entity.created_at = ts
-        entity.updated_at = ts
+        db.session.execute(db.text("ALTER TABLE entities DISABLE TRIGGER entities_updated_at"))
+        try:
+            db.session.execute(
+                db.text(
+                    "UPDATE entities SET created_at = :ts, updated_at = :ts WHERE id = :id"
+                ),
+                {"ts": ts, "id": entity_id},
+            )
+        finally:
+            db.session.execute(db.text("ALTER TABLE entities ENABLE TRIGGER entities_updated_at"))
         db.session.commit()
 
 
