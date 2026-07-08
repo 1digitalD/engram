@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 
 from api import api_v4_bp
 from api.v4._shared import *
+from api.v4._shared import _record_relationship_pin_event
 from extensions import db
 from models import ChangeBatch, DistillationReport
 
@@ -374,6 +375,7 @@ def _resolve_create(suggestion, source_note, change_batch_id):
         source="ai_review",
         actor="agent:v4-review",
         change_batch_id=change_batch_id,
+        on_behalf="user",
     )
     if assigned_person_created:
         _write_event(
@@ -394,6 +396,9 @@ def _resolve_create(suggestion, source_note, change_batch_id):
             suggestion.confidence,
             payload.get("evidence") or suggestion.reason,
             parent_changes,
+            actor="agent:v4-review",
+            change_batch_id=change_batch_id,
+            on_behalf="user",
         )
         for parent_change in parent_changes:
             parent_link = EntityLink.query.filter_by(
@@ -493,6 +498,20 @@ def _resolve_update(suggestion, source_note, change_batch_id):
     relationship_type = payload.get("relationship_type") or _default_relationship_type(target_entity.type)
     if relationship_type not in RELATIONSHIP_TYPES:
         return {"error": f"invalid relationship_type: {relationship_type}"}
+    parent_target_id = payload.get("parent_target_id")
+    parent_link = None
+    if parent_target_id:
+        parent_entity = db.session.get(Entity, parent_target_id)
+        if parent_entity is None or parent_entity.lifecycle == "deleted":
+            return {"error": "parent target entity not found"}
+        parent_link = _create_entity_link(
+            target_entity,
+            parent_entity,
+            "parent",
+            suggestion.confidence,
+            payload.get("evidence") or suggestion.reason,
+            source="ai_review",
+        )
 
     link_source, link_target = _candidate_link_endpoints(source_note, target_entity, relationship_type)
     link = _create_entity_link(
@@ -504,7 +523,7 @@ def _resolve_update(suggestion, source_note, change_batch_id):
         source="ai_review",
     )
 
-    if not changed and link is None:
+    if not changed and link is None and parent_link is None:
         return {"error": "suggestion no longer applies"}
 
     if changed:
@@ -543,6 +562,25 @@ def _resolve_update(suggestion, source_note, change_batch_id):
             reason=suggestion.reason,
             change_batch_id=change_batch_id,
         )
+    if parent_link is not None:
+        _write_event(
+            target_entity,
+            "relationship_added",
+            new_value=parent_link.to_dict(),
+            actor="agent:v4-review",
+            confidence=suggestion.confidence,
+            reason=suggestion.reason,
+            change_batch_id=change_batch_id,
+        )
+        _record_relationship_pin_event(
+            target_entity,
+            "parent",
+            actor="agent:v4-review",
+            reason="accepted suggestion pinned parent",
+            confidence=suggestion.confidence,
+            change_batch_id=change_batch_id,
+            on_behalf="user",
+        )
 
     assigned_person, assignment_link, assigned_person_created = _apply_assignee(
         source_note,
@@ -553,6 +591,7 @@ def _resolve_update(suggestion, source_note, change_batch_id):
         source="ai_review",
         actor="agent:v4-review",
         change_batch_id=change_batch_id,
+        on_behalf="user",
     )
     if assigned_person_created:
         _write_event(
@@ -623,6 +662,15 @@ def _resolve_link(suggestion, source_note, change_batch_id):
         confidence=suggestion.confidence,
         reason=suggestion.reason,
         change_batch_id=change_batch_id,
+    )
+    _record_relationship_pin_event(
+        link_source,
+        relationship_type,
+        actor="agent:v4-review",
+        reason="accepted suggestion pinned relationship field",
+        confidence=suggestion.confidence,
+        change_batch_id=change_batch_id,
+        on_behalf="user",
     )
 
     suggestion.status = "accepted"

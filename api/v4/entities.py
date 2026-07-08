@@ -4,6 +4,7 @@ from services.v4_trust import PINNABLE_FIELDS, check_pin, clear_pin, record_pin,
 
 from api import api_v4_bp
 from api.v4._shared import *
+from api.v4._shared import _record_relationship_pin_event
 
 @api_v4_bp.route("/entities", methods=["GET"])
 def list_entities():
@@ -736,6 +737,7 @@ def accept_suggestion(suggestion_id):
         payload.get("evidence") or suggestion.reason,
         source="ai_review",
         actor="agent:v4-review",
+        on_behalf="user",
     )
     if assigned_person_created:
         _write_event(
@@ -755,6 +757,8 @@ def accept_suggestion(suggestion_id):
             suggestion.confidence,
             payload.get("evidence") or suggestion.reason,
             parent_changes,
+            actor="agent:v4-review",
+            on_behalf="user",
         )
 
     suggestion.status = "accepted"
@@ -888,6 +892,14 @@ def _accept_link_existing_suggestion(suggestion):
         confidence=suggestion.confidence,
         reason=suggestion.reason,
     )
+    _record_relationship_pin_event(
+        link_source,
+        relationship_type,
+        actor="agent:v4-review",
+        reason="accepted suggestion pinned relationship field",
+        confidence=suggestion.confidence,
+        on_behalf="user",
+    )
 
     suggestion.status = "accepted"
     suggestion.resolved_at = datetime.utcnow()
@@ -979,6 +991,20 @@ def _accept_update_entity_suggestion(suggestion):
     relationship_type = payload.get("relationship_type") or _default_relationship_type(target_entity.type)
     if relationship_type not in RELATIONSHIP_TYPES:
         return _error(f"invalid relationship_type: {relationship_type}")
+    parent_target_id = payload.get("parent_target_id")
+    parent_link = None
+    if parent_target_id:
+        parent_entity = db.session.get(Entity, parent_target_id)
+        if parent_entity is None or parent_entity.lifecycle == "deleted":
+            return _error("parent target entity not found", 404)
+        parent_link = _create_entity_link(
+            target_entity,
+            parent_entity,
+            "parent",
+            suggestion.confidence,
+            payload.get("evidence") or suggestion.reason,
+            source="ai_review",
+        )
 
     link_source, link_target = _candidate_link_endpoints(source_entity, target_entity, relationship_type)
     link = _create_entity_link(
@@ -990,7 +1016,7 @@ def _accept_update_entity_suggestion(suggestion):
         source="ai_review",
     )
 
-    if not changed and link is None:
+    if not changed and link is None and parent_link is None and not payload.get("assigned_to"):
         return _error("suggestion no longer applies", 409)
 
     if changed:
@@ -1026,6 +1052,23 @@ def _accept_update_entity_suggestion(suggestion):
             confidence=suggestion.confidence,
             reason=suggestion.reason,
         )
+    if parent_link is not None:
+        _write_event(
+            target_entity,
+            "relationship_added",
+            new_value=parent_link.to_dict(),
+            actor="agent:v4-review",
+            confidence=suggestion.confidence,
+            reason=suggestion.reason,
+        )
+        _record_relationship_pin_event(
+            target_entity,
+            "parent",
+            actor="agent:v4-review",
+            reason="accepted suggestion pinned parent",
+            confidence=suggestion.confidence,
+            on_behalf="user",
+        )
 
     assigned_person, assignment_link, assigned_person_created = _apply_assignee(
         source_entity,
@@ -1035,6 +1078,7 @@ def _accept_update_entity_suggestion(suggestion):
         payload.get("evidence") or suggestion.reason,
         source="ai_review",
         actor="agent:v4-review",
+        on_behalf="user",
     )
     if assigned_person_created:
         _write_event(
