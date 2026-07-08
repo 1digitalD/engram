@@ -1257,6 +1257,12 @@ def _refresh_delegation_cadence(target, source_note_id=None, actor="user", chang
     )
 
 
+def _pin_reason_with_context(reason, pin_reason):
+    if reason and pin_reason:
+        return f"{reason}; {pin_reason}"
+    return pin_reason or reason
+
+
 def _apply_activity_update_policy(note, target, content, extraction, suggestions, actor="agent:activity-update", change_batch_id=None):
     """Shared Add-update policy: status auto-apply/suggest, follow-up routing
     (sq-02 semantics), and spin-off task suggestions.
@@ -2543,7 +2549,17 @@ def _apply_reconciliation_decision(note, candidate, decision, applied_changes, s
         # a reviewable suggestion; _apply_entity_update further restricts the
         # mutable fields to status/due_at/follow_up_at.
         if confidence >= AUTO_APPLY_CONFIDENCE:
-            _apply_entity_update(note, target, candidate, decision, relationship_type, confidence, evidence, applied_changes)
+            _apply_entity_update(
+                note,
+                target,
+                candidate,
+                decision,
+                relationship_type,
+                confidence,
+                evidence,
+                applied_changes,
+                suggestions,
+            )
         else:
             _append_capture_suggestion(
                 note,
@@ -2822,10 +2838,37 @@ def _touch_parent_projects(task):
             parent.updated_at = datetime.now(timezone.utc)
 
 
-def _apply_entity_update(note, entity, candidate, decision, relationship_type, confidence, evidence, applied_changes):
-    fields = decision.get("fields") or {}
+def _apply_entity_update(note, entity, candidate, decision, relationship_type, confidence, evidence, applied_changes, suggestions):
+    fields = dict(decision.get("fields") or {})
     changed = {}
     previous = {}
+    demoted_fields = {}
+
+    for field_name in ("status", "due_at"):
+        if field_name not in fields:
+            continue
+        pin_decision = check_pin(entity, field_name, "agent:v4-capture")
+        if pin_decision["allow_write"]:
+            continue
+        demoted_fields[field_name] = fields.pop(field_name)
+        suggestion = _create_suggestion(
+            note,
+            suggestion_type=f"update_{entity.type}",
+            operation_type="update_entity",
+            payload={
+                "target_entity_id": entity.id,
+                "target_type": entity.type,
+                "title": entity.title,
+                "fields": {field_name: demoted_fields[field_name]},
+                "relationship_type": relationship_type,
+                "assigned_to": _candidate_value(candidate, "assigned_to"),
+                "evidence": evidence,
+            },
+            confidence=confidence,
+            reason=_pin_reason_with_context(decision.get("reason"), pin_decision["reason"]),
+        )
+        if suggestion:
+            suggestions.append(suggestion.to_dict())
 
     new_status = fields.get("status")
     if new_status and new_status in VALID_STATUS.get(entity.type, set()):
@@ -5259,3 +5302,4 @@ def _delete_incoming_activity_updates(entity):
         db.session.delete(db.session.get(Entity, note_id))
 
 __all__ = ['datetime', 'time', 'timezone', 'timedelta', 'hashlib', 'json', 'logging', 're', 'time_module', 'Response', 'current_app', 'jsonify', 'request', 'stream_with_context', 'func', 'or_', 'text', 'flag_modified', 'selectinload', 'db', 'AiSuggestion', 'AppSetting', 'Decision', 'Entity', 'EntityChunk', 'EntityEvent', 'EntityLink', 'EntityTag', 'Job', 'Tag', '_iso', 'runtime_health', 'attention_for_entity', 'today_attention_count', 'today_attention_items', 'narrate_event', 'title_or_placeholder', 'logger', 'TOPIC_CLUSTER_SIMILARITY', 'TOPIC_CLUSTER_TIME_BUDGET_MS', 'STATUS_BY_TYPE', 'ENTITY_TYPES', 'PRIORITY_LEVELS', 'PRIORITY_ORDER', 'DEFAULT_STATUS', 'VALID_STATUS', 'VALID_LIFECYCLE', 'WRITABLE_FIELDS', 'RELATIONSHIP_PROPERTY_KEYS', 'RELATIONSHIP_TYPES', 'RELATIONSHIP_COMPATIBILITY', 'DEFAULT_OWNER_ALIASES', 'DEFAULT_DELEGATION_CADENCE_DAYS', 'AUTO_APPLY_CONFIDENCE', 'LOW_CONFIDENCE_THRESHOLD', 'RISKY_ENTITY_CREATION_TYPES', 'THREAD_INGEST_SOURCE_TYPES', 'SUGGEST_ONLY_CREATION_TYPES', 'TASK_SUGGESTION_CAP_PER_NOTE', 'NEAR_DUPLICATE_SCORE', 'CAPTURE_INTENTS', 'INBOX_INTENT_PRIORITY', 'INTENT_SUGGESTION_CONFIDENCE_FLOOR', 'INTENT_ROUTE_CONFIDENCE', 'INTENT_ROUTE_MAX_CONTENT_CHARS', 'UPDATE_TARGET_SIMILARITY', 'SUGGESTION_DUPLICATE_MEMORY_DAYS', 'SUGGESTION_SEMANTIC_MEMORY_DAYS', 'SUGGESTION_SEMANTIC_SIMILARITY_THRESHOLD', 'COMPACT_LINK_COUNT_RULES', 'CAPTURE_STREAM_EVENTS', '_format_capture_sse_event', '_create_capture_note', '_entity_brief', '_event_reason_for_applied_change', '_matched_entity_for_applied_change', '_enrich_applied_change', '_enrich_suggestion_item', '_capture_result_payload', '_count_extraction_candidates', '_count_capture_summarize_jobs', '_timeline_thread_entity_ids', '_timeline_thread_map', 'ENTITY_TYPE_PLURAL', 'ENTITY_TYPE_BY_PLURAL', 'MENTION_TYPES_PER_GROUP', 'DONE_TASK_STATUSES', 'OPEN_TASK_STATUSES', 'FOLLOW_UP_ENTITY_TYPES', 'STALE_PROJECT_DAYS', 'ARCHIVAL_SUGGESTION_DAYS', 'PERSON_PULSE_QUIET_DAYS', '_build_today_payload', '_decisions_count_for_entity', '_needs_review_query', '_needs_review_count', '_pending_suggestions_count', '_entity_with_attention', '_inherited_task_priorities', '_staleness_days_for', '_child_task_ids_by_project', '_project_staleness_days', '_latest_event_at', '_blocking_impact_counts', '_agent_event_item', '_agent_suggestion_item', '_agent_failed_note_item', '_audit_entity', '_clear_review_resolution', '_mark_review_resolved', '_merge_entities', 'TYPE_CONVERSIONS', 'CONVERSION_STATUS_MAP', 'CAPTURE_CHANGE_EVENT_TYPES', 'DEFAULT_ACTIVITY_UPDATES_PAGE_SIZE', 'MAX_ACTIVITY_UPDATES_PAGE_SIZE', 'DETAIL_ACTIVITY_UPDATES_LIMIT', 'ACTIVITY_UPDATE_DEDUP_HOURS', 'NEAR_DUPLICATE_ACTIVITY_UPDATE_THRESHOLD', '_normalize_activity_update_content', '_activity_update_content_tokens', '_activity_update_content_similarity', '_recent_activity_update_notes', '_find_near_duplicate_activity_update', '_create_activity_update_note', '_refresh_delegation_cadence', '_apply_activity_update_policy', 'VALID_DISMISS_REASONS', '_entity_query', '_load_entity', '_relationship_detail_sections', '_task_detail_sections', '_activity_updates_order', '_activity_updates_query', '_serialize_activity_update', '_activity_updates_section', '_fetch_activity_updates', '_project_detail_sections', '_area_detail_sections', '_note_detail_sections', '_person_detail_sections', '_resource_detail_sections', '_section', '_link_items', '_related_entity_for_link', '_entity_map_for_links', '_attach_project_task_counts', '_attach_project_context', '_attach_task_context', '_enrich_search_results_with_task_context', '_attach_compact_link_counts', '_replace_tags', '_add_tag', '_write_event', '_validate_status', '_is_relationship_compatible', '_validate_lifecycle', '_validate_properties', '_find_relationship_property_key', '_parse_datetime', '_parse_datetime_or_error', '_error', '_title_from_content', '_activity_update_title', '_capture_thread_id_from_data', '_capture_thread_entity_dict', '_run_basic_capture_extraction', '_extract_decision_candidates', '_decision_thread_id_for_note', '_valid_decided_by', '_apply_capture_extraction_metadata', '_capture_intent_route', '_process_capture_extraction', '_route_capture_update_intent', '_resolve_update_target', '_embedding_update_target', '_reconcile_capture_candidates', '_apply_reconciliation_decision', '_link_task_to_note_projects', '_touch_parent_projects', '_apply_entity_update', '_get_app_setting', '_app_setting_row', '_set_app_setting', '_owner_person_id', '_owner_aliases', '_is_owner', '_record_owner_identity_change', '_delegation_cadence_days', '_add_working_days', '_latest_activity_updates', '_ensure_utc', '_days_since', '_person_open_tasks', '_project_open_tasks', '_person_current_load', '_person_pulse', '_person_pulse_headline', '_person_recent_notes', '_person_meeting_prep', '_meeting_prep_headline', '_coordination_radar', '_coordination_radar_people', '_today_dependency_interventions', '_coordination_radar_projects', '_aggregate_attention_reasons', '_thread_attention_score', '_entity_recent_notes', '_thread_last_context', '_thread_last_activity_at', '_build_thread_key_items', '_person_thread', '_project_thread', '_people_threads', '_project_threads', '_notes_linked_to_parent_entities', '_topic_thread_name', '_topic_threads', '_project_pulse', '_task_dependency_watch', '_project_dependency_watch_headline', '_project_pulse_headline', '_delegations_quiet', '_parse_iso_date', '_create_suggestion', '_creates_blocks_cycle', 'EXPLICIT_MENTION_PATTERN', '_apply_explicit_mentions', '_create_entity_link', '_find_existing_entity', '_find_existing_person', '_person_carries_work', '_default_relationship_type', '_is_create_suggestion_operation', '_accepted_suggestion_link', '_candidate_link_endpoints', '_candidate_value', '_candidate_confidence', '_apply_capture_intent', '_capture_intent', '_sort_inbox_notes', '_inbox_sort_key', '_capture_suggestion_reason', '_append_capture_suggestion', '_should_emit_capture_suggestion', '_task_candidate_looks_tentative', '_status_keyword_is_affirmed', '_status_term_is_negated', '_status_change_is_explicit', '_append_decision_suggestions', '_FOLLOW_UP_OWNER_RE', '_collect_work_carrying_persons', '_suggestion_task_structural_score', '_cap_and_group_task_suggestions', '_expire_stale_suggestion_if_needed', '_expire_suggestion', '_suggested_fields_would_change', '_relationship_exists_between', '_suggestion_fingerprint', '_normalized_suggestion_payload', '_existing_pending_suggestion', '_semantic_embedding_text', '_recently_resolved_duplicate', '_recently_resolved_semantic_duplicate', '_TASK_DELIVERABLE_VERBS', '_TASK_LOGISTICS_VERBS', '_title_has_deliverable_shape', '_task_has_owner', '_task_has_date', '_task_target_resolvable', '_task_structural_score', '_task_suggest_ok', '_reconciliation_confidence', '_find_duplicate_capture_note', '_apply_assignee_and_record', '_apply_assignee', '_queue_embed_job', '_clean_text', '_archive_incoming_activity_updates', '_delete_incoming_activity_updates']
+from services.v4_trust import check_pin, record_pin

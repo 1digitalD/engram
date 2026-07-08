@@ -1,0 +1,2 @@
+ALTER TABLE entities
+ADD COLUMN IF NOT EXISTS pinned_fields JSONB NOT NULL DEFAULT '[]';

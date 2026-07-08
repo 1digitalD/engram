@@ -1,5 +1,7 @@
 """Engram v4 entities API."""
 
+from services.v4_trust import PINNABLE_FIELDS, check_pin, clear_pin, record_pin, set_pin
+
 from api import api_v4_bp
 from api.v4._shared import *
 
@@ -161,6 +163,7 @@ def update_entity(entity_id):
     old_snapshot = entity.to_dict()
     status_changed = False
     archived = False
+    pin_event_needed = False
 
     if "status" in data:
         validation_error = _validate_status(entity.type, data["status"])
@@ -168,6 +171,8 @@ def update_entity(entity_id):
             return validation_error
         status_changed = data["status"] != entity.status
         entity.status = data["status"]
+        if status_changed:
+            pin_event_needed = record_pin(entity, "status", "user") or pin_event_needed
 
     if "lifecycle" in data:
         lifecycle_error = _validate_lifecycle(data["lifecycle"])
@@ -185,6 +190,8 @@ def update_entity(entity_id):
 
     for field in ("title", "content", "source", "reference_url"):
         if field in data:
+            if field == "title" and data[field] != entity.title:
+                pin_event_needed = record_pin(entity, "title", "user") or pin_event_needed
             setattr(entity, field, data[field])
     if "title" in data and entity.type == "note" and (entity.ai_meta or {}).get("title_auto"):
         ai_meta = dict(entity.ai_meta or {})
@@ -200,6 +207,8 @@ def update_entity(entity_id):
         due_at, due_error = _parse_datetime_or_error(data["due_at"])
         if due_error:
             return due_error
+        if due_at != entity.due_at:
+            pin_event_needed = record_pin(entity, "due_at", "user") or pin_event_needed
         entity.due_at = due_at
     if "tags" in data:
         _replace_tags(entity, data.get("tags") or [])
@@ -230,6 +239,54 @@ def update_entity(entity_id):
 
     db.session.commit()
 
+    return jsonify({"data": _load_entity(entity.id).to_dict()})
+
+
+@api_v4_bp.route("/entities/<entity_id>/pin", methods=["POST"])
+def pin_entity_field(entity_id):
+    entity = _load_entity(entity_id)
+    if entity is None:
+        return _error("entity not found", 404)
+    data = request.get_json(silent=True) or {}
+    field = data.get("field")
+    if field not in PINNABLE_FIELDS:
+        return _error("field must be one of: " + ", ".join(sorted(PINNABLE_FIELDS)))
+    old_snapshot = entity.to_dict()
+    set_pin(entity, field)
+    db.session.flush()
+    new_snapshot = entity.to_dict()
+    _write_event(
+        entity,
+        "updated",
+        old_value={"pinned_fields": old_snapshot.get("pinned_fields", [])},
+        new_value={"pinned_fields": new_snapshot.get("pinned_fields", []), "field": field},
+        reason=f"pinned {field}",
+    )
+    db.session.commit()
+    return jsonify({"data": _load_entity(entity.id).to_dict()})
+
+
+@api_v4_bp.route("/entities/<entity_id>/unpin", methods=["POST"])
+def unpin_entity_field(entity_id):
+    entity = _load_entity(entity_id)
+    if entity is None:
+        return _error("entity not found", 404)
+    data = request.get_json(silent=True) or {}
+    field = data.get("field")
+    if field not in PINNABLE_FIELDS:
+        return _error("field must be one of: " + ", ".join(sorted(PINNABLE_FIELDS)))
+    old_snapshot = entity.to_dict()
+    clear_pin(entity, field)
+    db.session.flush()
+    new_snapshot = entity.to_dict()
+    _write_event(
+        entity,
+        "updated",
+        old_value={"pinned_fields": old_snapshot.get("pinned_fields", []), "field": field},
+        new_value={"pinned_fields": new_snapshot.get("pinned_fields", [])},
+        reason=f"unpinned {field}",
+    )
+    db.session.commit()
     return jsonify({"data": _load_entity(entity.id).to_dict()})
 
 
@@ -879,22 +936,27 @@ def _accept_update_entity_suggestion(suggestion):
 
     old_snapshot = target_entity.to_dict()
     changed = {}
+    pin_event_needed = False
 
     if "status" in fields:
+        check_pin(target_entity, "status", "agent:v4-review", on_behalf="user")
         validation_error = _validate_status(target_entity.type, fields["status"])
         if validation_error:
             return validation_error
         if fields["status"] != target_entity.status:
             target_entity.status = fields["status"]
             changed["status"] = fields["status"]
+            pin_event_needed = record_pin(target_entity, "status", "agent:v4-review", on_behalf="user") or pin_event_needed
 
     if "due_at" in fields:
+        check_pin(target_entity, "due_at", "agent:v4-review", on_behalf="user")
         due_at, due_error = _parse_datetime_or_error(fields["due_at"])
         if due_error:
             return due_error
         if due_at != target_entity.due_at:
             target_entity.due_at = due_at
             changed["due_at"] = due_at.isoformat() if due_at else None
+            pin_event_needed = record_pin(target_entity, "due_at", "agent:v4-review", on_behalf="user") or pin_event_needed
 
     if "follow_up_at" in fields:
         follow_up_at, follow_up_error = _parse_datetime_or_error(fields["follow_up_at"])
@@ -1374,5 +1436,3 @@ def get_entity_canonical(entity_id):
 
     from services.canonical_document import generate_canonical_markdown
     return jsonify({"entity_id": entity.id, "canonical": generate_canonical_markdown(entity)})
-
-

@@ -1,5 +1,7 @@
 """Engram v4 links API."""
 
+from services.v4_trust import record_pin, relationship_pin_field
+
 from api import api_v4_bp
 from api.v4._shared import *
 
@@ -160,6 +162,9 @@ def create_link(entity_id):
     )
     if link is None:
         return _error("relationship could not be created", 409)
+    old_snapshot = source_entity.to_dict()
+    pin_field = relationship_pin_field(relationship_type)
+    pin_event_needed = pin_field and record_pin(source_entity, pin_field, "user")
 
     _write_event(
         source_entity,
@@ -168,6 +173,15 @@ def create_link(entity_id):
         actor="user",
         reason="manual link",
     )
+    if pin_event_needed:
+        _write_event(
+            source_entity,
+            "updated",
+            old_value={"pinned_fields": old_snapshot.get("pinned_fields", [])},
+            new_value={"pinned_fields": source_entity.to_dict().get("pinned_fields", [])},
+            actor="user",
+            reason="manual link pinned relationship field",
+        )
     db.session.commit()
 
     return jsonify({"data": link.to_dict()}), 201
@@ -221,5 +235,3 @@ def delete_relationship(relationship_id):
         _write_event(source_entity, "relationship_removed", old_value=old_value)
     db.session.commit()
     return jsonify({"data": {"id": relationship_id, "deleted": True}})
-
-

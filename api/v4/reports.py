@@ -7,6 +7,8 @@ Endpoints:
   POST /reports/<id>/undo
 """
 
+from services.v4_trust import check_pin, record_pin
+
 from datetime import datetime, timezone
 
 from api import api_v4_bp
@@ -448,22 +450,27 @@ def _resolve_update(suggestion, source_note, change_batch_id):
 
     old_snapshot = target_entity.to_dict()
     changed = {}
+    pin_event_needed = False
 
     if "status" in fields:
+        check_pin(target_entity, "status", "agent:v4-review", on_behalf="user")
         validation_error = _validate_status(target_entity.type, fields["status"])
         if validation_error:
             return {"error": validation_error[0].get_json()["error"]}
         if fields["status"] != target_entity.status:
             target_entity.status = fields["status"]
             changed["status"] = fields["status"]
+            pin_event_needed = record_pin(target_entity, "status", "agent:v4-review", on_behalf="user") or pin_event_needed
 
     if "due_at" in fields:
+        check_pin(target_entity, "due_at", "agent:v4-review", on_behalf="user")
         due_at, due_error = _parse_datetime_or_error(fields["due_at"])
         if due_error:
             return {"error": due_error[0].get_json()["error"]}
         if due_at != target_entity.due_at:
             target_entity.due_at = due_at
             changed["due_at"] = due_at.isoformat() if due_at else None
+            pin_event_needed = record_pin(target_entity, "due_at", "agent:v4-review", on_behalf="user") or pin_event_needed
 
     if "follow_up_at" in fields:
         follow_up_at, follow_up_error = _parse_datetime_or_error(fields["follow_up_at"])

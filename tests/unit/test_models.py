@@ -216,6 +216,7 @@ def test_entity_canonical_dto_shape_has_no_legacy_fields():
         "source": "manual",
         "reference_url": None,
         "properties": {"priority": "high"},
+        "pinned_fields": [],
         "tags": [{"id": tag.id, "name": "memory"}],
         "ai": {
             "summary": "Short generated summary",

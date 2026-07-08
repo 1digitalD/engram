@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS entities (
     follow_up_at  TIMESTAMPTZ,
     source        TEXT,
     reference_url TEXT,
+    pinned_fields JSONB NOT NULL DEFAULT '[]',
     properties    JSONB NOT NULL DEFAULT '{}',
     ai_meta          JSONB NOT NULL DEFAULT '{}',
     ai_status        TEXT NOT NULL DEFAULT 'pending'
