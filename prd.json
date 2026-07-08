@@ -284,10 +284,10 @@
         "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_check_review_verdict.sh v6-13-next-review-ui"
       ],
       "blocked": false,
-      "passes": false,
-      "attempts": 1,
+      "passes": true,
+      "attempts": 3,
       "blockerReason": null,
-      "validationEvidence": null
+      "validationEvidence": "Overseer takeover: docs/v6/reviews/v6-13-next-review-ui.md APPROVE; npm test -- next + build green"
     },
     {
       "id": "v6-14-eval-metrics",
