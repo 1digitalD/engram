@@ -242,16 +242,18 @@ describe('ReviewSurface', () => {
   });
 
   it('resets review timing when switching to another report', async () => {
-    v4API.reports.list
-      .mockResolvedValueOnce(LIST_PAYLOAD_TWO_REPORTS)
-      .mockResolvedValueOnce({
-        data: [{ id: REPORT_ID_2, status: 'pending', source_note_id: 'note-2' }],
-        meta: { total: 1 },
-      })
-      .mockResolvedValueOnce({ data: [], meta: { total: 0 } });
+    let pendingReports = [...LIST_PAYLOAD_TWO_REPORTS.data];
+    v4API.reports.list.mockImplementation(async () => ({
+      data: pendingReports,
+      meta: { total: pendingReports.length },
+    }));
     v4API.reports.get.mockImplementation(async (reportId) => (
       reportId === REPORT_ID_2 ? DETAIL_PAYLOAD_2 : DETAIL_PAYLOAD
     ));
+    v4API.reports.resolve.mockImplementation(async (reportId) => {
+      pendingReports = pendingReports.filter((row) => row.id !== reportId);
+      return { data: { status: 'reviewed' } };
+    });
     let now = 1_000;
     vi.spyOn(Date, 'now').mockImplementation(() => now);
 
@@ -261,6 +263,8 @@ describe('ReviewSurface', () => {
     now = 5_000;
     fireEvent.click(screen.getByRole('button', { name: /report-2/i }));
     await screen.findByText('Send recap');
+    // Detail effect seeds reviewStartedAt at now=5_000 before we advance the clock.
+    await waitFor(() => expect(v4API.reports.get).toHaveBeenCalledWith(REPORT_ID_2));
     now = 25_000;
     fireEvent.click(screen.getByRole('button', { name: 'Verify' }));
 

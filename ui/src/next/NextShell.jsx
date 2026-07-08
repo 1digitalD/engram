@@ -6,7 +6,7 @@ import styles from './NextShell.module.css';
 
 const NAV_ITEMS = [
   { to: '/next/today', label: SURFACE_LABELS.today, disabled: true },
-  { to: '/next/workboard', label: SURFACE_LABELS.workboard, disabled: true },
+  { to: '/next/workboard', label: SURFACE_LABELS.workboard, disabled: false },
   { to: '/next/stream', label: SURFACE_LABELS.stream, disabled: true },
   { to: '/next/review', label: SURFACE_LABELS.review, disabled: false },
   { to: '/next/spaces', label: SURFACE_LABELS.spaces, disabled: true },
