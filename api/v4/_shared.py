@@ -710,6 +710,10 @@ def _build_today_payload(now):
     )
     payload["new_since_yesterday_count"] = new_since_yesterday_count
 
+    from services.v4_today import extend_today_payload
+
+    extend_today_payload(payload, now)
+
     return payload
 
 

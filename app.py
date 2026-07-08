@@ -100,6 +100,8 @@ def create_app(config_name=None):
                 ensure_hygiene_scheduled(app)
                 from services.v4_markers import ensure_marker_firing_scheduled
                 ensure_marker_firing_scheduled(app)
+                from services.v4_today import ensure_at_risk_snapshot_scheduled
+                ensure_at_risk_snapshot_scheduled(app)
             except Exception as e:
                 logger.warning("Job worker failed to start: %s", e)
 

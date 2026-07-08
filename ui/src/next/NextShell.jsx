@@ -5,7 +5,7 @@ import { SURFACE_LABELS } from './vocab';
 import styles from './NextShell.module.css';
 
 const NAV_ITEMS = [
-  { to: '/next/today', label: SURFACE_LABELS.today, disabled: true },
+  { to: '/next/today', label: SURFACE_LABELS.today, disabled: false },
   { to: '/next/workboard', label: SURFACE_LABELS.workboard, disabled: false },
   { to: '/next/stream', label: SURFACE_LABELS.stream, disabled: false },
   { to: '/next/review', label: SURFACE_LABELS.review, disabled: false },

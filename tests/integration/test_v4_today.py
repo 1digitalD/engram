@@ -547,6 +547,112 @@ def test_v4_today_surfaces_new_since_yesterday_count(client, app):
     assert newer_task["id"] in new_ids
 
 
+def test_v4_today_extended_feed_includes_sections_and_counts(client, app):
+    yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
+    today = datetime.now(timezone.utc).isoformat()
+
+    _create_entity(client, "task", "Due today item", due_at=today)
+    _create_entity(client, "task", "Later this week", due_at=(datetime.now(timezone.utc) + timedelta(days=3)).isoformat())
+    _create_entity(client, "note", "Fresh capture")
+
+    response = client.get("/api/v4/today")
+    assert response.status_code == 200
+    data = response.get_json()
+
+    assert "needs_you" in data
+    assert "in_motion" in data
+    assert "counts" in data
+    assert data["counts"]["needs_you"] == len(data["needs_you"])
+    assert data["counts"]["in_motion"] == len(data["in_motion"])
+    assert "ripened_follow_ups" in data
+    assert "newly_at_risk" in data
+    assert any(item["kind"] == "due_today" for item in data["needs_you"])
+    assert any(item["kind"] in {"upcoming_due", "recent_note"} for item in data["in_motion"])
+
+
+def test_tc43_newly_at_risk_diff_uses_daily_snapshot(client, app):
+    from services.v4_today import list_at_risk_items, save_at_risk_snapshot
+
+    operator = _create_entity(client, "person", "Operator")
+    space = _create_entity(
+        client,
+        "project",
+        "Renewal",
+        due_at=(datetime.now(timezone.utc) + timedelta(days=10)).isoformat(),
+    )
+    stale_task = _create_entity(
+        client,
+        "task",
+        "Stays at risk",
+        due_at=(datetime.now(timezone.utc) + timedelta(days=5)).isoformat(),
+    )
+
+    with app.app_context():
+        setting = db.session.get(AppSetting, "operator_person_id")
+        if setting is None:
+            setting = AppSetting(key="operator_person_id", value=operator["id"])
+            db.session.add(setting)
+        else:
+            setting.value = operator["id"]
+        db.session.commit()
+
+    _link(client, stale_task["id"], operator["id"], "assigned_to")
+    _link(client, stale_task["id"], space["id"], "parent")
+
+    with app.app_context():
+        ts = datetime.now(timezone.utc) - timedelta(days=12)
+        db.session.execute(db.text("ALTER TABLE entities DISABLE TRIGGER entities_updated_at"))
+        try:
+            db.session.execute(
+                db.text("UPDATE entities SET created_at = :ts, updated_at = :ts WHERE id = :id"),
+                {"ts": ts, "id": stale_task["id"]},
+            )
+            db.session.execute(
+                db.text("UPDATE entities SET created_at = :ts, updated_at = :ts WHERE id = :id"),
+                {"ts": ts, "id": space["id"]},
+            )
+        finally:
+            db.session.execute(db.text("ALTER TABLE entities ENABLE TRIGGER entities_updated_at"))
+        db.session.commit()
+
+    with app.app_context():
+        current = list_at_risk_items(datetime.now(timezone.utc))
+        assert any(item["id"] == stale_task["id"] for item in current)
+        save_at_risk_snapshot(current)
+
+    first = client.get("/api/v4/today").get_json()
+    assert stale_task["id"] not in {item["id"] for item in first["newly_at_risk"]}
+
+    fresh_task = _create_entity(
+        client,
+        "task",
+        "Freshly at risk",
+        due_at=(datetime.now(timezone.utc) + timedelta(days=4)).isoformat(),
+    )
+    _link(client, fresh_task["id"], operator["id"], "assigned_to")
+    _link(client, fresh_task["id"], space["id"], "parent")
+
+    with app.app_context():
+        ts = datetime.now(timezone.utc) - timedelta(days=11)
+        db.session.execute(db.text("ALTER TABLE entities DISABLE TRIGGER entities_updated_at"))
+        try:
+            db.session.execute(
+                db.text("UPDATE entities SET created_at = :ts, updated_at = :ts WHERE id = :id"),
+                {"ts": ts, "id": fresh_task["id"]},
+            )
+        finally:
+            db.session.execute(db.text("ALTER TABLE entities ENABLE TRIGGER entities_updated_at"))
+        db.session.commit()
+
+    with app.app_context():
+        current = list_at_risk_items(datetime.now(timezone.utc))
+        assert any(item["id"] == fresh_task["id"] for item in current)
+
+    second = client.get("/api/v4/today").get_json()
+    assert stale_task["id"] not in {item["id"] for item in second["newly_at_risk"]}
+    assert fresh_task["id"] in {item["id"] for item in second["newly_at_risk"]}
+
+
 def test_v4_person_detail_includes_current_load_with_last_heard(client, app):
     akash = _create_entity(client, "person", "Akash")
     open_task = _create_entity(client, "task", "Design GTM trigger doc", status="open")
