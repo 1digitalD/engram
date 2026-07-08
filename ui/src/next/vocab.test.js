@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   ACTION_LABELS,
+  ENTITY_TYPE_GLYPHS,
   ENTITY_TYPE_LABELS,
   SECTION_LABELS,
   entityTypeLabel,
@@ -10,13 +11,15 @@ import {
 } from './vocab';
 
 describe('vocab', () => {
-  it('maps v4 entity types to vision labels', () => {
+  it('maps v4 entity types vision labels', () => {
     expect(entityTypeLabel('note')).toBe(ENTITY_TYPE_LABELS.note);
     expect(entityTypeLabel('project')).toBe(ENTITY_TYPE_LABELS.project);
     expect(entityTypeLabel('task')).toBe(ENTITY_TYPE_LABELS.task);
+    expect(ENTITY_TYPE_GLYPHS.note).toBe('N');
+    expect(ENTITY_TYPE_GLYPHS.task).toBe('C');
   });
 
-  it('maps report section keys to vision labels', () => {
+  it('maps report section keys vision labels', () => {
     expect(sectionLabel('proposed_commitments')).toBe(SECTION_LABELS.proposed_commitments);
     expect(sectionLabel('questions')).toBe(SECTION_LABELS.questions);
   });

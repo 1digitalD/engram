@@ -60,3 +60,4 @@ bash scripts/v6_check_review_verdict.sh <implement-task-id>   # review tasks
 - _Phase 2 workboard — prd ready, drain starting_
 - 2026-07-08T09:08:38.887966+00:00 v6-20-code-review accepted via codex
 - 2026-07-08T15:35:10.583653+00:00 v6-21-code-review accepted via codex
+- 2026-07-08T15:44:26.587607+00:00 v6-22-stream-surface accepted via codex

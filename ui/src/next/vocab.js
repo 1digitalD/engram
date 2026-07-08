@@ -10,6 +10,16 @@ export const ENTITY_TYPE_LABELS = {
   resource: 'Resource',
 };
 
+export const ENTITY_TYPE_GLYPHS = {
+  note: 'N',
+  project: 'S',
+  area: 'S',
+  task: 'C',
+  person: 'P',
+  theme: 'T',
+  resource: 'R',
+};
+
 export const SECTION_LABELS = {
   routing_summary: 'Routing summary',
   applied_annotations: 'Applied annotations',
@@ -49,7 +59,11 @@ export function proposalLabel(suggestion) {
   if (op === 'create_decision' || suggestion?.suggestion_type === 'create_decision') {
     return 'Decision proposal';
   }
-  if (op === 'create_entity' || op === 'create_new_entity' || suggestion?.suggestion_type === 'create_task') {
+  if (
+    op === 'create_entity'
+    || op === 'create_new_entity'
+    || suggestion?.suggestion_type === 'create_task'
+  ) {
     const entityType = suggestion?.payload?.type || 'task';
     return `New ${entityTypeLabel(entityType).toLowerCase()}`;
   }
