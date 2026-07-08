@@ -58,3 +58,4 @@ bash scripts/v6_check_review_verdict.sh <implement-task-id>   # review tasks
 - 2026-07-08 Phase 1 Loopsmith drain — done (distillation, Review UI, metrics)
 - 2026-07-08T06:48:45.485346+00:00 v6-phase-1-gate accepted via codex
 - _Phase 2 workboard — prd ready, drain starting_
+- 2026-07-08T09:08:38.887966+00:00 v6-20-code-review accepted via codex

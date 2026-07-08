@@ -241,3 +241,77 @@ def test_tc24_space_threshold_override_changes_staleness(client, app):
 
     assert default_item["states"]["stale"] is True
     assert custom_item["states"]["stale"] is False
+
+
+def test_ec12_blocked_state_recomputes_after_blocker_resolved(client, app):
+    operator = _create_entity(client, "person", "Operator")
+    space = _create_entity(client, "project", "Dependencies")
+    blocker = _create_entity(client, "task", "Head blocker")
+    blocked = _create_entity(client, "task", "Blocked task")
+
+    _set_operator(app, operator["id"])
+    for task in (blocker, blocked):
+        _link(client, task["id"], operator["id"], "assigned_to")
+        _link(client, task["id"], space["id"], "parent")
+    _link(client, blocker["id"], blocked["id"], "blocks")
+
+    before = client.get("/api/v4/workboard", query_string={"group": "space"})
+    assert before.status_code == 200
+    before_items = {
+        item["id"]: item
+        for group in before.get_json()["data"]["groups"]
+        for item in group["items"]
+    }
+    assert before_items[blocked["id"]]["states"]["blocked"] is True
+
+    resolved = client.patch(f"/api/v4/entities/{blocker['id']}", json={"status": "done"})
+    assert resolved.status_code == 200
+
+    after = client.get("/api/v4/workboard", query_string={"group": "space"})
+    assert after.status_code == 200
+    after_items = {
+        item["id"]: item
+        for group in after.get_json()["data"]["groups"]
+        for item in group["items"]
+    }
+    assert after_items[blocked["id"]]["states"]["blocked"] is False
+
+
+def test_ec13_operator_unset_skips_mine_waiting_split(client, app):
+    owner = _create_entity(client, "person", "Sam")
+    space = _create_entity(client, "project", "Unset operator space")
+    task = _create_entity(client, "task", "Needs owner context")
+
+    _link(client, task["id"], owner["id"], "assigned_to")
+    _link(client, task["id"], space["id"], "parent")
+    _rewind_entity(app, task["id"], days=11)
+
+    response = client.get("/api/v4/workboard", query_string={"group": "space"})
+    assert response.status_code == 200
+    payload = response.get_json()
+    item = payload["data"]["groups"][0]["items"][0]
+
+    assert payload["meta"]["operator_configured"] is False
+    assert payload["meta"]["operator_person_id"] is None
+    assert item["states"]["mine"] is True
+    assert item["states"]["waiting_on"] is False
+
+
+def test_ec14_archived_space_tasks_are_excluded_from_workboard(client, app):
+    operator = _create_entity(client, "person", "Operator")
+    archived_space = _create_entity(client, "project", "Archived space")
+    task = _create_entity(client, "task", "Task under archived space")
+
+    _set_operator(app, operator["id"])
+    _link(client, task["id"], operator["id"], "assigned_to")
+    _link(client, task["id"], archived_space["id"], "parent")
+
+    archived = client.patch(
+        f"/api/v4/entities/{archived_space['id']}",
+        json={"lifecycle": "archived"},
+    )
+    assert archived.status_code == 200
+
+    response = client.get("/api/v4/workboard", query_string={"group": "space"})
+    assert response.status_code == 200
+    assert _task_ids(response.get_json()) == set()

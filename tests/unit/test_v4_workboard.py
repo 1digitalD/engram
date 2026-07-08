@@ -106,6 +106,21 @@ def test_tc20_at_risk_reason_and_receipts_are_present():
     assert states["at_risk_detail"]["receipts"]
 
 
+def test_ec10_task_without_due_date_can_be_stale_without_being_overdue():
+    states = derive_task_states(
+        _task(
+            stale_days=12,
+            due_at=None,
+        ),
+        operator_person_id="person-1",
+        operator_configured=True,
+        now=NOW,
+    )
+
+    assert states["stale"] is True
+    assert states["overdue"] is False
+
+
 def test_tc23_hysteresis_keeps_at_risk_until_threshold_plus_two_days():
     sticky = derive_task_states(
         _task(
@@ -151,6 +166,22 @@ def test_tc24_space_threshold_override_changes_stale_verdict():
 
     assert default_states["stale"] is True
     assert overridden_states["stale"] is False
+
+
+def test_ec11_space_with_zero_commitments_uses_quiet_rule_without_stale_ratio():
+    risk = derive_space_at_risk(
+        _space(
+            due_at=NOW + timedelta(days=10),
+            open_tasks_count=0,
+            stale_open_tasks_count=0,
+            last_activity_days=16,
+        ),
+        now=NOW,
+    )
+
+    assert risk["flag"] is True
+    assert "no space activity" in risk["reason"]
+    assert "open tasks stale" not in risk["reason"]
 
 
 def test_tc20_space_at_risk_uses_finish_line_and_space_activity():
