@@ -232,11 +232,11 @@
         "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test",
         "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build"
       ],
-      "blocked": false,
-      "passes": true,
+      "blocked": true,
+      "passes": false,
       "attempts": 1,
-      "blockerReason": null,
-      "validationEvidence": "Overseer gate: v6_validate_slice 545 passed; npm test 221 passed; npm run build green; all v6-2* verdicts APPROVE"
+      "blockerReason": "Executor completed without producing repository changes.",
+      "validationEvidence": null
     }
   ],
   "codingLoopPolicy": {

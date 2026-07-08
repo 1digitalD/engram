@@ -5,7 +5,7 @@ code. Full v4-era history is archived at `docs/archive/EXECUTION-TRACKER-v4-hist
 
 Last updated: 2026-07-08
 Branch: `main`
-Status: **v6 Phase 2 active** — Loopsmith drain `v6-phase-2-workboard`.
+Status: **v6 Phase 2 done** — standing up Phase 3 next.
 
 ## Current program: v6 (vision-driven rebuild)
 
@@ -16,7 +16,7 @@ Status: **v6 Phase 2 active** — Loopsmith drain `v6-phase-2-workboard`.
 | `docs/v6/IMPLEMENTATION_PLAN.md` | Phases 0–6, slices, deploy gates |
 | `docs/v6/TEST_PLAN.md` | Use cases, test cases, edge cases, metrics |
 | `docs/v6/QC_LOOP.md` | Implement → review → fix → APPROVE loop |
-| `docs/iterations/ITERATION_v6_PHASE_2.md` | Active Loopsmith iteration spec |
+| `docs/iterations/ITERATION_v6_PHASE_2.md` | Phase 2 iteration (archived) |
 
 Runtime baseline: `/api/v4` only, Postgres + pgvector, write-enabled MCP.
 
@@ -26,7 +26,7 @@ Runtime baseline: `/api/v4` only, Postgres + pgvector, write-enabled MCP.
 |---|---|
 | 0 Foundations | **done** (retro-reviewed 2026-07-08) |
 | 1 Distillation report + trust policy | **done** (2026-07-08) |
-| 2 Workboard | **active** — prd ready |
+| 2 Workboard | **done** (2026-07-08) |
 | 3 Dossier + direct manipulation + pinning | pending |
 | 4 Today + markers + nudges | pending |
 | 5 Themes + insights | pending |
