@@ -56,3 +56,4 @@ bash scripts/v6_check_review_verdict.sh <implement-task-id>   # review tasks
 - 2026-07-08 Phase 0 Loopsmith drain — done (API split, operator setting)
 - 2026-07-08 Phase 0 retro review — done (verdict files, QC loop tightened)
 - _Phase 1 distillation — prd ready, drain pending_
+- 2026-07-08T03:40:26.901130+00:00 v6-10-report-assembler accepted via opencode

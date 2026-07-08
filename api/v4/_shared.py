@@ -2096,6 +2096,9 @@ def _process_capture_extraction(note, content, extraction, thread_id=None):
     _append_decision_suggestions(note, thread_id, suggestions)
     if note.ai_status == "pending":
         note.ai_status = "done"
+
+    _queue_assemble_report_if_needed(note.id)
+
     return applied_changes, suggestions
 
 
@@ -2242,6 +2245,13 @@ def _embedding_update_target(content):
     return entity
 
 
+def _queue_assemble_report_if_needed(note_id):
+    """Enqueue the post-reconciliation report assembler once per capture."""
+    from services.v4_report import queue_assemble_report_job
+
+    queue_assemble_report_job(note_id)
+
+
 def _reconcile_capture_candidates(note, extraction, thread_id=None):
     applied_changes = []
     suggestions = []
@@ -2323,6 +2333,8 @@ def _reconcile_capture_candidates(note, extraction, thread_id=None):
     # queue indefinitely.
     if note.ai_status == "pending":
         note.ai_status = "done"
+
+    _queue_assemble_report_if_needed(note.id)
 
     return applied_changes, suggestions
 

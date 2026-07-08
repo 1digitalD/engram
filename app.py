@@ -84,6 +84,7 @@ def create_app(config_name=None):
     # Register v4 background job handlers.
     from services import embeddings  # noqa: F401
     from services import v4_hygiene  # noqa: F401  (registers the hygiene job handler)
+    from services import v4_report  # noqa: F401  (registers the assemble_report job handler)
 
     # Start job worker on boot (non-blocking background thread)
     # Skip in testing mode to avoid background DB connections

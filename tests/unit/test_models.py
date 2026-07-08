@@ -16,6 +16,7 @@ V4_TABLES = {
     "change_batches",
     "app_settings",
     "decisions",
+    "distillation_reports",
 }
 
 FORBIDDEN_DTO_FIELDS = {

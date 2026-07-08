@@ -421,6 +421,7 @@ class AiSuggestion(BaseModel):
     source_entity_id = Column(
         String(36), ForeignKey("entities.id", ondelete="CASCADE"), nullable=False
     )
+    report_id = Column(String(36), ForeignKey("distillation_reports.id", ondelete="SET NULL"), nullable=True)
     suggestion_type = Column(Text, nullable=False)  # link, create_task, create_project, etc.
     operation_type = Column(Text, nullable=False)    # create_new_entity, link_existing, etc.
     payload = Column(JSON, nullable=False, default=dict)
@@ -440,6 +441,7 @@ class AiSuggestion(BaseModel):
     )
 
     source_entity = relationship("Entity", foreign_keys=[source_entity_id])
+    report = relationship("DistillationReport", foreign_keys=[report_id])
 
     def to_dict(self):
         payload = dict(self.payload or {})
@@ -500,6 +502,58 @@ class ChangeBatch(BaseModel):
 
     def __repr__(self):
         return f"<ChangeBatch {self.id[:8]} actor={self.actor!r}>"
+
+
+# ─── Distillation Reports ────────────────────────────────────────────────────
+
+
+class DistillationReport(BaseModel):
+    """One capture → one report grouping all distillation candidates.
+
+    Table: distillation_reports
+    """
+
+    __tablename__ = "distillation_reports"
+
+    source_note_id = Column(
+        String(36), ForeignKey("entities.id", ondelete="CASCADE"), nullable=False
+    )
+    status = Column(
+        Text,
+        nullable=False,
+        default="pending",
+    )  # pending, reviewed, partial, superseded
+    narrative = Column(JSON, nullable=False, default=dict)
+    stats = Column(JSON, nullable=False, default=dict)
+    reviewed_at = Column(DateTime, nullable=True)
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+    source_note = relationship("Entity", foreign_keys=[source_note_id])
+    suggestions = relationship(
+        "AiSuggestion",
+        back_populates="report",
+        foreign_keys="AiSuggestion.report_id",
+    )
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "source_note_id": self.source_note_id,
+            "status": self.status,
+            "narrative": self.narrative or {},
+            "stats": self.stats or {},
+            "created_at": _iso(self.created_at),
+            "updated_at": _iso(self.updated_at),
+            "reviewed_at": _iso(self.reviewed_at),
+        }
+
+    def __repr__(self):
+        return f"<DistillationReport {self.id[:8]} source={self.source_note_id[:8]} status={self.status!r}>"
 
 
 # ─── App Settings ────────────────────────────────────────────────────────────

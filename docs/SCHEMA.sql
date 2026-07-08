@@ -138,9 +138,25 @@ CREATE INDEX IF NOT EXISTS entity_events_source_note_idx
     ON entity_events (source_note_id, created_at ASC)
     WHERE source_note_id IS NOT NULL;
 
+CREATE TABLE IF NOT EXISTS distillation_reports (
+    id             TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    source_note_id TEXT NOT NULL REFERENCES entities (id) ON DELETE CASCADE,
+    status         TEXT NOT NULL DEFAULT 'pending'
+                   CHECK (status IN ('pending', 'reviewed', 'partial', 'superseded')),
+    narrative      JSONB NOT NULL DEFAULT '{}',
+    stats          JSONB NOT NULL DEFAULT '{}',
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+    reviewed_at    TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS distillation_reports_source_idx ON distillation_reports (source_note_id);
+CREATE INDEX IF NOT EXISTS distillation_reports_status_idx ON distillation_reports (status);
+
 CREATE TABLE IF NOT EXISTS ai_suggestions (
     id                TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
     source_entity_id  TEXT NOT NULL REFERENCES entities (id) ON DELETE CASCADE,
+    report_id         TEXT REFERENCES distillation_reports (id) ON DELETE SET NULL,
     suggestion_type   TEXT NOT NULL,
     operation_type    TEXT NOT NULL,
     payload           JSONB NOT NULL DEFAULT '{}',
@@ -155,6 +171,7 @@ CREATE TABLE IF NOT EXISTS ai_suggestions (
 
 CREATE INDEX IF NOT EXISTS ai_suggestions_status_idx ON ai_suggestions (status);
 CREATE INDEX IF NOT EXISTS ai_suggestions_source_idx ON ai_suggestions (source_entity_id);
+CREATE INDEX IF NOT EXISTS ai_suggestions_report_idx ON ai_suggestions (report_id);
 
 CREATE TABLE IF NOT EXISTS jobs (
     id           TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -237,6 +254,10 @@ CREATE OR REPLACE TRIGGER ai_suggestions_updated_at
     BEFORE UPDATE ON ai_suggestions
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+CREATE OR REPLACE TRIGGER distillation_reports_updated_at
+    BEFORE UPDATE ON distillation_reports
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
 CREATE OR REPLACE TRIGGER jobs_updated_at
     BEFORE UPDATE ON jobs
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
@@ -265,6 +286,7 @@ TRUNCATE TABLE
     app_settings,
     change_batches,
     decisions,
+    distillation_reports,
     entity_events,
     entity_chunks,
     entity_links,
