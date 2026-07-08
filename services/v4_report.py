@@ -155,13 +155,14 @@ def build_report(
     if not isinstance(ai_meta, dict):
         ai_meta = {}
 
+    quote = note_content[:200]
     routing_item = {
         "kind": "routing_summary",
         "note_id": _getattr(source_note, "id"),
         "title": _getattr(source_note, "title"),
         "intent": ai_meta.get("intent"),
         "candidate_count": len(suggestions),
-        "receipt": {"start": 0, "length": len(note_content), "quote": note_content[:200]},
+        "receipt": {"start": 0, "length": len(quote), "quote": quote},
     }
 
     applied_items = [_event_item(event, note_content) for event in applied_events]

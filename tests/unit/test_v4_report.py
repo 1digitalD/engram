@@ -1,7 +1,5 @@
 """Unit tests for the v4 distillation report assembler."""
 
-import pytest
-
 from extensions import db
 from services.v4_report import build_report
 
@@ -210,3 +208,17 @@ def test_receipt_finds_evidence_offset():
     assert receipt["start"] >= 0
     assert receipt["length"] > 0
     assert "boilerplate" in (receipt["quote"] or "").lower()
+
+
+def test_routing_summary_receipt_quote_matches_length():
+    long_note = {
+        "id": "note-long",
+        "title": "Long note",
+        "content": "x" * 500,
+        "ai_meta": {},
+    }
+    report = build_report(long_note, [], [])
+    receipt = _items(report, "routing_summary")[0]["receipt"]
+    assert receipt["start"] == 0
+    assert receipt["quote"] == "x" * 200
+    assert receipt["length"] == 200
