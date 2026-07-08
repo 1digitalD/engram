@@ -74,10 +74,10 @@
         "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_validate_slice.sh"
       ],
       "blocked": false,
-      "passes": false,
-      "attempts": 0,
+      "passes": true,
+      "attempts": 2,
       "blockerReason": null,
-      "validationEvidence": null
+      "validationEvidence": "Overseer: landed Codex worktree; fixed duplicate updated event + dto test; 581 passed slice validation"
     },
     {
       "id": "v6-30-code-review",
