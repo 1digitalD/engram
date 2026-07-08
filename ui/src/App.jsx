@@ -18,6 +18,7 @@ import V5CaptureSheet, { CaptureFab, CaptureMobileBar, CaptureToast } from './vi
 import V5AskSheet from './views/V5AskSheet';
 import V5ReviewSheet from './views/V5ReviewSheet';
 import LabShell from './lab/LabShell';
+import NextApp from './next/NextApp';
 
 function AppShell() {
   const { toast } = useCapture();
@@ -136,6 +137,7 @@ function AppShell() {
               <Route path="/resources" element={<V5EntityList type="resource" />} />
               <Route path="/resources/:id" element={<V5ThreadDetail type="resource" />} />
               <Route path="/lab/*" element={<LabShell />} />
+              <Route path="/next/*" element={<NextApp />} />
               <Route path="*" element={<Navigate to="/now" replace />} />
             </Routes>
           </div>

@@ -1,0 +1,115 @@
+.shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.chrome {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in oklch, var(--surface) 92%, transparent);
+}
+
+.captureField {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.captureInput,
+.omniInput {
+  width: 100%;
+  border: 1.5px solid var(--border-strong, var(--border));
+  border-radius: 8px;
+  padding: 8px 12px;
+  font: inherit;
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.captureInput:focus,
+.omniInput:focus {
+  outline: 2px solid color-mix(in oklch, var(--accent) 40%, transparent);
+  outline-offset: 1px;
+}
+
+.omniBar {
+  flex: 1 1 180px;
+  min-width: 0;
+}
+
+.pulse {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 0.875rem;
+  text-decoration: none;
+  color: inherit;
+}
+
+.pulseActive {
+  border-color: color-mix(in oklch, var(--accent) 50%, var(--border));
+  background: color-mix(in oklch, var(--accent) 8%, var(--surface));
+}
+
+.pulseCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-fg, #fff);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--border);
+  font-size: 0.9375rem;
+}
+
+.navLink {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.navLinkActive {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.navLinkDisabled {
+  color: color-mix(in oklch, var(--muted) 70%, transparent);
+  cursor: default;
+}
+
+.main {
+  flex: 1;
+  min-width: 0;
+}
+
+.status {
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+
+.error {
+  color: var(--danger, #b42318);
+  font-size: 0.875rem;
+}

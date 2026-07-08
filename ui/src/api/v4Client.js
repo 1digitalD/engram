@@ -146,4 +146,9 @@ export const v4API = {
     ),
     create: (entityId, content) => v4Request('POST', `/entities/${encodeURIComponent(entityId)}/activity_updates`, { content }),
   },
+  reports: {
+    list: (params = {}) => v4Request('GET', '/reports', null, params),
+    get: (id) => v4Request('GET', `/reports/${encodeURIComponent(id)}`),
+    resolve: (id, data) => v4Request('POST', `/reports/${encodeURIComponent(id)}/resolve`, data),
+  },
 };
