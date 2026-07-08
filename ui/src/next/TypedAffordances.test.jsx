@@ -1,9 +1,20 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
+vi.mock('../api/v4Client', () => ({
+  v4API: {
+    commitments: {
+      nudgeDraft: vi.fn(),
+    },
+  },
+  friendlyApiError: (err, fallback) => err?.message || fallback || 'Something went wrong.',
+}));
+
+import { v4API } from '../api/v4Client';
 import {
   EntryAttachAffordance,
   GroupCommitmentComposer,
+  NudgeDraftAffordance,
   TaskAffordances,
 } from './TypedAffordances';
 
@@ -81,6 +92,79 @@ describe('TaskAffordances', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Mark done' }));
     expect(onMarkDone).toHaveBeenCalledWith('task-1');
+  });
+
+  it('shows nudge drafting affordance when enabled', async () => {
+    v4API.commitments.nudgeDraft.mockResolvedValue({
+      data: {
+        draft: 'Hi Sam, following up on the security questionnaire from 28 Jun.',
+        original_ask: 'Security questionnaire',
+        committed_at: '2026-06-28',
+        receipts: [],
+        auto_sent: false,
+      },
+    });
+    Object.assign(navigator, {
+      clipboard: { writeText: vi.fn().mockResolvedValue(undefined) },
+    });
+
+    render(
+      <TaskAffordances
+        item={ITEM}
+        people={PEOPLE}
+        spaces={SPACES}
+        onStatusChange={vi.fn()}
+        onDueChange={vi.fn()}
+        onMoveSpace={vi.fn()}
+        onHandOwner={vi.fn()}
+        onLogUpdate={vi.fn()}
+        onMarkDone={vi.fn()}
+        showNudge
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Draft nudge' }));
+    await waitFor(() => expect(v4API.commitments.nudgeDraft).toHaveBeenCalledWith('task-1'));
+    expect(
+      screen.getByLabelText('Close contract nudge draft'),
+    ).toHaveValue('Hi Sam, following up on the security questionnaire from 28 Jun.');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Copy nudge' }));
+    await waitFor(() =>
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+        'Hi Sam, following up on the security questionnaire from 28 Jun.',
+      ),
+    );
+  });
+});
+
+describe('NudgeDraftAffordance', () => {
+  it('loads a draft and copies it without sending', async () => {
+    v4API.commitments.nudgeDraft.mockResolvedValue({
+      data: {
+        draft: 'Hi Dana, checking in on clause 7 from 28 Jun.',
+        original_ask: 'Legal read on clause 7',
+        committed_at: '2026-06-28',
+        receipts: [{ label: 'original ask', value: 'Legal read on clause 7' }],
+        auto_sent: false,
+      },
+    });
+    Object.assign(navigator, {
+      clipboard: { writeText: vi.fn().mockResolvedValue(undefined) },
+    });
+
+    render(<NudgeDraftAffordance item={{ id: 'task-legal', title: 'Legal read on clause 7' }} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Draft nudge' }));
+    await waitFor(() => expect(v4API.commitments.nudgeDraft).toHaveBeenCalledWith('task-legal'));
+    expect(screen.getByText(/Original ask: Legal read on clause 7/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Copy nudge' }));
+    await waitFor(() =>
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+        'Hi Dana, checking in on clause 7 from 28 Jun.',
+      ),
+    );
   });
 });
 

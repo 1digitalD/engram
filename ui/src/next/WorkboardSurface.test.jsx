@@ -21,6 +21,9 @@ vi.mock('../api/v4Client', () => ({
     activityUpdates: {
       create: vi.fn(),
     },
+    commitments: {
+      nudgeDraft: vi.fn(),
+    },
   },
   friendlyApiError: (err, fallback) => err?.message || fallback || 'Something went wrong.',
 }));
@@ -243,5 +246,23 @@ describe('WorkboardSurface', () => {
     await waitFor(() =>
       expect(v4API.activityUpdates.create).toHaveBeenCalledWith('task-close-contract', 'Sent revised draft.'),
     );
+  });
+
+  it('shows nudge draft affordance on waiting-on commitments', async () => {
+    v4API.commitments.nudgeDraft.mockResolvedValue({
+      data: {
+        draft: 'Hi Sam, following up on the security questionnaire from 28 Jun.',
+        original_ask: 'Security questionnaire',
+        committed_at: '2026-06-28',
+        receipts: [],
+        auto_sent: false,
+      },
+    });
+
+    renderWorkboard();
+
+    expect(await screen.findByText('Security questionnaire')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Draft nudge' })).toBeInTheDocument();
+    expect(screen.queryAllByRole('button', { name: 'Draft nudge' })).toHaveLength(1);
   });
 });

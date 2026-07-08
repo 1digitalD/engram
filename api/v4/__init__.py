@@ -7,6 +7,7 @@ Importing the submodules registers their route handlers on the shared
 from api import api_v4_bp
 
 from . import capture
+from . import commitments
 from . import entities
 from . import insights
 from . import links

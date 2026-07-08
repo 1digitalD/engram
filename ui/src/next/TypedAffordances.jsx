@@ -1,5 +1,6 @@
 import { useState } from 'react';
 
+import { friendlyApiError, v4API } from '../api/v4Client';
 import styles from './TypedAffordances.module.css';
 
 const STATUS_OPTIONS = [
@@ -16,6 +17,89 @@ function formatDateInput(value) {
   return String(value).slice(0, 10);
 }
 
+export function NudgeDraftAffordance({ item, onCopied }) {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [draft, setDraft] = useState('');
+  const [meta, setMeta] = useState(null);
+  const [copyNote, setCopyNote] = useState('');
+
+  async function loadDraft() {
+    setLoading(true);
+    setError('');
+    setCopyNote('');
+    try {
+      const response = await v4API.commitments.nudgeDraft(item.id);
+      const payload = response?.data || {};
+      setDraft(payload.draft || '');
+      setMeta(payload);
+      setOpen(true);
+    } catch (err) {
+      setError(friendlyApiError(err, 'Could not draft nudge.'));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleCopy() {
+    if (!draft.trim()) return;
+    try {
+      await navigator.clipboard.writeText(draft);
+      setCopyNote('Copied to clipboard.');
+      onCopied?.();
+    } catch (_err) {
+      setCopyNote('Copy failed — select the text and copy manually.');
+    }
+  }
+
+  return (
+    <div className={styles.stack}>
+      <div className={styles.row}>
+        <button
+          type="button"
+          className={styles.button}
+          disabled={loading}
+          onClick={() => (open && draft ? setOpen(false) : loadDraft())}
+        >
+          {loading ? 'Drafting…' : open ? 'Hide nudge draft' : 'Draft nudge'}
+        </button>
+        {open && draft ? (
+          <button type="button" className={styles.buttonPrimary} onClick={handleCopy}>
+            Copy nudge
+          </button>
+        ) : null}
+      </div>
+      {error ? (
+        <p className={styles.nudgeMeta} role="alert">
+          {error}
+        </p>
+      ) : null}
+      {copyNote ? (
+        <p className={styles.nudgeMeta} aria-live="polite">
+          {copyNote}
+        </p>
+      ) : null}
+      {open && draft ? (
+        <div className={styles.nudgePanel}>
+          {meta?.original_ask ? (
+            <p className={styles.nudgeMeta}>
+              Original ask: {meta.original_ask}
+              {meta.committed_at ? ` · ${meta.committed_at}` : ''}
+            </p>
+          ) : null}
+          <textarea
+            aria-label={`${item.title} nudge draft`}
+            className={styles.nudgeDraft}
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+          />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function TaskAffordances({
   item,
   people,
@@ -26,6 +110,7 @@ export function TaskAffordances({
   onHandOwner,
   onLogUpdate,
   onMarkDone,
+  showNudge = false,
 }) {
   const [status, setStatus] = useState(item.status || 'open');
   const [dueDate, setDueDate] = useState(formatDateInput(item.due_at));
@@ -160,6 +245,7 @@ export function TaskAffordances({
           Mark done
         </button>
       </div>
+      {showNudge ? <NudgeDraftAffordance item={item} /> : null}
     </div>
   );
 }

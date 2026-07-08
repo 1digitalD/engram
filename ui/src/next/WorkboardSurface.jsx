@@ -301,6 +301,7 @@ export default function WorkboardSurface() {
                             onHandOwner={handleHandOwner}
                             onLogUpdate={handleLogUpdate}
                             onMarkDone={handleMarkDone}
+                            showNudge={Boolean(item.states?.waiting_on)}
                           />
                         </li>
                       );

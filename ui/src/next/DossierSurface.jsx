@@ -14,7 +14,7 @@ import {
   openQuestionsFromSuggestions,
   partitionCommitments,
 } from './dossierUtils';
-import { GroupCommitmentComposer, TaskAffordances } from './TypedAffordances';
+import { GroupCommitmentComposer, NudgeDraftAffordance, TaskAffordances } from './TypedAffordances';
 import { SURFACE_LABELS } from './vocab';
 import styles from './DossierSurface.module.css';
 
@@ -376,6 +376,7 @@ export default function DossierSurface() {
                               <p className={styles.itemMeta}>
                                 {task.status} · {formatRelativeAge(task.updated_at || task.created_at)} quiet
                               </p>
+                              <NudgeDraftAffordance item={{ ...task, space: { id: spaceId, title: entity.title } }} />
                             </li>
                           ))}
                         </ul>

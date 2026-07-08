@@ -1,0 +1,94 @@
+{
+  "examples": [
+    {
+      "id": "waiting-on-security-questionnaire",
+      "context": {
+        "commitment_id": "task-security",
+        "original_ask": "Complete security questionnaire",
+        "committed_at": "2026-06-28",
+        "owner": { "id": "person-sam", "title": "Sam", "type": "person" },
+        "space": { "id": "space-apollo", "title": "Apollo renewal", "type": "project" },
+        "due_at": "2026-07-11T12:00:00Z",
+        "follow_up_at": "2026-07-05T12:00:00Z",
+        "source_note": {
+          "kind": "note",
+          "entity_id": "note-1",
+          "field": "content",
+          "label": "source note",
+          "quote": "Sam will complete the security questionnaire by end of June.",
+          "value": "Sam will complete the security questionnaire by end of June."
+        },
+        "last_update": null,
+        "receipts": [
+          {
+            "kind": "task",
+            "entity_id": "task-security",
+            "field": "title",
+            "label": "original ask",
+            "value": "Complete security questionnaire"
+          },
+          {
+            "kind": "task",
+            "entity_id": "task-security",
+            "field": "committed_at",
+            "label": "committed date",
+            "value": "2026-06-28"
+          },
+          {
+            "kind": "person",
+            "entity_id": "person-sam",
+            "field": "title",
+            "label": "owner",
+            "value": "Sam"
+          }
+        ]
+      },
+      "mock": {
+        "draft": "Hi Sam, following up on the security questionnaire you committed to on 28 Jun. Any update on where this stands?"
+      },
+      "must_include": ["security questionnaire", "28", "Sam"]
+    },
+    {
+      "id": "legal-read-with-source-quote",
+      "context": {
+        "commitment_id": "task-legal",
+        "original_ask": "Legal read on clause 7",
+        "committed_at": "2026-06-28",
+        "owner": { "id": "person-dana", "title": "Dana", "type": "person" },
+        "space": { "id": "space-apollo", "title": "Apollo renewal", "type": "project" },
+        "due_at": null,
+        "follow_up_at": "2026-07-04T12:00:00Z",
+        "source_note": {
+          "kind": "note",
+          "entity_id": "note-2",
+          "field": "content",
+          "label": "source note",
+          "quote": "Dana committed to a legal read on clause 7 by Friday.",
+          "value": "Dana committed to a legal read on clause 7 by Friday."
+        },
+        "last_update": { "at": "2026-07-01T12:00:00Z", "content": "Still waiting on counsel availability." },
+        "receipts": [
+          {
+            "kind": "task",
+            "entity_id": "task-legal",
+            "field": "title",
+            "label": "original ask",
+            "value": "Legal read on clause 7"
+          },
+          {
+            "kind": "note",
+            "entity_id": "note-2",
+            "field": "content",
+            "label": "source note",
+            "quote": "Dana committed to a legal read on clause 7 by Friday.",
+            "value": "Dana committed to a legal read on clause 7 by Friday."
+          }
+        ]
+      },
+      "mock": {
+        "draft": "Hi Dana, checking in on the legal read on clause 7 from 28 Jun. You noted counsel availability was still pending — any movement?"
+      },
+      "must_include": ["clause 7", "Dana", "28"]
+    }
+  ]
+}

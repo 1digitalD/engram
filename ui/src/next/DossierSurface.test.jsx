@@ -32,6 +32,9 @@ vi.mock('../api/v4Client', () => ({
     activityUpdates: {
       create: vi.fn(),
     },
+    commitments: {
+      nudgeDraft: vi.fn(),
+    },
   },
   friendlyApiError: (err, fallback) => err?.message || fallback || 'Something went wrong.',
 }));
@@ -234,6 +237,7 @@ describe('DossierSurface', () => {
     expect(screen.getByText('Renewal anchored on 2-yr term')).toBeInTheDocument();
     expect(screen.getByText('Send deck to Maria')).toBeInTheDocument();
     expect(screen.getByText(/Dana — Legal read on clause 7/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Draft nudge' })).toBeInTheDocument();
     expect(screen.getByText('Who owns the legal review?')).toBeInTheDocument();
   });
 
