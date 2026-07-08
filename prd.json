@@ -133,10 +133,10 @@
         "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_validate_slice.sh"
       ],
       "blocked": false,
-      "passes": false,
-      "attempts": 0,
+      "passes": true,
+      "attempts": 2,
       "blockerReason": null,
-      "validationEvidence": null
+      "validationEvidence": "Overseer: landed Codex worktree; relationships shape fix; 586 passed slice validation"
     },
     {
       "id": "v6-31-code-review",
