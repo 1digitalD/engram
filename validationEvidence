@@ -1,0 +1,37 @@
+## Review: v6-02-operator-identity
+
+**Verdict:** APPROVE
+
+**Pass 1 — Spec conformance:** PASS
+- Acceptance criteria from `docs/v6/IMPLEMENTATION_PLAN.md` V6-02:
+  - `operator_person_id` stored in `AppSetting`: implemented via `GET/PUT /settings/operator` in `api/v4/system.py`.
+  - Backfill from existing `owner_person_id`: `GET` falls back to legacy setting when `operator_person_id` is unset; `configured` flag correctly distinguishes persisted vs backfilled values.
+  - Tests added: `tests/integration/test_v4_operator_settings.py` covers unconfigured, backfill, persist, preference, missing id, non-existent id, and wrong entity type.
+  - UI unaffected: no UI files changed.
+
+**Pass 2 — PREAMBLE conformance:** PASS
+- Surgical diff: only `api/v4/system.py` (two new endpoints), one new test file, and tracker/policy metadata touched.
+- No drive-by refactors, reformatting, or speculative abstractions.
+- Backfill is read-only and does not mutate `owner_person_id`, so existing consumers are unaffected.
+
+**Pass 3 — Skill conformance (TDD / incremental):** PASS
+- Diff includes failing-test cases and the implementation in the same commit; new tests assert behavior rather than implementation details.
+- No existing tests were modified to make new tests pass (Beyonce Rule honored).
+
+**Pass 4 — Adversarial read:** PASS
+- Null/unset operator: returns `{"operator_person_id": null, "configured": false}`.
+- Invalid/missing `operator_person_id`: `PUT` returns 400 with clear error.
+- Non-existent UUID: rejected with 400.
+- Wrong entity type (`project`): rejected with 400.
+- `_clean_text` normalizes whitespace/empty strings to `None`, so empty payloads are treated as missing.
+- No error swallowing, resource leaks, or magic numbers introduced.
+
+**Pass 5 — Verification reproduction:** PASS
+- Commands run:
+  - `EXTRA_PYTEST="tests/integration/test_v4_operator_settings.py" bash scripts/v6_validate_slice.sh`
+- Result: focused pytest `7 passed`; full backend suite `512 passed, 20 skipped`; `== slice validation OK ==`.
+
+**Required changes before merge:** None.
+
+**Optional suggestions (non-blocking):**
+- Consider adding a unit test for `_clean_text`-driven empty-string rejection if future endpoints reuse the same pattern; current integration coverage is sufficient.
