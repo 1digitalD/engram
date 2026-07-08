@@ -5,7 +5,7 @@ code. Full v4-era history is archived at `docs/archive/EXECUTION-TRACKER-v4-hist
 
 Last updated: 2026-07-08
 Branch: `main`
-Status: **v6 Phase 3 drain active** — Dossier + pinning + manipulation.
+Status: **v6 Phase 3 done** — standing up Phase 4 next.
 
 ## Current program: v6 (vision-driven rebuild)
 
@@ -17,7 +17,7 @@ Status: **v6 Phase 3 drain active** — Dossier + pinning + manipulation.
 | `docs/v6/TEST_PLAN.md` | Use cases, test cases, edge cases, metrics |
 | `docs/v6/QC_LOOP.md` | Implement → review → fix → APPROVE loop |
 | `docs/iterations/ITERATION_v6_PHASE_2.md` | Phase 2 iteration (archived) |
-| `docs/iterations/ITERATION_v6_PHASE_3.md` | Phase 3 iteration (active) |
+| `docs/iterations/ITERATION_v6_PHASE_3.md` | Phase 3 iteration (archived) |
 
 Runtime baseline: `/api/v4` only, Postgres + pgvector, write-enabled MCP.
 
@@ -28,7 +28,7 @@ Runtime baseline: `/api/v4` only, Postgres + pgvector, write-enabled MCP.
 | 0 Foundations | **done** (retro-reviewed 2026-07-08) |
 | 1 Distillation report + trust policy | **done** (2026-07-08) |
 | 2 Workboard | **done** (2026-07-08) |
-| 3 Dossier + direct manipulation + pinning | **in progress** (drain started 2026-07-08) |
+| 3 Dossier + direct manipulation + pinning | **done** (2026-07-08) |
 | 4 Today + markers + nudges | pending |
 | 5 Themes + insights | pending |
 | 6 Cutover + legacy UI deletion | pending |
@@ -71,3 +71,7 @@ bash scripts/v6_check_review_verdict.sh <implement-task-id>   # review tasks
 - 2026-07-08T18:49:34.063997+00:00 v6-33-dossier-surface accepted via cursor
 - 2026-07-08T18:52:27.103008+00:00 v6-33-code-review accepted via cursor
 - 2026-07-08T18:53:20.472801+00:00 v6-33-code-review accepted via cursor
+- 2026-07-08 v6-30-pin-enforcement — migration 008 (`entities.pinned_fields` JSONB) on test DB
+- 2026-07-08 v6-32-amend-archive-redact-delete — migration 009 (redacted lifecycle + event types) on test DB
+- 2026-07-08 Phase 3 gate — done (cursor)
+- 2026-07-08T18:56:58.844498+00:00 v6-phase-3-gate accepted via cursor
