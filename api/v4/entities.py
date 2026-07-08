@@ -4,7 +4,12 @@ from services.v4_trust import PINNABLE_FIELDS, check_pin, clear_pin, record_pin,
 
 from api import api_v4_bp
 from api.v4._shared import *
-from api.v4._shared import _record_relationship_pin_event
+from api.v4._shared import (
+    REDACTED_TITLE,
+    REDACTED_TOMBSTONE,
+    _person_has_open_assigned_tasks,
+    _record_relationship_pin_event,
+)
 
 @api_v4_bp.route("/entities", methods=["GET"])
 def list_entities():
@@ -28,7 +33,7 @@ def list_entities():
             return _error(f"invalid lifecycle: {lifecycle}")
         query = query.filter(Entity.lifecycle == lifecycle)
     else:
-        query = query.filter(Entity.lifecycle != "deleted")
+        query = query.filter(Entity.lifecycle.notin_(["deleted", "redacted"]))
 
     rows = query.order_by(Entity.updated_at.desc(), Entity.created_at.desc()).limit(limit).all()
     _attach_project_task_counts(rows)
@@ -162,9 +167,11 @@ def update_entity(entity_id):
         return _error("unsupported fields: " + ", ".join(sorted(unknown)))
 
     old_snapshot = entity.to_dict()
+    old_content = entity.content
     status_changed = False
     archived = False
     pin_event_needed = False
+    content_amended = False
 
     if "status" in data:
         validation_error = _validate_status(entity.type, data["status"])
@@ -193,6 +200,12 @@ def update_entity(entity_id):
         if field in data:
             if field == "title" and data[field] != entity.title:
                 pin_event_needed = record_pin(entity, "title", "user") or pin_event_needed
+            if (
+                field == "content"
+                and entity.source == "activity_update"
+                and data[field] != old_content
+            ):
+                content_amended = True
             setattr(entity, field, data[field])
     if "title" in data and entity.type == "note" and (entity.ai_meta or {}).get("title_auto"):
         ai_meta = dict(entity.ai_meta or {})
@@ -216,7 +229,16 @@ def update_entity(entity_id):
 
     db.session.flush()
     new_snapshot = entity.to_dict()
-    _write_event(entity, "updated", old_value=old_snapshot, new_value=new_snapshot)
+    if content_amended:
+        _write_event(
+            entity,
+            "updated",
+            old_value={"content": old_content},
+            new_value={"content": entity.content},
+            reason="amended",
+        )
+    else:
+        _write_event(entity, "updated", old_value=old_snapshot, new_value=new_snapshot)
     if status_changed:
         _write_event(
             entity,
@@ -291,11 +313,43 @@ def unpin_entity_field(entity_id):
     return jsonify({"data": _load_entity(entity.id).to_dict()})
 
 
+@api_v4_bp.route("/entities/<entity_id>/redact", methods=["POST"])
+def redact_entity(entity_id):
+    entity = _load_entity(entity_id)
+    if entity is None:
+        return _error("entity not found", 404)
+    if entity.type != "note":
+        return _error("redact applies to notes only")
+    if entity.lifecycle == "redacted":
+        return jsonify({"data": _load_entity(entity.id).to_dict()})
+
+    EntityChunk.query.filter_by(entity_id=entity.id).delete()
+    entity.lifecycle = "redacted"
+    entity.content = REDACTED_TOMBSTONE
+    entity.title = REDACTED_TITLE
+    db.session.flush()
+    _write_event(
+        entity,
+        "redacted",
+        old_value=None,
+        new_value={"lifecycle": "redacted"},
+        reason="note redacted",
+    )
+    db.session.commit()
+    return jsonify({"data": _load_entity(entity.id).to_dict()})
+
+
 @api_v4_bp.route("/entities/<entity_id>", methods=["DELETE"])
 def delete_entity(entity_id):
     entity = _load_entity(entity_id)
     if entity is None:
         return _error("entity not found", 404)
+
+    if entity.type == "person" and _person_has_open_assigned_tasks(entity.id):
+        return _error(
+            "cannot delete person with open assigned tasks; reassign or archive tasks first",
+            409,
+        )
 
     old_snapshot = entity.to_dict()
     entity.lifecycle = "deleted"

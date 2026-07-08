@@ -52,7 +52,11 @@ VALID_STATUS = {
     "resource": {"active", "archived"},
     "person": {"active", "archived"},
 }
-VALID_LIFECYCLE = {"active", "archived", "deleted"}
+VALID_LIFECYCLE = {"active", "archived", "deleted", "redacted"}
+REDACTED_TOMBSTONE = "[Content redacted]"
+REDACTED_TITLE = "[Redacted note]"
+REDACTED_CITATION_LABEL = "cites a redacted entry"
+OPEN_ASSIGNED_TASK_STATUSES = {"open", "in_progress", "waiting", "blocked"}
 WRITABLE_FIELDS = {
     "title",
     "content",
@@ -1616,13 +1620,15 @@ def _link_items(entity, links, related_entities, direction, relationship_types, 
             continue
         if exclude_statuses is not None and related_entity.status in exclude_statuses:
             continue
-        items.append(
-            {
-                "entity": related_entity.to_dict(),
-                "relationship": link.to_dict(),
-                "direction": resolved_direction,
-            }
-        )
+        item = {
+            "entity": related_entity.to_dict(),
+            "relationship": link.to_dict(),
+            "direction": resolved_direction,
+        }
+        if related_entity.lifecycle == "redacted":
+            item["citation_state"] = "redacted"
+            item["citation_label"] = REDACTED_CITATION_LABEL
+        items.append(item)
     return items
 
 
@@ -1873,6 +1879,21 @@ def _validate_lifecycle(lifecycle):
     if lifecycle not in VALID_LIFECYCLE:
         return _error(f"invalid lifecycle: {lifecycle}")
     return None
+
+
+def _person_has_open_assigned_tasks(person_id):
+    return (
+        Entity.query.join(EntityLink, EntityLink.source_entity_id == Entity.id)
+        .filter(
+            EntityLink.target_entity_id == person_id,
+            EntityLink.relationship_type == "assigned_to",
+            Entity.type == "task",
+            Entity.lifecycle == "active",
+            Entity.status.in_(OPEN_ASSIGNED_TASK_STATUSES),
+        )
+        .count()
+        > 0
+    )
 
 
 def _validate_properties(properties):

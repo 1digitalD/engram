@@ -19,6 +19,7 @@ ENTITY_EVENT_TYPES = (
     "status_changed",
     "archived",
     "deleted",
+    "redacted",
     "relationship_added",
     "relationship_updated",
     "relationship_removed",
@@ -148,6 +149,16 @@ def _template_deleted(
     if _agent(actor):
         return "I deleted this entity."
     return "Deleted this entity."
+
+
+def _template_redacted(
+    event_type: str,
+    actor: str,
+    new_value: Mapping[str, Any] | None,
+    old_value: Mapping[str, Any] | None,
+    reason: str | None,
+) -> str:
+    return "Redacted this note."
 
 
 def _template_relationship_added(
@@ -419,6 +430,7 @@ TEMPLATES = {
     "status_changed": _template_status_changed,
     "archived": _template_archived,
     "deleted": _template_deleted,
+    "redacted": _template_redacted,
     "relationship_added": _template_relationship_added,
     "relationship_updated": _template_relationship_updated,
     "relationship_removed": _template_relationship_removed,

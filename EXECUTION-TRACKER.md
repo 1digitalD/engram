@@ -66,3 +66,4 @@ bash scripts/v6_check_review_verdict.sh <implement-task-id>   # review tasks
 - 2026-07-08 Phase 2 gate — done (overseer)
 - _Phase 3 dossier — prd ready, drain starting_
 - 2026-07-08T18:32:37.724981+00:00 v6-31-code-review accepted via claude
+- 2026-07-08T18:37:05.753325+00:00 v6-32-amend-archive-redact-delete accepted via cursor

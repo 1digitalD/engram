@@ -255,7 +255,7 @@ class Entity(BaseModel):
             name="chk_entities_type",
         ),
         CheckConstraint(
-            "lifecycle IN ('active', 'archived', 'deleted')",
+            "lifecycle IN ('active', 'archived', 'deleted', 'redacted')",
             name="chk_entities_lifecycle",
         ),
     )
