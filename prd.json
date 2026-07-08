@@ -1,10 +1,14 @@
 {
   "iteration": "v6-phase-4-today",
-  "goal": "Phase 4: follow-up markers + Today surface + nudge drafting + meeting prep — with implement→review→APPROVE QC.",
+  "goal": "Phase 4: follow-up markers + Today surface + nudge drafting + meeting prep \u2014 with implement\u2192review\u2192APPROVE QC.",
   "riskLevel": "medium",
   "userProblem": "No Today queue for fired markers, ripened follow-ups, or at-risk diffs; nudge drafting and meeting prep are manual.",
   "whyNow": "Phase 3 Dossier + pinning shipped. Today/markers is the next IMPLEMENTATION_PLAN slice before Themes.",
-  "skills": ["tdd", "incremental-implementation", "git-workflow"],
+  "skills": [
+    "tdd",
+    "incremental-implementation",
+    "git-workflow"
+  ],
   "doubt": false,
   "scope": {
     "filesAffected": [
@@ -28,14 +32,14 @@
       "POST /api/v4/commitments/<id>/nudge-draft"
     ],
     "dataOrApiDependencies": [
-      "Migration 010_followup_markers.sql additive only — test DB (:5433) first",
-      "Existing GET /today payload in api/v4/today.py — extend, do not break",
+      "Migration 010_followup_markers.sql additive only \u2014 test DB (:5433) first",
+      "Existing GET /today payload in api/v4/today.py \u2014 extend, do not break",
       "Existing /ask machinery for V6-43 meeting prep",
       "TEST_DATABASE_URL port 5433 only"
     ],
     "writePathsAffected": [
       "followup_markers table",
-      "Marker firing job → Today feed",
+      "Marker firing job \u2192 Today feed",
       "Nudge draft endpoint (draft-only, never auto-send)"
     ]
   },
@@ -43,9 +47,13 @@
     {
       "id": "v6-40-markers-backend",
       "title": "Markers backend + firing job",
-      "description": "Add scripts/migrations/010_followup_markers.sql per SOLUTION_DESIGN §5.3. Implement services/v4_markers.py + api/v4/markers.py CRUD. Firing job: due nudge markers → Today feed (set fired_at once); discuss markers → prep payloads only. Tests: TEST_PLAN TC-40..42, EC-15..17.",
+      "description": "Add scripts/migrations/010_followup_markers.sql per SOLUTION_DESIGN \u00a75.3. Implement services/v4_markers.py + api/v4/markers.py CRUD. Firing job: due nudge markers \u2192 Today feed (set fired_at once); discuss markers \u2192 prep payloads only. Tests: TEST_PLAN TC-40..42, EC-15..17.",
       "kind": "code",
-      "skills": ["tdd", "incremental-implementation", "git-workflow"],
+      "skills": [
+        "tdd",
+        "incremental-implementation",
+        "git-workflow"
+      ],
       "risk": "medium",
       "dependencies": [],
       "acceptanceCriteria": [
@@ -69,9 +77,14 @@
       "title": "Code review: V6-40 markers backend",
       "description": "5-pass review per QC_LOOP on v6-40-markers-backend. Write docs/v6/reviews/v6-40-markers-backend.md.",
       "kind": "review",
-      "skills": ["code-review", "debugging"],
+      "skills": [
+        "code-review",
+        "debugging"
+      ],
       "risk": "medium",
-      "dependencies": ["v6-40-markers-backend"],
+      "dependencies": [
+        "v6-40-markers-backend"
+      ],
       "acceptanceCriteria": [
         "docs/v6/reviews/v6-40-markers-backend.md Verdict: APPROVE",
         "bash scripts/v6_check_review_verdict.sh v6-40-markers-backend exits 0"
@@ -91,9 +104,15 @@
       "title": "Today surface in /next",
       "description": "ui/src/next/TodaySurface.jsx: needs-you vs in-motion split, fired markers, ripened follow-ups, newly-at-risk diff (daily snapshot job). Extend GET /today or services/v4_today.py as needed. Wire route. Vitest tests. UC-6.",
       "kind": "code",
-      "skills": ["tdd", "incremental-implementation", "git-workflow"],
+      "skills": [
+        "tdd",
+        "incremental-implementation",
+        "git-workflow"
+      ],
       "risk": "medium",
-      "dependencies": ["v6-40-code-review"],
+      "dependencies": [
+        "v6-40-code-review"
+      ],
       "acceptanceCriteria": [
         "Today loads from GET /today extended feed",
         "Needs-you and in-motion sections render with counts",
@@ -116,9 +135,14 @@
       "title": "Code review: V6-41 Today surface",
       "description": "5-pass review per QC_LOOP on v6-41-today-surface. Write docs/v6/reviews/v6-41-today-surface.md.",
       "kind": "review",
-      "skills": ["code-review", "debugging"],
+      "skills": [
+        "code-review",
+        "debugging"
+      ],
       "risk": "medium",
-      "dependencies": ["v6-41-today-surface"],
+      "dependencies": [
+        "v6-41-today-surface"
+      ],
       "acceptanceCriteria": [
         "docs/v6/reviews/v6-41-today-surface.md Verdict: APPROVE",
         "bash scripts/v6_check_review_verdict.sh v6-41-today-surface exits 0"
@@ -138,9 +162,15 @@
       "title": "Nudge draft endpoint + UX",
       "description": "POST /commitments/<id>/nudge-draft from receipts (LLM). Draft-only UX with copy button on Workboard/Dossier rows. Prompt fixture tests. UC-7, TC-44.",
       "kind": "code",
-      "skills": ["tdd", "incremental-implementation", "git-workflow"],
+      "skills": [
+        "tdd",
+        "incremental-implementation",
+        "git-workflow"
+      ],
       "risk": "medium",
-      "dependencies": ["v6-41-code-review"],
+      "dependencies": [
+        "v6-41-code-review"
+      ],
       "acceptanceCriteria": [
         "Nudge draft contains original ask, date, receipts (TC-44)",
         "Drafts never auto-sent",
@@ -162,9 +192,14 @@
       "title": "Code review: V6-42 nudge drafting",
       "description": "5-pass review per QC_LOOP on v6-42-nudge-drafting. Write docs/v6/reviews/v6-42-nudge-drafting.md.",
       "kind": "review",
-      "skills": ["code-review", "debugging"],
+      "skills": [
+        "code-review",
+        "debugging"
+      ],
       "risk": "low",
-      "dependencies": ["v6-42-nudge-drafting"],
+      "dependencies": [
+        "v6-42-nudge-drafting"
+      ],
       "acceptanceCriteria": [
         "docs/v6/reviews/v6-42-nudge-drafting.md Verdict: APPROVE",
         "bash scripts/v6_check_review_verdict.sh v6-42-nudge-drafting exits 0"
@@ -184,9 +219,15 @@
       "title": "Meeting prep integration",
       "description": "Prep me for X via existing ask/prep machinery + discuss markers + mutual commitments. Integration tests. UC-8.",
       "kind": "code",
-      "skills": ["tdd", "incremental-implementation", "git-workflow"],
+      "skills": [
+        "tdd",
+        "incremental-implementation",
+        "git-workflow"
+      ],
       "risk": "medium",
-      "dependencies": ["v6-42-code-review"],
+      "dependencies": [
+        "v6-42-code-review"
+      ],
       "acceptanceCriteria": [
         "Prep payload includes discuss markers for person",
         "Mutual commitments included",
@@ -207,9 +248,14 @@
       "title": "Code review: V6-43 meeting prep",
       "description": "5-pass review per QC_LOOP on v6-43-meeting-prep. Write docs/v6/reviews/v6-43-meeting-prep.md.",
       "kind": "review",
-      "skills": ["code-review", "debugging"],
+      "skills": [
+        "code-review",
+        "debugging"
+      ],
       "risk": "low",
-      "dependencies": ["v6-43-meeting-prep"],
+      "dependencies": [
+        "v6-43-meeting-prep"
+      ],
       "acceptanceCriteria": [
         "docs/v6/reviews/v6-43-meeting-prep.md Verdict: APPROVE",
         "bash scripts/v6_check_review_verdict.sh v6-43-meeting-prep exits 0"
@@ -229,9 +275,13 @@
       "title": "Phase 4 gate: full validation + tracker",
       "description": "Full backend + UI validation. All docs/v6/reviews/v6-4*.md APPROVE. Update EXECUTION-TRACKER.md Phase 4 done. Archive prd. Do not start Phase 5.",
       "kind": "gate",
-      "skills": ["git-workflow"],
+      "skills": [
+        "git-workflow"
+      ],
       "risk": "low",
-      "dependencies": ["v6-43-code-review"],
+      "dependencies": [
+        "v6-43-code-review"
+      ],
       "acceptanceCriteria": [
         "bash scripts/v6_validate_slice.sh passes",
         "cd ui && npm test && npm run build green",
@@ -252,8 +302,12 @@
     }
   ],
   "codingLoopPolicy": {
-    "primaryExecutor": "codex",
-    "fallbackExecutors": ["cursor", "claude", "opencode"],
+    "primaryExecutor": "opencode",
+    "fallbackExecutors": [
+      "cursor",
+      "codex",
+      "claude"
+    ],
     "platform": "openclaw",
     "allowExecutorFallback": true,
     "requireHumanForDependencies": true,
