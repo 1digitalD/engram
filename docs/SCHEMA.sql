@@ -207,6 +207,13 @@ CREATE TABLE IF NOT EXISTS change_batches (
 CREATE INDEX IF NOT EXISTS change_batches_source_note_idx ON change_batches (source_note_id);
 CREATE INDEX IF NOT EXISTS change_batches_applied_at_idx  ON change_batches (applied_at DESC);
 
+ALTER TABLE entity_events
+    ADD COLUMN IF NOT EXISTS change_batch_id TEXT REFERENCES change_batches (id) ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS entity_events_change_batch_idx
+    ON entity_events (change_batch_id)
+    WHERE change_batch_id IS NOT NULL;
+
 CREATE TABLE IF NOT EXISTS app_settings (
     key        TEXT PRIMARY KEY,
     value      JSONB NOT NULL,

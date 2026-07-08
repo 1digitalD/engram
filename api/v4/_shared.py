@@ -1801,7 +1801,7 @@ def _add_tag(entity, raw_name):
     return tag
 
 
-def _write_event(entity, event_type, old_value=None, new_value=None, actor="user", confidence=None, reason=None, source_note_id=None):
+def _write_event(entity, event_type, old_value=None, new_value=None, actor="user", confidence=None, reason=None, source_note_id=None, change_batch_id=None):
     db.session.add(
         EntityEvent(
             entity_id=entity.id,
@@ -1812,6 +1812,7 @@ def _write_event(entity, event_type, old_value=None, new_value=None, actor="user
             confidence=confidence,
             reason=reason,
             source_note_id=source_note_id,
+            change_batch_id=change_batch_id,
         )
     )
 
@@ -5214,8 +5215,8 @@ def _find_duplicate_capture_note(content):
     ).order_by(Entity.updated_at.desc(), Entity.created_at.desc()).first()
 
 
-def _apply_assignee_and_record(note, entity, assigned_to, confidence, evidence, applied_changes, source, actor):
-    person, link, person_created = _apply_assignee(note, entity, assigned_to, confidence, evidence, source=source, actor=actor)
+def _apply_assignee_and_record(note, entity, assigned_to, confidence, evidence, applied_changes, source, actor, change_batch_id=None):
+    person, link, person_created = _apply_assignee(note, entity, assigned_to, confidence, evidence, source=source, actor=actor, change_batch_id=change_batch_id)
     if person_created:
         _write_event(
             person,
@@ -5225,6 +5226,7 @@ def _apply_assignee_and_record(note, entity, assigned_to, confidence, evidence, 
             confidence=confidence,
             reason=evidence,
             source_note_id=note.id,
+            change_batch_id=change_batch_id,
         )
         applied_changes.append({
             "type": "entity_created",
@@ -5242,7 +5244,7 @@ def _apply_assignee_and_record(note, entity, assigned_to, confidence, evidence, 
         })
 
 
-def _apply_assignee(note, entity, assigned_to, confidence, evidence, source, actor):
+def _apply_assignee(note, entity, assigned_to, confidence, evidence, source, actor, change_batch_id=None):
     assignee_name = _clean_text(assigned_to)
     if assignee_name is None or entity.type not in {"task", "project"}:
         return None, None, False
@@ -5283,6 +5285,7 @@ def _apply_assignee(note, entity, assigned_to, confidence, evidence, source, act
             actor=actor,
             confidence=confidence,
             reason=evidence,
+            change_batch_id=change_batch_id,
         )
         if entity.type == "task" and entity.follow_up_at is None and not _is_owner(assignee_name, person.id):
             cadence_days = _delegation_cadence_days(person.id)
@@ -5296,6 +5299,7 @@ def _apply_assignee(note, entity, assigned_to, confidence, evidence, source, act
                 confidence=confidence,
                 reason="delegation cadence",
                 source_note_id=note.id if note is not None else None,
+                change_batch_id=change_batch_id,
             )
     return person, link, person_created
 

@@ -218,9 +218,11 @@ class EntityEvent(BaseModel):
     confidence = Column(Float, nullable=True)
     reason = Column(Text, nullable=True)
     source_note_id = Column(String(36), ForeignKey("entities.id", ondelete="SET NULL"), nullable=True)
+    change_batch_id = Column(String(36), ForeignKey("change_batches.id", ondelete="SET NULL"), nullable=True)
     reverted_at = Column(DateTime, nullable=True)
 
     entity = relationship("Entity", back_populates="events", foreign_keys=[entity_id])
+    change_batch = relationship("ChangeBatch", foreign_keys=[change_batch_id])
 
     def to_dict(self):
         return {
@@ -233,6 +235,7 @@ class EntityEvent(BaseModel):
             "confidence": self.confidence,
             "reason": self.reason,
             "source_note_id": self.source_note_id,
+            "change_batch_id": self.change_batch_id,
             "reverted_at": _iso(self.reverted_at),
             "created_at": _iso(self.created_at),
         }
