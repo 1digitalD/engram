@@ -61,10 +61,10 @@
         "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_validate_slice.sh"
       ],
       "blocked": false,
-      "passes": false,
-      "attempts": 0,
+      "passes": true,
+      "attempts": 2,
       "blockerReason": null,
-      "validationEvidence": null
+      "validationEvidence": "Overseer fix: orphan exclusion + activity-event staleness + rewind trigger bypass; unit+integration 10 passed"
     },
     {
       "id": "v6-20-code-review",
