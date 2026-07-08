@@ -101,10 +101,10 @@
         "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_check_review_verdict.sh v6-30-pin-enforcement"
       ],
       "blocked": false,
-      "passes": false,
-      "attempts": 0,
+      "passes": true,
+      "attempts": 2,
       "blockerReason": null,
-      "validationEvidence": null
+      "validationEvidence": "Overseer: landed Codex review worktree; verdict APPROVE; 583 passed slice validation"
     },
     {
       "id": "v6-31-typed-affordances",
