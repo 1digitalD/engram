@@ -1,6 +1,6 @@
 {
   "iteration": "v6-phase-2-workboard",
-  "goal": "Phase 2: derived workboard states + GET /workboard endpoint, Workboard surface, Stream surface — with implement→review→APPROVE QC.",
+  "goal": "Phase 2: derived workboard states + GET /workboard endpoint, Workboard surface, Stream surface \u2014 with implement\u2192review\u2192APPROVE QC.",
   "riskLevel": "medium",
   "userProblem": "No portfolio view of commitments by derived state (mine, waiting-on, overdue, stale, blocked, at-risk); capture stream is buried.",
   "whyNow": "Phase 1 distillation + Review surface shipped. Workboard is the cheapest high-value win per IMPLEMENTATION_PLAN.",
@@ -40,9 +40,13 @@
     {
       "id": "v6-20-workboard-endpoint",
       "title": "Derived states + GET /workboard",
-      "description": "Implement services/v4_workboard.py per SOLUTION_DESIGN §10.1: mine/waiting_on (operator_person_id), overdue, stale (per-Space threshold default 10d), blocked (open blocks links), at_risk v1 with reason strings + hysteresis (clear at threshold-2d). Wire GET /api/v4/workboard?group=space|person&state=... in api/v4/workboard.py. Tests: TEST_PLAN TC-20..24, EC-10..14.",
+      "description": "Implement services/v4_workboard.py per SOLUTION_DESIGN \u00a710.1: mine/waiting_on (operator_person_id), overdue, stale (per-Space threshold default 10d), blocked (open blocks links), at_risk v1 with reason strings + hysteresis (clear at threshold-2d). Wire GET /api/v4/workboard?group=space|person&state=... in api/v4/workboard.py. Tests: TEST_PLAN TC-20..24, EC-10..14.",
       "kind": "code",
-      "skills": ["tdd", "incremental-implementation", "git-workflow"],
+      "skills": [
+        "tdd",
+        "incremental-implementation",
+        "git-workflow"
+      ],
       "risk": "medium",
       "dependencies": [],
       "acceptanceCriteria": [
@@ -67,9 +71,14 @@
       "title": "Code review: V6-20 workboard endpoint",
       "description": "5-pass review per QC_LOOP on v6-20-workboard-endpoint. Write docs/v6/reviews/v6-20-workboard-endpoint.md. Fix before APPROVE.",
       "kind": "review",
-      "skills": ["code-review", "debugging"],
+      "skills": [
+        "code-review",
+        "debugging"
+      ],
       "risk": "medium",
-      "dependencies": ["v6-20-workboard-endpoint"],
+      "dependencies": [
+        "v6-20-workboard-endpoint"
+      ],
       "acceptanceCriteria": [
         "docs/v6/reviews/v6-20-workboard-endpoint.md Verdict: APPROVE",
         "bash scripts/v6_check_review_verdict.sh v6-20-workboard-endpoint exits 0"
@@ -89,9 +98,15 @@
       "title": "Workboard surface in /next",
       "description": "ui/src/next/WorkboardSurface.jsx: filter chips with counts from /workboard, group toggle (space/person), commitment rows with inline actions (done, nudge-draft placeholder, marker placeholder). Themes rail placeholder. Wire route in NextApp/NextShell. Vitest component tests. UC-3.",
       "kind": "code",
-      "skills": ["tdd", "incremental-implementation", "git-workflow"],
+      "skills": [
+        "tdd",
+        "incremental-implementation",
+        "git-workflow"
+      ],
       "risk": "medium",
-      "dependencies": ["v6-20-code-review"],
+      "dependencies": [
+        "v6-20-code-review"
+      ],
       "acceptanceCriteria": [
         "Workboard loads from v4API workboard endpoint",
         "State filter chips show counts matching API",
@@ -114,9 +129,14 @@
       "title": "Code review: V6-21 workboard surface",
       "description": "5-pass review per QC_LOOP on v6-21-workboard-surface. Write docs/v6/reviews/v6-21-workboard-surface.md.",
       "kind": "review",
-      "skills": ["code-review", "debugging"],
+      "skills": [
+        "code-review",
+        "debugging"
+      ],
       "risk": "low",
-      "dependencies": ["v6-21-workboard-surface"],
+      "dependencies": [
+        "v6-21-workboard-surface"
+      ],
       "acceptanceCriteria": [
         "docs/v6/reviews/v6-21-workboard-surface.md Verdict: APPROVE",
         "bash scripts/v6_check_review_verdict.sh v6-21-workboard-surface exits 0"
@@ -137,9 +157,15 @@
       "title": "Stream surface in /next",
       "description": "ui/src/next/StreamSurface.jsx: chronological capture log (notes list + day grouping + type glyphs). Wire route. Vitest tests.",
       "kind": "code",
-      "skills": ["tdd", "incremental-implementation", "git-workflow"],
+      "skills": [
+        "tdd",
+        "incremental-implementation",
+        "git-workflow"
+      ],
       "risk": "low",
-      "dependencies": ["v6-21-code-review"],
+      "dependencies": [
+        "v6-21-code-review"
+      ],
       "acceptanceCriteria": [
         "Stream shows captures grouped by day",
         "Type glyphs/labels use vocab.js",
@@ -161,9 +187,14 @@
       "title": "Code review: V6-22 stream surface",
       "description": "5-pass review per QC_LOOP on v6-22-stream-surface. Write docs/v6/reviews/v6-22-stream-surface.md.",
       "kind": "review",
-      "skills": ["code-review", "debugging"],
+      "skills": [
+        "code-review",
+        "debugging"
+      ],
       "risk": "low",
-      "dependencies": ["v6-22-stream-surface"],
+      "dependencies": [
+        "v6-22-stream-surface"
+      ],
       "acceptanceCriteria": [
         "docs/v6/reviews/v6-22-stream-surface.md Verdict: APPROVE",
         "bash scripts/v6_check_review_verdict.sh v6-22-stream-surface exits 0"
@@ -183,9 +214,13 @@
       "title": "Phase 2 gate: full validation + tracker",
       "description": "Full backend + UI validation. All docs/v6/reviews/v6-2*.md APPROVE. Update EXECUTION-TRACKER.md Phase 2 done. Archive prd. Do not start Phase 3.",
       "kind": "gate",
-      "skills": ["git-workflow"],
+      "skills": [
+        "git-workflow"
+      ],
       "risk": "low",
-      "dependencies": ["v6-22-code-review"],
+      "dependencies": [
+        "v6-22-code-review"
+      ],
       "acceptanceCriteria": [
         "bash scripts/v6_validate_slice.sh passes",
         "cd ui && npm test && npm run build green",
@@ -205,8 +240,12 @@
     }
   ],
   "codingLoopPolicy": {
-    "primaryExecutor": "codex",
-    "fallbackExecutors": ["cursor", "claude", "opencode"],
+    "primaryExecutor": "opencode",
+    "fallbackExecutors": [
+      "cursor",
+      "codex",
+      "claude"
+    ],
     "platform": "openclaw",
     "allowExecutorFallback": true,
     "requireHumanForDependencies": true,
