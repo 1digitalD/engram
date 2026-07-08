@@ -84,6 +84,7 @@ def create_app(config_name=None):
     # Register v4 background job handlers.
     from services import embeddings  # noqa: F401
     from services import v4_hygiene  # noqa: F401  (registers the hygiene job handler)
+    from services import v4_markers  # noqa: F401  (registers the fire_markers job handler)
     from services import v4_report  # noqa: F401  (registers the assemble_report job handler)
 
     # Start job worker on boot (non-blocking background thread)
@@ -97,6 +98,8 @@ def create_app(config_name=None):
                 logger.info("Job worker started")
                 from services.v4_hygiene import ensure_hygiene_scheduled
                 ensure_hygiene_scheduled(app)
+                from services.v4_markers import ensure_marker_firing_scheduled
+                ensure_marker_firing_scheduled(app)
             except Exception as e:
                 logger.warning("Job worker failed to start: %s", e)
 

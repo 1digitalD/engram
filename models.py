@@ -647,6 +647,46 @@ class Decision(BaseModel):
         return f"<Decision {self.id[:8]} thread={self.thread_id[:8]}>"
 
 
+# ─── Follow-up markers ───────────────────────────────────────────────────────
+
+
+class FollowupMarker(BaseModel):
+    """Explicit follow-up marker attached to an entity (nudge / discuss / custom)."""
+
+    __tablename__ = "followup_markers"
+
+    entity_id = Column(
+        String(36), ForeignKey("entities.id", ondelete="CASCADE"), nullable=False
+    )
+    kind = Column(Text, nullable=False)
+    due_at = Column(DateTime, nullable=True)
+    person_entity_id = Column(
+        String(36), ForeignKey("entities.id", ondelete="SET NULL"), nullable=True
+    )
+    note = Column(Text, nullable=True)
+    fired_at = Column(DateTime, nullable=True)
+    resolved_at = Column(DateTime, nullable=True)
+
+    entity = relationship("Entity", foreign_keys=[entity_id])
+    person = relationship("Entity", foreign_keys=[person_entity_id])
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "entity_id": self.entity_id,
+            "kind": self.kind,
+            "due_at": _iso(self.due_at),
+            "person_entity_id": self.person_entity_id,
+            "note": self.note,
+            "created_at": _iso(self.created_at),
+            "fired_at": _iso(self.fired_at),
+            "resolved_at": _iso(self.resolved_at),
+        }
+
+    def __repr__(self):
+        return f"<FollowupMarker {self.id[:8]} kind={self.kind!r}>"
+
+
 # ─── Helpers ─────────────────────────────────────────────────────────────────
 
 

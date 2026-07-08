@@ -451,6 +451,9 @@ PERSON_PULSE_QUIET_DAYS = 7
 
 
 def _build_today_payload(now):
+    from services.v4_markers import fire_due_markers, fired_markers_for_today, marker_to_today_item
+
+    fire_due_markers(now)
     start_of_today = datetime.combine(now.date(), time.min, tzinfo=timezone.utc)
     end_of_today = datetime.combine(now.date(), time.max, tzinfo=timezone.utc)
 
@@ -688,6 +691,7 @@ def _build_today_payload(now):
         "pending_suggestions": [suggestion.to_dict() for suggestion in pending_suggestions],
         # Retained for any external callers; matches the new bucket structure semantically.
         "blocked_or_waiting_tasks": [with_priority(e) for e in (blocked_tasks + waiting_tasks)],
+        "fired_markers": [marker_to_today_item(marker) for marker in fired_markers_for_today(now)],
     }
 
     # Phase F (proactive monitoring): "N new items since yesterday" — items in

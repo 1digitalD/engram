@@ -17,6 +17,7 @@ V4_TABLES = {
     "app_settings",
     "decisions",
     "distillation_reports",
+    "followup_markers",
 }
 
 FORBIDDEN_DTO_FIELDS = {

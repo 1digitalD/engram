@@ -260,6 +260,10 @@ def update_entity(entity_id):
     if entity.type == "task":
         _touch_parent_projects(entity)
 
+    if archived or (status_changed and entity.status in {"done", "completed", "cancelled"}):
+        from services.v4_markers import resolve_markers_for_entity
+        resolve_markers_for_entity(entity)
+
     db.session.commit()
 
     return jsonify({"data": _load_entity(entity.id).to_dict()})

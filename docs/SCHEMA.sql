@@ -238,6 +238,29 @@ CREATE INDEX IF NOT EXISTS decisions_thread_idx      ON decisions (thread_id, de
 CREATE INDEX IF NOT EXISTS decisions_source_note_idx ON decisions (source_note_id);
 CREATE INDEX IF NOT EXISTS decisions_superseded_idx  ON decisions (superseded_by);
 
+CREATE TABLE IF NOT EXISTS followup_markers (
+    id               TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    entity_id        TEXT NOT NULL REFERENCES entities (id) ON DELETE CASCADE,
+    kind             TEXT NOT NULL CHECK (kind IN ('nudge', 'discuss', 'custom')),
+    due_at           TIMESTAMPTZ,
+    person_entity_id TEXT REFERENCES entities (id) ON DELETE SET NULL,
+    note             TEXT,
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+    fired_at         TIMESTAMPTZ,
+    resolved_at      TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_followup_markers_entity_id
+    ON followup_markers (entity_id);
+
+CREATE INDEX IF NOT EXISTS idx_followup_markers_due_pending
+    ON followup_markers (due_at)
+    WHERE fired_at IS NULL AND resolved_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_followup_markers_person_discuss
+    ON followup_markers (person_entity_id)
+    WHERE kind = 'discuss' AND resolved_at IS NULL;
+
 CREATE OR REPLACE FUNCTION set_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -295,6 +318,7 @@ TRUNCATE TABLE
     change_batches,
     decisions,
     distillation_reports,
+    followup_markers,
     entity_events,
     entity_chunks,
     entity_links,
