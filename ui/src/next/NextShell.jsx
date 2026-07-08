@@ -9,7 +9,7 @@ const NAV_ITEMS = [
   { to: '/next/workboard', label: SURFACE_LABELS.workboard, disabled: false },
   { to: '/next/stream', label: SURFACE_LABELS.stream, disabled: false },
   { to: '/next/review', label: SURFACE_LABELS.review, disabled: false },
-  { to: '/next/spaces', label: SURFACE_LABELS.spaces, disabled: true },
+  { to: '/next/spaces', label: SURFACE_LABELS.spaces, disabled: false },
 ];
 
 export default function NextShell({ onReviewCountChange }) {

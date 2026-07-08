@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 
 import { friendlyApiError, v4API } from '../api/v4Client';
 import { GroupCommitmentComposer, TaskAffordances } from './TypedAffordances';
@@ -244,7 +245,13 @@ export default function WorkboardSurface() {
                 <section key={bucket.key} className={styles.groupCard}>
                   <div className={styles.groupHeader}>
                     <div>
-                      <h2 className={styles.groupTitle}>{bucket.label}</h2>
+                      <h2 className={styles.groupTitle}>
+                        {bucket.kind === 'space' && bucket.entity_id ? (
+                          <Link to={`/next/spaces/${bucket.entity_id}`}>{bucket.label}</Link>
+                        ) : (
+                          bucket.label
+                        )}
+                      </h2>
                       <p className={styles.groupMeta}>{bucket.counts?.total || 0} commitments</p>
                     </div>
                     {bucket.at_risk?.flag ? <span className={styles.groupRiskFlag}>At risk</span> : null}

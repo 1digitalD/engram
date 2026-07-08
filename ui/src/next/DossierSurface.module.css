@@ -1,0 +1,247 @@
+.surface {
+  max-width: 76rem;
+  margin: 0 auto;
+  padding: var(--space-4);
+}
+
+.header {
+  margin-bottom: var(--space-3);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.titleRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.title {
+  margin: 0 0 var(--space-1);
+  font-size: 1.75rem;
+}
+
+.metaRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.chip,
+.chipAi,
+.chipPinned {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.2rem 0.65rem;
+  font-size: 0.85rem;
+  background: color-mix(in oklch, var(--surface) 92%, transparent);
+}
+
+.chipAi {
+  border-color: color-mix(in oklch, var(--accent) 35%, var(--border));
+  background: color-mix(in oklch, var(--accent) 10%, var(--surface));
+  color: color-mix(in oklch, var(--accent) 80%, var(--text));
+}
+
+.chipPinned {
+  border-color: color-mix(in oklch, var(--accent) 45%, var(--border));
+}
+
+.pinButton {
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+}
+
+.tabRow {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: var(--space-3);
+}
+
+.tab,
+.tabActive {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.45rem 0.9rem;
+  background: var(--surface);
+  cursor: pointer;
+  font: inherit;
+}
+
+.tabActive {
+  border-color: color-mix(in oklch, var(--accent) 45%, var(--border));
+  background: color-mix(in oklch, var(--accent) 12%, var(--surface));
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+  gap: var(--space-3);
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.sectionTitle {
+  margin: 0 0 0.5rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.panel {
+  border: 1px solid var(--border);
+  border-radius: 0.65rem;
+  padding: 0.85rem 1rem;
+  background: var(--surface);
+}
+
+.panelAi {
+  border-color: color-mix(in oklch, var(--accent) 35%, var(--border));
+  background: color-mix(in oklch, var(--accent) 6%, var(--surface));
+}
+
+.panelCopy {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.panelMeta {
+  margin: 0.65rem 0 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.listItem {
+  padding: 0.55rem 0;
+  border-bottom: 1px dashed color-mix(in oklch, var(--border) 80%, transparent);
+}
+
+.listItem:last-child {
+  border-bottom: none;
+}
+
+.itemTitle {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.itemMeta {
+  margin: 0.2rem 0 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.spine {
+  position: relative;
+  padding-left: 1.1rem;
+}
+
+.spine::before {
+  content: '';
+  position: absolute;
+  left: 0.35rem;
+  top: 0.35rem;
+  bottom: 0.35rem;
+  width: 2px;
+  background: var(--border);
+}
+
+.spineEvent {
+  position: relative;
+  margin-bottom: 0.75rem;
+}
+
+.spineEvent::before {
+  content: '';
+  position: absolute;
+  left: -0.95rem;
+  top: 0.65rem;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: var(--border);
+}
+
+.spineEventAi::before {
+  background: color-mix(in oklch, var(--accent) 70%, var(--border));
+}
+
+.eventRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: baseline;
+  margin-bottom: 0.25rem;
+}
+
+.actor {
+  display: inline-block;
+  border-radius: 0.35rem;
+  padding: 0 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: color-mix(in oklch, var(--surface) 80%, var(--border));
+  color: var(--muted);
+}
+
+.actorAi {
+  background: color-mix(in oklch, var(--accent) 14%, var(--surface));
+  color: color-mix(in oklch, var(--accent) 80%, var(--text));
+}
+
+.ledgerList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.ledgerItem {
+  border: 1px solid var(--border);
+  border-radius: 0.65rem;
+  padding: 0.85rem 1rem;
+  background: var(--surface);
+}
+
+.amendDetail {
+  margin: 0.35rem 0 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.empty,
+.error,
+.actionNote {
+  margin: 0;
+  color: var(--muted);
+}
+
+.error {
+  color: var(--danger, #b3423a);
+}
+
+@media (max-width: 860px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+}
