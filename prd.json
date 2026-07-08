@@ -152,10 +152,10 @@
         "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_check_review_verdict.sh v6-41-today-surface"
       ],
       "blocked": false,
-      "passes": false,
-      "attempts": 0,
+      "passes": true,
+      "attempts": 1,
       "blockerReason": null,
-      "validationEvidence": null
+      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- next\n\n> engram-ui@0.0.0 test\n> node scripts/run-tests.mjs next\n\n\n RUN  v3.2.4 /Volumes/lex1t/dev/shared/repos/engram/ui\n\n \u2713 src/next/vocab.test.js (5 tests) 3ms\n \u2713 src/next/TypedAffordances.test.jsx (3 tests) 84ms\n \u2713 src/components/mentionExtension.test.js (3 tests) 31ms\n \u2713 src/next/StreamSurface.test.jsx (2 tests) 115ms\n \u2713 src/next/TodaySurface.test.jsx (3 tests) 141ms\n \u2713 src/next/ReviewSurface.test.jsx (10 tests) 231ms\n \u2713 src/next/DossierSurface.test.jsx (5 tests) 188ms\n \u2713 src/next/WorkboardSurface.test.jsx (3 tests) 283ms\n\n Test Files  8 passed (8)\n      Tests  34 passed (34)\n   Start at  12:32:01\n   Duration  951ms (transform 286ms, setup 282ms, collect 1.18s, tests 1.08s, environment 1.73s, prepare 367ms)\n\nnpm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\nnpm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_check_review_verdict.sh v6-41-today-surface\nOK review verdict: /Volumes/lex1t/dev/shared/repos/engram/scripts/../docs/v6/reviews/v6-41-today-surface.md (Verdict: APPROVE, Passes 1-5 PASS)"
     },
     {
       "id": "v6-42-nudge-drafting",
