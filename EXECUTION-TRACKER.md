@@ -78,3 +78,4 @@ bash scripts/v6_check_review_verdict.sh <implement-task-id>   # review tasks
 - 2026-07-08T18:56:58.844498+00:00 v6-phase-3-gate accepted via cursor
 - _Phase 4 today/markers — prd ready, drain starting_
 - 2026-07-08T19:23:57.398861+00:00 v6-40-markers-backend accepted via cursor
+- 2026-07-08T19:27:37.103905+00:00 v6-40-code-review accepted via cursor
