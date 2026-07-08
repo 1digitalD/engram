@@ -147,10 +147,10 @@
         "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_check_review_verdict.sh v6-21-workboard-surface"
       ],
       "blocked": false,
-      "passes": false,
-      "attempts": 0,
+      "passes": true,
+      "attempts": 1,
       "blockerReason": null,
-      "validationEvidence": null
+      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- next\n\n> engram-ui@0.0.0 test\n> node scripts/run-tests.mjs next\n\n\n RUN  v3.2.4 /Volumes/lex1t/dev/shared/repos/engram/ui\n\n \u2713 src/next/vocab.test.js (5 tests) 1ms\n \u2713 src/components/mentionExtension.test.js (3 tests) 27ms\n \u2713 src/next/WorkboardSurface.test.jsx (2 tests) 122ms\n \u2713 src/next/ReviewSurface.test.jsx (10 tests) 144ms\n\n Test Files  4 passed (4)\n      Tests  20 passed (20)\n   Start at  08:35:09\n   Duration  939ms (transform 145ms, setup 272ms, collect 456ms, tests 294ms, environment 1.38s, prepare 183ms)\n\nnpm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\nnpm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build\n\n> engram-ui@0.0.0 build\n> vite build\n\nvite v8.0.10 building client environment for production...\n\u001b[2K\ntransforming...\u2713 1886 modules transformed.\nrendering chunks...\ncomputing gzip size...\n../static/index.html                             1.95 kB \u2502 gzip:   0.86 kB\n../static/assets/index-B29nm13z.css            115.87 kB \u2502 gzip:  17.57 kB\n../static/assets/rolldown-runtime-jpDsebLB.js    0.56 kB \u2502 gzip:   0.36 kB\n../static/assets/vendor-icons-C8UFgheK.js        4.23 kB \u2502 gzip:   1.89 kB\n../static/assets/index-Dr-srMdC.js             174.61 kB \u2502 gzip:  47.02 kB\n../static/assets/vendor-react-C6600fzf.js      231.14 kB \u2502 gzip:  73.37 kB\n../static/assets/vendor-D_WIgHEM.js            497.57 kB \u2502 gzip: 156.97 kB\n\n\u2713 built in 234ms\nnpm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_check_review_verdict.sh v6-21-workboard-surface\nOK review verdict: /Volumes/lex1t/dev/shared/repos/engram/scripts/../docs/v6/reviews/v6-21-workboard-surface.md (Verdict: APPROVE, Passes 1-5 PASS)"
     },
     {
       "id": "v6-22-stream-surface",
