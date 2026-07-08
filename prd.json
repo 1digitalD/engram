@@ -204,10 +204,10 @@
         "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_check_review_verdict.sh v6-22-stream-surface"
       ],
       "blocked": false,
-      "passes": false,
-      "attempts": 0,
+      "passes": true,
+      "attempts": 1,
       "blockerReason": null,
-      "validationEvidence": null
+      "validationEvidence": "$ cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- next\n\n> engram-ui@0.0.0 test\n> node scripts/run-tests.mjs next\n\n\n RUN  v3.2.4 /Volumes/lex1t/dev/shared/repos/engram/ui\n\n \u2713 src/next/vocab.test.js (5 tests) 2ms\n \u2713 src/components/mentionExtension.test.js (3 tests) 30ms\n \u2713 src/next/StreamSurface.test.jsx (2 tests) 63ms\n \u2713 src/next/ReviewSurface.test.jsx (10 tests) 157ms\n \u2713 src/next/WorkboardSurface.test.jsx (2 tests) 137ms\n\n Test Files  5 passed (5)\n      Tests  22 passed (22)\n   Start at  08:48:21\n   Duration  880ms (transform 213ms, setup 263ms, collect 683ms, tests 390ms, environment 1.39s, prepare 233ms)\n\nnpm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\nnpm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\n\n$ cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_check_review_verdict.sh v6-22-stream-surface\nOK review verdict: /Volumes/lex1t/dev/shared/repos/engram/scripts/../docs/v6/reviews/v6-22-stream-surface.md (Verdict: APPROVE, Passes 1-5 PASS)"
     },
     {
       "id": "v6-phase-2-gate",
