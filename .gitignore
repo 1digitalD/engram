@@ -30,6 +30,7 @@ node_modules/
 static/assets/
 static/index.html
 .claude/
+CLAUDE.local.md
 .codloop/
 .v2-overhaul-backup/
 backups/
