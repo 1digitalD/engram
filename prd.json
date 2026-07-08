@@ -119,10 +119,10 @@
         "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_validate_slice.sh"
       ],
       "blocked": false,
-      "passes": false,
-      "attempts": 0,
+      "passes": true,
+      "attempts": 1,
       "blockerReason": null,
-      "validationEvidence": null
+      "validationEvidence": "Overseer fix: stabilize review timing test mocks; npm test -- next 20 passed; npm run build green"
     },
     {
       "id": "v6-21-code-review",
