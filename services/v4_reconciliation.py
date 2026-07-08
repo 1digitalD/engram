@@ -28,7 +28,9 @@ CATALOG_CHAR_CAP = 8000  # ≈ 2000 tokens; projects/areas only
 # reconciler's action (new/update/link/skip/progress_update), target
 # resolution, and near-duplicate score provide the structural signal.
 LOW_CONFIDENCE_THRESHOLD = 0.5
-AUTO_CREATE_CONFIDENCE_THRESHOLD = 0.85
+# Threshold used to label a candidate as uncertain in the review queue.
+# Auto-create is retired; this is only for surfacing "AI was not sure".
+UNCERTAINTY_CONFIDENCE_THRESHOLD = 0.85
 
 UNCERTAIN_SUGGESTION_REASON = "AI was not sure about this"
 
@@ -158,14 +160,15 @@ rules and near-duplicate scores instead. Include a "confidence" field only for \
 """
 
 
-def is_uncertain_decision(decision, threshold=AUTO_CREATE_CONFIDENCE_THRESHOLD, confidence=None):
+def is_uncertain_decision(decision, threshold=UNCERTAINTY_CONFIDENCE_THRESHOLD, confidence=None):
     """Return True when a decision should be labeled as uncertain in capture output.
 
     SQ-09: explicit skip/uncertain actions are structurally uncertain. For all
     other actions, confidence is a tiebreaker: a low score marks a borderline
     candidate as "AI was not sure" in the review queue, but the structural
     gate (action type, target resolution, near-duplicate score) has already
-    decided whether the candidate is actionable.
+    decided whether the candidate is actionable. Auto-create no longer exists;
+    this threshold only affects narrative labeling, not gating.
     """
     if not isinstance(decision, dict):
         return False
@@ -236,8 +239,8 @@ def reconcile_candidates(candidates, thread_id=None):
     decisions = decisions[:len(candidates)]
 
     # Attach the strongest similarity match to each decision so the apply
-    # layer can refuse to auto-create when a plausible near-duplicate exists,
-    # even if the model voted "new" with high confidence.
+    # layer can route near-duplicates to the review queue instead of treating
+    # them as new entities, even if the model voted "new" with high confidence.
     for item, decision in zip(enriched, decisions):
         if not isinstance(decision, dict):
             continue

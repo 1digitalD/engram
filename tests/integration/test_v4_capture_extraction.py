@@ -327,7 +327,7 @@ def test_capture_suggested_task_uses_task_to_note_derived_from_link_on_accept(cl
     assert [item["entity"]["id"] for item in task_sections["source_notes"]["items"]] == [note_id]
 
 
-def test_capture_auto_created_task_applies_assigned_to_person_link(client, app):
+def test_capture_proposed_task_assignee_person_created_on_accept(client, app):
     extraction = {
         "entities": [
             {
@@ -451,8 +451,8 @@ def test_capture_drops_bare_high_confidence_person_with_no_work(client, app):
         assert AiSuggestion.query.filter_by(suggestion_type="create_person").count() == 0
 
 
-def test_capture_drops_bare_person_below_auto_create_threshold(client, app):
-    """SQ-08: a bare person mention below the auto-create threshold is dropped,
+def test_capture_drops_bare_low_confidence_person(client, app):
+    """SQ-08: a bare person mention with low confidence is dropped,
     not surfaced as a create_person suggestion."""
     extraction = {
         "entities": [
@@ -1355,13 +1355,11 @@ def test_capture_suppresses_recently_dismissed_duplicate_suggestion(client, app)
         assert AiSuggestion.query.filter_by(suggestion_type="create_task").count() == 1
 
 
-def test_capture_auto_created_task_links_to_source_note_projects(client, app):
-    """Tasks auto-created from a note should get parent links to any
-    projects the source note is already linked to.
+def test_capture_proposed_task_links_to_source_note_projects_on_accept(client, app):
+    """Tasks proposed from a note get parent links to source-note projects
+    only after human acceptance, not during capture.
 
-    This is the critical path that turns extracted tasks into visible
-    children of their projects, fixing project task_counts and the
-    project detail 'Open Tasks' section."""
+    This guards against silently attaching unreviewed tasks to projects."""
     project = client.post(
         "/api/v4/entities",
         json={"type": "project", "title": "Memory Lookup"},
@@ -1433,7 +1431,7 @@ def test_capture_auto_created_task_links_to_source_note_projects(client, app):
         ).first()
         assert note_link is not None, "task must have derived_from link to source note"
 
-        # Task → project (parent) — only applied on auto-create path, not suggestion accept
+        # Task → project (parent) — not applied during capture; only on acceptance
         parent_link = EntityLink.query.filter_by(
             source_entity_id=task_id,
             target_entity_id=project["id"],

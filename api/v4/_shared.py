@@ -2748,13 +2748,13 @@ def _apply_reconciliation_decision(note, candidate, decision, applied_changes, s
 
 
 def _link_task_to_note_projects(note, task, confidence, evidence, applied_changes):
-    """Create parent links from a newly auto-created task to every project
+    """Create parent links from a newly accepted task to every project
     the source note is linked to.
 
-    When a task is extracted from a meeting note, it almost certainly belongs
-    to one or more of the projects that note references. Without this step,
-    tasks end up orphaned with only a derived_from link to the note, and
-    projects show zero open tasks.
+    When a task is extracted from a meeting note and then accepted by the
+    operator, it almost certainly belongs to one or more of the projects that
+    note references. Without this step, tasks end up orphaned with only a
+    derived_from link to the note, and projects show zero open tasks.
 
     When the source entity is itself a project or area, parent-link the task directly.
     """
