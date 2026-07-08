@@ -22,6 +22,7 @@ api_v4.get_entity GET /api/v4/entities/<entity_id>
 api_v4.get_entity_canonical GET /api/v4/entities/<entity_id>/canonical
 api_v4.get_entity_detail GET /api/v4/entities/<entity_id>/detail
 api_v4.get_entity_events GET /api/v4/entities/<entity_id>/events
+api_v4.get_operator_setting GET /api/v4/settings/operator
 api_v4.get_relationships GET /api/v4/entities/<entity_id>/relationships
 api_v4.health GET /api/v4/health
 api_v4.inbox GET /api/v4/inbox
@@ -31,6 +32,7 @@ api_v4.list_entities GET /api/v4/entities
 api_v4.list_suggestions GET /api/v4/suggestions
 api_v4.mark_today_reviewed POST /api/v4/today/review
 api_v4.merge_entity POST /api/v4/entities/<entity_id>/merge
+api_v4.put_operator_setting PUT /api/v4/settings/operator
 api_v4.recent GET /api/v4/recent
 api_v4.reconcile_suggestions POST /api/v4/suggestions/reconcile
 api_v4.reprocess_entity POST /api/v4/entities/<entity_id>/reprocess
