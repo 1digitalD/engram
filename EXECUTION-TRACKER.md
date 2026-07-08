@@ -4,7 +4,7 @@ Fresh-agent handoff. Read the active sources of truth below before changing
 code. Full v4-era history (iterations 0–21, deploy log, harness notes) is
 archived at `docs/archive/EXECUTION-TRACKER-v4-history.md`.
 
-Last updated: 2026-07-07
+Last updated: 2026-07-08
 Branch: `main`
 Status: **v6 Phase 0 done** — Phase 1 pending.
 
@@ -80,3 +80,5 @@ bash scripts/loopsmith_poll_status.sh  # while drain runs
 - 2026-07-08T00:00:17.538108+00:00 v6-02-code-review accepted via opencode
 - 2026-07-08T00:06:17.689341+00:00 v6-02-code-review accepted via opencode
 - 2026-07-08T00:17:09.313611+00:00 v6-phase-0-gate accepted via opencode
+- 2026-07-08T00:24:59.408036+00:00 v6-phase-0-gate re-verified — backend 512 passed, UI 202 passed, build green, route baseline 57 routes
+- 2026-07-08T00:27:11.592598+00:00 v6-phase-0-gate accepted via opencode
