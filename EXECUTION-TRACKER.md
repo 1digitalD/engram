@@ -104,3 +104,4 @@ bash scripts/v6_check_review_verdict.sh <implement-task-id>   # review tasks
 - _Phase 6 cutover — prd ready, drain starting_
 - 2026-07-09T02:00:57.223464+00:00 v6-60-promote-shell accepted via cursor
 - 2026-07-09T02:09:55.133339+00:00 v6-62-mcp-alignment accepted via cursor
+- 2026-07-09T02:12:37.727629+00:00 v6-62-code-review accepted via cursor
