@@ -37,6 +37,7 @@ ENTITY_EVENT_TYPES = (
     "merged",
     "merged_into",
     "type_converted",
+    "promoted",
     "decision_recorded",
 )
 
@@ -411,6 +412,20 @@ def _template_type_converted(
     return "Converted this entity to a new type."
 
 
+def _template_promoted(
+    event_type: str,
+    actor: str,
+    new_value: Mapping[str, Any] | None,
+    old_value: Mapping[str, Any] | None,
+    reason: str | None,
+) -> str:
+    old_type = _get(old_value, "type")
+    new_type = _get(new_value, "type")
+    if old_type and new_type:
+        return f"Promoted from {old_type} to {new_type}."
+    return "Promoted this entity."
+
+
 def _template_decision_recorded(
     event_type: str,
     actor: str,
@@ -448,6 +463,7 @@ TEMPLATES = {
     "merged": _template_merged,
     "merged_into": _template_merged_into,
     "type_converted": _template_type_converted,
+    "promoted": _template_promoted,
     "decision_recorded": _template_decision_recorded,
 }
 

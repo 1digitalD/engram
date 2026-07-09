@@ -411,9 +411,71 @@ def merge_entity(entity_id):
     return jsonify({"data": _load_entity(survivor.id).to_dict(), "merge": summary})
 
 
+@api_v4_bp.route("/entities/<entity_id>/promote", methods=["POST"])
+def promote_entity(entity_id):
+    entity = _load_entity(entity_id)
+    if entity is None:
+        return _error("entity not found", 404)
+    if entity.lifecycle == "deleted":
+        return _error("entity deleted")
+
+    data = request.get_json(silent=True) or {}
+    requested_type = data.get("type")
+    if requested_type and requested_type != "project":
+        return _error("promotion is one-way only: theme→project", 400)
+    if entity.type != "theme":
+        return _error("only theme entities can be promoted to project", 400)
+
+    if entity.title:
+        conflict = (
+            Entity.query.filter(
+                Entity.id != entity.id,
+                Entity.type == "project",
+                Entity.lifecycle != "deleted",
+                func.lower(Entity.title) == entity.title.lower(),
+            )
+            .order_by(Entity.created_at.asc())
+            .first()
+        )
+        if conflict is not None:
+            return (
+                jsonify(
+                    {
+                        "error": "project with this title already exists",
+                        "conflict": {
+                            "existing_entity_id": conflict.id,
+                            "existing_title": conflict.title,
+                            "options": ["merge_into", "rename"],
+                        },
+                    }
+                ),
+                409,
+            )
+
+    old_snapshot = {"type": entity.type, "status": entity.status}
+    entity.type = "project"
+    entity.status = DEFAULT_STATUS["project"]
+    db.session.flush()
+    _write_event(
+        entity,
+        "promoted",
+        old_value=old_snapshot,
+        new_value={"type": entity.type, "status": entity.status},
+        actor="user",
+        reason="promoted theme to project",
+    )
+    _queue_embed_job(entity.id, "theme_promote")
+    db.session.commit()
+
+    return jsonify({"data": _load_entity(entity.id).to_dict()})
+
+
 @api_v4_bp.route("/entities/<entity_id>/convert", methods=["POST"])
 def convert_entity(entity_id):
-    """Convert an entity between project and task (granularity repair)."""
+    return _error(
+        "entity conversion retired; use POST /api/v4/entities/<id>/promote for theme→project only",
+        410,
+    )
     entity = _load_entity(entity_id)
     if entity is None:
         return _error("entity not found", 404)

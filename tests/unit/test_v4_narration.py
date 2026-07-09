@@ -233,6 +233,15 @@ def test_narrate_type_converted():
     assert narrate_event(event) == "Converted from task to project."
 
 
+def test_narrate_promoted():
+    event = _event(
+        "promoted",
+        old_value={"type": "theme"},
+        new_value={"type": "project"},
+    )
+    assert narrate_event(event) == "Promoted from theme to project."
+
+
 def test_narration_cache_hit():
     event = _event("created", new_value={"type": "task", "title": "T"}, event_id="cached-evt")
     narrate_event.cache_clear()

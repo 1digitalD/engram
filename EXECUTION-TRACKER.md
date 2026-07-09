@@ -90,3 +90,5 @@ bash scripts/v6_check_review_verdict.sh <implement-task-id>   # review tasks
 - 2026-07-08 Phase 4 gate — done (cursor)
 - 2026-07-08T19:49:00.446424+00:00 v6-phase-4-gate accepted via cursor
 - _Phase 5 themes — prd ready, drain starting_
+- 2026-07-09T00:30:15 v6-50-themes blocked (Codex) — overseer fix: workboard test shape + theme detail builder
+- 2026-07-09 v6-50-themes accepted via overseer (migration 011, promote, retire /convert)

@@ -67,10 +67,10 @@
         "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_validate_slice.sh"
       ],
       "blocked": false,
-      "passes": false,
-      "attempts": 0,
+      "passes": true,
+      "attempts": 1,
       "blockerReason": null,
-      "validationEvidence": null
+      "validationEvidence": "624 backend passed; test_v4_themes.py 6/6; migration 011 applied"
     },
     {
       "id": "v6-50-code-review",

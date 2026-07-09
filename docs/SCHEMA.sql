@@ -10,7 +10,7 @@ CREATE EXTENSION IF NOT EXISTS "vector";
 CREATE TABLE IF NOT EXISTS entities (
     id            TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
     type          TEXT NOT NULL CHECK (type IN (
-                    'note', 'task', 'project', 'area', 'resource', 'person'
+    'note', 'task', 'project', 'theme', 'area', 'resource', 'person'
                   )),
     title         TEXT,
     content       TEXT,
@@ -114,7 +114,7 @@ CREATE TABLE IF NOT EXISTS entity_events (
                     'tag_added', 'tag_removed', 'ai_processed', 'ai_updated', 'ai_summarized',
                     'suggestion_accepted', 'suggestion_dismissed', 'suggestion_expired',
                     'review_marked_resolved', 'activity_update_added', 'reverted',
-                    'merged', 'merged_into', 'type_converted', 'decision_recorded'
+    'merged', 'merged_into', 'type_converted', 'promoted', 'decision_recorded'
                   )),
     actor       TEXT NOT NULL,
     old_value   JSONB,

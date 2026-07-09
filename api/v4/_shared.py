@@ -28,18 +28,20 @@ STATUS_BY_TYPE = {
     "note": ["active", "processed", "archived"],
     "task": ["open", "in_progress", "waiting", "blocked", "done", "cancelled"],
     "project": ["active", "on_hold", "completed", "cancelled"],
+    "theme": ["active", "archived"],
     "area": ["active", "archived"],
     "person": ["active", "archived"],
     "resource": ["active", "archived"],
 }
 
-ENTITY_TYPES = {"note", "task", "project", "area", "resource", "person"}
+ENTITY_TYPES = {"note", "task", "project", "theme", "area", "resource", "person"}
 PRIORITY_LEVELS = {"low", "medium", "high", "urgent"}
 PRIORITY_ORDER = {"low": 1, "medium": 2, "high": 3, "urgent": 4}
 DEFAULT_STATUS = {
     "note": "active",
     "task": "open",
     "project": "active",
+    "theme": "active",
     "area": "active",
     "resource": "active",
     "person": "active",
@@ -48,6 +50,7 @@ VALID_STATUS = {
     "note": {"active", "processed", "archived"},
     "task": {"open", "in_progress", "waiting", "blocked", "done", "cancelled"},
     "project": {"active", "on_hold", "completed", "cancelled"},
+    "theme": {"active", "archived"},
     "area": {"active", "archived"},
     "resource": {"active", "archived"},
     "person": {"active", "archived"},
@@ -98,28 +101,31 @@ RELATIONSHIP_COMPATIBILITY = {
         "task": {"note"},
     },
     "mentions": {
-        "note": {"person", "project", "area"},
+        "note": {"person", "project", "theme", "area"},
         "task": {"person"},
         "project": {"person"},
+        "theme": {"person"},
         "area": {"person"},
-        "person": {"project", "person"},
-        "resource": {"person", "project", "task", "area", "resource"},
+        "person": {"project", "theme", "person"},
+        "resource": {"person", "project", "theme", "task", "area", "resource"},
     },
     "references": {
         "note": {"resource"},
         "task": {"resource"},
         "project": {"resource"},
+        "theme": {"resource"},
         "area": {"resource"},
         "person": {"resource"},
-        "resource": {"project", "task", "area", "person", "resource", "note"},
+        "resource": {"project", "theme", "task", "area", "person", "resource", "note"},
     },
     "related": {
-        "task": {"task", "note", "resource", "person", "project", "area"},
-        "project": {"project", "note", "resource", "person", "area"},
-        "area": {"note", "resource", "person", "project", "area"},
-        "note": {"note", "project", "area", "person", "resource", "task"},
-        "person": {"person", "project", "resource", "task", "area"},
-        "resource": {"resource", "project", "task", "area", "person", "note"},
+        "task": {"task", "note", "resource", "person", "project", "theme", "area"},
+        "project": {"project", "theme", "note", "resource", "person", "area"},
+        "theme": {"project", "theme", "note", "resource", "person", "area"},
+        "area": {"note", "resource", "person", "project", "theme", "area"},
+        "note": {"note", "project", "theme", "area", "person", "resource", "task"},
+        "person": {"person", "project", "theme", "resource", "task", "area"},
+        "resource": {"resource", "project", "theme", "task", "area", "person", "note"},
     },
     "blocks": {
         "task": {"task"},
@@ -1472,6 +1478,7 @@ def _relationship_detail_sections(entity):
     builders = {
         "task": _task_detail_sections,
         "project": _project_detail_sections,
+        "theme": _project_detail_sections,
         "area": _area_detail_sections,
         "note": _note_detail_sections,
         "person": _person_detail_sections,

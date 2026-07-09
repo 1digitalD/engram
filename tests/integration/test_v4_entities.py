@@ -82,12 +82,13 @@ def test_create_all_v4_entity_types(client):
         "note": "active",
         "task": "open",
         "project": "active",
+        "theme": "active",
         "area": "active",
         "resource": "active",
         "person": "active",
     }
 
-    for entity_type in ("note", "task", "project", "area", "resource", "person"):
+    for entity_type in ("note", "task", "project", "theme", "area", "resource", "person"):
         response = client.post(
             "/api/v4/entities",
             json={

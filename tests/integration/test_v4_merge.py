@@ -144,44 +144,11 @@ def test_merge_validations(client, app):
     ).status_code == 400
 
 
-# ── Type conversion ───────────────────────────────────────────────────────────
+# ── Retired conversion endpoint ───────────────────────────────────────────────
 
-def test_convert_project_to_task(client, app):
+def test_convert_endpoint_is_retired(client):
     project = _create(client, type="project", title="Agent Platform leadership deck")
-    client.patch(f"/api/v4/entities/{project['id']}", json={"status": "on_hold"})
 
     response = client.post(f"/api/v4/entities/{project['id']}/convert", json={"type": "task"})
-    assert response.status_code == 200
-    data = response.get_json()["data"]
-    assert data["type"] == "task"
-    assert data["status"] == "waiting"
-
-    with app.app_context():
-        assert EntityEvent.query.filter_by(entity_id=project["id"], event_type="type_converted").count() == 1
-
-
-def test_convert_project_with_children_is_blocked(client, app):
-    project = _create(client, type="project", title="Real project")
-    task = _create(client, type="task", title="Child task")
-    _link(app, task["id"], project["id"], "parent")
-
-    response = client.post(f"/api/v4/entities/{project['id']}/convert", json={"type": "task"})
-    assert response.status_code == 400
-    assert "child" in response.get_json()["error"]
-
-
-def test_convert_task_to_project(client, app):
-    task = _create(client, type="task", title="Build evals infrastructure")
-    client.patch(f"/api/v4/entities/{task['id']}", json={"status": "done"})
-
-    response = client.post(f"/api/v4/entities/{task['id']}/convert", json={"type": "project"})
-    assert response.status_code == 200
-    data = response.get_json()["data"]
-    assert data["type"] == "project"
-    assert data["status"] == "completed"
-
-
-def test_convert_unsupported_type(client, app):
-    note = _create(client, type="note", title="A note", content="x")
-    response = client.post(f"/api/v4/entities/{note['id']}/convert", json={"type": "task"})
-    assert response.status_code == 400
+    assert response.status_code == 410
+    assert "promote" in response.get_json()["error"]
