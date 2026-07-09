@@ -204,7 +204,15 @@ describe('ReviewSurface', () => {
     v4API.search.mockResolvedValue({ data: [] });
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    await waitFor(() => {
+      const pending = [
+        ...v4API.reports.list.mock.results,
+        ...v4API.reports.get.mock.results,
+        ...v4API.reports.resolve.mock.results,
+      ].some((result) => result.type === 'pending');
+      expect(pending).toBe(false);
+    }).catch(() => {});
     vi.restoreAllMocks();
   });
 
@@ -318,9 +326,12 @@ describe('ReviewSurface', () => {
   });
 
   it('sends review duration when a report leaves the queue', async () => {
-    v4API.reports.list
-      .mockResolvedValueOnce(LIST_PAYLOAD)
-      .mockResolvedValueOnce({ data: [], meta: { total: 0 } });
+    let listCalls = 0;
+    v4API.reports.list.mockImplementation(async () => {
+      listCalls += 1;
+      if (listCalls === 1) return LIST_PAYLOAD;
+      return { data: [], meta: { total: 0 } };
+    });
 
     renderReview();
 

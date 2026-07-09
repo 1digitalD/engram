@@ -5,7 +5,7 @@ code. Full v4-era history is archived at `docs/archive/EXECUTION-TRACKER-v4-hist
 
 Last updated: 2026-07-08
 Branch: `main`
-Status: **v6 Phase 5 drain active** — Themes + insights.
+Status: **v6 Phase 5 done** — Phase 6 pending (overseer).
 
 ## Current program: v6 (vision-driven rebuild)
 
@@ -19,7 +19,7 @@ Status: **v6 Phase 5 drain active** — Themes + insights.
 | `docs/iterations/ITERATION_v6_PHASE_2.md` | Phase 2 iteration (archived) |
 | `docs/iterations/ITERATION_v6_PHASE_3.md` | Phase 3 iteration (archived) |
 | `docs/iterations/ITERATION_v6_PHASE_4.md` | Phase 4 iteration (archived) |
-| `docs/iterations/ITERATION_v6_PHASE_5.md` | Phase 5 iteration (active) |
+| `docs/iterations/ITERATION_v6_PHASE_5.md` | Phase 5 iteration (archived) |
 
 Runtime baseline: `/api/v4` only, Postgres + pgvector, write-enabled MCP.
 
@@ -32,7 +32,7 @@ Runtime baseline: `/api/v4` only, Postgres + pgvector, write-enabled MCP.
 | 2 Workboard | **done** (2026-07-08) |
 | 3 Dossier + direct manipulation + pinning | **done** (2026-07-08) |
 | 4 Today + markers + nudges | **done** (2026-07-08) |
-| 5 Themes + insights | **in progress** (drain started 2026-07-08) |
+| 5 Themes + insights | **done** (2026-07-08) |
 | 6 Cutover + legacy UI deletion | pending |
 
 ## Phase 0 retro review (2026-07-08)
@@ -97,3 +97,6 @@ bash scripts/v6_check_review_verdict.sh <implement-task-id>   # review tasks
 - 2026-07-09T00:56:13.261875+00:00 v6-51-code-review accepted via codex
 - 2026-07-09T01:09:28.221779+00:00 v6-52-code-review accepted via codex
 - 2026-07-09T01:20:11.080427+00:00 v6-53-people-surface accepted via codex
+- 2026-07-08 v6-50-themes — migration 011 (`theme` entity type) on test DB
+- 2026-07-08 Phase 5 gate — done (cursor)
+- 2026-07-09T01:31:46.159099+00:00 v6-phase-5-gate accepted via cursor
