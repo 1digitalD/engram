@@ -1,10 +1,14 @@
 {
   "iteration": "v6-phase-6-cutover",
-  "goal": "Phase 6: Cutover to v6 shell at /, legacy fallback at /legacy, MCP alignment, docs — with implement→review→APPROVE QC. V6-61 demolition deferred.",
+  "goal": "Phase 6: Cutover to v6 shell at /, legacy fallback at /legacy, MCP alignment, docs \u2014 with implement\u2192review\u2192APPROVE QC. V6-61 demolition deferred.",
   "riskLevel": "high",
   "userProblem": "v6 UI still at /next; MCP missing report/workboard/marker tools; docs still describe V5 default.",
-  "whyNow": "Phase 5 complete. Tag engram/v6-phase-5-complete is rollback point. Promote /next → / with /legacy fallback.",
-  "skills": ["tdd", "incremental-implementation", "git-workflow"],
+  "whyNow": "Phase 5 complete. Tag engram/v6-phase-5-complete is rollback point. Promote /next \u2192 / with /legacy fallback.",
+  "skills": [
+    "tdd",
+    "incremental-implementation",
+    "git-workflow"
+  ],
   "doubt": false,
   "scope": {
     "filesAffected": [
@@ -27,7 +31,7 @@
       "/next/* redirects to /"
     ],
     "dataOrApiDependencies": [
-      "No new migrations — same /api/v4",
+      "No new migrations \u2014 same /api/v4",
       "Tag engram/v6-phase-5-complete for deploy rollback",
       "V6-61 legacy deletion explicitly out of scope this drain"
     ],
@@ -40,9 +44,13 @@
     {
       "id": "v6-60-promote-shell",
       "title": "Promote shell + legacy fallback",
-      "description": "Extract current V5+lab AppShell to ui/src/legacy/LegacyApp.jsx. Promote NextApp to / (default). Mount legacy at /legacy/*. Redirect /next/* → /. Vitest route tests. TC-60. Tag engram/v6-phase-5-complete documented in DEPLOY.md.",
+      "description": "Extract current V5+lab AppShell to ui/src/legacy/LegacyApp.jsx. Promote NextApp to / (default). Mount legacy at /legacy/*. Redirect /next/* \u2192 /. Vitest route tests. TC-60. Tag engram/v6-phase-5-complete documented in DEPLOY.md.",
       "kind": "code",
-      "skills": ["tdd", "incremental-implementation", "git-workflow"],
+      "skills": [
+        "tdd",
+        "incremental-implementation",
+        "git-workflow"
+      ],
       "risk": "high",
       "dependencies": [],
       "acceptanceCriteria": [
@@ -67,9 +75,14 @@
       "title": "Code review: V6-60 promote shell",
       "description": "5-pass review per QC_LOOP on v6-60-promote-shell. Write docs/v6/reviews/v6-60-promote-shell.md.",
       "kind": "review",
-      "skills": ["code-review", "debugging"],
+      "skills": [
+        "code-review",
+        "debugging"
+      ],
       "risk": "medium",
-      "dependencies": ["v6-60-promote-shell"],
+      "dependencies": [
+        "v6-60-promote-shell"
+      ],
       "acceptanceCriteria": [
         "docs/v6/reviews/v6-60-promote-shell.md Verdict: APPROVE",
         "bash scripts/v6_check_review_verdict.sh v6-60-promote-shell exits 0"
@@ -89,9 +102,15 @@
       "title": "MCP alignment",
       "description": "Add MCP tools: list_reports, get_report, resolve_report, get_workboard, add_marker, draft_nudge. capture returns report_id when present. Update mcp_server/README_V4.md. MCP unit tests. TC-62.",
       "kind": "code",
-      "skills": ["tdd", "incremental-implementation", "git-workflow"],
+      "skills": [
+        "tdd",
+        "incremental-implementation",
+        "git-workflow"
+      ],
       "risk": "medium",
-      "dependencies": ["v6-60-code-review"],
+      "dependencies": [
+        "v6-60-code-review"
+      ],
       "acceptanceCriteria": [
         "All six tools registered and proxy to /api/v4",
         "capture formatter surfaces report_id",
@@ -112,9 +131,14 @@
       "title": "Code review: V6-62 MCP alignment",
       "description": "5-pass review per QC_LOOP on v6-62-mcp-alignment. Write docs/v6/reviews/v6-62-mcp-alignment.md.",
       "kind": "review",
-      "skills": ["code-review", "debugging"],
+      "skills": [
+        "code-review",
+        "debugging"
+      ],
       "risk": "low",
-      "dependencies": ["v6-62-mcp-alignment"],
+      "dependencies": [
+        "v6-62-mcp-alignment"
+      ],
       "acceptanceCriteria": [
         "docs/v6/reviews/v6-62-mcp-alignment.md Verdict: APPROVE",
         "bash scripts/v6_check_review_verdict.sh v6-62-mcp-alignment exits 0"
@@ -134,9 +158,13 @@
       "title": "Docs and tracker finalization",
       "description": "Update README, AGENTS.md, EXECUTION-TRACKER, DEPLOY.md for v6 as default UI. Mark UX_VISION implemented baseline with deviations (legacy at /legacy deferred removal). Note v6-61 deferred.",
       "kind": "code",
-      "skills": ["git-workflow"],
+      "skills": [
+        "git-workflow"
+      ],
       "risk": "low",
-      "dependencies": ["v6-62-code-review"],
+      "dependencies": [
+        "v6-62-code-review"
+      ],
       "acceptanceCriteria": [
         "README and AGENTS.md describe / as v6 shell",
         "EXECUTION-TRACKER Phase 6 in progress notes",
@@ -156,9 +184,14 @@
       "title": "Code review: V6-63 docs",
       "description": "5-pass review per QC_LOOP on v6-63-docs-tracker. Write docs/v6/reviews/v6-63-docs-tracker.md.",
       "kind": "review",
-      "skills": ["code-review", "debugging"],
+      "skills": [
+        "code-review",
+        "debugging"
+      ],
       "risk": "low",
-      "dependencies": ["v6-63-docs-tracker"],
+      "dependencies": [
+        "v6-63-docs-tracker"
+      ],
       "acceptanceCriteria": [
         "docs/v6/reviews/v6-63-docs-tracker.md Verdict: APPROVE",
         "bash scripts/v6_check_review_verdict.sh v6-63-docs-tracker exits 0"
@@ -175,11 +208,15 @@
     {
       "id": "v6-phase-6-gate",
       "title": "Phase 6 gate: full validation + tracker",
-      "description": "Full backend + UI validation. All docs/v6/reviews/v6-6*.md APPROVE. EXECUTION-TRACKER Phase 6 done. Record TEST_PLAN §5 metrics note. V6-61 remains deferred.",
+      "description": "Full backend + UI validation. All docs/v6/reviews/v6-6*.md APPROVE. EXECUTION-TRACKER Phase 6 done. Record TEST_PLAN \u00a75 metrics note. V6-61 remains deferred.",
       "kind": "gate",
-      "skills": ["git-workflow"],
+      "skills": [
+        "git-workflow"
+      ],
       "risk": "low",
-      "dependencies": ["v6-63-code-review"],
+      "dependencies": [
+        "v6-63-code-review"
+      ],
       "acceptanceCriteria": [
         "bash scripts/v6_validate_slice.sh passes",
         "cd ui && npm test && npm run build green",
@@ -200,8 +237,12 @@
     }
   ],
   "codingLoopPolicy": {
-    "primaryExecutor": "codex",
-    "fallbackExecutors": ["cursor", "claude", "opencode"],
+    "primaryExecutor": "opencode",
+    "fallbackExecutors": [
+      "cursor",
+      "codex",
+      "claude"
+    ],
     "platform": "openclaw",
     "allowExecutorFallback": true,
     "requireHumanForDependencies": true,
