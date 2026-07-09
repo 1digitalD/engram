@@ -1,0 +1,24 @@
+## Review: v6-53-people-surface
+**Verdict:** APPROVE
+
+**Pass 1 — Spec conformance:** PASS
+- Notes: slice matches the Phase 5 contract in [docs/v6/IMPLEMENTATION_PLAN.md](/Volumes/lex1t/dev/shared/repos/.engram-codloop-worktrees/v6-53-code-review-codex-a122-codex/docs/v6/IMPLEMENTATION_PLAN.md:101), the UC-8 expectation for person prep in [docs/v6/TEST_PLAN.md](/Volumes/lex1t/dev/shared/repos/.engram-codloop-worktrees/v6-53-code-review-codex-a122-codex/docs/v6/TEST_PLAN.md:55), and the task acceptance criteria recorded in [prd.json](/Volumes/lex1t/dev/shared/repos/.engram-codloop-worktrees/v6-53-code-review-codex-a122-codex/prd.json:216). The implementation wires `/next/people` and `/next/people/:personId` in [ui/src/next/NextApp.jsx](/Volumes/lex1t/dev/shared/repos/.engram-codloop-worktrees/v6-53-code-review-codex-a122-codex/ui/src/next/NextApp.jsx:22), adds People navigation in [ui/src/next/NextShell.jsx](/Volumes/lex1t/dev/shared/repos/.engram-codloop-worktrees/v6-53-code-review-codex-a122-codex/ui/src/next/NextShell.jsx:13), loads the person rollup and renders owes/owed, quiet watch, current load, and prep shortcut in [ui/src/next/PeopleSurface.jsx](/Volumes/lex1t/dev/shared/repos/.engram-codloop-worktrees/v6-53-code-review-codex-a122-codex/ui/src/next/PeopleSurface.jsx:66), and covers the index/detail flows in [ui/src/next/PeopleSurface.test.jsx](/Volumes/lex1t/dev/shared/repos/.engram-codloop-worktrees/v6-53-code-review-codex-a122-codex/ui/src/next/PeopleSurface.test.jsx:145). No out-of-scope backend or schema work was added.
+
+**Pass 2 — PREAMBLE conformance:** PASS
+- Notes: the diff is surgical to the `/next` UI slice plus task bookkeeping. It adds one surface component, one CSS module, one test file, one route entry, one nav item, and the surface label in [ui/src/next/vocab.js](/Volumes/lex1t/dev/shared/repos/.engram-codloop-worktrees/v6-53-code-review-codex-a122-codex/ui/src/next/vocab.js:37). There is no speculative abstraction, no drive-by cleanup, and no unrelated behavior change outside the requested People surface.
+
+**Pass 3 — Skill conformance (tdd, incremental-implementation, git-workflow):** PASS
+- Notes: `git log -p` shows a single logical implementation commit, `b12ff28a`, with the slice id in the subject. The diff includes the new coverage in [ui/src/next/PeopleSurface.test.jsx](/Volumes/lex1t/dev/shared/repos/.engram-codloop-worktrees/v6-53-code-review-codex-a122-codex/ui/src/next/PeopleSurface.test.jsx:145) and the minimum UI wiring to satisfy it in [ui/src/next/PeopleSurface.jsx](/Volumes/lex1t/dev/shared/repos/.engram-codloop-worktrees/v6-53-code-review-codex-a122-codex/ui/src/next/PeopleSurface.jsx:66). The tests exercise the new route, detail fetch, owes/owed regions, quiet watch, and prep jump link without mutating unrelated existing tests.
+
+**Pass 4 — Adversarial read:** PASS
+- Findings: no blocking issues found. Error and empty states are handled on both index and detail paths in [ui/src/next/PeopleSurface.jsx](/Volumes/lex1t/dev/shared/repos/.engram-codloop-worktrees/v6-53-code-review-codex-a122-codex/ui/src/next/PeopleSurface.jsx:77), external data access is guarded with optional chaining throughout the rollup rendering in [ui/src/next/PeopleSurface.jsx](/Volumes/lex1t/dev/shared/repos/.engram-codloop-worktrees/v6-53-code-review-codex-a122-codex/ui/src/next/PeopleSurface.jsx:89), and navigation fallbacks degrade to plain text when a task has no parent space in [ui/src/next/PeopleSurface.jsx](/Volumes/lex1t/dev/shared/repos/.engram-codloop-worktrees/v6-53-code-review-codex-a122-codex/ui/src/next/PeopleSurface.jsx:21). I did not find dead branches, swallowed exceptions, or scope creep.
+
+**Pass 5 — Verification reproduction:** PASS
+- Commands run: `cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm test -- next`; `cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build`; `cd /Volumes/lex1t/dev/shared/repos/.engram-codloop-worktrees/v6-53-code-review-codex-a122-codex/ui && npm test -- next`; `cd /Volumes/lex1t/dev/shared/repos/.engram-codloop-worktrees/v6-53-code-review-codex-a122-codex/ui && npm run build`.
+- Result: the exact shared-repo `npm` commands hit a sandbox-specific `EPERM` when Vite tried to write `/Volumes/lex1t/dev/shared/repos/engram/ui/node_modules/.vite-temp/...`, so I reproduced the same checks against the same commit in this writable worktree after creating a temporary `ui/node_modules` mirror. Those worktree runs passed: `npm test -- next` reported 9 files and 41 tests green, and `npm run build` completed successfully. The accepted slice also records green shared-repo runs for `npm test -- next`, `npm run build`, and `bash scripts/v6_validate_slice.sh` in [prd.json](/Volumes/lex1t/dev/shared/repos/.engram-codloop-worktrees/v6-53-code-review-codex-a122-codex/prd.json:244).
+
+**Fixes applied in review:** none
+
+**Required changes before merge:** none
+
+**Optional suggestions (non-blocking):** none
