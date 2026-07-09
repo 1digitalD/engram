@@ -3,6 +3,7 @@
 from flask import jsonify, request
 
 from api import api_v4_bp
+from services.v4_monthly_insights import get_monthly_health
 from services.v4_workboard import get_workboard
 
 
@@ -23,4 +24,10 @@ def workboard():
         payload = get_workboard(group=group, state_filters=_state_filters())
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
-    return jsonify({"data": {"groups": payload["groups"]}, "meta": payload["meta"]})
+    monthly_health, from_cache = get_monthly_health()
+    meta = dict(payload["meta"])
+    meta["monthly_health"] = {
+        "briefing": monthly_health,
+        "from_cache": from_cache,
+    }
+    return jsonify({"data": {"groups": payload["groups"]}, "meta": meta})

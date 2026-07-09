@@ -16,6 +16,16 @@ def daily_brief():
     return jsonify({"brief": brief, "from_cache": from_cache})
 
 
+@api_v4_bp.route("/insights/monthly", methods=["GET"])
+def monthly_health():
+    """Monthly portfolio health briefing."""
+    from services.v4_monthly_insights import get_monthly_health
+
+    force = request.args.get("force") in ("1", "true")
+    briefing, from_cache = get_monthly_health(force=force)
+    return jsonify({"briefing": briefing, "from_cache": from_cache})
+
+
 @api_v4_bp.route("/timeline", methods=["GET"])
 def timeline():
     """Chronological event stream across all entities.
@@ -125,5 +135,4 @@ def _all_threads_payload(now):
     threads = _people_threads(now) + _project_threads(now) + _v4e._topic_threads(now, limit=None)
     threads.sort(key=lambda thread: thread["attention_score"], reverse=True)
     return threads
-
 
