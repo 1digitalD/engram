@@ -38,8 +38,8 @@ describe('V5EntityList', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByRole('link', { name: /Ship it/i })).toHaveAttribute('href', '/tasks/t1');
-    expect(screen.getByRole('link', { name: /Tighten evals/i })).toHaveAttribute('href', '/tasks/t2');
+    expect(await screen.findByRole('link', { name: /Ship it/i })).toHaveAttribute('href', '/legacy/tasks/t1');
+    expect(screen.getByRole('link', { name: /Tighten evals/i })).toHaveAttribute('href', '/legacy/tasks/t2');
   });
 
   it('shows project and area context on task cards', async () => {
@@ -64,8 +64,8 @@ describe('V5EntityList', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByRole('link', { name: /Memory Lookup/i })).toHaveAttribute('href', '/projects/p1');
-    expect(screen.getByRole('link', { name: /Execution/i })).toHaveAttribute('href', '/areas/a1');
+    expect(await screen.findByRole('link', { name: /Memory Lookup/i })).toHaveAttribute('href', '/legacy/projects/p1');
+    expect(screen.getByRole('link', { name: /Execution/i })).toHaveAttribute('href', '/legacy/areas/a1');
   });
 
   it('shows open task badge on project rows', async () => {
@@ -137,7 +137,7 @@ describe('V5EntityList', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByRole('link', { name: /Execution/i })).toHaveAttribute('href', '/areas/a1');
+    expect(await screen.findByRole('link', { name: /Execution/i })).toHaveAttribute('href', '/legacy/areas/a1');
   });
 
   it('removes a row after archive from card actions', async () => {

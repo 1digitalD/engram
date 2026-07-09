@@ -260,7 +260,7 @@ describe('V5CaptureSheet', () => {
 
     const field = await screen.findByLabelText('Capture text');
     await waitFor(() => {
-      expect(field.querySelector('a[href="/legacy/people/henry-1"]')).toHaveTextContent('Henry');
+      expect(field.querySelector('a[href="/people/henry-1"]')).toHaveTextContent('Henry');
     });
 
     fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
