@@ -1,0 +1,159 @@
+.surface {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.title {
+  margin: 0;
+  font-size: 2rem;
+  line-height: 1.1;
+}
+
+.subtitle {
+  margin: 0.35rem 0 0;
+  color: #5d6777;
+  max-width: 42rem;
+}
+
+.headerActions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.backLink,
+.prepShortcut,
+.personLink,
+.commitmentLink {
+  color: #153e75;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.backLink:hover,
+.prepShortcut:hover,
+.personLink:hover,
+.commitmentLink:hover {
+  text-decoration: underline;
+}
+
+.pulseHeadline {
+  margin: 0;
+  padding: 0.9rem 1rem;
+  border-radius: 1rem;
+  background: linear-gradient(135deg, #fff7e2, #ffe9be);
+  color: #6a4b12;
+  font-weight: 600;
+}
+
+.columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+.card,
+.cardWide,
+.personListItem,
+.noteCard {
+  border: 1px solid #d8e0ea;
+  border-radius: 1rem;
+  background: #fff;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+}
+
+.card,
+.cardWide {
+  padding: 1rem 1.05rem;
+}
+
+.cardTitle {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+}
+
+.commitmentList,
+.watchList,
+.agendaList,
+.peopleList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.commitmentRow,
+.watchRow,
+.agendaRow {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.commitmentMeta,
+.personMeta,
+.notePreview,
+.emptyHint {
+  margin: 0;
+  color: #5d6777;
+}
+
+.peopleList {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.personListItem {
+  padding: 1rem;
+}
+
+.empty,
+.error {
+  margin: 0;
+}
+
+.error {
+  color: #9f1239;
+}
+
+.prepHeadline {
+  margin: 0 0 0.85rem;
+  font-weight: 600;
+}
+
+.agendaTitle,
+.noteTitle {
+  font-weight: 600;
+}
+
+.noteTitle {
+  margin: 0 0 0.35rem;
+}
+
+.notesBlock {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.noteCard {
+  padding: 0.9rem 1rem;
+  background: linear-gradient(180deg, #f8fafc, #ffffff);
+}
+
+@media (max-width: 720px) {
+  .header {
+    flex-direction: column;
+  }
+
+  .title {
+    font-size: 1.7rem;
+  }
+}

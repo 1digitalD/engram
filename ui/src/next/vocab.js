@@ -35,6 +35,7 @@ export const SURFACE_LABELS = {
   stream: 'Stream',
   review: 'Review',
   spaces: 'Spaces',
+  people: 'People',
 };
 
 export const ACTION_LABELS = {
