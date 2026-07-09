@@ -26,6 +26,65 @@
   margin-bottom: var(--space-4);
 }
 
+.digest {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  margin-bottom: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: color-mix(in oklch, var(--surface) 90%, white);
+}
+
+.digestHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.digestMeta {
+  margin: var(--space-1) 0 0;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.digestEditor {
+  width: 100%;
+  min-height: 14rem;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.digestPreview {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.digestSectionTitle {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.digestList {
+  margin: 0;
+  padding-left: 1.125rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.digestListItem {
+  color: inherit;
+}
+
 .queueItem {
   display: flex;
   justify-content: space-between;

@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import ReviewSurface from './ReviewSurface';
 import NextShell from './NextShell';
+import ReviewSurface from './ReviewSurface';
 
 vi.mock('../api/v4Client', () => ({
   v4API: {
@@ -14,6 +14,8 @@ vi.mock('../api/v4Client', () => ({
     metrics: {
       recordReview: vi.fn(),
     },
+    summary: vi.fn(),
+    brief: vi.fn(),
     capture: vi.fn(),
     search: vi.fn(),
   },
@@ -120,6 +122,58 @@ const DETAIL_PAYLOAD_2 = {
   ],
 };
 
+const SUMMARY_PAYLOAD = {
+  inbox_count: 2,
+  today_count: 5,
+  suggestions_count: 1,
+  last_reviewed_at: '2026-07-08T10:00:00Z',
+  reviewed_today: true,
+  stale_projects_count: 1,
+  new_since_yesterday_count: 3,
+  coordination_radar: {
+    people: [
+      {
+        entity_id: 'person-1',
+        title: 'Maria',
+        headline: 'Watch 1:1 drift and 1 blocked task.',
+        counts: { stuck_tasks: 1, overdue_follow_ups: 1 },
+      },
+    ],
+    projects: [
+      {
+        entity_id: 'project-1',
+        title: 'Apollo',
+        headline: 'Apollo has 2 overdue commitments.',
+        counts: { overdue_tasks: 2, quiet_tasks: 1, open_tasks: 5 },
+      },
+    ],
+  },
+};
+
+const BRIEF_PAYLOAD = {
+  brief: {
+    narrative: 'Two threads need explicit decisions before Friday.',
+    generated_at: '2026-07-08T10:00:00Z',
+    items: [
+      {
+        entity_id: 'task-1',
+        entity_type: 'task',
+        title: 'Send deck',
+        why_now: 'Due Friday and still unstarted.',
+        urgency: 5,
+      },
+      {
+        entity_id: 'project-1',
+        entity_type: 'project',
+        title: 'Apollo',
+        why_now: 'Pricing decision is still open.',
+        urgency: 4,
+      },
+    ],
+  },
+  from_cache: true,
+};
+
 function renderReview(initialEntry = '/next/review') {
   return render(
     <MemoryRouter initialEntries={[initialEntry]}>
@@ -130,20 +184,28 @@ function renderReview(initialEntry = '/next/review') {
   );
 }
 
-afterEach(() => {
-  vi.restoreAllMocks();
-});
-
 describe('ReviewSurface', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.spyOn(Date, 'now').mockReturnValue(1_000);
+
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: vi.fn().mockResolvedValue(undefined) },
+    });
+
     v4API.reports.list.mockResolvedValue(LIST_PAYLOAD);
     v4API.reports.get.mockResolvedValue(DETAIL_PAYLOAD);
     v4API.reports.resolve.mockResolvedValue({ data: { status: 'reviewed' } });
     v4API.metrics.recordReview.mockResolvedValue({ data: {} });
+    v4API.summary.mockResolvedValue(SUMMARY_PAYLOAD);
+    v4API.brief.mockResolvedValue(BRIEF_PAYLOAD);
     v4API.capture.mockResolvedValue({});
     v4API.search.mockResolvedValue({ data: [] });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it('loads pending reports via GET /reports', async () => {
@@ -151,9 +213,39 @@ describe('ReviewSurface', () => {
 
     expect(await screen.findByRole('heading', { name: 'Review' })).toBeInTheDocument();
     expect(v4API.reports.list).toHaveBeenCalledWith({ status: 'pending' });
+    expect(v4API.summary).toHaveBeenCalled();
+    expect(v4API.brief).toHaveBeenCalled();
+
     await waitFor(() => expect(v4API.reports.get).toHaveBeenCalledWith(REPORT_ID));
     expect(await screen.findByText('Write docs')).toBeInTheDocument();
     expect(screen.getByText('Proposed commitments')).toBeInTheDocument();
+  });
+
+  it('renders a weekly digest with citations', async () => {
+    renderReview();
+
+    expect(await screen.findByRole('region', { name: 'Weekly digest' })).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByLabelText('Weekly digest draft').value).toContain('Moved'),
+    );
+    expect(screen.getByLabelText('Weekly digest draft').value).toContain(
+      'Apollo: Pricing decision is still open.',
+    );
+    expect(screen.getByText('Watch 1:1 drift and 1 blocked task.')).toBeInTheDocument();
+    expect(screen.getAllByText('Send deck: Due Friday and still unstarted.').length).toBeGreaterThan(0);
+  });
+
+  it('allows editing and copying the weekly digest draft', async () => {
+    renderReview();
+
+    const draft = await screen.findByLabelText('Weekly digest draft');
+    fireEvent.change(draft, { target: { value: 'Custom weekly update' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Copy digest' }));
+
+    await waitFor(() =>
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith('Custom weekly update'),
+    );
+    expect(screen.getByText('Digest copied.')).toBeInTheDocument();
   });
 
   it('verifies proposal via POST /reports/<id>/resolve', async () => {
@@ -169,7 +261,7 @@ describe('ReviewSurface', () => {
     );
   });
 
-  it('dismisses proposal with reason', async () => {
+  it('dismisses proposal with a reason', async () => {
     renderReview();
 
     await screen.findByText('Write docs');
@@ -179,7 +271,11 @@ describe('ReviewSurface', () => {
     await waitFor(() =>
       expect(v4API.reports.resolve).toHaveBeenCalledWith(REPORT_ID, {
         decisions: [
-          { suggestion_id: SUGGESTION_ID, action: 'dismiss', dismissal_reason: 'not mine' },
+          {
+            suggestion_id: SUGGESTION_ID,
+            action: 'dismiss',
+            dismissal_reason: 'not mine',
+          },
         ],
       }),
     );
@@ -221,7 +317,7 @@ describe('ReviewSurface', () => {
     );
   });
 
-  it('sends review duration report when report leaves queue', async () => {
+  it('sends review duration when a report leaves the queue', async () => {
     v4API.reports.list
       .mockResolvedValueOnce(LIST_PAYLOAD)
       .mockResolvedValueOnce({ data: [], meta: { total: 0 } });
@@ -243,17 +339,19 @@ describe('ReviewSurface', () => {
 
   it('resets review timing when switching to another report', async () => {
     let pendingReports = [...LIST_PAYLOAD_TWO_REPORTS.data];
+
     v4API.reports.list.mockImplementation(async () => ({
       data: pendingReports,
       meta: { total: pendingReports.length },
     }));
-    v4API.reports.get.mockImplementation(async (reportId) => (
-      reportId === REPORT_ID_2 ? DETAIL_PAYLOAD_2 : DETAIL_PAYLOAD
-    ));
+    v4API.reports.get.mockImplementation(async (reportId) =>
+      reportId === REPORT_ID_2 ? DETAIL_PAYLOAD_2 : DETAIL_PAYLOAD,
+    );
     v4API.reports.resolve.mockImplementation(async (reportId) => {
       pendingReports = pendingReports.filter((row) => row.id !== reportId);
       return { data: { status: 'reviewed' } };
     });
+
     let now = 1_000;
     vi.spyOn(Date, 'now').mockImplementation(() => now);
 
@@ -262,26 +360,28 @@ describe('ReviewSurface', () => {
     await screen.findByText('Write docs');
     now = 5_000;
     fireEvent.click(screen.getByRole('button', { name: /report-2/i }));
-    await screen.findByText('Send recap');
-    // Detail effect seeds reviewStartedAt at now=5_000 before we advance the clock.
-    await waitFor(() => expect(v4API.reports.get).toHaveBeenCalledWith(REPORT_ID_2));
-    now = 25_000;
+    expect(await screen.findByText('Send recap')).toBeInTheDocument();
+    expect(v4API.reports.get).toHaveBeenCalledWith(REPORT_ID_2);
+    await waitFor(() =>
+      expect(screen.getByText('Recap note')).toBeInTheDocument(),
+    );
+
+    now = 9_000;
     fireEvent.click(screen.getByRole('button', { name: 'Verify' }));
 
-    await waitFor(() =>
-      expect(v4API.metrics.recordReview).toHaveBeenCalledWith({
-        report_id: REPORT_ID_2,
-        duration_ms: 20_000,
-        suggestion_count: 1,
-      }),
-    );
+    await waitFor(() => expect(v4API.metrics.recordReview).toHaveBeenCalled());
+    expect(v4API.metrics.recordReview).toHaveBeenCalledWith({
+      report_id: REPORT_ID_2,
+      duration_ms: 4_000,
+      suggestion_count: 1,
+    });
   });
 
-  it('accepts remainder of report in one batch', async () => {
+  it('accepts the remainder of a report in one batch', async () => {
     renderReview();
 
     await screen.findByText('Write docs');
-    fireEvent.click(screen.getByRole('button', { name: /Accept remainder \(1\)/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Accept remainder (1)' }));
 
     await waitFor(() =>
       expect(v4API.reports.resolve).toHaveBeenCalledWith(REPORT_ID, {
@@ -291,14 +391,12 @@ describe('ReviewSurface', () => {
     );
   });
 
-  it('hides per-item actions for applied annotations', async () => {
+  it('keeps applied annotations read-only and leaves the proposal editable', async () => {
     renderReview();
 
-    await screen.findByText('Tag added: meeting');
+    expect(await screen.findByText('Tag added: meeting')).toBeInTheDocument();
     expect(screen.getByText(/Already applied/)).toBeInTheDocument();
-    expect(
-      screen.queryByText('Tag added: meeting', { selector: 'button' }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText('Tag added: meeting', { selector: 'button' })).not.toBeInTheDocument();
     expect(screen.getByText('Write docs')).toBeInTheDocument();
   });
 });
@@ -306,13 +404,12 @@ describe('ReviewSurface', () => {
 describe('NextShell', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    v4API.reports.list.mockResolvedValue({ data: [], meta: { total: 2 } });
-    v4API.metrics.recordReview.mockResolvedValue({ data: {} });
+    v4API.reports.list.mockResolvedValue({ data: [{ id: REPORT_ID }, { id: REPORT_ID_2 }], meta: { total: 2 } });
     v4API.capture.mockResolvedValue({});
     v4API.search.mockResolvedValue({ data: [] });
   });
 
-  it('shows review pulse count from pending reports', async () => {
+  it('shows the pending review count in the pulse link', async () => {
     render(
       <MemoryRouter initialEntries={['/next/review']}>
         <Routes>
@@ -323,7 +420,7 @@ describe('NextShell', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByLabelText(/Review, 2 pending reports/)).toBeInTheDocument();
+    expect(await screen.findByLabelText(/Review, 2 pending reports/i)).toBeInTheDocument();
     expect(screen.getByText('2')).toBeInTheDocument();
   });
 });
