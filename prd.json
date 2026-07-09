@@ -1,10 +1,14 @@
 {
   "iteration": "v6-phase-5-themes",
-  "goal": "Phase 5: Themes + weekly digest + monthly health + People surface — with implement→review→APPROVE QC.",
+  "goal": "Phase 5: Themes + weekly digest + monthly health + People surface \u2014 with implement\u2192review\u2192APPROVE QC.",
   "riskLevel": "medium",
   "userProblem": "No theme entity type, no weekly digest in Review, no monthly portfolio briefing, no People surface in /next.",
   "whyNow": "Phase 4 Today/markers shipped. Themes + insights are the next IMPLEMENTATION_PLAN slice before cutover.",
-  "skills": ["tdd", "incremental-implementation", "git-workflow"],
+  "skills": [
+    "tdd",
+    "incremental-implementation",
+    "git-workflow"
+  ],
   "doubt": false,
   "scope": {
     "filesAffected": [
@@ -28,14 +32,14 @@
       "Retire POST /api/v4/entities/<id>/convert"
     ],
     "dataOrApiDependencies": [
-      "Migration 011_theme_type.sql additive only — test DB (:5433) first",
+      "Migration 011_theme_type.sql additive only \u2014 test DB (:5433) first",
       "Existing /summary and /brief for V6-51 weekly digest",
       "Existing person rollup data for V6-53",
       "TEST_DATABASE_URL port 5433 only"
     ],
     "writePathsAffected": [
       "theme entity type in chk_entities_type",
-      "promote theme→project with promoted event",
+      "promote theme\u2192project with promoted event",
       "/convert endpoint removed"
     ]
   },
@@ -43,15 +47,19 @@
     {
       "id": "v6-50-themes",
       "title": "Themes backend + promote",
-      "description": "Add scripts/migrations/011_theme_type.sql (theme type in constraint). Create from omni-bar; attach decisions/questions. POST /entities/<id>/promote theme→project only — preserves links/events, writes promoted event. Retire /convert. Tests: TEST_PLAN TC-50..52, EC-24..25.",
+      "description": "Add scripts/migrations/011_theme_type.sql (theme type in constraint). Create from omni-bar; attach decisions/questions. POST /entities/<id>/promote theme\u2192project only \u2014 preserves links/events, writes promoted event. Retire /convert. Tests: TEST_PLAN TC-50..52, EC-24..25.",
       "kind": "code",
-      "skills": ["tdd", "incremental-implementation", "git-workflow"],
+      "skills": [
+        "tdd",
+        "incremental-implementation",
+        "git-workflow"
+      ],
       "risk": "medium",
       "dependencies": [],
       "acceptanceCriteria": [
         "Migration 011 applies on test DB",
         "theme type accepted; excluded from Workboard commit states (TC-50)",
-        "promote flips theme→project, links/events intact (TC-51)",
+        "promote flips theme\u2192project, links/events intact (TC-51)",
         "/convert returns 404/410 (TC-52)"
       ],
       "validationCommands": [
@@ -69,9 +77,14 @@
       "title": "Code review: V6-50 themes",
       "description": "5-pass review per QC_LOOP on v6-50-themes. Write docs/v6/reviews/v6-50-themes.md.",
       "kind": "review",
-      "skills": ["code-review", "debugging"],
+      "skills": [
+        "code-review",
+        "debugging"
+      ],
       "risk": "medium",
-      "dependencies": ["v6-50-themes"],
+      "dependencies": [
+        "v6-50-themes"
+      ],
       "acceptanceCriteria": [
         "docs/v6/reviews/v6-50-themes.md Verdict: APPROVE",
         "bash scripts/v6_check_review_verdict.sh v6-50-themes exits 0"
@@ -91,9 +104,15 @@
       "title": "Weekly digest in Review",
       "description": "Package /summary + brief into Review weekly digest surface: cited, editable, copy-out. Component tests. UC-9.",
       "kind": "code",
-      "skills": ["tdd", "incremental-implementation", "git-workflow"],
+      "skills": [
+        "tdd",
+        "incremental-implementation",
+        "git-workflow"
+      ],
       "risk": "medium",
-      "dependencies": ["v6-50-code-review"],
+      "dependencies": [
+        "v6-50-code-review"
+      ],
       "acceptanceCriteria": [
         "Weekly digest renders in Review with citations",
         "Editable + copy-out affordance",
@@ -115,9 +134,14 @@
       "title": "Code review: V6-51 weekly digest",
       "description": "5-pass review per QC_LOOP on v6-51-weekly-digest. Write docs/v6/reviews/v6-51-weekly-digest.md.",
       "kind": "review",
-      "skills": ["code-review", "debugging"],
+      "skills": [
+        "code-review",
+        "debugging"
+      ],
       "risk": "low",
-      "dependencies": ["v6-51-weekly-digest"],
+      "dependencies": [
+        "v6-51-weekly-digest"
+      ],
       "acceptanceCriteria": [
         "docs/v6/reviews/v6-51-weekly-digest.md Verdict: APPROVE",
         "bash scripts/v6_check_review_verdict.sh v6-51-weekly-digest exits 0"
@@ -137,9 +161,15 @@
       "title": "Monthly health briefing",
       "description": "GET /insights/monthly computed on demand (cached in AppSetting). Workboard placement for signals. Empty sections omitted. Unit tests per signal. UC-10, TC-53.",
       "kind": "code",
-      "skills": ["tdd", "incremental-implementation", "git-workflow"],
+      "skills": [
+        "tdd",
+        "incremental-implementation",
+        "git-workflow"
+      ],
       "risk": "medium",
-      "dependencies": ["v6-51-code-review"],
+      "dependencies": [
+        "v6-51-code-review"
+      ],
       "acceptanceCriteria": [
         "Each signal computed from seeded fixture (TC-53)",
         "Empty sections omitted; fully-empty returns explicit message",
@@ -160,9 +190,14 @@
       "title": "Code review: V6-52 monthly health",
       "description": "5-pass review per QC_LOOP on v6-52-monthly-health. Write docs/v6/reviews/v6-52-monthly-health.md.",
       "kind": "review",
-      "skills": ["code-review", "debugging"],
+      "skills": [
+        "code-review",
+        "debugging"
+      ],
       "risk": "low",
-      "dependencies": ["v6-52-monthly-health"],
+      "dependencies": [
+        "v6-52-monthly-health"
+      ],
       "acceptanceCriteria": [
         "docs/v6/reviews/v6-52-monthly-health.md Verdict: APPROVE",
         "bash scripts/v6_check_review_verdict.sh v6-52-monthly-health exits 0"
@@ -182,9 +217,15 @@
       "title": "People surface in /next",
       "description": "ui/src/next/PeopleSurface.jsx: person page with owes/owed, quiet detection, prep shortcut from existing rollup data. Wire route. Vitest tests.",
       "kind": "code",
-      "skills": ["tdd", "incremental-implementation", "git-workflow"],
+      "skills": [
+        "tdd",
+        "incremental-implementation",
+        "git-workflow"
+      ],
       "risk": "medium",
-      "dependencies": ["v6-52-code-review"],
+      "dependencies": [
+        "v6-52-code-review"
+      ],
       "acceptanceCriteria": [
         "People surface loads person rollup",
         "Owes/owed sections render",
@@ -207,9 +248,14 @@
       "title": "Code review: V6-53 People surface",
       "description": "5-pass review per QC_LOOP on v6-53-people-surface. Write docs/v6/reviews/v6-53-people-surface.md.",
       "kind": "review",
-      "skills": ["code-review", "debugging"],
+      "skills": [
+        "code-review",
+        "debugging"
+      ],
       "risk": "low",
-      "dependencies": ["v6-53-people-surface"],
+      "dependencies": [
+        "v6-53-people-surface"
+      ],
       "acceptanceCriteria": [
         "docs/v6/reviews/v6-53-people-surface.md Verdict: APPROVE",
         "bash scripts/v6_check_review_verdict.sh v6-53-people-surface exits 0"
@@ -229,9 +275,13 @@
       "title": "Phase 5 gate: full validation + tracker",
       "description": "Full backend + UI validation. All docs/v6/reviews/v6-5*.md APPROVE. Update EXECUTION-TRACKER.md Phase 5 done. Archive prd. Do not start Phase 6.",
       "kind": "gate",
-      "skills": ["git-workflow"],
+      "skills": [
+        "git-workflow"
+      ],
       "risk": "low",
-      "dependencies": ["v6-53-code-review"],
+      "dependencies": [
+        "v6-53-code-review"
+      ],
       "acceptanceCriteria": [
         "bash scripts/v6_validate_slice.sh passes",
         "cd ui && npm test && npm run build green",
@@ -252,8 +302,12 @@
     }
   ],
   "codingLoopPolicy": {
-    "primaryExecutor": "codex",
-    "fallbackExecutors": ["cursor", "claude", "opencode"],
+    "primaryExecutor": "opencode",
+    "fallbackExecutors": [
+      "cursor",
+      "codex",
+      "claude"
+    ],
     "platform": "openclaw",
     "allowExecutorFallback": true,
     "requireHumanForDependencies": true,
