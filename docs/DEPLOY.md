@@ -224,3 +224,18 @@ If the frontend build fails:
 cd /Volumes/lex1t/dev/shared/repos/engram/ui
 npx vite build --debug 2>&1 | tail -30
 ```
+
+## Rollback (pre-Phase-6 snapshot)
+
+After Phase 5, the last dual-UI state (V5 at `/`, v6 at `/next/*`) is tagged:
+
+```bash
+git fetch --tags   # if needed
+git checkout engram/v6-phase-5-complete
+./scripts/engram-deploy.sh
+```
+
+After Phase 6 cutover, the promoted v6 shell is at `/` and the previous UI stays at
+`/legacy/*` until legacy removal is explicitly approved. To roll back a bad deploy
+without checking out old code, open `/legacy` in the browser first; use the tag
+above only when a full code+build rollback is required.

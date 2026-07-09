@@ -106,8 +106,8 @@ Deploy gate 5: suites green, deploy, smoke.
 
 | Slice | Scope | Acceptance |
 |---|---|---|
-| V6-60 Promote shell | `/next` becomes `/`; legacy app reachable at `/legacy` for **one validation week only** | Manual side-by-side week; no data divergence (same API) |
-| V6-61 Delete legacy UI | Remove `ui/src/views/V5*`, `ui/src/lab/*`, legacy App views/routes + their tests; prune dead CSS/assets | Build green; remaining tests green; no dangling imports (`npm run build` + grep) |
+| V6-60 Promote shell | `/next` becomes `/`; current V5+lab shell extracted to `ui/src/legacy/` and mounted at `/legacy/*` as the **runtime fallback** | Manual side-by-side week; no data divergence (same API); `/legacy` remains until explicit removal |
+| V6-61 Delete legacy UI | **Deferred** until overseer sign-off after cutover validation. Tag `engram/v6-phase-5-complete` is the deploy rollback point. When removed: delete `ui/src/legacy/*`, legacy routes, and their tests | Build green; no dangling imports |
 | V6-62 MCP alignment | Add `list_reports`/`get_report`/`resolve_report`/`get_workboard`/`add_marker`/`draft_nudge`; `capture` returns `report_id`; README_V4 contract update | MCP unit tests; live smoke via MCP client |
 | V6-63 Docs & tracker | README, AGENTS.md, tracker reflect v6 as the only UI; UX_VISION marked "implemented baseline" with deviations noted | Docs review |
 

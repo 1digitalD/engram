@@ -5,7 +5,7 @@ code. Full v4-era history is archived at `docs/archive/EXECUTION-TRACKER-v4-hist
 
 Last updated: 2026-07-08
 Branch: `main`
-Status: **v6 Phase 5 done** — Phase 6 pending (overseer).
+Status: **v6 Phase 6 drain active** — cutover + MCP.
 
 ## Current program: v6 (vision-driven rebuild)
 
@@ -19,7 +19,7 @@ Status: **v6 Phase 5 done** — Phase 6 pending (overseer).
 | `docs/iterations/ITERATION_v6_PHASE_2.md` | Phase 2 iteration (archived) |
 | `docs/iterations/ITERATION_v6_PHASE_3.md` | Phase 3 iteration (archived) |
 | `docs/iterations/ITERATION_v6_PHASE_4.md` | Phase 4 iteration (archived) |
-| `docs/iterations/ITERATION_v6_PHASE_5.md` | Phase 5 iteration (archived) |
+| `docs/iterations/ITERATION_v6_PHASE_6.md` | Phase 6 iteration (active) |
 
 Runtime baseline: `/api/v4` only, Postgres + pgvector, write-enabled MCP.
 
@@ -33,7 +33,7 @@ Runtime baseline: `/api/v4` only, Postgres + pgvector, write-enabled MCP.
 | 3 Dossier + direct manipulation + pinning | **done** (2026-07-08) |
 | 4 Today + markers + nudges | **done** (2026-07-08) |
 | 5 Themes + insights | **done** (2026-07-08) |
-| 6 Cutover + legacy UI deletion | pending |
+| 6 Cutover + MCP | **in progress** (drain started 2026-07-08; v6-61 deferred) |
 
 ## Phase 0 retro review (2026-07-08)
 
@@ -99,4 +99,6 @@ bash scripts/v6_check_review_verdict.sh <implement-task-id>   # review tasks
 - 2026-07-09T01:20:11.080427+00:00 v6-53-people-surface accepted via codex
 - 2026-07-08 v6-50-themes — migration 011 (`theme` entity type) on test DB
 - 2026-07-08 Phase 5 gate — done (cursor)
+- 2026-07-08 **Pre-Phase-6 snapshot:** tag `engram/v6-phase-5-complete` (deploy rollback). Phase 6 keeps V5 at `/legacy/*` until explicit removal; v6-61 demolition deferred.
 - 2026-07-09T01:31:46.159099+00:00 v6-phase-5-gate accepted via cursor
+- _Phase 6 cutover — prd ready, drain starting_
