@@ -92,3 +92,4 @@ bash scripts/v6_check_review_verdict.sh <implement-task-id>   # review tasks
 - _Phase 5 themes — prd ready, drain starting_
 - 2026-07-09T00:30:15 v6-50-themes blocked (Codex) — overseer fix: workboard test shape + theme detail builder
 - 2026-07-09 v6-50-themes accepted via overseer (migration 011, promote, retire /convert)
+- 2026-07-09T00:37:22.740990+00:00 v6-50-code-review accepted via codex
