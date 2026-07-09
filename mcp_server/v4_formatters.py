@@ -294,6 +294,161 @@ def format_suggestion_action(payload, action):
     return "\n".join(lines)
 
 
+def format_reports_list(payload):
+    reports = payload.get("data") or []
+    meta = payload.get("meta") or {}
+    if not reports:
+        return "No distillation reports found."
+
+    lines = [f"Distillation reports ({len(reports)} of {meta.get('total', len(reports))}):"]
+    for report in reports:
+        stats = report.get("stats") or {}
+        suggestion_count = stats.get("suggestion_count")
+        count_text = f", {suggestion_count} suggestion(s)" if suggestion_count is not None else ""
+        lines.append(
+            f"- `{report.get('id')}` [{report.get('status')}] "
+            f"source=`{report.get('source_note_id')}`{count_text}"
+        )
+    return "\n".join(lines)
+
+
+def format_report_detail(payload):
+    report = payload.get("data") or {}
+    if not report:
+        return "Report not found."
+
+    lines = [
+        f"Report `{report.get('id')}` [{report.get('status')}]",
+        f"Source note: `{report.get('source_note_id')}`",
+    ]
+    narrative = report.get("narrative") or {}
+    summary = narrative.get("summary")
+    if summary:
+        lines.append(f"Summary: {summary}")
+    sections = narrative.get("sections") or []
+    if sections:
+        lines.append(f"Sections ({len(sections)}):")
+        for section in sections:
+            title = section.get("title") or section.get("key") or "section"
+            lines.append(f"  - {title}")
+
+    source_note = payload.get("source_note") or {}
+    if source_note.get("title"):
+        lines.append(f"Note title: {source_note.get('title')}")
+
+    suggestions = payload.get("suggestions") or []
+    if suggestions:
+        lines.append(f"Suggestions ({len(suggestions)}):")
+        for suggestion in suggestions:
+            confidence = suggestion.get("confidence")
+            try:
+                conf_text = f" confidence={float(confidence):.2f}" if confidence is not None else ""
+            except (TypeError, ValueError):
+                conf_text = ""
+            lines.append(
+                f"  - `{suggestion.get('id')}` [{suggestion.get('operation_type')}]{conf_text} "
+                f"{suggestion.get('reason') or ''}"
+            )
+    return "\n".join(lines)
+
+
+def format_resolve_report(payload):
+    report = payload.get("data") or {}
+    meta = payload.get("meta") or {}
+    if not report:
+        return "Report resolve failed or returned empty."
+
+    lines = [
+        f"Report `{report.get('id')}` resolved [{report.get('status')}]",
+        f"Applied: {meta.get('applied', 0)}, dismissed: {meta.get('dismissed', 0)}, "
+        f"later: {meta.get('later', 0)}",
+    ]
+    batch = payload.get("change_batch") or {}
+    if batch.get("id"):
+        lines.append(f"Change batch: `{batch.get('id')}`")
+    return "\n".join(lines)
+
+
+def format_workboard(payload):
+    data = payload.get("data") or {}
+    groups = data.get("groups") or []
+    meta = payload.get("meta") or {}
+    counts = meta.get("counts") or {}
+    total = meta.get("total", 0)
+
+    if total == 0:
+        return "Workboard is empty."
+
+    count_bits = ", ".join(f"{key}={value}" for key, value in sorted(counts.items()) if value)
+    lines = [
+        f"Workboard ({total} task(s), group={meta.get('group', 'space')})",
+    ]
+    if count_bits:
+        lines.append(f"Counts: {count_bits}")
+    filters = meta.get("state_filters") or []
+    if filters:
+        lines.append(f"Filters: {', '.join(filters)}")
+
+    for group in groups:
+        label = group.get("label") or group.get("key") or "group"
+        items = group.get("items") or []
+        if not items:
+            continue
+        lines.append(f"\n{label} ({len(items)}):")
+        for item in items:
+            states = item.get("states") or {}
+            active_states = [name for name, active in states.items() if active and name != "at_risk_detail"]
+            state_text = f" [{', '.join(active_states)}]" if active_states else ""
+            owner = (item.get("owner") or {}).get("title")
+            owner_text = f" owner={owner}" if owner else ""
+            lines.append(
+                f"  - `{item.get('id')}` {item.get('title') or '(no title)'}"
+                f" [{item.get('status')}]{state_text}{owner_text}"
+            )
+    return "\n".join(lines)
+
+
+def format_marker(payload):
+    marker = payload.get("data") or {}
+    if not marker:
+        return "Marker operation failed or returned empty."
+    lines = [
+        f"Marker `{marker.get('id')}` [{marker.get('kind')}] on entity `{marker.get('entity_id')}`",
+    ]
+    if marker.get("due_at"):
+        lines.append(f"Due: {marker.get('due_at')}")
+    if marker.get("person_entity_id"):
+        lines.append(f"Person: `{marker.get('person_entity_id')}`")
+    if marker.get("note"):
+        lines.append(f"Note: {marker.get('note')}")
+    return "\n".join(lines)
+
+
+def format_nudge_draft(payload):
+    data = payload.get("data") or {}
+    if not data:
+        return "Nudge draft failed or returned empty."
+
+    lines = [
+        f"Nudge draft for commitment `{data.get('commitment_id')}`",
+        f"Original ask: {data.get('original_ask') or '(unknown)'}",
+    ]
+    if data.get("committed_at"):
+        lines.append(f"Committed: {data.get('committed_at')}")
+    if data.get("draft"):
+        lines.append(f"\nDraft:\n{data.get('draft')}")
+    receipts = data.get("receipts") or []
+    if receipts:
+        lines.append(f"\nReceipts ({len(receipts)}):")
+        for receipt in receipts[:5]:
+            label = receipt.get("label") or receipt.get("field") or receipt.get("kind") or "receipt"
+            value = receipt.get("value") or receipt.get("quote") or ""
+            lines.append(f"  - {label}: {value}")
+    if data.get("auto_sent"):
+        lines.append("Warning: auto_sent is true (unexpected).")
+    return "\n".join(lines)
+
+
 def format_activity_update(payload):
     note = payload.get("data") or {}
     skipped = payload.get("skipped")

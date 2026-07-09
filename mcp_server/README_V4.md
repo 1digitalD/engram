@@ -12,9 +12,12 @@ requests and returns formatted text. It is write-enabled and has no separate per
 - `get_today()` — follow-ups, blocked/waiting tasks, active projects, recent notes, pending suggestions
 - `list_suggestions(status?)` — AI suggestions awaiting review (default: pending)
 - `get_agent_activity(limit?)` — recent agent automation actions, suggestions, and failures
+- `list_reports(status?, limit?)` — distillation reports awaiting review (default: pending)
+- `get_report(report_id)` — one report with narrative sections and linked suggestions
+- `get_workboard(group?, state?)` — v6 portfolio workboard grouped by space or person; optional state filters (`mine`, `waiting_on`, `overdue`, `stale`, `blocked`, `at_risk`)
 
 **Write:**
-- `capture(content, source?)` — save raw text as a note, triggers server-side extraction
+- `capture(content, source?)` — save raw text as a note, triggers server-side extraction; returns `report_id` when a distillation report is created
 - `create_entity(type, title, content?, tags?, status?, due_at?, follow_up_at?)` — create pre-classified entity
 - `update_entity(entity_id, title?, content?, status?, lifecycle?, due_at?, follow_up_at?, tags?)` — update entity fields
 - `link_entities(source_id, target_id, relationship_type?, evidence?)` — create EntityLink
@@ -23,6 +26,9 @@ requests and returns formatted text. It is write-enabled and has no separate per
 - `reconcile_suggestions(limit?)` — expire pending suggestions that no longer apply
 - `submit_candidates(entity_id, summary?, tags?, entities?, links?)` — submit pre-extracted candidates for any entity, bypassing LLM extraction
 - `append_activity_update(entity_id, content, skip_extraction?)` — append an activity update note to a project, task, or area (exact duplicates within 24h skipped; near-duplicates flagged; set `skip_extraction=true` to skip lightweight extraction)
+- `resolve_report(report_id, decisions?, accept_rest?)` — resolve distillation report suggestions in one atomic batch
+- `add_marker(entity_id, kind, due_at?, person_entity_id?, note?)` — add a follow-up marker (`nudge`, `discuss`, or `custom`)
+- `draft_nudge(commitment_id)` — draft a receipt-grounded follow-up nudge for a waiting-on task (never auto-sends)
 
 ## Transport
 

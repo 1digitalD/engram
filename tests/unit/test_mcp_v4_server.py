@@ -422,3 +422,183 @@ def test_append_activity_update_passes_skip_extraction(monkeypatch):
 
     assert calls[0][:2] == ("POST", "/entities/p1/activity_updates")
     assert calls[0][2]["json"] == {"content": "Logged progress", "skip_extraction": True}
+
+
+# ---------------------------------------------------------------------------
+# v6 report / workboard / marker / nudge tools
+# ---------------------------------------------------------------------------
+
+
+def test_list_reports_calls_api_with_status_and_limit(monkeypatch):
+    calls = []
+
+    def fake_api(method, path, **kwargs):
+        calls.append((method, path, kwargs))
+        return {
+            "data": [{
+                "id": "r1",
+                "status": "pending",
+                "source_note_id": "n1",
+                "stats": {"suggestion_count": 2},
+            }],
+            "meta": {"total": 1, "limit": 25},
+        }
+
+    monkeypatch.setattr(server, "_api", fake_api)
+    text = server.list_reports(status="pending", limit=999)
+
+    assert calls == [("GET", "/reports", {"params": {"status": "pending", "limit": 200}})]
+    assert "r1" in text
+    assert "2 suggestion(s)" in text
+
+
+def test_get_report_fetches_report_detail(monkeypatch):
+    calls = []
+
+    def fake_api(method, path, **kwargs):
+        calls.append((method, path, kwargs))
+        return {
+            "data": {
+                "id": "r2",
+                "status": "pending",
+                "source_note_id": "n2",
+                "narrative": {"summary": "Sync recap", "sections": [{"title": "Tasks"}]},
+            },
+            "source_note": {"id": "n2", "title": "Team sync"},
+            "suggestions": [{
+                "id": "s1",
+                "operation_type": "create_task",
+                "confidence": 0.88,
+                "reason": "follow up",
+            }],
+        }
+
+    monkeypatch.setattr(server, "_api", fake_api)
+    text = server.get_report("r2")
+
+    assert calls == [("GET", "/reports/r2", {})]
+    assert "Sync recap" in text
+    assert "create_task" in text
+    assert "Team sync" in text
+
+
+def test_resolve_report_posts_decisions_and_accept_rest(monkeypatch):
+    calls = []
+
+    def fake_api(method, path, **kwargs):
+        calls.append((method, path, kwargs))
+        return {
+            "data": {"id": "r3", "status": "reviewed"},
+            "change_batch": {"id": "b1"},
+            "meta": {"applied": 2, "dismissed": 1, "later": 0},
+        }
+
+    monkeypatch.setattr(server, "_api", fake_api)
+    decisions = [{"suggestion_id": "s1", "action": "accept"}]
+    text = server.resolve_report("r3", decisions=decisions, accept_rest=True)
+
+    assert calls == [(
+        "POST",
+        "/reports/r3/resolve",
+        {"json": {"decisions": decisions, "accept_rest": True}},
+    )]
+    assert "reviewed" in text
+    assert "Applied: 2" in text
+    assert "b1" in text
+
+
+def test_get_workboard_passes_group_and_state_filters(monkeypatch):
+    calls = []
+
+    def fake_api(method, path, **kwargs):
+        calls.append((method, path, kwargs))
+        return {
+            "data": {
+                "groups": [{
+                    "label": "Rollout",
+                    "items": [{
+                        "id": "t1",
+                        "title": "Write docs",
+                        "status": "open",
+                        "owner": {"title": "Sam"},
+                        "states": {"mine": True, "overdue": True},
+                    }],
+                }],
+            },
+            "meta": {
+                "group": "space",
+                "total": 1,
+                "counts": {"total": 1, "mine": 1, "overdue": 1},
+                "state_filters": ["overdue"],
+            },
+        }
+
+    monkeypatch.setattr(server, "_api", fake_api)
+    text = server.get_workboard(group="space", state=["overdue"])
+
+    assert calls == [("GET", "/workboard", {"params": {"group": "space", "state": ["overdue"]}})]
+    assert "Write docs" in text
+    assert "Rollout" in text
+
+
+def test_add_marker_posts_marker_payload(monkeypatch):
+    calls = []
+
+    def fake_api(method, path, **kwargs):
+        calls.append((method, path, kwargs))
+        return {
+            "data": {
+                "id": "m1",
+                "entity_id": "t1",
+                "kind": "nudge",
+                "due_at": "2025-07-01T12:00:00Z",
+                "note": "Ping Sam",
+            }
+        }
+
+    monkeypatch.setattr(server, "_api", fake_api)
+    text = server.add_marker(
+        "t1",
+        kind="nudge",
+        due_at="2025-07-01T12:00:00Z",
+        note="Ping Sam",
+    )
+
+    assert calls == [(
+        "POST",
+        "/markers",
+        {"json": {
+            "entity_id": "t1",
+            "kind": "nudge",
+            "due_at": "2025-07-01T12:00:00Z",
+            "note": "Ping Sam",
+        }},
+    )]
+    assert "m1" in text
+    assert "Ping Sam" in text
+
+
+def test_draft_nudge_calls_commitment_endpoint(monkeypatch):
+    calls = []
+
+    def fake_api(method, path, **kwargs):
+        calls.append((method, path, kwargs))
+        return {
+            "data": {
+                "commitment_id": "t9",
+                "draft": "Hi Sam, following up on the questionnaire.",
+                "original_ask": "Complete security questionnaire",
+                "committed_at": "2025-06-28",
+                "receipts": [{"label": "source", "value": "from standup"}],
+                "auto_sent": False,
+            }
+        }
+
+    monkeypatch.setattr(server, "_api", fake_api)
+    text = server.draft_nudge("t9")
+
+    assert calls == [("POST", "/commitments/t9/nudge-draft", {})]
+    assert "questionnaire" in text
+    assert "Hi Sam" in text
+    assert "from standup" in text
+

@@ -5,9 +5,11 @@ V4 MCP exposes both read and write tools. All write tools call through to the
 Engram /api/v4 REST API. The MCP is not a separate authority — it is a thin
 proxy that translates MCP tool calls into API calls.
 
-Read tools:  search_entities, get_entity, list_recent, get_today, list_suggestions, get_agent_activity
+Read tools:  search_entities, get_entity, list_recent, get_today, list_suggestions, get_agent_activity,
+             list_reports, get_report, get_workboard
 Write tools: capture, create_entity, update_entity, link_entities,
-             accept_suggestion, dismiss_suggestion, reconcile_suggestions, submit_candidates
+             accept_suggestion, dismiss_suggestion, reconcile_suggestions, submit_candidates,
+             resolve_report, add_marker, draft_nudge
 
 All tools use the same API base (ENGRAM_API_BASE). The MCP server itself
 holds no separate state or permissions.
@@ -34,12 +36,18 @@ from mcp_server.v4_formatters import (
     format_entity,
     format_entity_write,
     format_link,
+    format_marker,
+    format_nudge_draft,
     format_recent,
+    format_report_detail,
+    format_reports_list,
+    format_resolve_report,
     format_search_results,
     format_suggestion_reconcile,
     format_suggestion_action,
     format_suggestions,
     format_today,
+    format_workboard,
 )
 
 
@@ -51,9 +59,11 @@ mcp = FastMCP(
     version="4.0.0",
     instructions=(
         "Engram v4 MCP — thin proxy for the /api/v4 REST API. "
-        "Read tools: search_entities, get_entity, list_recent, get_today, list_suggestions, get_agent_activity. "
+        "Read tools: search_entities, get_entity, list_recent, get_today, list_suggestions, get_agent_activity, "
+        "list_reports, get_report, get_workboard. "
         "Write tools: capture, create_entity, update_entity, link_entities, "
-        "accept_suggestion, dismiss_suggestion, reconcile_suggestions, submit_candidates, append_activity_update. "
+        "accept_suggestion, dismiss_suggestion, reconcile_suggestions, submit_candidates, append_activity_update, "
+        "resolve_report, add_marker, draft_nudge. "
         "All tools are routed directly to /api/v4 endpoints."
     ),
 )
@@ -151,6 +161,36 @@ def get_agent_activity(limit: int = 20) -> str:
     limit = max(1, min(limit, 100))
     payload = _api("GET", "/agent-activity", params={"limit": limit})
     return format_agent_activity(payload)
+
+
+@mcp.tool(description=(
+    "List distillation reports awaiting review. "
+    "status must be pending, partial, reviewed, superseded, or all. Defaults to pending. Read-only."
+))
+def list_reports(status: str = "pending", limit: int = 50) -> str:
+    limit = max(1, min(limit, 200))
+    payload = _api("GET", "/reports", params={"status": status, "limit": limit})
+    return format_reports_list(payload)
+
+
+@mcp.tool(description=(
+    "Get one distillation report with narrative sections and linked suggestions. Read-only."
+))
+def get_report(report_id: str) -> str:
+    payload = _api("GET", f"/reports/{report_id}")
+    return format_report_detail(payload)
+
+
+@mcp.tool(description=(
+    "Get the v6 workboard portfolio grouped by space or person. "
+    "state filters: mine, waiting_on, overdue, stale, blocked, at_risk. Read-only."
+))
+def get_workboard(group: str = "space", state: Optional[List[str]] = None) -> str:
+    params: dict = {"group": group or "space"}
+    if state:
+        params["state"] = state
+    payload = _api("GET", "/workboard", params=params)
+    return format_workboard(payload)
 
 
 # ---------------------------------------------------------------------------
@@ -318,6 +358,57 @@ def append_activity_update(entity_id: str, content: str, skip_extraction: bool =
 def resolve_note(entity_id: str) -> str:
     payload = _api("POST", f"/entities/{entity_id}/resolve")
     return format_entity_write(payload)
+
+
+@mcp.tool(description=(
+    "Resolve distillation report suggestions in one atomic batch. "
+    "decisions is a list of {suggestion_id, action, edits?, dismissal_reason?} objects "
+    "where action is accept, edit, dismiss, or later. "
+    "Set accept_rest=true to accept all remaining pending suggestions."
+))
+def resolve_report(
+    report_id: str,
+    decisions: Optional[List[dict]] = None,
+    accept_rest: bool = False,
+) -> str:
+    body: dict = {
+        "decisions": decisions or [],
+        "accept_rest": accept_rest,
+    }
+    payload = _api("POST", f"/reports/{report_id}/resolve", json=body)
+    return format_resolve_report(payload)
+
+
+@mcp.tool(description=(
+    "Add a follow-up marker on an entity. "
+    "kind must be nudge, discuss, or custom. "
+    "due_at is required for nudge/custom; person_entity_id is required for discuss."
+))
+def add_marker(
+    entity_id: str,
+    kind: str,
+    due_at: Optional[str] = None,
+    person_entity_id: Optional[str] = None,
+    note: Optional[str] = None,
+) -> str:
+    body: dict = {"entity_id": entity_id, "kind": kind}
+    if due_at:
+        body["due_at"] = due_at
+    if person_entity_id:
+        body["person_entity_id"] = person_entity_id
+    if note:
+        body["note"] = note
+    payload = _api("POST", "/markers", json=body)
+    return format_marker(payload)
+
+
+@mcp.tool(description=(
+    "Draft a receipt-grounded follow-up nudge for a waiting-on commitment (task). "
+    "Returns draft text only — never auto-sends."
+))
+def draft_nudge(commitment_id: str) -> str:
+    payload = _api("POST", f"/commitments/{commitment_id}/nudge-draft")
+    return format_nudge_draft(payload)
 
 
 if __name__ == "__main__":
