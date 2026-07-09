@@ -247,7 +247,7 @@ export default function WorkboardSurface() {
                     <div>
                       <h2 className={styles.groupTitle}>
                         {bucket.kind === 'space' && bucket.entity_id ? (
-                          <Link to={`/next/spaces/${bucket.entity_id}`}>{bucket.label}</Link>
+                          <Link to={`/spaces/${bucket.entity_id}`}>{bucket.label}</Link>
                         ) : (
                           bucket.label
                         )}

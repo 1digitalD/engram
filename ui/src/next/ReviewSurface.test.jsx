@@ -174,11 +174,11 @@ const BRIEF_PAYLOAD = {
   from_cache: true,
 };
 
-function renderReview(initialEntry = '/next/review') {
+function renderReview(initialEntry = '/review') {
   return render(
     <MemoryRouter initialEntries={[initialEntry]}>
       <Routes>
-        <Route path="/next/review" element={<ReviewSurface />} />
+        <Route path="/review" element={<ReviewSurface />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -422,9 +422,9 @@ describe('NextShell', () => {
 
   it('shows the pending review count in the pulse link', async () => {
     render(
-      <MemoryRouter initialEntries={['/next/review']}>
+      <MemoryRouter initialEntries={['/review']}>
         <Routes>
-          <Route path="/next" element={<NextShell />}>
+          <Route path="/" element={<NextShell />}>
             <Route path="review" element={<div>Review page</div>} />
           </Route>
         </Routes>

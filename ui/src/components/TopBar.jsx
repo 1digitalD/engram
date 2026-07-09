@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { Moon, Plus, Sparkles, Sun, Snowflake } from 'lucide-react';
+import { legacyPath } from '../legacy/legacyPaths';
 import styles from './TopBar.module.css';
 
 const themeOptions = [
@@ -11,10 +12,10 @@ const themeOptions = [
 ];
 
 const lenses = [
-  ['/now', 'Now'],
-  ['/threads', 'Threads'],
-  ['/memory', 'Memory'],
-  ['/recall', 'Recall'],
+  [legacyPath('/now'), 'Now'],
+  [legacyPath('/threads'), 'Threads'],
+  [legacyPath('/memory'), 'Memory'],
+  [legacyPath('/recall'), 'Recall'],
 ];
 
 function getInitialTheme() {
@@ -95,23 +96,26 @@ export default function TopBar({
   }
 
   const counts = {
-    '/now': nowCount,
-    '/threads': threadsCount,
-    '/recall': recallCount,
+    [legacyPath('/now')]: nowCount,
+    [legacyPath('/threads')]: threadsCount,
+    [legacyPath('/recall')]: recallCount,
   };
+
+  const nowPath = legacyPath('/now');
+  const recallPath = legacyPath('/recall');
 
   return (
     <header className={styles.bar} role="banner">
-      <NavLink to="/now" className={styles.brand} aria-label="Engram home">
+      <NavLink to={nowPath} className={styles.brand} aria-label="Engram home">
         <span className={styles.brandGlyph} aria-hidden="true">◈</span>
       </NavLink>
 
       <nav className={styles.lenses} aria-label="Lenses">
         {lenses.map(([to, label]) => {
           const isActive = location.pathname === to
-            || (to !== '/now' && to !== '/recall' && location.pathname.startsWith(to));
+            || (to !== nowPath && to !== recallPath && location.pathname.startsWith(to));
           const count = counts[to];
-          const isRecall = to === '/recall' && onRecall;
+          const isRecall = to === recallPath && onRecall;
           const children = (
             <>
               <span className={styles.lensLabel}>{label}</span>
@@ -147,7 +151,7 @@ export default function TopBar({
       </nav>
 
       <NavLink
-        to="/lab"
+        to={legacyPath('/lab')}
         className={({ isActive }) => (
           `${styles.labLink} ${isActive ? styles.labLinkActive : ''}`.trim()
         )}

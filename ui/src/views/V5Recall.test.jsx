@@ -257,7 +257,7 @@ describe('V5Recall', () => {
     await waitFor(() => {
       expect(screen.getByRole('link', { name: /Memory Lookup/i })).toHaveAttribute('href', '/projects/p-1');
       expect(screen.getByRole('link', { name: /Execution/i })).toHaveAttribute('href', '/areas/a-1');
-      expect(screen.getByRole('link', { name: /Priya/i })).toHaveAttribute('href', '/people/person-1');
+      expect(screen.getByRole('link', { name: /Priya/i })).toHaveAttribute('href', '/legacy/people/person-1');
     });
   });
 });

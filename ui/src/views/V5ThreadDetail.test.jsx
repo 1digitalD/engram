@@ -681,7 +681,7 @@ describe('V5ThreadDetail', () => {
     const currentLoad = await screen.findByRole('region', { name: 'Current load' });
     expect(within(currentLoad).getByRole('link', { name: /HITL Pilot/i })).toHaveAttribute('href', '/projects/p-hitl');
     expect(within(currentLoad).getByRole('link', { name: /Execution/i })).toHaveAttribute('href', '/areas/a-exec');
-    expect(within(currentLoad).getByRole('link', { name: /^Mary$/i })).toHaveAttribute('href', '/people/person-mary');
+    expect(within(currentLoad).getByRole('link', { name: /^Mary$/i })).toHaveAttribute('href', '/legacy/people/person-mary');
   });
 
   it('shows delete on resource detail pages', async () => {

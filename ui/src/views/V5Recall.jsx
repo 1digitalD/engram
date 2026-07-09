@@ -10,6 +10,7 @@ import { useCapture } from '../context/CaptureContext';
 import { normalizeSearchResults } from '../utils/searchResults';
 import EntityContextChips from '../components/EntityContextChips';
 import { hasTaskContext } from '../utils/entityContext';
+import { legacyPath } from '../legacy/legacyPaths';
 import styles from './V5Recall.module.css';
 
 const DEBOUNCE_MS = 180;
@@ -24,8 +25,8 @@ const TYPE_LABEL = {
 };
 
 function detailPath(entity) {
-  if (entity.type === 'person') return `/people/${entity.id}`;
-  return `/${entity.type}s/${entity.id}`;
+  if (entity.type === 'person') return legacyPath(`/people/${entity.id}`);
+  return legacyPath(`/${entity.type}s/${entity.id}`);
 }
 
 function groupLabel(type) {

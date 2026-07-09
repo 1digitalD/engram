@@ -59,9 +59,9 @@ const JULY7_LOCAL_TIME = new Intl.DateTimeFormat('en-US', {
 
 function renderStream() {
   return render(
-    <MemoryRouter initialEntries={['/next/stream']}>
+    <MemoryRouter initialEntries={['/stream']}>
       <Routes>
-        <Route path="/next/*" element={<NextApp />} />
+        <Route path="/*" element={<NextApp />} />
       </Routes>
     </MemoryRouter>,
   );

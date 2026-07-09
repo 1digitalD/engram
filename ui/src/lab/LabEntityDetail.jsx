@@ -11,6 +11,7 @@ import EntityGlyphCircle from '../components/EntityGlyphCircle';
 import EntityDeleteButton from '../components/EntityDeleteButton';
 import InlineTitleEditor from '../components/InlineTitleEditor';
 import { entityTitleLabel } from '../utils/entityDisplay';
+import { legacyPath } from '../legacy/legacyPaths';
 import { labDetailPath } from './labPaths';
 import styles from './LabEntityDetail.module.css';
 
@@ -47,7 +48,7 @@ function toIsoOrNull(value) {
 }
 
 function listPath(type) {
-  return `/lab/${type === 'person' ? 'people' : `${type}s`}`;
+  return legacyPath(`/lab/${type === 'person' ? 'people' : `${type}s`}`);
 }
 
 function entityTypeFromRouteType(routeType) {

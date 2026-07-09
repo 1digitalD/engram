@@ -8,6 +8,7 @@ import { useCapture } from '../context/CaptureContext';
 import { useSummary } from '../context/SummaryContext';
 import { v4API, friendlyApiError } from '../api/v4Client';
 import { captureStream, formatCaptureStreamLabel } from '../utils/captureStream';
+import { legacyPath } from '../legacy/legacyPaths';
 import styles from './V5CaptureSheet.module.css';
 
 export const CAPTURE_PLACEHOLDER = "Type anything. I'll suggest what I think it means; you can revert any of it after saving.";
@@ -17,19 +18,19 @@ export const CAPTURE_ATTACHMENT_HINT = 'Links this note to the thread for contex
 const ATTACHMENT_NONE = { id: '', label: 'None', type: '' };
 
 function entityPath(type, id) {
-  if (!id) return '/notes';
-  if (type === 'person') return `/people/${id}`;
-  if (type === 'project') return `/projects/${id}`;
-  if (type === 'task') return `/tasks/${id}`;
-  if (type === 'area') return `/areas/${id}`;
-  if (type === 'resource') return `/resources/${id}`;
-  if (type === 'note') return `/notes/${id}`;
-  return `/entities/${id}`;
+  if (!id) return legacyPath('/notes');
+  if (type === 'person') return legacyPath(`/people/${id}`);
+  if (type === 'project') return legacyPath(`/projects/${id}`);
+  if (type === 'task') return legacyPath(`/tasks/${id}`);
+  if (type === 'area') return legacyPath(`/areas/${id}`);
+  if (type === 'resource') return legacyPath(`/resources/${id}`);
+  if (type === 'note') return legacyPath(`/notes/${id}`);
+  return legacyPath(`/entities/${id}`);
 }
 
 function noteViewPath(note) {
-  if (!note?.id) return '/notes';
-  return `/notes/${note.id}`;
+  if (!note?.id) return legacyPath('/notes');
+  return legacyPath(`/notes/${note.id}`);
 }
 
 async function resolveAttachmentMeta(attachment) {

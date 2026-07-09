@@ -58,7 +58,7 @@ export default function SpacesSurface() {
         <ul className={styles.list}>
           {spaces.map((space) => (
             <li key={space.id} className={styles.listItem}>
-              <Link to={`/next/spaces/${space.id}`} className={styles.itemTitle}>
+              <Link to={`/spaces/${space.id}`} className={styles.itemTitle}>
                 {space.title}
               </Link>
               <p className={styles.itemMeta}>

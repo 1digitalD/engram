@@ -164,9 +164,9 @@ const PEOPLE = { data: [{ id: 'person-operator', title: 'Operator' }, { id: 'per
 
 function renderWorkboard() {
   return render(
-    <MemoryRouter initialEntries={['/next/workboard']}>
+    <MemoryRouter initialEntries={['/workboard']}>
       <Routes>
-        <Route path="/next/*" element={<NextApp />} />
+        <Route path="/*" element={<NextApp />} />
       </Routes>
     </MemoryRouter>,
   );

@@ -9,14 +9,15 @@ import { FOLLOW_UP_24H_TITLE, FOLLOW_UP_TOMORROW_LABEL } from '../utils/followUp
 import { hasTaskContext } from '../utils/entityContext';
 import { getTodayActionItems } from '../utils/today';
 import { MOCKED_NOW_DATA } from './V5Now.fixtures';
+import { legacyPath } from '../legacy/legacyPaths';
 import styles from './V5Now.module.css';
 
 const USE_MOCKED_DATA = false;
 
 function routeForEntity(type, id) {
-  if (!type || !id) return '/now';
-  if (type === 'person') return `/people/${id}`;
-  return `/${type}s/${id}`;
+  if (!type || !id) return legacyPath('/now');
+  if (type === 'person') return legacyPath(`/people/${id}`);
+  return legacyPath(`/${type}s/${id}`);
 }
 
 function itemPath(item) {

@@ -115,9 +115,9 @@ const TODAY_PAYLOAD = {
 
 function renderToday() {
   return render(
-    <MemoryRouter initialEntries={['/next/today']}>
+    <MemoryRouter initialEntries={['/today']}>
       <Routes>
-        <Route path="/next/*" element={<NextApp />} />
+        <Route path="/*" element={<NextApp />} />
       </Routes>
     </MemoryRouter>,
   );

@@ -18,9 +18,9 @@ describe('EntityContextChips', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole('link', { name: /Memory Lookup/i })).toHaveAttribute('href', '/projects/p1');
-    expect(screen.getByRole('link', { name: /Execution/i })).toHaveAttribute('href', '/areas/a1');
-    expect(screen.getByRole('link', { name: /Priya/i })).toHaveAttribute('href', '/people/person-1');
-    expect(screen.getByRole('link', { name: /Akash/i })).toHaveAttribute('href', '/people/person-2');
+    expect(screen.getByRole('link', { name: /Memory Lookup/i })).toHaveAttribute('href', '/legacy/projects/p1');
+    expect(screen.getByRole('link', { name: /Execution/i })).toHaveAttribute('href', '/legacy/areas/a1');
+    expect(screen.getByRole('link', { name: /Priya/i })).toHaveAttribute('href', '/legacy/people/person-1');
+    expect(screen.getByRole('link', { name: /Akash/i })).toHaveAttribute('href', '/legacy/people/person-2');
   });
 });

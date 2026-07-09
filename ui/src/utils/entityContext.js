@@ -1,7 +1,9 @@
+import { legacyPath } from '../legacy/legacyPaths';
+
 export function pathForEntityType(type, id) {
   if (!type || !id) return null;
-  if (type === 'person') return `/people/${id}`;
-  return `/${type}s/${id}`;
+  if (type === 'person') return legacyPath(`/people/${id}`);
+  return legacyPath(`/${type}s/${id}`);
 }
 
 export function taskContextItems(entity) {

@@ -10,6 +10,7 @@ import { hasTaskContext } from '../utils/entityContext';
 import { dueUrgencyClass, statusPillVariant } from '../utils/entityRowChrome';
 import { listRowSecondaryMeta } from '../utils/listMetadata';
 import { entityTitleLabel } from '../utils/entityDisplay';
+import { legacyPath } from '../legacy/legacyPaths';
 import styles from './V5EntityList.module.css';
 
 const COUNT_NOUN = {
@@ -45,8 +46,8 @@ const EMPTY_HINT = {
 };
 
 function detailPath(entity) {
-  if (entity.type === 'person') return `/people/${entity.id}`;
-  return `/${entity.type}s/${entity.id}`;
+  if (entity.type === 'person') return legacyPath(`/people/${entity.id}`);
+  return legacyPath(`/${entity.type}s/${entity.id}`);
 }
 
 function formatDue(value) {

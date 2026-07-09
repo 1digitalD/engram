@@ -11,8 +11,10 @@ Tailscale Serve (tailnet)
 Current runtime expectations:
 
 - Runtime API surface is `/api/v4` only.
-- The app shell redirects `/` to `/now`.
-- Primary top-level UI lenses are `/now`, `/threads`, `/memory`, and `/recall`.
+- The v6 shell is the default at `/` (Today, Workboard, Stream, Review, Spaces, People).
+- The previous V5 + lab UI remains at `/legacy/*` until explicit removal (Phase 6 cutover).
+- `/next/*` redirects to the equivalent v6 route for bookmark compatibility.
+- Rollback tag: `engram/v6-phase-5-complete` (see Rollback section below).
 - `/api/v4/inbox` still exists as backend review data, but it is not the primary app landing route.
 
 ## Prerequisites
@@ -48,7 +50,7 @@ The smoke suite is intentionally read-only and aimed at the current user-facing 
 
 - `health` proves the process booted and can reach Postgres.
 - `summary` matches the shell counts used by the top navigation.
-- `today` validates the `/now` feed payload.
+- `today` validates the Today surface API payload (served at `/today`).
 - `threads` validates the `/threads` lens payload.
 - `timeline` validates the `/memory` lens payload.
 
@@ -129,7 +131,7 @@ App shell route check:
 
 ```bash
 curl -I http://127.0.0.1:5001/
-curl -I http://127.0.0.1:5001/now
+curl -I http://127.0.0.1:5001/
 ```
 
 Logs:

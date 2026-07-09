@@ -20,7 +20,7 @@ function formatLastHeard(value) {
 
 function taskSurfacePath(task) {
   const parentId = task?.projects?.[0]?.id || task?.areas?.[0]?.id;
-  return parentId ? `/next/spaces/${parentId}` : null;
+  return parentId ? `/spaces/${parentId}` : null;
 }
 
 function sectionCommitments(prep, key) {
@@ -119,7 +119,7 @@ export default function PeopleSurface() {
           <ul className={styles.peopleList}>
             {people.map((person) => (
               <li key={person.id} className={styles.personListItem}>
-                <Link to={`/next/people/${person.id}`} className={styles.personLink}>
+                <Link to={`/people/${person.id}`} className={styles.personLink}>
                   {person.title}
                 </Link>
                 <p className={styles.personMeta}>{person.status || 'active'}</p>
@@ -145,7 +145,7 @@ export default function PeopleSurface() {
         <p className={styles.error} role="alert">
           {error || 'Person not found.'}
         </p>
-        <Link to="/next/people" className={styles.backLink}>
+        <Link to="/people" className={styles.backLink}>
           {SURFACE_LABELS.people}
         </Link>
       </section>
@@ -162,7 +162,7 @@ export default function PeopleSurface() {
           </p>
         </div>
         <div className={styles.headerActions}>
-          <Link to="/next/people" className={styles.backLink}>
+          <Link to="/people" className={styles.backLink}>
             {SURFACE_LABELS.people}
           </Link>
           {prepAvailable ? (

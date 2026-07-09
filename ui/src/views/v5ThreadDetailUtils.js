@@ -1,4 +1,5 @@
 import { entityTitleLabel } from '../utils/entityDisplay';
+import { legacyPath } from '../legacy/legacyPaths';
 
 const PEOPLE_SECTION_KEYS = new Set([
   'people',
@@ -19,7 +20,7 @@ const THREAD_TYPES = new Set(['project', 'person']);
 export function pathForEntity(entity) {
   if (!entity?.id) return '#';
   const base = entity.type === 'person' ? 'people' : `${entity.type}s`;
-  return `/${base}/${entity.id}`;
+  return legacyPath(`/${base}/${entity.id}`);
 }
 
 export function sectionItems(detail, key) {

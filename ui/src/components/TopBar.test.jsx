@@ -3,7 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import TopBar from './TopBar';
 
-function renderWithRouter(ui, { initialEntries = ['/now'] } = {}) {
+function renderWithRouter(ui, { initialEntries = ['/legacy/now'] } = {}) {
   return render(
     <MemoryRouter initialEntries={initialEntries}>
       {ui}
@@ -25,7 +25,7 @@ describe('TopBar', () => {
   });
 
   it('marks the active lens based on the current route', () => {
-    renderWithRouter(<TopBar trustScore={87} onAsk={() => {}} />, { initialEntries: ['/threads'] });
+    renderWithRouter(<TopBar trustScore={87} onAsk={() => {}} />, { initialEntries: ['/legacy/threads'] });
 
     expect(screen.getByRole('link', { name: /Threads/i })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('link', { name: /Now/i })).not.toHaveAttribute('aria-current');
@@ -85,6 +85,6 @@ describe('TopBar', () => {
 
     const link = screen.getByRole('link', { name: /Try the redesign \(beta\)/i });
     expect(link).toBeInTheDocument();
-    expect(link).toHaveAttribute('href', '/lab');
+    expect(link).toHaveAttribute('href', '/legacy/lab');
   });
 });

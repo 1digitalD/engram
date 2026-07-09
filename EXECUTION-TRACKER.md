@@ -102,3 +102,4 @@ bash scripts/v6_check_review_verdict.sh <implement-task-id>   # review tasks
 - 2026-07-08 **Pre-Phase-6 snapshot:** tag `engram/v6-phase-5-complete` (deploy rollback). Phase 6 keeps V5 at `/legacy/*` until explicit removal; v6-61 demolition deferred.
 - 2026-07-09T01:31:46.159099+00:00 v6-phase-5-gate accepted via cursor
 - _Phase 6 cutover — prd ready, drain starting_
+- 2026-07-09T02:00:57.223464+00:00 v6-60-promote-shell accepted via cursor

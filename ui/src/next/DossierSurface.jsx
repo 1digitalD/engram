@@ -218,7 +218,7 @@ export default function DossierSurface() {
         <p className={styles.error} role="alert">
           {error || 'Space not found.'}
         </p>
-        <Link to="/next/spaces">Back to Spaces</Link>
+        <Link to="/spaces">Back to Spaces</Link>
       </section>
     );
   }
@@ -254,7 +254,7 @@ export default function DossierSurface() {
               </span>
             </div>
           </div>
-          <Link to="/next/spaces" className={styles.chip}>
+          <Link to="/spaces" className={styles.chip}>
             ← {SURFACE_LABELS.spaces}
           </Link>
         </div>

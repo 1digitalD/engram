@@ -8,12 +8,13 @@ import CitationsList from '../components/CitationsList';
 import CitationEntitySheet from '../components/CitationEntitySheet';
 import { v4API, friendlyApiError } from '../api/v4Client';
 import { useCapture } from '../context/CaptureContext';
+import { legacyPath } from '../legacy/legacyPaths';
 import styles from './V5AskSheet.module.css';
 
 function entityPath(entityId, type) {
-  if (type === 'person') return `/people/${entityId}`;
-  if (type) return `/${type}s/${entityId}`;
-  return `/entities/${entityId}`;
+  if (type === 'person') return legacyPath(`/people/${entityId}`);
+  if (type) return legacyPath(`/${type}s/${entityId}`);
+  return legacyPath(`/entities/${entityId}`);
 }
 
 function ActionList({ actions, onOpen, onCapture }) {

@@ -14,10 +14,10 @@ function itemPath(item) {
   const entityId = entity?.id || (item?.entity_type === 'project' ? item.id : null);
   const entityType = entity?.type || item?.entity_type;
   if (!entityId || !entityType) return null;
-  if (entityType === 'person') return `/next/spaces/${entityId}`;
-  if (entityType === 'project' || entityType === 'area') return `/next/spaces/${entityId}`;
+  if (entityType === 'person') return `/spaces/${entityId}`;
+  if (entityType === 'project' || entityType === 'area') return `/spaces/${entityId}`;
   if (entityType === 'note') return null;
-  return `/next/spaces/${entity?.projects?.[0]?.id || entity?.areas?.[0]?.id || ''}`;
+  return `/spaces/${entity?.projects?.[0]?.id || entity?.areas?.[0]?.id || ''}`;
 }
 
 function buildSubtitle(payload) {

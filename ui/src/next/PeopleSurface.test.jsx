@@ -126,7 +126,7 @@ function renderRoute(path) {
   return render(
     <MemoryRouter initialEntries={[path]}>
       <Routes>
-        <Route path="/next/*" element={<NextApp />} />
+        <Route path="/*" element={<NextApp />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -143,18 +143,18 @@ describe('PeopleSurface', () => {
   });
 
   it('loads the people index and links each person into the surface route', async () => {
-    renderRoute('/next/people');
+    renderRoute('/people');
 
     expect(await screen.findByRole('heading', { name: 'People' })).toBeInTheDocument();
     expect(v4API.entities.list).toHaveBeenCalledWith({ type: 'person' });
     expect(screen.getByRole('link', { name: 'Mary Patel' })).toHaveAttribute(
       'href',
-      `/next/people/${PERSON_ID}`,
+      `/people/${PERSON_ID}`,
     );
   });
 
   it('loads a person rollup with owes and prep sections', async () => {
-    renderRoute(`/next/people/${PERSON_ID}`);
+    renderRoute(`/people/${PERSON_ID}`);
 
     expect(await screen.findByRole('heading', { name: 'Mary Patel' })).toBeInTheDocument();
     expect(v4API.entities.detail).toHaveBeenCalledWith(PERSON_ID);

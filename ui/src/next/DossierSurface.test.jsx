@@ -184,9 +184,9 @@ const PEOPLE = {
 
 function renderDossier() {
   return render(
-    <MemoryRouter initialEntries={[`/next/spaces/${SPACE_ID}`]}>
+    <MemoryRouter initialEntries={[`/spaces/${SPACE_ID}`]}>
       <Routes>
-        <Route path="/next/*" element={<NextApp />} />
+        <Route path="/*" element={<NextApp />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -276,15 +276,15 @@ describe('SpacesSurface navigation', () => {
 
   it('lists spaces and links into the dossier route', async () => {
     render(
-      <MemoryRouter initialEntries={['/next/spaces']}>
+      <MemoryRouter initialEntries={['/spaces']}>
         <Routes>
-          <Route path="/next/*" element={<NextApp />} />
+          <Route path="/*" element={<NextApp />} />
         </Routes>
       </MemoryRouter>,
     );
 
     const link = await screen.findByRole('link', { name: 'Apollo renewal' });
-    expect(link).toHaveAttribute('href', `/next/spaces/${SPACE_ID}`);
+    expect(link).toHaveAttribute('href', `/spaces/${SPACE_ID}`);
     expect(screen.getByRole('navigation', { name: 'Primary' })).toBeInTheDocument();
   });
 });

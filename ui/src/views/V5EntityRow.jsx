@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import EntityGlyphCircle from '../components/EntityGlyphCircle';
+import { legacyPath } from '../legacy/legacyPaths';
 import styles from './V5EntityRow.module.css';
 
 function formatAttention(score) {
@@ -10,13 +11,13 @@ function formatAttention(score) {
 }
 
 function entityPath(thread) {
-  if (thread.type === 'person') return `/people/${thread.id}`;
-  if (thread.type === 'project') return `/projects/${thread.id}`;
-  if (thread.type === 'area') return `/areas/${thread.id}`;
+  if (thread.type === 'person') return legacyPath(`/people/${thread.id}`);
+  if (thread.type === 'project') return legacyPath(`/projects/${thread.id}`);
+  if (thread.type === 'area') return legacyPath(`/areas/${thread.id}`);
   if (thread.type === 'topic' && thread.key_items?.[0]?.id) {
-    return `/notes/${thread.key_items[0].id}`;
+    return legacyPath(`/notes/${thread.key_items[0].id}`);
   }
-  return `/entities/${thread.id}`;
+  return legacyPath(`/entities/${thread.id}`);
 }
 
 function buildMeta(thread) {

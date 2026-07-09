@@ -5,12 +5,12 @@ import { SURFACE_LABELS } from './vocab';
 import styles from './NextShell.module.css';
 
 const NAV_ITEMS = [
-  { to: '/next/today', label: SURFACE_LABELS.today, disabled: false },
-  { to: '/next/workboard', label: SURFACE_LABELS.workboard, disabled: false },
-  { to: '/next/stream', label: SURFACE_LABELS.stream, disabled: false },
-  { to: '/next/review', label: SURFACE_LABELS.review, disabled: false },
-  { to: '/next/spaces', label: SURFACE_LABELS.spaces, disabled: false },
-  { to: '/next/people', label: SURFACE_LABELS.people, disabled: false },
+  { to: '/today', label: SURFACE_LABELS.today, disabled: false },
+  { to: '/workboard', label: SURFACE_LABELS.workboard, disabled: false },
+  { to: '/stream', label: SURFACE_LABELS.stream, disabled: false },
+  { to: '/review', label: SURFACE_LABELS.review, disabled: false },
+  { to: '/spaces', label: SURFACE_LABELS.spaces, disabled: false },
+  { to: '/people', label: SURFACE_LABELS.people, disabled: false },
 ];
 
 export default function NextShell({ onReviewCountChange }) {
@@ -52,7 +52,7 @@ export default function NextShell({ onReviewCountChange }) {
       setCaptureStatus('Captured.');
       await refreshReviewCount();
       if (payload?.report_id) {
-        navigate(`/next/review?report=${encodeURIComponent(payload.report_id)}`);
+        navigate(`/review?report=${encodeURIComponent(payload.report_id)}`);
       }
     } catch (err) {
       setCaptureError(friendlyApiError(err, 'Capture failed.'));
@@ -101,7 +101,7 @@ export default function NextShell({ onReviewCountChange }) {
         </form>
 
         <NavLink
-          to="/next/review"
+          to="/review"
           className={({ isActive }) => `${styles.pulse} ${isActive ? styles.pulseActive : ''}`}
           aria-label={`${SURFACE_LABELS.review}${reviewCount ? `, ${reviewCount} pending reports` : ''}`}
         >

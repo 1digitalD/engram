@@ -3,6 +3,7 @@ import {
   Navigate, NavLink, Route, Routes, useLocation,
 } from 'react-router-dom';
 import { ArrowLeft, Search } from 'lucide-react';
+import { legacyPath } from '../legacy/legacyPaths';
 import LabEntityList from './LabEntityList';
 import LabEntityDetail from './LabEntityDetail';
 import LabPeople from './LabPeople';
@@ -12,23 +13,23 @@ import LabCapture from './LabCapture';
 import styles from './LabShell.module.css';
 
 const navItems = [
-  { to: '/lab/today', label: 'Today' },
-  { to: '/lab/notes', label: 'Notes' },
-  { to: '/lab/tasks', label: 'Tasks' },
-  { to: '/lab/projects', label: 'Projects' },
-  { to: '/lab/areas', label: 'Areas' },
-  { to: '/lab/people', label: 'People' },
-  { to: '/lab/resources', label: 'Resources' },
+  { to: legacyPath('/lab/today'), label: 'Today' },
+  { to: legacyPath('/lab/notes'), label: 'Notes' },
+  { to: legacyPath('/lab/tasks'), label: 'Tasks' },
+  { to: legacyPath('/lab/projects'), label: 'Projects' },
+  { to: legacyPath('/lab/areas'), label: 'Areas' },
+  { to: legacyPath('/lab/people'), label: 'People' },
+  { to: legacyPath('/lab/resources'), label: 'Resources' },
 ];
 
 const PAGE_TITLE = {
-  '/lab/today': 'Today',
-  '/lab/notes': 'Notes',
-  '/lab/tasks': 'Tasks',
-  '/lab/projects': 'Projects',
-  '/lab/areas': 'Areas',
-  '/lab/people': 'People',
-  '/lab/resources': 'Resources',
+  [legacyPath('/lab/today')]: 'Today',
+  [legacyPath('/lab/notes')]: 'Notes',
+  [legacyPath('/lab/tasks')]: 'Tasks',
+  [legacyPath('/lab/projects')]: 'Projects',
+  [legacyPath('/lab/areas')]: 'Areas',
+  [legacyPath('/lab/people')]: 'People',
+  [legacyPath('/lab/resources')]: 'Resources',
 };
 
 function pageTitle(pathname) {
@@ -56,12 +57,12 @@ export default function LabShell() {
   return (
     <div className={styles.shell} data-lab="true">
       <aside className={styles.sidebar}>
-        <NavLink to="/now" className={styles.brand} aria-label="Engram home">
+        <NavLink to={legacyPath('/now')} className={styles.brand} aria-label="Engram home">
           <span className={styles.brandGlyph} aria-hidden="true">◈</span>
           <span>Engram</span>
         </NavLink>
 
-        <NavLink to="/now" className={styles.backLink}>
+        <NavLink to={legacyPath('/now')} className={styles.backLink}>
           <ArrowLeft size={14} strokeWidth={2} aria-hidden="true" />
           Back to classic
         </NavLink>
@@ -69,7 +70,7 @@ export default function LabShell() {
         <nav className={styles.nav} aria-label="Lab navigation">
           {navItems.map(({ to, label }) => {
             const isActive = location.pathname === to
-              || (to !== '/lab/today' && location.pathname.startsWith(to));
+              || (to !== legacyPath('/lab/today') && location.pathname.startsWith(to));
             return (
               <NavLink
                 key={to}
@@ -113,20 +114,20 @@ export default function LabShell() {
 
         <main className={styles.content}>
           <Routes>
-            <Route path="/" element={<Navigate to="/lab/today" replace />} />
-            <Route path="/today" element={<LabToday />} />
-            <Route path="/notes" element={<LabEntityList type="note" onOpenCapture={() => setCaptureOpen(true)} />} />
-            <Route path="/notes/:id" element={<LabEntityDetail />} />
-            <Route path="/tasks" element={<LabEntityList type="task" onOpenCapture={() => setCaptureOpen(true)} />} />
-            <Route path="/tasks/:id" element={<LabEntityDetail />} />
-            <Route path="/projects" element={<LabEntityList type="project" onOpenCapture={() => setCaptureOpen(true)} />} />
-            <Route path="/projects/:id" element={<LabEntityDetail />} />
-            <Route path="/areas" element={<LabEntityList type="area" onOpenCapture={() => setCaptureOpen(true)} />} />
-            <Route path="/areas/:id" element={<LabEntityDetail />} />
-            <Route path="/people" element={<LabPeople />} />
-            <Route path="/people/:id" element={<LabEntityDetail />} />
-            <Route path="/resources" element={<LabEntityList type="resource" onOpenCapture={() => setCaptureOpen(true)} />} />
-            <Route path="/resources/:id" element={<LabEntityDetail />} />
+            <Route index element={<Navigate to="today" replace />} />
+            <Route path="today" element={<LabToday />} />
+            <Route path="notes" element={<LabEntityList type="note" onOpenCapture={() => setCaptureOpen(true)} />} />
+            <Route path="notes/:id" element={<LabEntityDetail />} />
+            <Route path="tasks" element={<LabEntityList type="task" onOpenCapture={() => setCaptureOpen(true)} />} />
+            <Route path="tasks/:id" element={<LabEntityDetail />} />
+            <Route path="projects" element={<LabEntityList type="project" onOpenCapture={() => setCaptureOpen(true)} />} />
+            <Route path="projects/:id" element={<LabEntityDetail />} />
+            <Route path="areas" element={<LabEntityList type="area" onOpenCapture={() => setCaptureOpen(true)} />} />
+            <Route path="areas/:id" element={<LabEntityDetail />} />
+            <Route path="people" element={<LabPeople />} />
+            <Route path="people/:id" element={<LabEntityDetail />} />
+            <Route path="resources" element={<LabEntityList type="resource" onOpenCapture={() => setCaptureOpen(true)} />} />
+            <Route path="resources/:id" element={<LabEntityDetail />} />
           </Routes>
         </main>
       </div>
