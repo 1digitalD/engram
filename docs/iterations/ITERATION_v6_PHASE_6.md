@@ -1,7 +1,7 @@
 # Iteration v6 Phase 6 — Cutover + MCP
 
 Date: 2026-07-08
-Status: **active**
+Status: **archived** (2026-07-08)
 Design: `docs/v6/SOLUTION_DESIGN.md` §9
 Plan: `docs/v6/IMPLEMENTATION_PLAN.md` Phase 6
 QC: `docs/v6/QC_LOOP.md`

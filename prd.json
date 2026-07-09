@@ -230,10 +230,10 @@
         "cd /Volumes/lex1t/dev/shared/repos/engram/ui && npm run build"
       ],
       "blocked": false,
-      "passes": false,
-      "attempts": 0,
+      "passes": true,
+      "attempts": 1,
       "blockerReason": null,
-      "validationEvidence": null
+      "validationEvidence": "680 backend; 236 UI (40 files) + build green; all v6-6* reviews APPROVE; §5 metrics baseline recorded"
     }
   ],
   "codingLoopPolicy": {
