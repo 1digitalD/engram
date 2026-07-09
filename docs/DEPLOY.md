@@ -12,7 +12,7 @@ Current runtime expectations:
 
 - Runtime API surface is `/api/v4` only.
 - The v6 shell is the default at `/` (Today, Workboard, Stream, Review, Spaces, People).
-- The previous V5 + lab UI remains at `/legacy/*` until explicit removal (Phase 6 cutover).
+- The previous V5 + lab UI remains at `/legacy/*` until explicit removal (v6-61 deferred).
 - `/next/*` redirects to the equivalent v6 route for bookmark compatibility.
 - Rollback tag: `engram/v6-phase-5-complete` (see Rollback section below).
 - `/api/v4/inbox` still exists as backend review data, but it is not the primary app landing route.

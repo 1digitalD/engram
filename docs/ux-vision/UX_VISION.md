@@ -582,3 +582,21 @@ starts from them:
   eval), Workboard early (cheap — it's queries over data `/today` already
   computes), then Dossier + direct manipulation, then markers, Themes,
   and insight horizons.
+
+### Implemented baseline (Phase 6 cutover, 2026-07-09)
+
+The v6 shell at `/` is the production UI implementing this vision. Phases 0–6
+delivered Today, Review/Stream, Dossier, Workboard, Themes, People, markers,
+nudges, meeting prep, and MCP alignment — all on the existing `/api/v4`
+backend with UI vocabulary renames only (no schema rewrites).
+
+**Deviations from the §10 build stance:**
+
+- **Legacy UI not retired yet.** V5 + lab remain mounted at `/legacy/*` as a
+  runtime fallback. v6-61 demolition is deferred until overseer sign-off after
+  cutover validation; rollback tag `engram/v6-phase-5-complete` preserves the
+  pre-cutover dual-UI state.
+- **`/next/*` redirects** to equivalent v6 routes for bookmark compatibility.
+- **§9 open questions** and **§10 deferred items** (agent runs, NL standing
+  orders, nudge send channels, integrations, plan-slip history) are unchanged —
+  the baseline ships the core surfaces, not every horizon feature.

@@ -1,4 +1,4 @@
-# AGENTS.md - Engram v4
+# AGENTS.md - Engram
 
 This file is the entry point for agents working in this repository. Read it before touching code.
 
@@ -6,7 +6,7 @@ This file is the entry point for agents working in this repository. Read it befo
 
 Engram is a self-hosted personal workspace: capture anything, recall it later, and run projects and tasks with AI assistance. It is single-user and self-hosted.
 
-The active implementation is Engram v4.
+The active UI is the **v6 shell at `/`** (`ui/src/next/`); the backend API remains `/api/v4` only. The previous V5 + lab shell is mounted at `/legacy/*` until v6-61 demolition (deferred).
 
 ## Active Documentation
 
@@ -39,8 +39,9 @@ slot for whichever slice is being drained.
 - Risky creation, status, deletion, merge, and relationship-deletion work must be suggestions.
 - MCP is write-enabled for v4 and must stay aligned with the active `/api/v4` contract.
 - Work proceeds slice by slice (see `docs/v6/IMPLEMENTATION_PLAN.md`) with validation before moving on.
-- UI: do not extend `ui/src/views/` or `ui/src/lab/` (deleted in v6 Phase 6);
-  new UI work goes in `ui/src/next/`.
+- UI: `/` serves the v6 shell (`ui/src/next/`). Do not extend `ui/src/views/` or
+  `ui/src/lab/` except via `ui/src/legacy/` for the deferred fallback; new UI work
+  goes in `ui/src/next/`.
 
 ## ⚠️ Production Data Safety (read before any schema or deploy work)
 

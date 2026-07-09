@@ -2,7 +2,7 @@
 
 Engram is a self-hosted personal workspace for capturing notes, recalling context, and running projects and tasks with AI assistance.
 
-The active implementation is **Engram v4**. v4 is a fresh clean cutover: there is no backward compatibility requirement, no data migration requirement, and existing local app data can be deleted before running v4.
+The active runtime is **Engram v6 UI on the v4 backend**: the v6 shell (Today, Workboard, Stream, Review, Spaces, People) is the default at `/`; the API surface remains `/api/v4` only. The previous V5 + lab UI stays available at `/legacy/*` until legacy removal is explicitly approved (v6-61 deferred). v4 was a fresh clean cutover — no backward compatibility for old APIs, no data migration from v1/v2/v3, and local dev can reset with `init-db` when needed.
 
 ## Quick Start
 
@@ -29,7 +29,7 @@ PORT=5001 flask --app app.py run
 cd ui && npm install && npm run dev
 ```
 
-Open the UI at `http://localhost:5173` during development, or `http://localhost:5001` after `cd ui && npm run build`.
+Open the UI at `http://localhost:5173` during development, or `http://localhost:5001` after `cd ui && npm run build`. The v6 shell loads at `/` (default landing: `/today`). Legacy V5 + lab routes live under `/legacy/*`; old `/next/*` bookmarks redirect to the equivalent v6 route.
 
 ## v4 Runtime Boundary
 

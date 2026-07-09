@@ -35,6 +35,15 @@ Runtime baseline: `/api/v4` only, Postgres + pgvector, write-enabled MCP.
 | 5 Themes + insights | **done** (2026-07-08) |
 | 6 Cutover + MCP | **in progress** (drain started 2026-07-08; v6-61 deferred) |
 
+### Phase 6 in progress (cutover + MCP)
+
+- **Done:** v6-60 promote shell (`/` → v6 NextApp; `/legacy/*` → V5 fallback; `/next/*` redirects).
+- **Done:** v6-62 MCP alignment (report/workboard/marker/nudge tools; `capture` returns `report_id`).
+- **Done:** v6-63 docs/tracker finalization (README, AGENTS, DEPLOY, UX_VISION baseline note).
+- **Next:** v6-63 code review; v6-phase-6 gate after review tasks pass.
+- **Deferred:** v6-61 legacy UI demolition — V5 + lab remain at `/legacy/*` until overseer sign-off after cutover validation. Rollback tag: `engram/v6-phase-5-complete`.
+- **Runtime:** v6 shell is the default UI; same `/api/v4` backend for both shells.
+
 ## Phase 0 retro review (2026-07-08)
 
 Overseer re-ran 5-pass review; formal verdicts:
@@ -105,3 +114,5 @@ bash scripts/v6_check_review_verdict.sh <implement-task-id>   # review tasks
 - 2026-07-09T02:00:57.223464+00:00 v6-60-promote-shell accepted via cursor
 - 2026-07-09T02:09:55.133339+00:00 v6-62-mcp-alignment accepted via cursor
 - 2026-07-09T02:12:37.727629+00:00 v6-62-code-review accepted via cursor
+- 2026-07-09 v6-63-docs-tracker — README/AGENTS/tracker/DEPLOY/UX_VISION updated for v6 default UI; v6-61 deferred noted
+- 2026-07-09T02:14:57.068009+00:00 v6-63-docs-tracker accepted via cursor
