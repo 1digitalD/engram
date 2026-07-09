@@ -92,10 +92,10 @@
         "cd /Volumes/lex1t/dev/shared/repos/engram && bash scripts/v6_check_review_verdict.sh v6-60-promote-shell"
       ],
       "blocked": false,
-      "passes": false,
-      "attempts": 0,
+      "passes": true,
+      "attempts": 1,
       "blockerReason": null,
-      "validationEvidence": null
+      "validationEvidence": "44/44 next tests; review APPROVE; flake fix in ReviewSurface duration test"
     },
     {
       "id": "v6-62-mcp-alignment",

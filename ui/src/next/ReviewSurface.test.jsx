@@ -326,16 +326,20 @@ describe('ReviewSurface', () => {
   });
 
   it('sends review duration when a report leaves the queue', async () => {
-    let listCalls = 0;
-    v4API.reports.list.mockImplementation(async () => {
-      listCalls += 1;
-      if (listCalls === 1) return LIST_PAYLOAD;
-      return { data: [], meta: { total: 0 } };
+    let reportStillPending = true;
+    v4API.reports.list.mockImplementation(async () => ({
+      data: reportStillPending ? LIST_PAYLOAD.data : [],
+      meta: { total: reportStillPending ? LIST_PAYLOAD.meta.total : 0 },
+    }));
+    v4API.reports.resolve.mockImplementation(async () => {
+      reportStillPending = false;
+      return { data: { status: 'reviewed' } };
     });
 
     renderReview();
 
     await screen.findByText('Write docs');
+    await waitFor(() => expect(v4API.reports.get).toHaveBeenCalledWith(REPORT_ID));
     vi.spyOn(Date, 'now').mockReturnValue(46_000);
     fireEvent.click(screen.getByRole('button', { name: 'Verify' }));
 
