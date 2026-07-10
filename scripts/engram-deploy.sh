@@ -30,6 +30,17 @@ fetch_json() {
   curl -fsS "${API_BASE}${path}"
 }
 
+wait_for_api() {
+  local attempt
+  for attempt in $(seq 1 30); do
+    if curl -fsS "${API_BASE}/health" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 1
+  done
+  return 1
+}
+
 smoke_endpoint() {
   local label="$1"
   local path="$2"
@@ -95,7 +106,12 @@ sleep 2
 
 log "Starting API via launchd..."
 launchctl load "$LAUNCH_AGENT"
-sleep 4
+log "Waiting for API health..."
+if ! wait_for_api; then
+  log "ERROR: API did not become healthy within 30s"
+  tail -20 /tmp/engram-api.log || true
+  exit 1
+fi
 
 log "Running focused runtime smoke suite..."
 if ! run_smoke_suite; then

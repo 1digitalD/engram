@@ -392,7 +392,7 @@ describe('V5ThreadDetail', () => {
     renderThread('project');
     const activitySection = await screen.findByRole('region', { name: 'Activity' });
     expect(within(activitySection).getByText('Mary said she would review by end of week.')).toBeInTheDocument();
-    expect(within(activitySection).getByRole('link', { name: 'Open update' })).toHaveAttribute('href', '/legacy/notes/note-update-1');
+    expect(within(activitySection).getByRole('link', { name: 'Open update' })).toHaveAttribute('href', '/notes/note-update-1');
   });
 
   it('loads more activity updates when detail preview is truncated', async () => {
@@ -609,7 +609,7 @@ describe('V5ThreadDetail', () => {
     );
 
     const openThreadLink = await screen.findByRole('link', { name: 'Open thread' });
-    expect(openThreadLink).toHaveAttribute('href', '/legacy/projects/project-hitl');
+    expect(openThreadLink).toHaveAttribute('href', '/projects/project-hitl');
 
     const remindButton = screen.getByRole('button', { name: BUMP_FOLLOW_UP_LABEL });
     expect(remindButton).toHaveAttribute('title', FOLLOW_UP_24H_TITLE);
@@ -679,9 +679,9 @@ describe('V5ThreadDetail', () => {
     renderThread('person');
 
     const currentLoad = await screen.findByRole('region', { name: 'Current load' });
-    expect(within(currentLoad).getByRole('link', { name: /HITL Pilot/i })).toHaveAttribute('href', '/legacy/projects/p-hitl');
-    expect(within(currentLoad).getByRole('link', { name: /Execution/i })).toHaveAttribute('href', '/legacy/areas/a-exec');
-    expect(within(currentLoad).getByRole('link', { name: /^Mary$/i })).toHaveAttribute('href', '/legacy/people/person-mary');
+    expect(within(currentLoad).getByRole('link', { name: /HITL Pilot/i })).toHaveAttribute('href', '/projects/p-hitl');
+    expect(within(currentLoad).getByRole('link', { name: /Execution/i })).toHaveAttribute('href', '/areas/a-exec');
+    expect(within(currentLoad).getByRole('link', { name: /^Mary$/i })).toHaveAttribute('href', '/people/person-mary');
   });
 
   it('shows delete on resource detail pages', async () => {
@@ -701,7 +701,7 @@ describe('V5ThreadDetail', () => {
     renderThread('project');
 
     const nextActions = await screen.findByRole('region', { name: 'Next actions' });
-    expect(within(nextActions).getByRole('link', { name: /HITL Pilot/i })).toHaveAttribute('href', '/legacy/projects/p-hitl');
-    expect(within(nextActions).getByRole('link', { name: /Execution/i })).toHaveAttribute('href', '/legacy/areas/a-exec');
+    expect(within(nextActions).getByRole('link', { name: /HITL Pilot/i })).toHaveAttribute('href', '/projects/p-hitl');
+    expect(within(nextActions).getByRole('link', { name: /Execution/i })).toHaveAttribute('href', '/areas/a-exec');
   });
 });

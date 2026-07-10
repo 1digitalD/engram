@@ -1,20 +1,72 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { FolderInput, UserRound } from 'lucide-react';
 
 import { friendlyApiError, v4API } from '../api/v4Client';
+import { taskOwnerId } from './commitmentUtils';
+import { StatusSelect, TASK_STATUS_OPTIONS } from './statusTheme';
 import styles from './TypedAffordances.module.css';
-
-const STATUS_OPTIONS = [
-  { value: 'open', label: 'Open' },
-  { value: 'in_progress', label: 'In progress' },
-  { value: 'waiting', label: 'Waiting' },
-  { value: 'blocked', label: 'Blocked' },
-  { value: 'done', label: 'Done' },
-  { value: 'cancelled', label: 'Cancelled' },
-];
 
 function formatDateInput(value) {
   if (!value) return '';
   return String(value).slice(0, 10);
+}
+
+export function ExpandableUpdateField({ item, onLogUpdate }) {
+  const [expanded, setExpanded] = useState(false);
+  const [updateText, setUpdateText] = useState('');
+  const fieldRef = useRef(null);
+
+  useEffect(() => {
+    if (expanded) {
+      fieldRef.current?.focus();
+    }
+  }, [expanded]);
+
+  async function submitUpdate() {
+    const text = updateText.trim();
+    if (!text) return;
+    const ok = await onLogUpdate(item.id, text);
+    if (ok !== false) {
+      setUpdateText('');
+      setExpanded(false);
+    }
+  }
+
+  function handleKeyDown(event) {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      submitUpdate();
+    }
+  }
+
+  const sharedProps = {
+    'aria-label': `${item.title} log update`,
+    className: expanded ? styles.updateTextarea : styles.updateInput,
+    value: updateText,
+    onChange: (event) => setUpdateText(event.target.value),
+    onFocus: () => setExpanded(true),
+    onKeyDown: handleKeyDown,
+    placeholder: 'Log update…',
+    rows: expanded ? 3 : 1,
+  };
+
+  return (
+    <div className={styles.expandableUpdate}>
+      <label className={styles.updateField}>
+        <span className={styles.srOnly}>Log update for {item.title}</span>
+        <textarea ref={fieldRef} {...sharedProps} />
+      </label>
+      <button
+        type="button"
+        className={styles.button}
+        aria-label={`Log update for ${item.title}`}
+        disabled={!updateText.trim()}
+        onClick={submitUpdate}
+      >
+        Log
+      </button>
+    </div>
+  );
 }
 
 export function NudgeDraftAffordance({ item, onCopied }) {
@@ -100,6 +152,253 @@ export function NudgeDraftAffordance({ item, onCopied }) {
   );
 }
 
+export function InlineTaskStatusDue({ item, onStatusChange, onDueChange, onFollowUpChange }) {
+  return (
+    <div className={styles.scheduleRow}>
+      <StatusSelect
+        aria-label={`${item.title} status`}
+        className={styles.inlineSelect}
+        value={item.status || 'open'}
+        options={TASK_STATUS_OPTIONS}
+        onChange={(event) => onStatusChange(item.id, event.target.value)}
+      />
+      <input
+        aria-label={`${item.title} due date`}
+        className={styles.inlineInput}
+        type="date"
+        title="Due date"
+        value={formatDateInput(item.due_at)}
+        onChange={(event) => onDueChange(item.id, event.target.value)}
+      />
+      {onFollowUpChange ? (
+        <input
+          aria-label={`${item.title} follow-up date`}
+          className={styles.inlineInput}
+          type="date"
+          title="Follow-up date"
+          value={formatDateInput(item.follow_up_at)}
+          onChange={(event) => onFollowUpChange(item.id, event.target.value)}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+export function WorkboardItemAffordances({
+  item,
+  people,
+  spaces,
+  group,
+  onStatusChange,
+  onDueChange,
+  onFollowUpChange,
+  onMoveSpace,
+  onHandOwner,
+  onLogUpdate,
+  showNudge = false,
+  expandableUpdate = false,
+}) {
+  const [ownerId, setOwnerId] = useState(() => taskOwnerId(item));
+  const [moveOpen, setMoveOpen] = useState(false);
+  const [spaceId, setSpaceId] = useState(item.space?.id || '');
+  const [updateText, setUpdateText] = useState('');
+  const [status, setStatus] = useState(item.status || 'open');
+  const [dueDate, setDueDate] = useState(() => formatDateInput(item.due_at));
+  const [followUpDate, setFollowUpDate] = useState(() => formatDateInput(item.follow_up_at));
+  const itemRef = useRef(item);
+
+  useEffect(() => {
+    itemRef.current = item;
+  }, [item]);
+
+  useEffect(() => {
+    setOwnerId(taskOwnerId(item));
+  }, [item.id, item.owner?.id, item.people?.[0]?.id, item.assigned_to?.id]);
+
+  useEffect(() => {
+    setStatus(item.status || 'open');
+    setDueDate(formatDateInput(item.due_at));
+    setFollowUpDate(formatDateInput(item.follow_up_at));
+  }, [item.id, item.status, item.due_at, item.follow_up_at]);
+
+  function closeMovePanel() {
+    setMoveOpen(false);
+    setSpaceId(item.space?.id || '');
+  }
+
+  async function confirmMove() {
+    if (!spaceId || spaceId === item.space?.id) {
+      closeMovePanel();
+      return;
+    }
+    const ok = await onMoveSpace(item.id, spaceId);
+    if (ok !== false) closeMovePanel();
+  }
+
+  return (
+    <div className={styles.workboardItem}>
+      <div className={styles.controlRows}>
+        <div className={styles.assigneeRow}>
+          <StatusSelect
+            aria-label={`${item.title} status`}
+            className={styles.inlineSelect}
+            value={status}
+            options={TASK_STATUS_OPTIONS}
+            onChange={async (event) => {
+              const next = event.target.value;
+              setStatus(next);
+              const ok = await onStatusChange(item.id, next);
+              if (ok === false) setStatus(itemRef.current.status || 'open');
+            }}
+          />
+          <select
+            aria-label={`${item.title} owner`}
+            className={styles.inlineSelectWide}
+            value={ownerId}
+            onChange={(event) => setOwnerId(event.target.value)}
+          >
+            <option value="">Unassigned</option>
+            {people.map((person) => (
+              <option key={person.id} value={person.id}>
+                {person.title}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            className={styles.glyphButton}
+            aria-label={`Hand ${item.title} to owner`}
+            disabled={!ownerId || ownerId === taskOwnerId(item)}
+            onClick={async () => {
+              const ok = await onHandOwner(item.id, ownerId);
+              if (ok === false) setOwnerId(taskOwnerId(itemRef.current));
+            }}
+          >
+            <UserRound size={16} strokeWidth={2.25} aria-hidden="true" />
+          </button>
+        </div>
+        <div className={styles.scheduleRow}>
+          <input
+            aria-label={`${item.title} due date`}
+            className={styles.inlineInput}
+            type="date"
+            title="Due date"
+            value={dueDate}
+            onChange={async (event) => {
+              const next = event.target.value;
+              setDueDate(next);
+              const ok = await onDueChange(item.id, next);
+              if (ok === false) setDueDate(formatDateInput(itemRef.current.due_at));
+            }}
+          />
+          <input
+            aria-label={`${item.title} follow-up date`}
+            className={styles.inlineInput}
+            type="date"
+            title="Follow-up date"
+            value={followUpDate}
+            onChange={async (event) => {
+              const next = event.target.value;
+              setFollowUpDate(next);
+              const ok = await onFollowUpChange(item.id, next);
+              if (ok === false) setFollowUpDate(formatDateInput(itemRef.current.follow_up_at));
+            }}
+          />
+          <button
+            type="button"
+            className={moveOpen ? styles.glyphButtonActive : styles.glyphButton}
+            aria-label={`Move ${item.title} to another space`}
+            aria-expanded={moveOpen}
+            onClick={() => setMoveOpen((open) => !open)}
+          >
+            <FolderInput size={16} strokeWidth={2.25} aria-hidden="true" />
+          </button>
+          {expandableUpdate ? (
+            <ExpandableUpdateField item={item} onLogUpdate={onLogUpdate} />
+          ) : (
+            <>
+              <label className={styles.updateField}>
+                <span className={styles.srOnly}>Log update for {item.title}</span>
+                <input
+                  aria-label={`${item.title} log update`}
+                  className={styles.updateInput}
+                  type="text"
+                  placeholder="Log update…"
+                  value={updateText}
+                  onChange={(event) => setUpdateText(event.target.value)}
+                />
+              </label>
+              <button
+                type="button"
+                className={styles.button}
+                aria-label={`Log update for ${item.title}`}
+                disabled={!updateText.trim()}
+                onClick={async () => {
+                  const text = updateText.trim();
+                  if (!text) return;
+                  const ok = await onLogUpdate(item.id, text);
+                  if (ok !== false) setUpdateText('');
+                }}
+              >
+                Log
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {moveOpen ? (
+        <div className={styles.movePanel}>
+          {!item.space?.id ? (
+            <ul className={styles.spacePickList} aria-label={`${item.title} move to space`}>
+              {spaces.map((space) => (
+                <li key={space.id}>
+                  <button
+                    type="button"
+                    className={styles.spacePickButton}
+                    onClick={async () => {
+                      const ok = await onMoveSpace(item.id, space.id);
+                      if (ok !== false) closeMovePanel();
+                    }}
+                  >
+                    {space.title || 'Untitled space'}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <>
+              <select
+                aria-label={`${item.title} move to space`}
+                className={styles.select}
+                value={spaceId}
+                onChange={(event) => setSpaceId(event.target.value)}
+              >
+                <option value="">Choose space</option>
+                {spaces.map((space) => (
+                  <option key={space.id} value={space.id}>
+                    {space.title}
+                  </option>
+                ))}
+              </select>
+              <div className={styles.moveActions}>
+                <button type="button" className={styles.buttonPrimary} disabled={!spaceId} onClick={confirmMove}>
+                  Move
+                </button>
+                <button type="button" className={styles.button} onClick={closeMovePanel}>
+                  Cancel
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      ) : null}
+
+      {showNudge ? <NudgeDraftAffordance item={item} /> : null}
+    </div>
+  );
+}
+
 export function TaskAffordances({
   item,
   people,
@@ -111,6 +410,7 @@ export function TaskAffordances({
   onLogUpdate,
   onMarkDone,
   showNudge = false,
+  hideStatusDue = false,
 }) {
   const [status, setStatus] = useState(item.status || 'open');
   const [dueDate, setDueDate] = useState(formatDateInput(item.due_at));
@@ -120,50 +420,49 @@ export function TaskAffordances({
 
   return (
     <div className={styles.stack}>
-      <div className={styles.row}>
-        <label className={styles.field}>
-          <span className={styles.label}>Status</span>
-          <select
-            aria-label={`${item.title} status`}
-            className={styles.select}
-            value={status}
-            onChange={(event) => setStatus(event.target.value)}
-          >
-            {STATUS_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button
-          type="button"
-          className={styles.button}
-          onClick={() => onStatusChange(item.id, status)}
-        >
-          Set status
-        </button>
-      </div>
+      {!hideStatusDue ? (
+        <>
+          <div className={styles.row}>
+            <label className={styles.field}>
+              <span className={styles.label}>Status</span>
+              <StatusSelect
+                aria-label={`${item.title} status`}
+                className={styles.select}
+                value={status}
+                options={TASK_STATUS_OPTIONS}
+                onChange={(event) => setStatus(event.target.value)}
+              />
+            </label>
+            <button
+              type="button"
+              className={styles.button}
+              onClick={() => onStatusChange(item.id, status)}
+            >
+              Set status
+            </button>
+          </div>
 
-      <div className={styles.row}>
-        <label className={styles.field}>
-          <span className={styles.label}>Due</span>
-          <input
-            aria-label={`${item.title} due date`}
-            className={styles.input}
-            type="date"
-            value={dueDate}
-            onChange={(event) => setDueDate(event.target.value)}
-          />
-        </label>
-        <button
-          type="button"
-          className={styles.button}
-          onClick={() => onDueChange(item.id, dueDate)}
-        >
-          Set due date
-        </button>
-      </div>
+          <div className={styles.row}>
+            <label className={styles.field}>
+              <span className={styles.label}>Due</span>
+              <input
+                aria-label={`${item.title} due date`}
+                className={styles.input}
+                type="date"
+                value={dueDate}
+                onChange={(event) => setDueDate(event.target.value)}
+              />
+            </label>
+            <button
+              type="button"
+              className={styles.button}
+              onClick={() => onDueChange(item.id, dueDate)}
+            >
+              Set due date
+            </button>
+          </div>
+        </>
+      ) : null}
 
       <div className={styles.row}>
         <label className={styles.field}>

@@ -1,0 +1,108 @@
+.surface {
+  composes: surface from './surfaceLayout.module.css';
+}
+
+.header {
+  margin-bottom: var(--space-4);
+}
+
+.titleRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.eyebrow {
+  margin: 0 0 var(--space-1);
+  color: var(--muted);
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.title {
+  margin: 0 0 var(--space-2);
+  font-size: 1.75rem;
+}
+
+.metaRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.chip,
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: inherit;
+  font-size: 0.82rem;
+  text-decoration: none;
+}
+
+.chipButton {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.55rem;
+  border: 1px dashed var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.chipButton:hover {
+  color: inherit;
+  border-style: solid;
+}
+
+.body {
+  margin: 0 0 var(--space-4);
+  max-width: 44rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.controls {
+  margin-bottom: var(--space-4);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: color-mix(in oklch, var(--surface) 96%, transparent);
+}
+
+.section {
+  margin-top: var(--space-4);
+}
+
+.sectionTitle {
+  margin: 0 0 var(--space-2);
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.sourceList {
+  margin: 0;
+  padding-left: 1.1rem;
+  color: var(--muted);
+}
+
+.status,
+.note {
+  margin: var(--space-2) 0 0;
+  color: var(--muted);
+}
+
+.error {
+  margin: var(--space-2) 0 0;
+  color: var(--danger, #b3261e);
+}

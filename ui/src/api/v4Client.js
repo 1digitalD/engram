@@ -150,6 +150,13 @@ export const v4API = {
     create: (entityId, content) => v4Request('POST', `/entities/${encodeURIComponent(entityId)}/activity_updates`, { content }),
   },
   workboard: (params = {}) => v4Request('GET', '/workboard', null, params),
+  taskBoard: (params = {}) => {
+    const normalized = { ...params };
+    if (Array.isArray(normalized.status)) {
+      normalized.status = normalized.status.join(',');
+    }
+    return v4Request('GET', '/task-board', null, normalized);
+  },
   commitments: {
     nudgeDraft: (id) => v4Request('POST', `/commitments/${encodeURIComponent(id)}/nudge-draft`),
   },
@@ -157,5 +164,10 @@ export const v4API = {
     list: (params = {}) => v4Request('GET', '/reports', null, params),
     get: (id) => v4Request('GET', `/reports/${encodeURIComponent(id)}`),
     resolve: (id, data) => v4Request('POST', `/reports/${encodeURIComponent(id)}/resolve`, data),
+    undo: (id) => v4Request('POST', `/reports/${encodeURIComponent(id)}/undo`),
+    markDone: (id) => v4Request('POST', `/reports/${encodeURIComponent(id)}/resolve`, {
+      decisions: [],
+      accept_rest: false,
+    }),
   },
 };

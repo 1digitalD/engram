@@ -1,7 +1,5 @@
 .surface {
-  max-width: 76rem;
-  margin: 0 auto;
-  padding: var(--space-4);
+  composes: surface from './surfaceLayout.module.css';
 }
 
 .header {
@@ -100,12 +98,6 @@
   color: var(--danger, #9f2626);
 }
 
-.layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 18rem;
-  gap: var(--space-4);
-}
-
 .boardColumn {
   min-width: 0;
 }
@@ -127,23 +119,33 @@
   );
 }
 
-.groupHeader,
-.itemHeader {
+.groupHeader {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   gap: var(--space-2);
 }
 
+.itemTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.itemTopActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
 .groupTitle,
-.itemTitle,
-.railTitle {
+.itemTitle {
   margin: 0;
 }
 
 .groupMeta,
-.itemMeta,
-.railCopy,
 .reason,
 .blockedBy,
 .groupRiskReason {
@@ -173,15 +175,23 @@
 }
 
 .item {
+  position: relative;
   border-top: 1px solid var(--border);
   padding-top: var(--space-3);
+}
+
+.itemFoot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
 }
 
 .stateList {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-top: 0.75rem;
+  gap: 0.35rem;
+  margin: 0;
 }
 
 .statePill {
@@ -193,6 +203,12 @@
   color: color-mix(in oklch, var(--ink) 82%, var(--accent));
   font-size: 0.75rem;
   font-weight: 600;
+}
+
+.itemFoot .reason,
+.itemFoot .blockedBy {
+  margin: 0;
+  font-size: 0.8rem;
 }
 
 .actions {
@@ -212,27 +228,7 @@
   background: color-mix(in oklch, var(--accent) 16%, var(--surface));
 }
 
-.rail {
-  align-self: start;
-  border: 1px dashed var(--border);
-  border-radius: 16px;
-  padding: var(--space-3);
-  background: color-mix(in oklch, var(--surface) 94%, white 6%);
-}
-
-.railPlaceholder {
-  margin-top: var(--space-3);
-  padding: 1rem;
-  border-radius: 12px;
-  background: color-mix(in oklch, var(--accent) 8%, var(--surface));
-  color: var(--muted);
-}
-
 @media (max-width: 880px) {
-  .layout {
-    grid-template-columns: 1fr;
-  }
-
   .header {
     flex-direction: column;
   }
@@ -240,5 +236,10 @@
   .groupToggle {
     align-self: stretch;
     justify-content: space-between;
+  }
+
+  .itemTop {
+    padding-right: 0;
+    flex-direction: column;
   }
 }

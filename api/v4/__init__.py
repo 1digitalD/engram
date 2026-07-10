@@ -16,4 +16,5 @@ from . import recall
 from . import reports
 from . import system
 from . import today
+from . import task_board
 from . import workboard

@@ -11,13 +11,6 @@ const themeOptions = [
   ['frost', 'Frost', Snowflake],
 ];
 
-const lenses = [
-  [legacyPath('/now'), 'Now'],
-  [legacyPath('/threads'), 'Threads'],
-  [legacyPath('/memory'), 'Memory'],
-  [legacyPath('/recall'), 'Recall'],
-];
-
 function getInitialTheme() {
   try {
     const saved = localStorage.getItem('engram-theme');
@@ -101,6 +94,13 @@ export default function TopBar({
     [legacyPath('/recall')]: recallCount,
   };
 
+  const lenses = [
+    [legacyPath('/now'), 'Now'],
+    [legacyPath('/threads'), 'Threads'],
+    [legacyPath('/memory'), 'Memory'],
+    [legacyPath('/recall'), 'Recall'],
+  ];
+
   const nowPath = legacyPath('/now');
   const recallPath = legacyPath('/recall');
 
@@ -124,19 +124,19 @@ export default function TopBar({
               ) : null}
             </>
           );
-          if (isRecall) {
-            return (
-              <button
-                key={to}
-                type="button"
-                className={classNames(styles.lens, styles.lensButton)}
-                onClick={onRecall}
-                aria-label="Open Recall"
-              >
-                {children}
-              </button>
-            );
-          }
+            if (isRecall) {
+              return (
+                <NavLink
+                  key={to}
+                  to={recallPath}
+                  state={{ backgroundLocation: location }}
+                  className={classNames(styles.lens, styles.lensButton)}
+                  aria-label="Open Recall"
+                >
+                  {children}
+                </NavLink>
+              );
+            }
           return (
             <NavLink
               key={to}

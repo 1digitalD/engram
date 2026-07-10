@@ -71,7 +71,7 @@ describe('Legacy V5 App shell', () => {
     expect(screen.getByRole('link', { name: /Now/i })).toHaveTextContent('3');
     expect(screen.getByRole('link', { name: /Threads/i })).toHaveTextContent('7');
     expect(screen.getByRole('button', { name: /Review 4 pending suggestions/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Recall/i })).not.toHaveTextContent(/\d/);
+    expect(screen.getByLabelText(/Open Recall/i)).not.toHaveTextContent(/\d/);
   });
 
   it('opens the review sheet from the top bar badge', async () => {
@@ -92,11 +92,10 @@ describe('Legacy V5 App shell', () => {
     expect(await screen.findByRole('dialog', { name: 'Capture' })).toBeInTheDocument();
   });
 
-  it('opens the Recall sheet with the Recall lens button', async () => {
+  it('wires the Recall lens to the legacy recall route', async () => {
     renderLegacy('/legacy/now');
 
-    fireEvent.click(await screen.findByRole('button', { name: /Open Recall/i }));
-    expect(await screen.findByRole('dialog', { name: 'Recall search' })).toBeInTheDocument();
+    expect(await screen.findByLabelText(/Open Recall/i)).toHaveAttribute('href', '/legacy/recall');
   });
 
   it('opens the Recall sheet with Cmd+K', async () => {
@@ -124,11 +123,7 @@ describe('Legacy V5 App shell', () => {
     });
 
     it('switches theme from the top bar and persists only on explicit choice', async () => {
-      render(
-        <MemoryRouter initialEntries={['/legacy/now']}>
-          <LegacyApp />
-        </MemoryRouter>,
-      );
+      renderLegacy('/legacy/now');
 
       expect(await screen.findByText('Now view')).toBeInTheDocument();
       expect(screen.getByRole('group', { name: 'Theme' })).toBeInTheDocument();
@@ -144,11 +139,7 @@ describe('Legacy V5 App shell', () => {
     it('restores the saved theme on load', async () => {
       localStorage.setItem('engram-theme', 'dark');
 
-      render(
-        <MemoryRouter initialEntries={['/legacy/now']}>
-          <LegacyApp />
-        </MemoryRouter>,
-      );
+      renderLegacy('/legacy/now');
 
       expect(await screen.findByText('Now view')).toBeInTheDocument();
       expect(document.documentElement.dataset.theme).toBe('dark');

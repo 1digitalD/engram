@@ -51,3 +51,20 @@ def test_events_narration_for_created_event(client):
     events = response.get_json()["data"]
     created_event = next(e for e in events if e["event_type"] == "created")
     assert created_event["narration"].startswith("Created") or created_event["narration"].startswith("I created")
+
+
+def test_project_detail_open_tasks_include_assignee_context(client):
+    project_id = _create_entity(client, "project", "Owner context project")
+    task_id = _create_entity(client, "task", "Delegated task")
+    person_id = _create_entity(client, "person", "Delegated Person")
+
+    _link(client, task_id, project_id, "parent")
+    _link(client, task_id, person_id, "assigned_to")
+
+    response = client.get(f"/api/v4/entities/{project_id}/detail")
+    assert response.status_code == 200
+    sections = {section["key"]: section for section in response.get_json()["sections"]}
+    open_tasks = sections["open_tasks"]["items"]
+    assert len(open_tasks) == 1
+    entity = open_tasks[0]["entity"]
+    assert entity["people"] == [{"id": person_id, "title": "Delegated Person"}]

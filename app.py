@@ -209,6 +209,13 @@ def create_app(config_name=None):
                 )
             ), 503
 
+    @app.after_request
+    def prevent_html_caching(response):
+        content_type = response.content_type or ""
+        if "text/html" in content_type:
+            response.headers["Cache-Control"] = "no-store, must-revalidate"
+        return response
+
     # ── React SPA ─────────────────────────────────────────────────────────────
     # Serve static assets directly; fall through to index.html for SPA routes.
 

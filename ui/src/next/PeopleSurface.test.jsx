@@ -6,8 +6,9 @@ import NextApp from './NextApp';
 vi.mock('../api/v4Client', () => ({
   v4API: {
     reports: {
-      list: vi.fn(),
+      list: vi.fn().mockResolvedValue({ data: [], meta: { total: 0 } }),
     },
+    agentActivity: vi.fn().mockResolvedValue({ data: [], meta: { total: 0, counts: {} } }),
     capture: vi.fn(),
     search: vi.fn(),
     entities: {

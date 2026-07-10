@@ -1,4 +1,5 @@
 .surface {
+  composes: surface from './surfaceLayout.module.css';
   display: grid;
   gap: 1.25rem;
 }
@@ -18,7 +19,7 @@
 
 .subtitle {
   margin: 0.35rem 0 0;
-  color: #5d6777;
+  color: var(--muted);
   max-width: 42rem;
 }
 
@@ -33,7 +34,7 @@
 .prepShortcut,
 .personLink,
 .commitmentLink {
-  color: #153e75;
+  color: var(--accent);
   text-decoration: none;
   font-weight: 600;
 }
@@ -49,8 +50,8 @@
   margin: 0;
   padding: 0.9rem 1rem;
   border-radius: 1rem;
-  background: linear-gradient(135deg, #fff7e2, #ffe9be);
-  color: #6a4b12;
+  background: color-mix(in oklch, var(--yellow) 18%, var(--surface));
+  color: var(--text);
   font-weight: 600;
 }
 
@@ -64,10 +65,10 @@
 .cardWide,
 .personListItem,
 .noteCard {
-  border: 1px solid #d8e0ea;
+  border: 1px solid var(--border);
   border-radius: 1rem;
-  background: #fff;
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
 }
 
 .card,
@@ -100,10 +101,17 @@
 
 .commitmentMeta,
 .personMeta,
+.itemMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+.personMeta,
 .notePreview,
 .emptyHint {
   margin: 0;
-  color: #5d6777;
+  color: var(--muted);
 }
 
 .peopleList {
@@ -120,7 +128,7 @@
 }
 
 .error {
-  color: #9f1239;
+  color: var(--danger);
 }
 
 .prepHeadline {
@@ -145,15 +153,19 @@
 
 .noteCard {
   padding: 0.9rem 1rem;
-  background: linear-gradient(180deg, #f8fafc, #ffffff);
+  background: color-mix(in oklch, var(--surface) 96%, var(--surface2));
 }
 
-@media (max-width: 720px) {
+@media (max-width: 880px) {
   .header {
     flex-direction: column;
   }
 
   .title {
     font-size: 1.7rem;
+  }
+
+  .columns {
+    grid-template-columns: 1fr;
   }
 }

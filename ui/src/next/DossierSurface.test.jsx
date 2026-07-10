@@ -7,8 +7,9 @@ import NextApp from './NextApp';
 vi.mock('../api/v4Client', () => ({
   v4API: {
     reports: {
-      list: vi.fn(),
+      list: vi.fn().mockResolvedValue({ data: [], meta: { total: 0 } }),
     },
+    agentActivity: vi.fn().mockResolvedValue({ data: [], meta: { total: 0, counts: {} } }),
     capture: vi.fn(),
     search: vi.fn(),
     brief: vi.fn(),
@@ -66,7 +67,7 @@ const DETAIL = {
             title: 'Send deck to Maria',
             status: 'open',
             due_at: '2026-07-11T12:00:00Z',
-            owner: { id: 'person-operator', title: 'Operator' },
+            people: [{ id: 'person-operator', title: 'Operator' }],
           },
         },
         {
@@ -236,7 +237,9 @@ describe('DossierSurface', () => {
     expect(screen.getByRole('heading', { name: 'Decisions' })).toBeInTheDocument();
     expect(screen.getByText('Renewal anchored on 2-yr term')).toBeInTheDocument();
     expect(screen.getByText('Send deck to Maria')).toBeInTheDocument();
-    expect(screen.getByText(/Dana — Legal read on clause 7/)).toBeInTheDocument();
+    expect(screen.getByLabelText('Send deck to Maria owner')).toHaveValue('person-operator');
+    expect(screen.getByText('Legal read on clause 7')).toBeInTheDocument();
+    expect(screen.getByLabelText('Legal read on clause 7 owner')).toHaveValue('person-dana');
     expect(screen.getByRole('button', { name: 'Draft nudge' })).toBeInTheDocument();
     expect(screen.getByText('Who owns the legal review?')).toBeInTheDocument();
   });
@@ -261,6 +264,49 @@ describe('DossierSurface', () => {
 
     await waitFor(() =>
       expect(v4API.entities.unpin).toHaveBeenCalledWith(SPACE_ID, 'status'),
+    );
+  });
+
+  it('updates space status inline from the dossier header', async () => {
+    renderDossier();
+
+    expect(await screen.findByRole('heading', { name: 'Apollo renewal' })).toBeInTheDocument();
+    v4API.entities.update.mockResolvedValue({ data: {} });
+    v4API.entities.detail.mockResolvedValue({
+      ...DETAIL,
+      entity: { ...DETAIL.entity, status: 'on_hold' },
+    });
+
+    fireEvent.change(screen.getByLabelText('Space status'), { target: { value: 'on_hold' } });
+
+    await waitFor(() =>
+      expect(v4API.entities.update).toHaveBeenCalledWith(SPACE_ID, { status: 'on_hold' }),
+    );
+  });
+
+  it('updates project finish line inline from the dossier header', async () => {
+    renderDossier();
+
+    expect(await screen.findByRole('heading', { name: 'Apollo renewal' })).toBeInTheDocument();
+    v4API.entities.update.mockResolvedValue({ data: {} });
+
+    fireEvent.change(screen.getByLabelText('Space finish line'), { target: { value: '2026-09-01' } });
+
+    await waitFor(() =>
+      expect(v4API.entities.update).toHaveBeenCalledWith(SPACE_ID, { due_at: '2026-09-01T12:00:00Z' }),
+    );
+  });
+
+  it('updates space follow-up inline from the dossier header', async () => {
+    renderDossier();
+
+    expect(await screen.findByRole('heading', { name: 'Apollo renewal' })).toBeInTheDocument();
+    v4API.entities.update.mockResolvedValue({ data: {} });
+
+    fireEvent.change(screen.getByLabelText('Space follow-up'), { target: { value: '2026-07-15' } });
+
+    await waitFor(() =>
+      expect(v4API.entities.update).toHaveBeenCalledWith(SPACE_ID, { follow_up_at: '2026-07-15T12:00:00Z' }),
     );
   });
 });

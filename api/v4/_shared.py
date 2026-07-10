@@ -1664,6 +1664,7 @@ def _entity_map_for_links(entity_id, links):
         return {}
     related_entities = _entity_query().filter(Entity.id.in_(related_ids)).all()
     _attach_project_task_counts(related_entities)
+    _attach_task_context(related_entities)
     return {related.id: related for related in related_entities}
 
 

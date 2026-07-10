@@ -7,10 +7,12 @@ import NextApp from './NextApp';
 vi.mock('../api/v4Client', () => ({
   v4API: {
     reports: {
-      list: vi.fn(),
+      list: vi.fn().mockResolvedValue({ data: [], meta: { total: 0 } }),
     },
+    agentActivity: vi.fn().mockResolvedValue({ data: [], meta: { total: 0, counts: {} } }),
     entities: {
       list: vi.fn(),
+      get: vi.fn(),
       createLink: vi.fn(),
     },
     capture: vi.fn(),
@@ -43,7 +45,7 @@ const STREAM_PAYLOAD = {
       id: 'note-1',
       type: 'note',
       title: 'Morning standup',
-      content: 'Morning standup',
+      content: '**Blocked** on infra review',
       created_at: '2026-07-07T16:05:00Z',
       updated_at: '2026-07-07T16:05:00Z',
     },
@@ -52,14 +54,9 @@ const STREAM_PAYLOAD = {
 
 const TARGETS = { data: [{ id: 'space-apollo', title: 'Apollo' }] };
 
-const JULY7_LOCAL_TIME = new Intl.DateTimeFormat('en-US', {
-  hour: 'numeric',
-  minute: '2-digit',
-}).format(new Date('2026-07-07T16:05:00Z'));
-
-function renderStream() {
+function renderStream(initialEntry = '/stream') {
   return render(
-    <MemoryRouter initialEntries={['/stream']}>
+    <MemoryRouter initialEntries={[initialEntry]}>
       <Routes>
         <Route path="/*" element={<NextApp />} />
       </Routes>
@@ -108,7 +105,16 @@ describe('StreamSurface', () => {
     expect(within(july8Section).getAllByText('Stream entry')).toHaveLength(2);
 
     expect(within(july7Section).getByText('Morning standup')).toBeInTheDocument();
-    expect(within(july7Section).getByText(JULY7_LOCAL_TIME)).toBeInTheDocument();
+    expect(within(july7Section).getByText('Blocked')).toBeInTheDocument();
+    expect(within(july7Section).queryByRole('time')).not.toBeInTheDocument();
+  });
+
+  it('renders markdown in stream entry bodies', async () => {
+    renderStream();
+
+    const july7 = await screen.findByRole('heading', { name: 'Jul 7, 2026' });
+    const july7Section = july7.closest('section');
+    expect(within(july7Section).getByText('Blocked').tagName).toBe('STRONG');
   });
 
   it('attaches a stream entry to a selected target', async () => {
@@ -130,5 +136,29 @@ describe('StreamSurface', () => {
         relationship_type: 'related',
       }),
     );
+  });
+
+  it('fetches a highlighted note when it is outside the first page of stream results', async () => {
+    v4API.entities.list
+      .mockResolvedValueOnce(STREAM_PAYLOAD)
+      .mockResolvedValueOnce({ data: [] })
+      .mockResolvedValueOnce(TARGETS)
+      .mockResolvedValueOnce({ data: [] })
+      .mockResolvedValueOnce({ data: [] });
+    v4API.entities.get.mockResolvedValue({
+      data: {
+        id: 'note-old',
+        type: 'note',
+        title: 'Older capture',
+        content: 'Older capture',
+        created_at: '2026-01-01T12:00:00Z',
+        updated_at: '2026-01-01T12:00:00Z',
+      },
+    });
+
+    renderStream('/stream?note=note-old');
+
+    expect(await screen.findByText('Older capture')).toBeInTheDocument();
+    expect(v4API.entities.get).toHaveBeenCalledWith('note-old');
   });
 });

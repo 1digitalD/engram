@@ -36,15 +36,26 @@ export const SURFACE_LABELS = {
   review: 'Review',
   spaces: 'Spaces',
   people: 'People',
+  notes: 'Notes',
+  tasks: 'Tasks',
+  projects: 'Projects',
+  areas: 'Areas',
+  references: 'References',
 };
 
 export const ACTION_LABELS = {
   verify: 'Verify',
   accept: 'Verify',
   edit: 'Edit',
+  verifyWithEdits: 'Verify with edits',
   dismiss: 'Dismiss',
   later: 'Later',
   acceptRest: 'Accept remainder',
+  undo: 'Undo',
+  undoReview: 'Undo review batch',
+  markDone: 'Done with capture',
+  createSpace: 'Create Space',
+  viewSource: 'View in Stream',
 };
 
 export function entityTypeLabel(type) {

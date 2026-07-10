@@ -37,7 +37,7 @@
 .button,
 .buttonPrimary {
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 8px;
   background: var(--surface);
   color: inherit;
   font: inherit;
@@ -94,4 +94,240 @@
   margin: 0;
   font-size: 0.8rem;
   color: var(--muted);
+}
+
+.inlineTaskFields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.inlineField {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.inlineLabel {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.inlineSelect,
+.inlineInput {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  padding: 0.2rem 0.55rem;
+  min-height: 1.9rem;
+  width: 100%;
+  min-width: 0;
+}
+
+.inlineSelect {
+  cursor: pointer;
+}
+
+.inlineInput {
+  color-scheme: light dark;
+}
+
+.controlRows {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.assigneeRow {
+  display: grid;
+  grid-template-columns: minmax(6.5rem, max-content) 11rem 2rem;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.assigneeRowPerson {
+  display: grid;
+  grid-template-columns: minmax(6.5rem, max-content);
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.scheduleRow {
+  display: grid;
+  grid-template-columns: minmax(9.25rem, max-content) minmax(9.25rem, max-content) 2rem minmax(0, 1fr) auto;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.primaryRow,
+.primaryRowPerson {
+  display: grid;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.primaryRow {
+  grid-template-columns: minmax(7.5rem, auto) minmax(9.5rem, auto) minmax(9.5rem, auto) 11rem auto;
+}
+
+.primaryRowPerson {
+  grid-template-columns: minmax(7.5rem, auto) minmax(9.5rem, auto) minmax(9.5rem, auto);
+}
+
+.secondaryRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.workboardItem {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.4rem;
+}
+
+.updateField {
+  min-width: 0;
+}
+
+.inlineSelectWide {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  padding: 0.2rem 0.7rem;
+  min-height: 1.9rem;
+  width: 11rem;
+  max-width: 11rem;
+  cursor: pointer;
+}
+
+.glyphButton,
+.glyphButtonActive {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: inherit;
+  cursor: pointer;
+}
+
+.glyphButtonActive {
+  border-color: color-mix(in oklch, var(--accent) 50%, var(--border));
+  background: color-mix(in oklch, var(--accent) 12%, var(--surface));
+}
+
+.glyphButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.updateInput {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  padding: 0.35rem 0.75rem;
+  min-height: 2rem;
+  resize: none;
+}
+
+.expandableUpdate {
+  display: flex;
+  flex: 1 1 12rem;
+  gap: 0.5rem;
+  align-items: end;
+  min-width: 10rem;
+}
+
+.updateTextarea {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  padding: 0.5rem 0.75rem;
+  min-height: 4.5rem;
+  resize: vertical;
+}
+
+.movePanel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: end;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: color-mix(in oklch, var(--surface) 94%, var(--accent) 6%);
+}
+
+.moveActions {
+  display: inline-flex;
+  gap: 0.5rem;
+}
+
+.spacePickList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  width: 100%;
+}
+
+.spacePickButton {
+  width: 100%;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.spacePickButton:hover {
+  border-color: var(--accent);
+  background: color-mix(in oklch, var(--accent) 8%, var(--surface));
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (max-width: 880px) {
+  .primaryRow,
+  .primaryRowPerson {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .primaryRow > :first-child {
+    grid-column: 1 / -1;
+  }
 }

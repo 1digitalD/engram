@@ -1,0 +1,154 @@
+.surface {
+  composes: surface from './surfaceLayout.module.css';
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.title {
+  margin: 0 0 var(--space-1);
+  font-size: 1.75rem;
+}
+
+.subtitle {
+  margin: 0;
+  max-width: 42rem;
+  color: var(--muted);
+}
+
+.filterChip,
+.filterChipActive {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.filterChipActive {
+  border-color: color-mix(in oklch, var(--accent) 50%, var(--border));
+  background: color-mix(in oklch, var(--accent) 10%, var(--surface));
+}
+
+.filterRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: var(--space-3);
+}
+
+.controlRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: var(--space-3);
+}
+
+.controlField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 9rem;
+}
+
+.controlLabel {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.controlSelect {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  padding: 0.45rem 0.65rem;
+}
+
+.filterCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.4rem;
+  height: 1.4rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--ink) 12%, var(--surface));
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.actionNote,
+.error,
+.empty {
+  margin: 0 0 var(--space-3);
+  color: var(--muted);
+}
+
+.error {
+  color: var(--danger, #9f2626);
+}
+
+.boardColumn {
+  min-width: 0;
+}
+
+.groupList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.groupCard {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: var(--space-3);
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklch, var(--surface) 96%, white 4%),
+    var(--surface)
+  );
+}
+
+.groupHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.groupTitle {
+  margin: 0;
+}
+
+.groupMeta {
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+}
+
+.itemList {
+  list-style: none;
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+@media (max-width: 880px) {
+  .header {
+    flex-direction: column;
+  }
+}

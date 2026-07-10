@@ -1,17 +1,24 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 import NextApp from './NextApp';
+import { formatReceiptValue } from './dateFormat';
+import { formatTodayHeading } from './TodaySurface';
 
 vi.mock('../api/v4Client', () => ({
   v4API: {
     reports: {
-      list: vi.fn(),
+      list: vi.fn().mockResolvedValue({ data: [], meta: { total: 0 } }),
     },
+    agentActivity: vi.fn().mockResolvedValue({ data: [], meta: { total: 0, counts: {} } }),
     today: vi.fn(),
     capture: vi.fn(),
     search: vi.fn(),
+    entities: {
+      list: vi.fn(),
+      createLink: vi.fn(),
+    },
   },
   friendlyApiError: (err, fallback) => err?.message || fallback || 'Something went wrong.',
 }));
@@ -123,6 +130,13 @@ function renderToday() {
   );
 }
 
+const SPACES = {
+  data: [
+    { id: 'space-apollo', title: 'Apollo renewal', type: 'project' },
+    { id: 'space-orbit', title: 'Orbit', type: 'area' },
+  ],
+};
+
 describe('TodaySurface', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -130,12 +144,18 @@ describe('TodaySurface', () => {
     v4API.today.mockResolvedValue(TODAY_PAYLOAD);
     v4API.capture.mockResolvedValue({});
     v4API.search.mockResolvedValue({ data: [] });
+    v4API.entities.list.mockImplementation(async (params = {}) => {
+      if (params.type === 'person') return { data: [] };
+      return SPACES;
+    });
+    v4API.entities.createLink.mockResolvedValue({});
   });
 
   it('loads the extended Today feed and renders both sections with counts', async () => {
     renderToday();
 
     expect(await screen.findByRole('heading', { name: 'Today' })).toBeInTheDocument();
+    expect(screen.getByText(formatTodayHeading())).toBeInTheDocument();
     expect(v4API.today).toHaveBeenCalledTimes(1);
     expect(screen.getByRole('link', { name: 'Today' })).toBeInTheDocument();
 
@@ -161,6 +181,16 @@ describe('TodaySurface', () => {
     expect(within(needsYou).getByText(/stale 12d; due in 3d/i)).toBeInTheDocument();
   });
 
+  it('formats receipt timestamps as local dates', async () => {
+    renderToday();
+
+    const needsYou = await screen.findByRole('region', { name: 'Needs you' });
+    const formattedDue = formatReceiptValue('due_at', '2026-07-08T12:00:00Z');
+
+    expect(within(needsYou).getAllByText(`due: ${formattedDue}`).length).toBeGreaterThan(0);
+    expect(needsYou.textContent).not.toMatch(/2026-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z/);
+  });
+
   it('shows in-motion items in the second column', async () => {
     renderToday();
 
@@ -168,5 +198,44 @@ describe('TodaySurface', () => {
 
     expect(within(inMotion).getByText('Roadmap review')).toBeInTheDocument();
     expect(within(inMotion).getByText('Morning standup')).toBeInTheDocument();
+  });
+
+  it('links task titles to commitment detail and shows assign glyph for stand-alone tasks', async () => {
+    renderToday();
+
+    const needsYou = await screen.findByRole('region', { name: 'Needs you' });
+
+    expect(within(needsYou).getByRole('link', { name: 'Send deck to Maria' })).toHaveAttribute(
+      'href',
+      '/commitments/task-deck',
+    );
+    expect(within(needsYou).getByRole('link', { name: 'Close contract' })).toHaveAttribute(
+      'href',
+      '/commitments/task-contract',
+    );
+    expect(
+      within(needsYou).getByRole('button', { name: 'Assign Close contract to a space' }),
+    ).toBeInTheDocument();
+    expect(
+      within(needsYou).getByRole('button', { name: 'Assign Load test results to a space' }),
+    ).toBeInTheDocument();
+  });
+
+  it('assigns a stand-alone task to a space from Today', async () => {
+    renderToday();
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Assign Close contract to a space' }),
+    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Orbit' }));
+
+    await waitFor(() =>
+      expect(v4API.entities.createLink).toHaveBeenCalledWith('task-contract', {
+        target_id: 'space-orbit',
+        relationship_type: 'parent',
+        replace_existing: true,
+        batch_summary: 'assign commitment to space',
+      }),
+    );
   });
 });

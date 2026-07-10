@@ -1,0 +1,7 @@
+.surface {
+  width: 100%;
+  max-width: var(--content-wide);
+  margin: 0 auto;
+  padding: var(--space-4);
+  box-sizing: border-box;
+}

@@ -16,6 +16,7 @@ import {
   GroupCommitmentComposer,
   NudgeDraftAffordance,
   TaskAffordances,
+  WorkboardItemAffordances,
 } from './TypedAffordances';
 
 const PEOPLE = [
@@ -135,6 +136,113 @@ describe('TaskAffordances', () => {
         'Hi Sam, following up on the security questionnaire from 28 Jun.',
       ),
     );
+  });
+});
+
+describe('WorkboardItemAffordances', () => {
+  it('saves owner hand-off, move panel, and log update actions', async () => {
+    const onMoveSpace = vi.fn().mockResolvedValue(undefined);
+    const onHandOwner = vi.fn();
+    const onLogUpdate = vi.fn();
+
+    render(
+      <WorkboardItemAffordances
+        item={ITEM}
+        people={PEOPLE}
+        spaces={SPACES}
+        group="space"
+        onStatusChange={vi.fn()}
+        onDueChange={vi.fn()}
+        onFollowUpChange={vi.fn()}
+        onMoveSpace={onMoveSpace}
+        onHandOwner={onHandOwner}
+        onLogUpdate={onLogUpdate}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText('Close contract owner'), { target: { value: 'person-sam' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Hand Close contract to owner' }));
+    expect(onHandOwner).toHaveBeenCalledWith('task-1', 'person-sam');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Move Close contract to another space' }));
+    fireEvent.change(screen.getByLabelText('Close contract move to space'), { target: { value: 'space-orbit' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Move' }));
+    await waitFor(() => expect(onMoveSpace).toHaveBeenCalledWith('task-1', 'space-orbit'));
+
+    fireEvent.change(screen.getByLabelText('Close contract log update'), {
+      target: { value: 'Sent the revised draft.' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Log update for Close contract' }));
+    expect(onLogUpdate).toHaveBeenCalledWith('task-1', 'Sent the revised draft.');
+  });
+
+  it('shows owner controls when grouped by person', () => {
+    render(
+      <WorkboardItemAffordances
+        item={ITEM}
+        people={PEOPLE}
+        spaces={SPACES}
+        group="person"
+        onStatusChange={vi.fn()}
+        onDueChange={vi.fn()}
+        onFollowUpChange={vi.fn()}
+        onMoveSpace={vi.fn()}
+        onHandOwner={vi.fn()}
+        onLogUpdate={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText('Close contract owner')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Hand Close contract to owner' })).toBeInTheDocument();
+  });
+
+  it('keeps the move panel open when move fails', async () => {
+    const onMoveSpace = vi.fn().mockResolvedValue(false);
+
+    render(
+      <WorkboardItemAffordances
+        item={ITEM}
+        people={PEOPLE}
+        spaces={SPACES}
+        group="space"
+        onStatusChange={vi.fn()}
+        onDueChange={vi.fn()}
+        onFollowUpChange={vi.fn()}
+        onMoveSpace={onMoveSpace}
+        onHandOwner={vi.fn()}
+        onLogUpdate={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Move Close contract to another space' }));
+    fireEvent.change(screen.getByLabelText('Close contract move to space'), { target: { value: 'space-orbit' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Move' }));
+
+    await waitFor(() => expect(onMoveSpace).toHaveBeenCalledWith('task-1', 'space-orbit'));
+    expect(screen.getByLabelText('Close contract move to space')).toBeInTheDocument();
+  });
+
+  it('reverts status when save fails', async () => {
+    const onStatusChange = vi.fn().mockResolvedValue(false);
+
+    render(
+      <WorkboardItemAffordances
+        item={ITEM}
+        people={PEOPLE}
+        spaces={SPACES}
+        group="space"
+        onStatusChange={onStatusChange}
+        onDueChange={vi.fn()}
+        onFollowUpChange={vi.fn()}
+        onMoveSpace={vi.fn()}
+        onHandOwner={vi.fn()}
+        onLogUpdate={vi.fn()}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText('Close contract status'), { target: { value: 'waiting' } });
+    await waitFor(() => expect(onStatusChange).toHaveBeenCalledWith('task-1', 'waiting'));
+    expect(screen.getByLabelText('Close contract status')).toHaveValue('open');
   });
 });
 

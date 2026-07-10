@@ -7,8 +7,9 @@ import NextApp from './NextApp';
 vi.mock('../api/v4Client', () => ({
   v4API: {
     reports: {
-      list: vi.fn(),
+      list: vi.fn().mockResolvedValue({ data: [], meta: { total: 0 } }),
     },
+    agentActivity: vi.fn().mockResolvedValue({ data: [], meta: { total: 0, counts: {} } }),
     workboard: vi.fn(),
     capture: vi.fn(),
     search: vi.fn(),
@@ -178,12 +179,7 @@ describe('WorkboardSurface', () => {
     v4API.reports.list.mockResolvedValue({ data: [], meta: { total: 0 } });
     v4API.capture.mockResolvedValue({});
     v4API.search.mockResolvedValue({ data: [] });
-    v4API.workboard
-      .mockResolvedValueOnce(SPACE_PAYLOAD)
-      .mockResolvedValueOnce(PERSON_PAYLOAD)
-      .mockResolvedValueOnce(PERSON_PAYLOAD)
-      .mockResolvedValueOnce(SPACE_PAYLOAD)
-      .mockResolvedValue(SPACE_PAYLOAD);
+    v4API.workboard.mockResolvedValue(SPACE_PAYLOAD);
     v4API.entities.list
       .mockResolvedValueOnce(PROJECTS)
       .mockResolvedValueOnce(AREAS)
@@ -207,6 +203,12 @@ describe('WorkboardSurface', () => {
   });
 
   it('refetches when the group toggle and filter chips change', async () => {
+    v4API.workboard
+      .mockResolvedValueOnce(SPACE_PAYLOAD)
+      .mockResolvedValueOnce(PERSON_PAYLOAD)
+      .mockResolvedValueOnce(PERSON_PAYLOAD)
+      .mockResolvedValue(SPACE_PAYLOAD);
+
     renderWorkboard();
 
     await screen.findByText('Close contract');
@@ -231,18 +233,61 @@ describe('WorkboardSurface', () => {
     expect(within(screen.getByRole('main')).getByRole('heading', { name: 'Apollo' })).toBeInTheDocument();
   });
 
-  it('executes inline affordance actions through the API client', async () => {
+  it('updates status and due date inline without separate submit buttons', async () => {
     renderWorkboard();
 
     expect(await screen.findByText('Close contract')).toBeInTheDocument();
 
-    fireEvent.click(screen.getAllByRole('button', { name: 'Mark done' })[0]);
+    fireEvent.change(screen.getByLabelText('Close contract status'), { target: { value: 'waiting' } });
+    await waitFor(() =>
+      expect(v4API.entities.update).toHaveBeenCalledWith('task-close-contract', { status: 'waiting' }),
+    );
+
+    fireEvent.change(screen.getByLabelText('Close contract due date'), { target: { value: '2026-08-01' } });
+    await waitFor(() =>
+      expect(v4API.entities.update).toHaveBeenCalledWith('task-close-contract', {
+        due_at: '2026-08-01T12:00:00Z',
+      }),
+    );
+  });
+
+  it('executes compact affordance actions through the API client', async () => {
+    renderWorkboard();
+
+    expect(await screen.findByText('Close contract')).toBeInTheDocument();
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Mark Close contract done' })[0]);
     await waitFor(() => expect(v4API.entities.update).toHaveBeenCalledWith('task-close-contract', { status: 'done' }));
+
+    fireEvent.change(screen.getByLabelText('Close contract owner'), { target: { value: 'person-sam' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Hand Close contract to owner' }));
+    await waitFor(() =>
+      expect(v4API.entities.createLink).toHaveBeenCalledWith(
+        'task-close-contract',
+        expect.objectContaining({
+          target_id: 'person-sam',
+          relationship_type: 'assigned_to',
+        }),
+      ),
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Move Close contract to another space' }));
+    fireEvent.change(screen.getByLabelText('Close contract move to space'), { target: { value: 'space-orbit' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Move' }));
+    await waitFor(() =>
+      expect(v4API.entities.createLink).toHaveBeenCalledWith(
+        'task-close-contract',
+        expect.objectContaining({
+          target_id: 'space-orbit',
+          relationship_type: 'parent',
+        }),
+      ),
+    );
 
     fireEvent.change(screen.getAllByLabelText('Close contract log update')[0], {
       target: { value: 'Sent revised draft.' },
     });
-    fireEvent.click(screen.getAllByRole('button', { name: 'Log update' })[0]);
+    fireEvent.click(screen.getByRole('button', { name: 'Log update for Close contract' }));
     await waitFor(() =>
       expect(v4API.activityUpdates.create).toHaveBeenCalledWith('task-close-contract', 'Sent revised draft.'),
     );

@@ -155,8 +155,8 @@ describe('V5Now', () => {
     const sentence = screen.getByText(/Send yesterday’s standup update/i);
     const chip = screen.getByText('Product Launch');
 
-    expect(sentence.closest('a')).toHaveAttribute('href', '/legacy/tasks/task-standup');
-    expect(chip.closest('a')).toHaveAttribute('href', '/legacy/projects/project-launch');
+    expect(sentence.closest('a')).toHaveAttribute('href', '/tasks/task-standup');
+    expect(chip.closest('a')).toHaveAttribute('href', '/projects/project-launch');
   });
 
   it('shows project and area chips when task context is available', () => {
@@ -178,8 +178,8 @@ describe('V5Now', () => {
 
     renderWithRouter(<V5Now previewData={data} />);
 
-    expect(screen.getByRole('link', { name: /Memory Lookup/i })).toHaveAttribute('href', '/legacy/projects/p1');
-    expect(screen.getByRole('link', { name: /Execution/i })).toHaveAttribute('href', '/legacy/areas/a1');
+    expect(screen.getByRole('link', { name: /Memory Lookup/i })).toHaveAttribute('href', '/projects/p1');
+    expect(screen.getByRole('link', { name: /Execution/i })).toHaveAttribute('href', '/areas/a1');
   });
 
   it('keeps open navigation distinct from thread navigation', async () => {
@@ -191,8 +191,8 @@ describe('V5Now', () => {
           <MemoryRouter initialEntries={['/legacy/now']}>
             <Routes>
               <Route path="/legacy/now" element={<V5Now previewData={MOCKED_NOW_DATA} />} />
-              <Route path="/legacy/tasks/:id" element={<div>Task detail</div>} />
-              <Route path="/legacy/projects/:id" element={<div>Project detail</div>} />
+              <Route path="/tasks/:id" element={<div>Task detail</div>} />
+              <Route path="/projects/:id" element={<div>Project detail</div>} />
             </Routes>
           </MemoryRouter>
         </ReviewProvider>

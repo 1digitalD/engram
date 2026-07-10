@@ -1,7 +1,5 @@
 .surface {
-  max-width: 76rem;
-  margin: 0 auto;
-  padding: var(--space-4);
+  composes: surface from './surfaceLayout.module.css';
 }
 
 .header {
@@ -11,6 +9,12 @@
 .title {
   margin: 0 0 var(--space-1);
   font-size: 1.75rem;
+}
+
+.dateLine {
+  margin: 0 0 var(--space-2);
+  color: var(--muted);
+  font-size: 0.95rem;
 }
 
 .subtitle {
@@ -96,6 +100,26 @@
   align-items: flex-start;
 }
 
+.orphanGlyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 1.75rem;
+  height: 1.75rem;
+  margin-top: 0.05rem;
+  border: 1px dashed color-mix(in oklch, var(--muted) 55%, var(--border));
+  border-radius: 8px;
+  background: color-mix(in oklch, var(--surface) 88%, var(--muted));
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.orphanGlyph:hover {
+  color: inherit;
+  border-style: solid;
+}
+
 .glyph {
   display: inline-flex;
   align-items: center;
@@ -137,7 +161,7 @@ a.rowTitle:hover {
   font-size: 0.8rem;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 880px) {
   .columns {
     grid-template-columns: 1fr;
   }

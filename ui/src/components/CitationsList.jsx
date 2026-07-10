@@ -42,14 +42,16 @@ export default function CitationsList({ citations, onOpen, emptyText }) {
                 {meta ? <span className={styles.meta}>{meta}</span> : null}
               </div>
             </div>
-            <button
-              type="button"
-              className={styles.openButton}
-              onClick={() => onOpen?.(citation)}
-              aria-label={`Open citation ${index + 1}`}
-            >
-              open
-            </button>
+            {onOpen ? (
+              <button
+                type="button"
+                className={styles.openButton}
+                onClick={() => onOpen(citation)}
+                aria-label={`Open citation ${index + 1}`}
+              >
+                open
+              </button>
+            ) : null}
           </li>
         );
       })}

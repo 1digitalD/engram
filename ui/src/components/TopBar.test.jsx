@@ -1,9 +1,11 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import TopBar from './TopBar';
+import { setAppPathPrefix } from '../legacy/legacyPaths';
 
 function renderWithRouter(ui, { initialEntries = ['/legacy/now'] } = {}) {
+  setAppPathPrefix('/legacy');
   return render(
     <MemoryRouter initialEntries={initialEntries}>
       {ui}
@@ -12,6 +14,10 @@ function renderWithRouter(ui, { initialEntries = ['/legacy/now'] } = {}) {
 }
 
 describe('TopBar', () => {
+  afterEach(() => {
+    setAppPathPrefix('');
+  });
+
   it('renders brand, lenses, Ask, theme switcher, and trust chip', () => {
     renderWithRouter(<TopBar trustScore={87} onAsk={() => {}} />);
 
@@ -66,7 +72,7 @@ describe('TopBar', () => {
 
     expect(screen.getByRole('link', { name: /Now/i })).toHaveTextContent('3');
     expect(screen.getByRole('link', { name: /Threads/i })).toHaveTextContent('7');
-    expect(screen.getByRole('button', { name: /Recall/i })).not.toHaveTextContent(/\d/);
+    expect(screen.getByRole('link', { name: /Recall/i })).not.toHaveTextContent(/\d/);
     expect(screen.getByRole('button', { name: /Review 5 pending suggestions/i })).toBeInTheDocument();
   });
 

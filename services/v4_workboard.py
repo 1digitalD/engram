@@ -106,6 +106,7 @@ def get_workboard(*, group="space", state_filters=None, now=None):
             "title": task.title,
             "status": task.status,
             "due_at": _iso(task.due_at),
+            "follow_up_at": _iso(task.follow_up_at),
             "stale_days": stale_days_by_task.get(task.id, 0),
             "owner": _entity_ref(owner),
             "space": _space_ref(space, threshold_days),

@@ -29,6 +29,9 @@
   --text:           oklch(18% 0.015 75);
   --text-secondary: oklch(38% 0.012 75);
   --text-muted:     oklch(58% 0.010 75);
+  --ink:            var(--text);
+  --muted:          var(--text-muted);
+  --danger:         var(--red);
 
   /* Accent */
   --accent:       oklch(50% 0.14 278);
@@ -101,6 +104,7 @@
   --fab-clearance: 72px;
   --content-max:  720px;
   --content-wide: 1200px;
+  --surface-stack-bp: 880px;
 
   /* Theme effects (glass overrides these) */
   --blur: none;
@@ -316,8 +320,12 @@ body {
 }
 
 #root {
+  width: 100%;
   height: 100vh;
   display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
 }
 
 /* ── Scrollbar (5px, transparent track, border thumb, 3px radius) ── */

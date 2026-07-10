@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { friendlyApiError, v4API } from '../api/v4Client';
-import { GroupCommitmentComposer, TaskAffordances } from './TypedAffordances';
+import { createActionQueue } from './actionQueue';
+import CommitmentItemRow from './CommitmentItemRow';
+import { GroupCommitmentComposer } from './TypedAffordances';
 import { SURFACE_LABELS } from './vocab';
 import styles from './WorkboardSurface.module.css';
 
@@ -22,25 +24,10 @@ const GROUP_OPTIONS = [
 
 const EMPTY_BOARD = { data: { groups: [] }, meta: { counts: {}, total: 0 } };
 
-function formatDueDate(value) {
-  if (!value) return 'No due date';
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return 'No due date';
-  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(parsed);
-}
-
 function buildParams(group, filters) {
   const params = { group };
   if (filters.length > 0) params.state = filters;
   return params;
-}
-
-function itemMeta(item, group) {
-  const parts = [item.status || 'open'];
-  if (group === 'space' && item.owner?.title) parts.push(item.owner.title);
-  if (group === 'person' && item.space?.title) parts.push(item.space.title);
-  parts.push(`Due ${formatDueDate(item.due_at)}`);
-  return parts.join(' · ');
 }
 
 function stateSummary(item) {
@@ -61,18 +48,19 @@ export default function WorkboardSurface() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [actionNote, setActionNote] = useState('');
+  const enqueueAction = useMemo(() => createActionQueue(), []);
 
-  const loadBoard = useCallback(async () => {
-    setLoading(true);
+  const loadBoard = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) setLoading(true);
     setError('');
     try {
       const payload = await v4API.workboard(buildParams(group, activeFilters));
       setBoard(payload || EMPTY_BOARD);
     } catch (err) {
       setError(friendlyApiError(err, 'Could not load workboard.'));
-      setBoard(EMPTY_BOARD);
+      if (!silent) setBoard(EMPTY_BOARD);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [activeFilters, group]);
 
@@ -108,26 +96,36 @@ export default function WorkboardSurface() {
   }
 
   async function runAction(message, action) {
-    setError('');
-    try {
-      await action();
-      setActionNote(message);
-      await loadBoard();
-    } catch (err) {
-      setError(friendlyApiError(err, 'Could not save affordance change.'));
-    }
+    return enqueueAction(async () => {
+      setError('');
+      try {
+        await action();
+        setActionNote(message);
+        await loadBoard({ silent: true });
+        return true;
+      } catch (err) {
+        setError(friendlyApiError(err, 'Could not save affordance change.'));
+        return false;
+      }
+    });
   }
 
   async function handleStatusChange(itemId, status) {
-    await runAction('Status updated.', () => v4API.entities.update(itemId, { status }));
+    return runAction('Status updated.', () => v4API.entities.update(itemId, { status }));
   }
 
   async function handleDueChange(itemId, dueDate) {
-    await runAction('Due date updated.', () => v4API.entities.update(itemId, { due_at: dueDateToIso(dueDate) }));
+    return runAction('Due date updated.', () => v4API.entities.update(itemId, { due_at: dueDateToIso(dueDate) }));
+  }
+
+  async function handleFollowUpChange(itemId, followUpDate) {
+    return runAction('Follow-up date updated.', () =>
+      v4API.entities.update(itemId, { follow_up_at: dueDateToIso(followUpDate) }),
+    );
   }
 
   async function handleMoveSpace(itemId, targetId) {
-    await runAction('Moved to new space.', () =>
+    return runAction('Moved to new space.', () =>
       v4API.entities.createLink(itemId, {
         target_id: targetId,
         relationship_type: 'parent',
@@ -138,7 +136,7 @@ export default function WorkboardSurface() {
   }
 
   async function handleHandOwner(itemId, targetId) {
-    await runAction('Handed to new owner.', () =>
+    return runAction('Handed to new owner.', () =>
       v4API.entities.createLink(itemId, {
         target_id: targetId,
         relationship_type: 'assigned_to',
@@ -149,7 +147,7 @@ export default function WorkboardSurface() {
   }
 
   async function handleLogUpdate(itemId, content) {
-    await runAction('Update logged.', () => v4API.activityUpdates.create(itemId, content));
+    return runAction('Update logged.', () => v4API.activityUpdates.create(itemId, content));
   }
 
   async function handleMarkDone(itemId) {
@@ -177,6 +175,15 @@ export default function WorkboardSurface() {
 
   const counts = board?.meta?.counts || {};
   const groups = board?.data?.groups || [];
+  const commitmentHandlers = {
+    onStatusChange: handleStatusChange,
+    onDueChange: handleDueChange,
+    onFollowUpChange: handleFollowUpChange,
+    onMoveSpace: handleMoveSpace,
+    onHandOwner: handleHandOwner,
+    onLogUpdate: handleLogUpdate,
+    onMarkDone: handleMarkDone,
+  };
 
   return (
     <section className={styles.surface} aria-label={SURFACE_LABELS.workboard}>
@@ -234,93 +241,50 @@ export default function WorkboardSurface() {
         </p>
       ) : null}
 
-      <div className={styles.layout}>
-        <div className={styles.boardColumn}>
-          {loading ? <p className={styles.empty}>Loading workboard…</p> : null}
-          {!loading && groups.length === 0 ? <p className={styles.empty}>No open commitments match this board slice.</p> : null}
+      <div className={styles.boardColumn}>
+        {loading ? <p className={styles.empty}>Loading workboard…</p> : null}
+        {!loading && groups.length === 0 ? <p className={styles.empty}>No open commitments match this board slice.</p> : null}
 
-          {!loading ? (
-            <div className={styles.groupList}>
-              {groups.map((bucket) => (
-                <section key={bucket.key} className={styles.groupCard}>
-                  <div className={styles.groupHeader}>
-                    <div>
-                      <h2 className={styles.groupTitle}>
-                        {bucket.kind === 'space' && bucket.entity_id ? (
-                          <Link to={`/spaces/${bucket.entity_id}`}>{bucket.label}</Link>
-                        ) : (
-                          bucket.label
-                        )}
-                      </h2>
-                      <p className={styles.groupMeta}>{bucket.counts?.total || 0} commitments</p>
-                    </div>
-                    {bucket.at_risk?.flag ? <span className={styles.groupRiskFlag}>At risk</span> : null}
+        {!loading ? (
+          <div className={styles.groupList}>
+            {groups.map((bucket) => (
+              <section key={bucket.key} className={styles.groupCard}>
+                <div className={styles.groupHeader}>
+                  <div>
+                    <h2 className={styles.groupTitle}>
+                      {bucket.kind === 'space' && bucket.entity_id ? (
+                        <Link to={`/spaces/${bucket.entity_id}`}>{bucket.label}</Link>
+                      ) : (
+                        bucket.label
+                      )}
+                    </h2>
+                    <p className={styles.groupMeta}>{bucket.counts?.total || 0} commitments</p>
                   </div>
+                  {bucket.at_risk?.flag ? <span className={styles.groupRiskFlag}>At risk</span> : null}
+                </div>
 
-                  {bucket.at_risk?.reason ? <p className={styles.groupRiskReason}>{bucket.at_risk.reason}</p> : null}
+                {bucket.at_risk?.reason ? <p className={styles.groupRiskReason}>{bucket.at_risk.reason}</p> : null}
 
-                  <GroupCommitmentComposer label={bucket.label} onSubmit={(title) => handleAddCommitment(bucket, title)} />
+                <GroupCommitmentComposer label={bucket.label} onSubmit={(title) => handleAddCommitment(bucket, title)} />
 
-                  <ul className={styles.itemList}>
-                    {bucket.items.map((item) => {
-                      const states = stateSummary(item);
-                      return (
-                        <li key={item.id} className={styles.item}>
-                          <div className={styles.itemHeader}>
-                            <div>
-                              <h3 className={styles.itemTitle}>{item.title}</h3>
-                              <p className={styles.itemMeta}>{itemMeta(item, group)}</p>
-                            </div>
-                            {item.at_risk?.flag ? <span className={styles.itemRiskFlag}>At risk</span> : null}
-                          </div>
-
-                          {states.length > 0 ? (
-                            <div className={styles.stateList} aria-label={`${item.title} states`}>
-                              {states.map((state) => (
-                                <span key={state} className={styles.statePill}>
-                                  {state}
-                                </span>
-                              ))}
-                            </div>
-                          ) : null}
-
-                          {item.at_risk?.reason ? <p className={styles.reason}>{item.at_risk.reason}</p> : null}
-                          {item.blocked_by?.length ? (
-                            <p className={styles.blockedBy}>
-                              Blocked by {item.blocked_by.map((blocker) => blocker.title).join(', ')}.
-                            </p>
-                          ) : null}
-
-                          <TaskAffordances
-                            item={item}
-                            people={people}
-                            spaces={spaces}
-                            onStatusChange={handleStatusChange}
-                            onDueChange={handleDueChange}
-                            onMoveSpace={handleMoveSpace}
-                            onHandOwner={handleHandOwner}
-                            onLogUpdate={handleLogUpdate}
-                            onMarkDone={handleMarkDone}
-                            showNudge={Boolean(item.states?.waiting_on)}
-                          />
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </section>
-              ))}
-            </div>
-          ) : null}
-        </div>
-
-        <aside className={styles.rail}>
-          <h2 className={styles.railTitle}>Themes</h2>
-          <p className={styles.railCopy}>
-            Theme signals will stack here once Phase 5 lands. For now, keep the rail in place so the board layout does
-            not shift later.
-          </p>
-          <div className={styles.railPlaceholder}>No theme signals in this slice.</div>
-        </aside>
+                <ul className={styles.itemList}>
+                  {bucket.items.map((item) => (
+                    <CommitmentItemRow
+                      key={item.id}
+                      item={item}
+                      people={people}
+                      spaces={spaces}
+                      group={group}
+                      states={stateSummary(item)}
+                      showNudge={Boolean(item.states?.waiting_on)}
+                      {...commitmentHandlers}
+                    />
+                  ))}
+                </ul>
+              </section>
+            ))}
+          </div>
+        ) : null}
       </div>
     </section>
   );

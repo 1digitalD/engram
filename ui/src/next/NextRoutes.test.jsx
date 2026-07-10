@@ -22,6 +22,7 @@ vi.mock('../api/v4Client', () => ({
     reports: {
       list: vi.fn().mockResolvedValue({ data: [], meta: { total: 0 } }),
     },
+    agentActivity: vi.fn().mockResolvedValue({ data: [], meta: { total: 0, counts: {} } }),
     metrics: {
       trust: vi.fn().mockResolvedValue({ correction_rate: null }),
     },
@@ -35,6 +36,9 @@ vi.mock('../api/v4Client', () => ({
 
 vi.mock('../views/V5Now', () => ({ default: () => <main data-testid="legacy-now">Now view</main> }));
 vi.mock('../next/TodaySurface', () => ({ default: () => <main data-testid="v6-today">Today surface</main> }));
+vi.mock('../views/V5EntityList', () => ({
+  default: ({ type }) => <main data-testid={`browse-${type}`}>{type} browse</main>,
+}));
 
 describe('TC-60 shell routing', () => {
   beforeEach(() => {
@@ -77,5 +81,16 @@ describe('TC-60 shell routing', () => {
     );
 
     expect(await screen.findByTestId('v6-today')).toBeInTheDocument();
+  });
+
+  it('serves legacy browse lists at root paths', async () => {
+    render(
+      <MemoryRouter initialEntries={['/projects']}>
+        <App />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByTestId('browse-project')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Projects' })).toHaveAttribute('href', '/projects');
   });
 });

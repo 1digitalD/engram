@@ -1,7 +1,5 @@
 .surface {
-  max-width: 52rem;
-  margin: 0 auto;
-  padding: var(--space-4);
+  composes: surface from './surfaceLayout.module.css';
 }
 
 .header {
@@ -239,9 +237,66 @@
 
 .batchBar {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
+  gap: var(--space-2);
   padding-top: var(--space-3);
   border-top: 1px solid var(--border);
+}
+
+.tabs {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border);
+}
+
+.tab {
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  padding: var(--space-2) var(--space-3);
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.tabActive {
+  color: inherit;
+  border-bottom-color: var(--accent);
+}
+
+.reportHeader {
+  margin-bottom: var(--space-2);
+}
+
+.sourceLink {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.sourceLink:hover {
+  text-decoration: underline;
+}
+
+.createSpacePanel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+}
+
+.editTextarea {
+  width: 100%;
+  min-height: 4rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font: inherit;
+  resize: vertical;
 }
 
 .empty {

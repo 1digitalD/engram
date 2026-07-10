@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import styles from '../App.module.css';
 import { v4API } from '../api/v4Client';
+import { setAppPathPrefix } from './legacyPaths';
 import TopBar from '../components/TopBar';
 import { CaptureProvider, useCapture } from '../context/CaptureContext';
 import { RecallProvider, useRecall } from '../context/RecallContext';
@@ -19,6 +20,8 @@ import V5AskSheet from '../views/V5AskSheet';
 import V5ReviewSheet from '../views/V5ReviewSheet';
 import LabShell from '../lab/LabShell';
 function LegacyAppShell() {
+  setAppPathPrefix('/legacy');
+
   const { toast } = useCapture();
   const { open, openRecall, closeRecall } = useRecall();
   const { open: reviewOpen, openReview, closeReview } = useReview();
@@ -37,6 +40,8 @@ function LegacyAppShell() {
   }, []);
 
   const summaryContext = useMemo(() => ({ refreshSummary }), [refreshSummary]);
+
+  useEffect(() => () => setAppPathPrefix(''), []);
 
   useEffect(() => {
     let active = true;

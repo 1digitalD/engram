@@ -44,6 +44,7 @@ export default defineConfig({
     },
   },
   test: {
+    singleFork: true,
     globals: true,
     environment: 'jsdom',
     css: true,

@@ -1,7 +1,11 @@
 import { narrativeSummary, sectionItems } from '../views/v5ThreadDetailUtils';
+import { normalizeTaskOwner } from './commitmentUtils';
 
 export function openCommitmentsFromDetail(detail) {
-  return sectionItems(detail, 'open_tasks').map((item) => item.entity).filter(Boolean);
+  return sectionItems(detail, 'open_tasks')
+    .map((item) => item.entity)
+    .filter(Boolean)
+    .map(normalizeTaskOwner);
 }
 
 export function formatDossierDate(value) {
@@ -63,7 +67,7 @@ export function partitionCommitments(tasks, operatorPersonId) {
   const waitingOn = [];
 
   tasks.forEach((task) => {
-    const ownerId = task.owner?.id || task.assigned_to?.id;
+    const ownerId = task.owner?.id || task.assigned_to?.id || task.people?.[0]?.id;
     if (ownerId && operatorPersonId && ownerId !== operatorPersonId) {
       waitingOn.push(task);
     } else if (task.status === 'waiting' || task.status === 'blocked') {
@@ -114,9 +118,9 @@ export function formatTimelineStamp(value) {
   if (!value) return '';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
-  const now = new Date();
-  if (date.toDateString() === now.toDateString()) {
-    return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-  }
-  return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(date);
 }

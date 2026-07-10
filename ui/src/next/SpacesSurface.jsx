@@ -2,8 +2,14 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { friendlyApiError, v4API } from '../api/v4Client';
+import { formatLocalDate } from './dateFormat';
+import { StatusBadge } from './statusTheme';
 import { SURFACE_LABELS } from './vocab';
-import styles from './DossierSurface.module.css';
+import styles from './SpacesSurface.module.css';
+
+function spaceTypeLabel(space) {
+  return space.type === 'project' ? 'Finish line' : 'Ongoing';
+}
 
 export default function SpacesSurface() {
   const [spaces, setSpaces] = useState([]);
@@ -38,8 +44,8 @@ export default function SpacesSurface() {
     <section className={styles.surface} aria-label={SURFACE_LABELS.spaces}>
       <header className={styles.header}>
         <h1 className={styles.title}>{SURFACE_LABELS.spaces}</h1>
-        <p className={styles.panelMeta}>
-          Initiatives and contexts — each opens as a dossier for cold-start steering.
+        <p className={styles.subtitle}>
+          Initiatives and contexts — open any space for its dossier, brief, decisions, and commitments.
         </p>
       </header>
 
@@ -55,15 +61,26 @@ export default function SpacesSurface() {
       ) : null}
 
       {!loading && spaces.length > 0 ? (
-        <ul className={styles.list}>
+        <ul className={styles.spaceGrid}>
           {spaces.map((space) => (
-            <li key={space.id} className={styles.listItem}>
-              <Link to={`/spaces/${space.id}`} className={styles.itemTitle}>
+            <li key={space.id} className={styles.spaceCard}>
+              <Link to={`/spaces/${space.id}`} className={styles.spaceTitle}>
                 {space.title}
               </Link>
-              <p className={styles.itemMeta}>
-                {space.type === 'project' ? 'Space with finish line' : 'Ongoing space'} · {space.status || 'active'}
-              </p>
+              <div className={styles.spaceMeta}>
+                <span className={styles.spaceChip}>{spaceTypeLabel(space)}</span>
+                <StatusBadge status={space.status || 'active'} />
+                {space.due_at ? (
+                  <span className={`${styles.spaceChip} ${styles.spaceChipAccent}`}>
+                    Finish {formatLocalDate(space.due_at)}
+                  </span>
+                ) : null}
+                {space.follow_up_at ? (
+                  <span className={styles.spaceChip}>
+                    Follow-up {formatLocalDate(space.follow_up_at)}
+                  </span>
+                ) : null}
+              </div>
             </li>
           ))}
         </ul>

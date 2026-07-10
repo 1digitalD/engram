@@ -14,8 +14,11 @@ from datetime import datetime, timezone
 from api import api_v4_bp
 from api.v4._shared import *
 from api.v4._shared import _record_relationship_pin_event
+from sqlalchemy import func
+from sqlalchemy.orm import joinedload
+
 from extensions import db
-from models import ChangeBatch, DistillationReport
+from models import AiSuggestion, ChangeBatch, DistillationReport, Entity
 
 logger = logging.getLogger(__name__)
 
@@ -37,8 +40,36 @@ def list_reports():
         query = query.filter(DistillationReport.status == status)
 
     total = query.count()
-    rows = query.order_by(DistillationReport.created_at.desc()).limit(limit).all()
-    return jsonify({"data": [row.to_dict() for row in rows], "meta": {"total": total, "limit": limit}})
+    rows = (
+        query.options(joinedload(DistillationReport.source_note))
+        .order_by(DistillationReport.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+    report_ids = [row.id for row in rows]
+    pending_counts = {}
+    if report_ids:
+        pending_counts = dict(
+            db.session.query(AiSuggestion.report_id, func.count(AiSuggestion.id))
+            .filter(
+                AiSuggestion.report_id.in_(report_ids),
+                AiSuggestion.status == "pending",
+            )
+            .group_by(AiSuggestion.report_id)
+            .all()
+        )
+
+    data = []
+    for row in rows:
+        item = row.to_dict()
+        note = row.source_note
+        if note is None:
+            note = db.session.get(Entity, row.source_note_id)
+        item["source_note_title"] = note.title if note is not None else None
+        item["pending_suggestion_count"] = int(pending_counts.get(row.id, 0))
+        data.append(item)
+
+    return jsonify({"data": data, "meta": {"total": total, "limit": limit}})
 
 
 @api_v4_bp.route("/reports/<report_id>", methods=["GET"])

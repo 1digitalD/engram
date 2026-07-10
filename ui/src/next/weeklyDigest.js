@@ -63,7 +63,7 @@ function buildNextLines(brief) {
     .map((item) => `${item.title}: ${item.why_now}`);
 }
 
-function buildRadarCitation(item, kind) {
+function buildRadarCitation(item, kind, entityType) {
   if (!item?.entity_id || !item?.headline) return null;
   const counts = item.counts || {};
   const countBits = Object.entries(counts)
@@ -72,6 +72,7 @@ function buildRadarCitation(item, kind) {
     .map(([key, value]) => `${value} ${key.replace(/_/g, ' ')}`);
   return {
     entity_id: item.entity_id,
+    entity_type: entityType,
     snippet: item.headline,
     meta: countBits.length > 0 ? `${kind} • ${countBits.join(' • ')}` : kind,
   };
@@ -81,6 +82,7 @@ function buildBriefCitation(item, generatedAt) {
   if (!item?.entity_id || !item?.why_now) return null;
   return {
     entity_id: item.entity_id,
+    entity_type: item.entity_type,
     snippet: `${item.title}: ${item.why_now}`,
     date: generatedAt,
     meta: `Brief • urgency ${item.urgency ?? 'n/a'}`,
@@ -104,10 +106,10 @@ export function buildWeeklyDigest(summaryPayload, briefPayload) {
 
   const citations = [
     ...((summary?.coordination_radar?.people || [])
-      .map((item) => buildRadarCitation(item, 'Person'))
+      .map((item) => buildRadarCitation(item, 'Person', 'person'))
       .filter(Boolean)),
     ...((summary?.coordination_radar?.projects || [])
-      .map((item) => buildRadarCitation(item, 'Space'))
+      .map((item) => buildRadarCitation(item, 'Space', 'project'))
       .filter(Boolean)),
     ...((brief?.items || [])
       .slice(0, 4)

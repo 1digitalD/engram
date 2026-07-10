@@ -1,0 +1,94 @@
+.badge,
+.select {
+  border: 1px solid var(--border);
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.selectPill {
+  border-radius: 999px;
+  padding: 0.2rem 0.55rem;
+  min-height: 1.9rem;
+}
+
+.selectChip {
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  min-height: 0;
+  background: transparent;
+  font: inherit;
+  font-weight: 600;
+}
+
+.select {
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.toneOpen {
+  border-color: color-mix(in oklch, #3b82f6 45%, var(--border));
+  background: color-mix(in oklch, #3b82f6 12%, var(--surface));
+  color: color-mix(in oklch, #1d4ed8 75%, var(--text));
+}
+
+.toneInProgress {
+  border-color: color-mix(in oklch, var(--accent) 50%, var(--border));
+  background: color-mix(in oklch, var(--accent) 14%, var(--surface));
+  color: color-mix(in oklch, var(--accent) 85%, var(--text));
+}
+
+.toneWaiting {
+  border-color: color-mix(in oklch, #d97706 45%, var(--border));
+  background: color-mix(in oklch, #d97706 14%, var(--surface));
+  color: color-mix(in oklch, #92400e 80%, var(--text));
+}
+
+.toneBlocked {
+  border-color: color-mix(in oklch, #dc2626 45%, var(--border));
+  background: color-mix(in oklch, #dc2626 12%, var(--surface));
+  color: color-mix(in oklch, #991b1b 80%, var(--text));
+}
+
+.toneDone,
+.toneCompleted {
+  border-color: color-mix(in oklch, #16a34a 40%, var(--border));
+  background: color-mix(in oklch, #16a34a 12%, var(--surface));
+  color: color-mix(in oklch, #166534 78%, var(--text));
+}
+
+.toneCancelled,
+.toneArchived {
+  border-color: color-mix(in oklch, var(--muted) 55%, var(--border));
+  background: color-mix(in oklch, var(--muted) 10%, var(--surface));
+  color: var(--muted);
+}
+
+.toneActive {
+  border-color: color-mix(in oklch, #16a34a 40%, var(--border));
+  background: color-mix(in oklch, #16a34a 12%, var(--surface));
+  color: color-mix(in oklch, #166534 78%, var(--text));
+}
+
+.toneOnHold {
+  border-color: color-mix(in oklch, #d97706 45%, var(--border));
+  background: color-mix(in oklch, #d97706 14%, var(--surface));
+  color: color-mix(in oklch, #92400e 80%, var(--text));
+}
+
+.toneDefault {
+  border-color: var(--border);
+  background: color-mix(in oklch, var(--surface) 94%, transparent);
+  color: inherit;
+}

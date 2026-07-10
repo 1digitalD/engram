@@ -12,35 +12,34 @@ import LabToday from './LabToday';
 import LabCapture from './LabCapture';
 import styles from './LabShell.module.css';
 
-const navItems = [
-  { to: legacyPath('/lab/today'), label: 'Today' },
-  { to: legacyPath('/lab/notes'), label: 'Notes' },
-  { to: legacyPath('/lab/tasks'), label: 'Tasks' },
-  { to: legacyPath('/lab/projects'), label: 'Projects' },
-  { to: legacyPath('/lab/areas'), label: 'Areas' },
-  { to: legacyPath('/lab/people'), label: 'People' },
-  { to: legacyPath('/lab/resources'), label: 'Resources' },
-];
-
-const PAGE_TITLE = {
-  [legacyPath('/lab/today')]: 'Today',
-  [legacyPath('/lab/notes')]: 'Notes',
-  [legacyPath('/lab/tasks')]: 'Tasks',
-  [legacyPath('/lab/projects')]: 'Projects',
-  [legacyPath('/lab/areas')]: 'Areas',
-  [legacyPath('/lab/people')]: 'People',
-  [legacyPath('/lab/resources')]: 'Resources',
-};
-
-function pageTitle(pathname) {
-  return PAGE_TITLE[pathname] || 'Lab';
-}
-
 export default function LabShell() {
   const location = useLocation();
   const [searchOpen, setSearchOpen] = useState(false);
   const [captureOpen, setCaptureOpen] = useState(false);
-  const title = useMemo(() => pageTitle(location.pathname), [location.pathname]);
+  const navItems = useMemo(
+    () => [
+      { to: legacyPath('/lab/today'), label: 'Today' },
+      { to: legacyPath('/lab/notes'), label: 'Notes' },
+      { to: legacyPath('/lab/tasks'), label: 'Tasks' },
+      { to: legacyPath('/lab/projects'), label: 'Projects' },
+      { to: legacyPath('/lab/areas'), label: 'Areas' },
+      { to: legacyPath('/lab/people'), label: 'People' },
+      { to: legacyPath('/lab/resources'), label: 'Resources' },
+    ],
+    [],
+  );
+  const title = useMemo(() => {
+    const pageTitles = {
+      [legacyPath('/lab/today')]: 'Today',
+      [legacyPath('/lab/notes')]: 'Notes',
+      [legacyPath('/lab/tasks')]: 'Tasks',
+      [legacyPath('/lab/projects')]: 'Projects',
+      [legacyPath('/lab/areas')]: 'Areas',
+      [legacyPath('/lab/people')]: 'People',
+      [legacyPath('/lab/resources')]: 'Resources',
+    };
+    return pageTitles[location.pathname] || 'Lab';
+  }, [location.pathname]);
 
   useEffect(() => {
     function onKeyDown(event) {

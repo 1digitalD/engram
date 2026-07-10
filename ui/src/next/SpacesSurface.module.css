@@ -1,0 +1,83 @@
+.surface {
+  composes: surface from './surfaceLayout.module.css';
+}
+
+.header {
+  margin-bottom: var(--space-4);
+}
+
+.title {
+  margin: 0 0 var(--space-1);
+  font-size: 1.75rem;
+}
+
+.subtitle {
+  margin: 0;
+  max-width: 48rem;
+  color: var(--muted);
+}
+
+.error,
+.empty {
+  margin: 0 0 var(--space-3);
+  color: var(--muted);
+}
+
+.error {
+  color: var(--danger);
+}
+
+.spaceGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--space-3);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.spaceCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: color-mix(in oklch, var(--surface) 96%, transparent);
+  min-height: 100%;
+}
+
+.spaceTitle {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: inherit;
+  text-decoration: none;
+}
+
+.spaceTitle:hover {
+  color: var(--accent);
+}
+
+.spaceMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0;
+}
+
+.spaceChip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: color-mix(in oklch, var(--surface) 92%, transparent);
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.spaceChipAccent {
+  border-color: color-mix(in oklch, var(--accent) 35%, var(--border));
+  color: color-mix(in oklch, var(--accent) 80%, var(--text));
+}

@@ -1,5 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
+import MarkdownContent from '../components/MarkdownContent';
 import { friendlyApiError, v4API } from '../api/v4Client';
 import { EntryAttachAffordance } from './TypedAffordances';
 import { ENTITY_TYPE_GLYPHS, SURFACE_LABELS, entityTypeLabel } from './vocab';
@@ -16,15 +18,6 @@ function formatDayLabel(value) {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
-  }).format(date);
-}
-
-function formatTimeLabel(value) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  return new Intl.DateTimeFormat('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
   }).format(date);
 }
 
@@ -51,6 +44,9 @@ function streamEntryTitle(entry) {
 }
 
 export default function StreamSurface() {
+  const [searchParams] = useSearchParams();
+  const highlightNoteId = searchParams.get('note');
+  const highlightRef = useRef(null);
   const [entries, setEntries] = useState([]);
   const [targets, setTargets] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -66,14 +62,25 @@ export default function StreamSurface() {
         lifecycle: 'active',
         limit: 100,
       });
-      setEntries(payload?.data || []);
+      let nextEntries = payload?.data || [];
+      if (highlightNoteId && !nextEntries.some((entry) => entry.id === highlightNoteId)) {
+        try {
+          const highlighted = await v4API.entities.get(highlightNoteId);
+          if (highlighted?.data?.type === 'note') {
+            nextEntries = [highlighted.data, ...nextEntries];
+          }
+        } catch (_err) {
+          // Keep the stream usable even when the linked note is missing.
+        }
+      }
+      setEntries(nextEntries);
     } catch (err) {
       setError(friendlyApiError(err, 'Could not load stream.'));
       setEntries([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [highlightNoteId]);
 
   const loadTargets = useCallback(async () => {
     try {
@@ -96,6 +103,11 @@ export default function StreamSurface() {
   useEffect(() => {
     loadTargets();
   }, [loadTargets]);
+
+  useEffect(() => {
+    if (!highlightNoteId || loading) return;
+    highlightRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+  }, [highlightNoteId, loading, entries.length]);
 
   async function handleAttach(entryId, targetId) {
     setError('');
@@ -143,29 +155,33 @@ export default function StreamSurface() {
               <ul className={styles.entryList}>
                 {group.items.map((entry) => {
                   const type = entry?.type || 'note';
-                  const stamp = entryDate(entry);
-                  const title = streamEntryTitle(entry);
+                  const title = entry?.title?.trim() || '';
+                  const body = entry?.content?.trim() || '';
+                  const displayBody = body || title || '';
+                  const showTitle = Boolean(title && body && title !== body);
                   return (
-                    <li key={entry.id} className={styles.entry}>
+                    <li
+                      key={entry.id}
+                      id={`stream-note-${entry.id}`}
+                      ref={entry.id === highlightNoteId ? highlightRef : null}
+                      className={`${styles.entry} ${entry.id === highlightNoteId ? styles.entryHighlighted : ''}`}
+                    >
                       <div className={styles.entryGlyph} aria-hidden="true">
                         {ENTITY_TYPE_GLYPHS[type] || '?'}
                       </div>
                       <div className={styles.entryBody}>
                         <div className={styles.entryHeader}>
                           <span className={styles.entryType}>{entityTypeLabel(type)}</span>
-                          {stamp ? (
-                            <time className={styles.entryTime} dateTime={stamp}>
-                              {formatTimeLabel(stamp)}
-                            </time>
-                          ) : null}
                         </div>
-                        <p className={styles.entryTitle}>{title}</p>
-                        {entry?.content && entry.content !== entry.title ? (
-                          <p className={styles.entryContent}>{entry.content}</p>
-                        ) : null}
+                        {showTitle ? <p className={styles.entryTitle}>{title}</p> : null}
+                        {displayBody ? (
+                          <MarkdownContent content={showTitle ? body : displayBody} className={styles.entryMarkdown} />
+                        ) : (
+                          <p className={styles.entryTitle}>Untitled capture</p>
+                        )}
                         {type === 'note' ? (
                           <EntryAttachAffordance
-                            entryTitle={title}
+                            entryTitle={streamEntryTitle(entry)}
                             targets={targets}
                             onAttach={(targetId) => handleAttach(entry.id, targetId)}
                           />

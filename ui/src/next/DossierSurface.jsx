@@ -8,26 +8,31 @@ import {
   buildSpaceBrief,
   eventAmendDetail,
   formatDossierDate,
-  formatRelativeAge,
   formatTimelineStamp,
   openCommitmentsFromDetail,
   openQuestionsFromSuggestions,
   partitionCommitments,
 } from './dossierUtils';
-import { GroupCommitmentComposer, NudgeDraftAffordance, TaskAffordances } from './TypedAffordances';
+import CommitmentItemRow from './CommitmentItemRow';
+import { createActionQueue } from './actionQueue';
+import {
+  AREA_STATUS_OPTIONS,
+  PROJECT_STATUS_OPTIONS,
+  StatusSelect,
+} from './statusTheme';
+import { GroupCommitmentComposer } from './TypedAffordances';
 import { SURFACE_LABELS } from './vocab';
 import styles from './DossierSurface.module.css';
-
-const PINNABLE_HEADER_FIELDS = [
-  { key: 'status', label: 'status' },
-  { key: 'due_at', label: 'finish line' },
-  { key: 'title', label: 'title' },
-];
 
 const TABS = [
   { key: 'overview', label: 'Overview' },
   { key: 'ledger', label: 'Ledger' },
 ];
+
+function formatDateInput(value) {
+  if (!value) return '';
+  return String(value).slice(0, 10);
+}
 
 function actorLabel(actor) {
   if (!actor) return 'system';
@@ -54,6 +59,118 @@ function PinFieldChip({ field, label, value, pinned, onToggle }) {
   );
 }
 
+function InlineSpaceStatusChip({ entity, pinned, onChange, onPinToggle }) {
+  const options = entity.type === 'project' ? PROJECT_STATUS_OPTIONS : AREA_STATUS_OPTIONS;
+  const [status, setStatus] = useState(entity.status || 'active');
+
+  useEffect(() => {
+    setStatus(entity.status || 'active');
+  }, [entity.id, entity.status]);
+
+  return (
+    <span className={pinned ? styles.chipPinned : styles.chip}>
+      <label className={styles.inlineField}>
+        <span className={styles.inlineLabel}>status</span>
+        <StatusSelect
+          variant="chip"
+          value={status}
+          options={options}
+          onChange={async (event) => {
+            const next = event.target.value;
+            setStatus(next);
+            const ok = await onChange(next);
+            if (ok === false) setStatus(entity.status || 'active');
+          }}
+          aria-label="Space status"
+        />
+      </label>
+      <button
+        type="button"
+        className={styles.pinButton}
+        aria-label={pinned ? 'Unpin status' : 'Pin status'}
+        aria-pressed={pinned}
+        onClick={() => onPinToggle('status', pinned)}
+      >
+        {pinned ? '📌' : '○'}
+      </button>
+    </span>
+  );
+}
+
+function InlineSpaceDueChip({ entity, pinned, onChange, onPinToggle }) {
+  const [dueDate, setDueDate] = useState(() => formatDateInput(entity.due_at));
+
+  useEffect(() => {
+    setDueDate(formatDateInput(entity.due_at));
+  }, [entity.id, entity.due_at]);
+
+  return (
+    <span className={pinned ? styles.chipPinned : styles.chip}>
+      <label className={styles.inlineField}>
+        <span className={styles.inlineLabel}>finish line</span>
+        <input
+          className={styles.inlineInput}
+          type="date"
+          value={dueDate}
+          onChange={async (event) => {
+            const next = event.target.value;
+            setDueDate(next);
+            const ok = await onChange(next);
+            if (ok === false) setDueDate(formatDateInput(entity.due_at));
+          }}
+          aria-label="Space finish line"
+        />
+      </label>
+      <button
+        type="button"
+        className={styles.pinButton}
+        aria-label={pinned ? 'Unpin finish line' : 'Pin finish line'}
+        aria-pressed={pinned}
+        onClick={() => onPinToggle('due_at', pinned)}
+      >
+        {pinned ? '📌' : '○'}
+      </button>
+    </span>
+  );
+}
+
+function InlineSpaceFollowUpChip({ entity, pinned, onChange, onPinToggle }) {
+  const [followUpDate, setFollowUpDate] = useState(() => formatDateInput(entity.follow_up_at));
+
+  useEffect(() => {
+    setFollowUpDate(formatDateInput(entity.follow_up_at));
+  }, [entity.id, entity.follow_up_at]);
+
+  return (
+    <span className={pinned ? styles.chipPinned : styles.chip}>
+      <label className={styles.inlineField}>
+        <span className={styles.inlineLabel}>follow-up</span>
+        <input
+          className={styles.inlineInput}
+          type="date"
+          value={followUpDate}
+          onChange={async (event) => {
+            const next = event.target.value;
+            setFollowUpDate(next);
+            const ok = await onChange(next);
+            if (ok === false) setFollowUpDate(formatDateInput(entity.follow_up_at));
+          }}
+          aria-label="Space follow-up"
+        />
+      </label>
+      <button
+        type="button"
+        className={styles.pinButton}
+        aria-label={pinned ? 'Unpin follow-up' : 'Pin follow-up'}
+        aria-pressed={pinned}
+        onClick={() => onPinToggle('follow_up_at', pinned)}
+      >
+        {pinned ? '📌' : '○'}
+      </button>
+    </span>
+  );
+}
+
 export default function DossierSurface() {
   const { spaceId } = useParams();
   const [activeTab, setActiveTab] = useState('overview');
@@ -69,10 +186,11 @@ export default function DossierSurface() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [actionNote, setActionNote] = useState('');
+  const enqueueAction = useMemo(() => createActionQueue(), []);
 
-  const loadDossier = useCallback(async () => {
+  const loadDossier = useCallback(async ({ silent = false } = {}) => {
     if (!spaceId) return;
-    setLoading(true);
+    if (!silent) setLoading(true);
     setError('');
     try {
       const [
@@ -117,9 +235,9 @@ export default function DossierSurface() {
       setOperatorPersonId(operator?.id || null);
     } catch (err) {
       setError(friendlyApiError(err, 'Could not load dossier.'));
-      setDetail(null);
+      if (!silent) setDetail(null);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [spaceId]);
 
@@ -137,14 +255,18 @@ export default function DossierSurface() {
   );
 
   async function runAction(message, action) {
-    setError('');
-    try {
-      await action();
-      setActionNote(message);
-      await loadDossier();
-    } catch (err) {
-      setError(friendlyApiError(err, 'Could not save change.'));
-    }
+    return enqueueAction(async () => {
+      setError('');
+      try {
+        await action();
+        setActionNote(message);
+        await loadDossier({ silent: true });
+        return true;
+      } catch (err) {
+        setError(friendlyApiError(err, 'Could not save change.'));
+        return false;
+      }
+    });
   }
 
   async function handlePinToggle(field, pinned) {
@@ -153,17 +275,38 @@ export default function DossierSurface() {
     );
   }
 
+  async function handleSpaceStatusChange(status) {
+    return runAction('Status updated.', () => v4API.entities.update(entity.id, { status }));
+  }
+
+  async function handleSpaceDueChange(dueDate) {
+    const dueAt = dueDate ? `${dueDate}T12:00:00Z` : null;
+    return runAction('Finish line updated.', () => v4API.entities.update(entity.id, { due_at: dueAt }));
+  }
+
+  async function handleSpaceFollowUpChange(followUpDate) {
+    const followUpAt = followUpDate ? `${followUpDate}T12:00:00Z` : null;
+    return runAction('Follow-up updated.', () => v4API.entities.update(entity.id, { follow_up_at: followUpAt }));
+  }
+
   async function handleStatusChange(itemId, status) {
-    await runAction('Status updated.', () => v4API.entities.update(itemId, { status }));
+    return runAction('Status updated.', () => v4API.entities.update(itemId, { status }));
   }
 
   async function handleDueChange(itemId, dueDate) {
     const dueAt = dueDate ? `${dueDate}T12:00:00Z` : null;
-    await runAction('Due date updated.', () => v4API.entities.update(itemId, { due_at: dueAt }));
+    return runAction('Due date updated.', () => v4API.entities.update(itemId, { due_at: dueAt }));
+  }
+
+  async function handleFollowUpChange(itemId, followUpDate) {
+    const followUpAt = followUpDate ? `${followUpDate}T12:00:00Z` : null;
+    return runAction('Follow-up date updated.', () =>
+      v4API.entities.update(itemId, { follow_up_at: followUpAt }),
+    );
   }
 
   async function handleMoveSpace(itemId, targetId) {
-    await runAction('Moved to new space.', () =>
+    return runAction('Moved to new space.', () =>
       v4API.entities.createLink(itemId, {
         target_id: targetId,
         relationship_type: 'parent',
@@ -174,7 +317,7 @@ export default function DossierSurface() {
   }
 
   async function handleHandOwner(itemId, targetId) {
-    await runAction('Handed to new owner.', () =>
+    return runAction('Handed to new owner.', () =>
       v4API.entities.createLink(itemId, {
         target_id: targetId,
         relationship_type: 'assigned_to',
@@ -185,7 +328,7 @@ export default function DossierSurface() {
   }
 
   async function handleLogUpdate(itemId, content) {
-    await runAction('Update logged.', () => v4API.activityUpdates.create(itemId, content));
+    return runAction('Update logged.', () => v4API.activityUpdates.create(itemId, content));
   }
 
   async function handleMarkDone(itemId) {
@@ -202,6 +345,27 @@ export default function DossierSurface() {
         relationship_type: 'parent',
       });
     });
+  }
+
+  const commitmentHandlers = {
+    onStatusChange: handleStatusChange,
+    onDueChange: handleDueChange,
+    onFollowUpChange: handleFollowUpChange,
+    onMoveSpace: handleMoveSpace,
+    onHandOwner: handleHandOwner,
+    onLogUpdate: handleLogUpdate,
+    onMarkDone: handleMarkDone,
+  };
+
+  function commitmentItem(task, { showNudge = false } = {}) {
+    return {
+      item: { ...task, space: { id: spaceId, title: entity?.title } },
+      people,
+      spaces,
+      group: 'space',
+      showNudge,
+      ...commitmentHandlers,
+    };
   }
 
   if (loading) {
@@ -230,25 +394,33 @@ export default function DossierSurface() {
           <div>
             <h1 className={styles.title}>{entity.title}</h1>
             <div className={styles.metaRow}>
-              {PINNABLE_HEADER_FIELDS.map(({ key, label }) => {
-                const rawValue = key === 'due_at' ? entity.due_at : entity[key];
-                const displayValue =
-                  key === 'due_at'
-                    ? rawValue
-                      ? formatDossierDate(rawValue)
-                      : null
-                    : rawValue;
-                return (
-                  <PinFieldChip
-                    key={key}
-                    field={key}
-                    label={label}
-                    value={displayValue}
-                    pinned={pinnedFields.has(key)}
-                    onToggle={handlePinToggle}
-                  />
-                );
-              })}
+              <InlineSpaceStatusChip
+                entity={entity}
+                pinned={pinnedFields.has('status')}
+                onChange={handleSpaceStatusChange}
+                onPinToggle={handlePinToggle}
+              />
+              {entity.type === 'project' ? (
+                <InlineSpaceDueChip
+                  entity={entity}
+                  pinned={pinnedFields.has('due_at')}
+                  onChange={handleSpaceDueChange}
+                  onPinToggle={handlePinToggle}
+                />
+              ) : null}
+              <InlineSpaceFollowUpChip
+                entity={entity}
+                pinned={pinnedFields.has('follow_up_at')}
+                onChange={handleSpaceFollowUpChange}
+                onPinToggle={handlePinToggle}
+              />
+              <PinFieldChip
+                field="title"
+                label="title"
+                value={entity.title}
+                pinned={pinnedFields.has('title')}
+                onToggle={handlePinToggle}
+              />
               <span className={styles.chipAi}>
                 ✦ Brief {briefStalenessLabel(spaceBrief.generatedAt)}
               </span>
@@ -340,25 +512,9 @@ export default function DossierSurface() {
                     {mine.length > 0 ? (
                       <>
                         <h3 className={styles.sectionTitle}>Yours</h3>
-                        <ul className={styles.list}>
+                        <ul className={styles.commitmentList}>
                           {mine.map((task) => (
-                            <li key={task.id} className={styles.listItem}>
-                              <p className={styles.itemTitle}>{task.title}</p>
-                              <p className={styles.itemMeta}>
-                                {task.status} · due {formatDossierDate(task.due_at) || 'unset'}
-                              </p>
-                              <TaskAffordances
-                                item={{ ...task, space: { id: spaceId, title: entity.title } }}
-                                people={people}
-                                spaces={spaces}
-                                onStatusChange={handleStatusChange}
-                                onDueChange={handleDueChange}
-                                onMoveSpace={handleMoveSpace}
-                                onHandOwner={handleHandOwner}
-                                onLogUpdate={handleLogUpdate}
-                                onMarkDone={handleMarkDone}
-                              />
-                            </li>
+                            <CommitmentItemRow key={task.id} {...commitmentItem(task)} />
                           ))}
                         </ul>
                       </>
@@ -366,18 +522,9 @@ export default function DossierSurface() {
                     {waitingOn.length > 0 ? (
                       <>
                         <h3 className={styles.sectionTitle}>Waiting on others</h3>
-                        <ul className={styles.list}>
+                        <ul className={styles.commitmentList}>
                           {waitingOn.map((task) => (
-                            <li key={task.id} className={styles.listItem}>
-                              <p className={styles.itemTitle}>
-                                {task.owner?.title ? `${task.owner.title} — ` : ''}
-                                {task.title}
-                              </p>
-                              <p className={styles.itemMeta}>
-                                {task.status} · {formatRelativeAge(task.updated_at || task.created_at)} quiet
-                              </p>
-                              <NudgeDraftAffordance item={{ ...task, space: { id: spaceId, title: entity.title } }} />
-                            </li>
+                            <CommitmentItemRow key={task.id} {...commitmentItem(task, { showNudge: true })} />
                           ))}
                         </ul>
                       </>

@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import LabPeople from './LabPeople';
+import { setAppPathPrefix } from '../legacy/legacyPaths';
 
 vi.mock('../api/v4Client', () => ({
   v4API: {
@@ -16,6 +17,7 @@ vi.mock('../api/v4Client', () => ({
 import { v4API } from '../api/v4Client';
 
 function renderWithRouter() {
+  setAppPathPrefix('/legacy');
   return render(
     <MemoryRouter initialEntries={['/legacy/lab/people']}>
       <LabPeople />
@@ -26,6 +28,10 @@ function renderWithRouter() {
 describe('LabPeople', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    setAppPathPrefix('');
   });
 
   it('shows a loading state while fetching people', () => {

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { friendlyApiError, v4API } from '../api/v4Client';
+import { StatusBadge } from './statusTheme';
 import { SURFACE_LABELS } from './vocab';
 import styles from './PeopleSurface.module.css';
 
@@ -37,7 +38,6 @@ function currentLoadItems(detail) {
 
 function CommitmentRow({ item }) {
   const href = taskSurfacePath(item);
-  const meta = [item.status || 'open', `Due ${formatDueDate(item.due_at)}`].join(' · ');
   return (
     <li className={styles.commitmentRow}>
       {href ? (
@@ -47,7 +47,9 @@ function CommitmentRow({ item }) {
       ) : (
         <span className={styles.commitmentLink}>{item.title}</span>
       )}
-      <p className={styles.commitmentMeta}>{meta}</p>
+      <p className={styles.commitmentMeta}>
+        <StatusBadge status={item.status} /> · Due {formatDueDate(item.due_at)}
+      </p>
     </li>
   );
 }
@@ -122,7 +124,9 @@ export default function PeopleSurface() {
                 <Link to={`/people/${person.id}`} className={styles.personLink}>
                   {person.title}
                 </Link>
-                <p className={styles.personMeta}>{person.status || 'active'}</p>
+                <p className={styles.personMeta}>
+                  <StatusBadge status={person.status || 'active'} />
+                </p>
               </li>
             ))}
           </ul>

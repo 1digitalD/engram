@@ -1,158 +1,36 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useOutletContext, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useOutletContext, useSearchParams } from 'react-router-dom';
 import { v4API, friendlyApiError } from '../api/v4Client';
 import CitationsList from '../components/CitationsList';
-import { ACTION_LABELS, SURFACE_LABELS, itemTitle, sectionLabel } from './vocab';
+import ReviewItem from './ReviewItem';
+import { ACTION_LABELS, SURFACE_LABELS, sectionLabel } from './vocab';
 import {
-  DISMISS_REASONS,
+  citationEntityPath,
   countPendingInReport,
-  displayItemMeta,
+  fetchReviewQueueReports,
   isResolvableItem,
+  reportQueueTitle,
+  reportStatusLabel,
 } from './reviewUtils';
 import { buildWeeklyDigest } from './weeklyDigest';
 import styles from './ReviewSurface.module.css';
 
-function ReviewItem({ item, suggestions, busy, onVerify, onEdit, onDismiss, onLater }) {
-  const [dismissOpen, setDismissOpen] = useState(false);
-  const [editOpen, setEditOpen] = useState(false);
-  const [editValue, setEditValue] = useState(itemTitle(item));
-  const meta = displayItemMeta(item, suggestions);
+const REVIEW_TABS = [
+  { id: 'captures', label: 'Captures' },
+  { id: 'digest', label: 'Weekly digest' },
+];
 
-  if (!meta.resolvable) {
-    return (
-      <li className={styles.item}>
-        <div className={styles.itemHeader}>
-          <h3 className={styles.itemTitle}>{meta.title}</h3>
-          <span className={styles.itemType}>{meta.typeLabel}</span>
-        </div>
-        {meta.evidence ? <p className={styles.itemEvidence}>{meta.evidence}</p> : null}
-        <p className={styles.appliedNote}>Already applied — undo from Ledger in a later slice.</p>
-      </li>
-    );
-  }
-
-  return (
-    <li className={styles.item}>
-      <div className={styles.itemHeader}>
-        <h3 className={styles.itemTitle}>{meta.title}</h3>
-        <span className={styles.itemType}>{meta.typeLabel}</span>
-      </div>
-      {meta.evidence ? <p className={styles.itemEvidence}>{meta.evidence}</p> : null}
-
-      {editOpen ? (
-        <div className={styles.editForm}>
-          <label htmlFor={`edit-${item.id}`}>Edit title</label>
-          <input
-            id={`edit-${item.id}`}
-            className={styles.editInput}
-            value={editValue}
-            onChange={(event) => setEditValue(event.target.value)}
-            disabled={busy}
-          />
-          <div className={styles.actions}>
-            <button
-              type="button"
-              className={styles.buttonSecondary}
-              disabled={busy}
-              onClick={() => {
-                setEditOpen(false);
-                setEditValue(itemTitle(item));
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              className={styles.buttonPrimary}
-              disabled={busy || !editValue.trim()}
-              onClick={() => onEdit(item.id, { title: editValue.trim() })}
-            >
-              Save edit
-            </button>
-          </div>
-        </div>
-      ) : dismissOpen ? (
-        <div className={styles.dismissReasons}>
-          <span>Dismiss reason:</span>
-          <div className={styles.dismissReasonList} role="group" aria-label="Dismiss reason">
-            {DISMISS_REASONS.map((reason) => (
-              <button
-                key={reason}
-                type="button"
-                className={styles.buttonSecondary}
-                disabled={busy}
-                onClick={() => {
-                  onDismiss(item.id, reason);
-                  setDismissOpen(false);
-                }}
-              >
-                {reason}
-              </button>
-            ))}
-            <button
-              type="button"
-              className={styles.buttonSecondary}
-              disabled={busy}
-              onClick={() => {
-                onDismiss(item.id);
-                setDismissOpen(false);
-              }}
-            >
-              no reason
-            </button>
-          </div>
-          <button
-            type="button"
-            className={styles.buttonSecondary}
-            disabled={busy}
-            onClick={() => setDismissOpen(false)}
-          >
-            Cancel
-          </button>
-        </div>
-      ) : (
-        <div className={styles.actions}>
-          <button
-            type="button"
-            className={styles.buttonSecondary}
-            disabled={busy}
-            onClick={() => onLater(item.id)}
-          >
-            {ACTION_LABELS.later}
-          </button>
-          <button
-            type="button"
-            className={styles.buttonSecondary}
-            disabled={busy}
-            onClick={() => setDismissOpen(true)}
-          >
-            {ACTION_LABELS.dismiss}
-          </button>
-          <button
-            type="button"
-            className={styles.buttonSecondary}
-            disabled={busy}
-            onClick={() => setEditOpen(true)}
-          >
-            {ACTION_LABELS.edit}
-          </button>
-          <button
-            type="button"
-            className={styles.buttonPrimary}
-            disabled={busy}
-            onClick={() => onVerify(item.id)}
-          >
-            {ACTION_LABELS.verify}
-          </button>
-        </div>
-      )}
-    </li>
-  );
+function tabFromParams(searchParams) {
+  const tab = searchParams.get('tab');
+  return tab === 'digest' ? 'digest' : 'captures';
 }
 
 export default function ReviewSurface() {
+  const navigate = useNavigate();
   const { refreshReviewCount } = useOutletContext() || {};
   const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = tabFromParams(searchParams);
+
   const [reports, setReports] = useState([]);
   const [activeReportId, setActiveReportId] = useState(null);
   const [reportDetail, setReportDetail] = useState(null);
@@ -163,6 +41,10 @@ export default function ReviewSurface() {
   const [digestError, setDigestError] = useState('');
   const [busyItemId, setBusyItemId] = useState(null);
   const [acceptRestBusy, setAcceptRestBusy] = useState(false);
+  const [markDoneBusy, setMarkDoneBusy] = useState(false);
+  const [undoBusy, setUndoBusy] = useState(false);
+  const [createSpaceBusy, setCreateSpaceBusy] = useState(false);
+  const [createSpaceTitle, setCreateSpaceTitle] = useState('');
   const [reviewStartedAt, setReviewStartedAt] = useState(null);
   const [summaryPayload, setSummaryPayload] = useState(null);
   const [briefPayload, setBriefPayload] = useState(null);
@@ -174,8 +56,7 @@ export default function ReviewSurface() {
     setLoadingList(true);
     setError('');
     try {
-      const payload = await v4API.reports.list({ status: 'pending' });
-      const rows = payload?.data || [];
+      const { rows } = await fetchReviewQueueReports(v4API.reports);
       setReports(rows);
       return rows;
     } catch (err) {
@@ -197,6 +78,7 @@ export default function ReviewSurface() {
     try {
       const payload = await v4API.reports.get(reportId);
       setReportDetail(payload);
+      setCreateSpaceTitle(payload?.source_note?.title || '');
     } catch (err) {
       setError(friendlyApiError(err, 'Could not load report.'));
       setReportDetail(null);
@@ -237,12 +119,16 @@ export default function ReviewSurface() {
   }, [loadReports, searchParams]);
 
   useEffect(() => {
-    loadReportDetail(activeReportId);
-  }, [activeReportId, loadReportDetail]);
+    if (activeTab === 'captures') {
+      loadReportDetail(activeReportId);
+    }
+  }, [activeReportId, activeTab, loadReportDetail]);
 
   useEffect(() => {
-    loadDigest();
-  }, [loadDigest]);
+    if (activeTab === 'digest') {
+      loadDigest();
+    }
+  }, [activeTab, loadDigest]);
 
   useEffect(() => {
     setReviewStartedAt(null);
@@ -262,6 +148,7 @@ export default function ReviewSurface() {
   const narrative = reportDetail?.data?.narrative || {};
   const sections = narrative.sections || [];
   const pendingCount = useMemo(() => countPendingInReport(suggestions), [suggestions]);
+  const canUndoReviewBatch = Boolean(reportDetail?.data?.reviewed_at);
   const digest = useMemo(
     () => buildWeeklyDigest(summaryPayload, briefPayload),
     [summaryPayload, briefPayload],
@@ -273,12 +160,33 @@ export default function ReviewSurface() {
     }
   }, [digest.text, digestDirty]);
 
+  function updateSearchParams(patch) {
+    const next = new URLSearchParams(searchParams);
+    Object.entries(patch).forEach(([key, value]) => {
+      if (value === null || value === undefined || value === '') {
+        next.delete(key);
+      } else {
+        next.set(key, value);
+      }
+    });
+    setSearchParams(next);
+  }
+
+  function selectTab(tabId) {
+    updateSearchParams({ tab: tabId === 'captures' ? null : tabId });
+    if (tabId === 'digest') {
+      loadDigest();
+    }
+  }
+
   async function afterResolve(reportId, metricsPayload = null) {
     await refreshReviewCount?.();
     const rows = await loadReports();
-    const stillPending = rows.some((row) => row.id === reportId);
-    if (stillPending) {
+    const stillInQueue = rows.some((row) => row.id === reportId);
+    if (stillInQueue) {
       await loadReportDetail(reportId);
+      setActiveReportId(reportId);
+      updateSearchParams({ report: reportId });
       return;
     }
 
@@ -290,7 +198,6 @@ export default function ReviewSurface() {
           suggestion_count: metricsPayload.suggestionCount,
         });
       } catch (err) {
-        // Review completion should not fail because telemetry failed.
         void err;
       }
     }
@@ -298,9 +205,9 @@ export default function ReviewSurface() {
     const nextId = rows[0]?.id || null;
     setActiveReportId(nextId);
     if (nextId) {
-      setSearchParams({ report: nextId });
+      updateSearchParams({ report: nextId });
     } else {
-      setSearchParams({});
+      updateSearchParams({ report: null });
       setReportDetail(null);
     }
     setReviewStartedAt(null);
@@ -328,7 +235,7 @@ export default function ReviewSurface() {
 
   function handleSelectReport(reportId) {
     setActiveReportId(reportId);
-    setSearchParams({ report: reportId });
+    updateSearchParams({ report: reportId });
     setReviewStartedAt(null);
   }
 
@@ -375,6 +282,86 @@ export default function ReviewSurface() {
     }
   }
 
+  async function handleMarkDone() {
+    if (!activeReportId || markDoneBusy) return;
+    setMarkDoneBusy(true);
+    setError('');
+    const metricsPayload =
+      reviewStartedAt == null
+        ? null
+        : {
+            durationMs: Math.max(0, Date.now() - reviewStartedAt),
+            suggestionCount: pendingCount,
+          };
+    try {
+      await v4API.reports.markDone(activeReportId);
+      await afterResolve(activeReportId, metricsPayload);
+    } catch (err) {
+      setError(friendlyApiError(err, 'Could not mark capture done.'));
+    } finally {
+      setMarkDoneBusy(false);
+    }
+  }
+
+  async function handleUndoReviewBatch() {
+    if (!activeReportId || undoBusy) return;
+    setUndoBusy(true);
+    setError('');
+    try {
+      await v4API.reports.undo(activeReportId);
+      await refreshReviewCount?.();
+      await loadReports();
+      await loadReportDetail(activeReportId);
+      setActiveReportId(activeReportId);
+    } catch (err) {
+      setError(friendlyApiError(err, 'Could not undo review batch.'));
+    } finally {
+      setUndoBusy(false);
+    }
+  }
+
+  async function handleUndoApplied(eventId) {
+    if (!eventId || busyItemId) return;
+    setBusyItemId(eventId);
+    setError('');
+    try {
+      await v4API.events.revert(eventId);
+      if (activeReportId) {
+        await loadReportDetail(activeReportId);
+      }
+    } catch (err) {
+      setError(friendlyApiError(err, 'Could not undo applied change.'));
+    } finally {
+      setBusyItemId(null);
+    }
+  }
+
+  async function handleCreateSpace() {
+    const note = reportDetail?.source_note;
+    if (!note?.id || createSpaceBusy) return;
+    const title = createSpaceTitle.trim() || note.title || 'New Space';
+    setCreateSpaceBusy(true);
+    setError('');
+    try {
+      const created = await v4API.entities.create({
+        type: 'project',
+        title,
+        lifecycle: 'active',
+        source: 'user',
+      });
+      const space = created?.data || created;
+      await v4API.entities.createLink(note.id, {
+        target_id: space.id,
+        relationship_type: 'related',
+      });
+      navigate(`/spaces/${space.id}`);
+    } catch (err) {
+      setError(friendlyApiError(err, 'Could not create Space.'));
+    } finally {
+      setCreateSpaceBusy(false);
+    }
+  }
+
   async function handleDigestCopy() {
     if (!digestDraft.trim()) return;
     try {
@@ -385,16 +372,37 @@ export default function ReviewSurface() {
     }
   }
 
-  const sourceTitle = reportDetail?.source_note?.title || 'Stream entry';
+  function handleCitationOpen(citation) {
+    const path = citationEntityPath(citation);
+    if (path) navigate(path);
+  }
+
+  const sourceNote = reportDetail?.source_note;
+  const sourceTitle = sourceNote?.title || 'Stream entry';
 
   return (
     <div className={styles.surface}>
       <header className={styles.header}>
         <h1 className={styles.title}>{SURFACE_LABELS.review}</h1>
         <p className={styles.subtitle}>
-          Distillation reports — verify proposals, edit inline, or accept remainder in one batch.
+          Verify proposals, undo auto-applied changes, or finish captures when nothing is left.
         </p>
       </header>
+
+      <div className={styles.tabs} role="tablist" aria-label="Review sections">
+        {REVIEW_TABS.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === tab.id}
+            className={`${styles.tab} ${activeTab === tab.id ? styles.tabActive : ''}`}
+            onClick={() => selectTab(tab.id)}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
       {error ? (
         <div className={styles.error} role="alert">
@@ -402,163 +410,206 @@ export default function ReviewSurface() {
         </div>
       ) : null}
 
-      <section className={styles.digest} aria-label="Weekly digest">
-        <div className={styles.digestHeader}>
-          <div>
-            <h2 className={styles.sectionTitle}>Weekly digest</h2>
-            <p className={styles.digestMeta}>
-              {digest.generatedAt
-                ? `Generated ${new Date(digest.generatedAt).toLocaleDateString('en-US', {
-                    month: 'short',
-                    day: 'numeric',
-                  })}.`
-                : 'Generated from current summary and brief.'}
-            </p>
-          </div>
-          <div className={styles.actions}>
-            <button
-              type="button"
-              className={styles.buttonSecondary}
-              onClick={() => {
-                setDigestDraft(digest.text);
-                setDigestDirty(false);
-                setCopyNote('');
-              }}
-              disabled={loadingDigest || !digestDraft}
-            >
-              Reset
-            </button>
-            <button
-              type="button"
-              className={styles.buttonPrimary}
-              onClick={handleDigestCopy}
-              disabled={loadingDigest || !digestDraft.trim()}
-            >
-              Copy digest
-            </button>
-          </div>
-        </div>
-
-        {digestError ? (
-          <div className={styles.error} role="alert">
-            {digestError}
-          </div>
-        ) : null}
-
-        {loadingDigest ? <p className={styles.empty}>Loading weekly digest…</p> : null}
-
-        {!loadingDigest && !digestError ? (
-          <>
-            <textarea
-              aria-label="Weekly digest draft"
-              className={styles.digestEditor}
-              value={digestDraft}
-              onChange={(event) => {
-                setDigestDraft(event.target.value);
-                setDigestDirty(true);
-                setCopyNote('');
-              }}
-            />
-
-            {copyNote ? (
-              <p className={styles.appliedNote} aria-live="polite">
-                {copyNote}
-              </p>
-            ) : null}
-
-            <div className={styles.digestPreview}>
-              {digest.sections.map((section) => (
-                <section key={section.key} className={styles.section}>
-                  <h3 className={styles.digestSectionTitle}>{section.title}</h3>
-                  <ul className={styles.digestList}>
-                    {section.lines.map((line) => (
-                      <li key={`${section.key}-${line}`} className={styles.digestListItem}>
-                        {line}
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              ))}
-            </div>
-
-            <CitationsList
-              citations={digest.citations}
-              emptyText="No digest citations available."
-            />
-          </>
-        ) : null}
-      </section>
-
-      {loadingList ? (
-        <p className={styles.empty}>Loading reports…</p>
-      ) : reports.length === 0 ? (
-        <p className={styles.empty}>No pending reports.</p>
-      ) : (
+      {activeTab === 'captures' ? (
         <>
-          <div className={styles.queue} aria-label="Pending reports">
-            {reports.map((row) => (
+          {loadingList ? (
+            <p className={styles.empty}>Loading reports…</p>
+          ) : reports.length === 0 ? (
+            <p className={styles.empty}>No pending capture reports.</p>
+          ) : (
+            <>
+              <div className={styles.queue} aria-label="Pending reports">
+                {reports.map((row) => (
+                  <button
+                    key={row.id}
+                    type="button"
+                    className={`${styles.queueItem} ${row.id === activeReportId ? styles.queueItemActive : ''}`}
+                    onClick={() => handleSelectReport(row.id)}
+                  >
+                    <span className={styles.queueTitle}>{reportQueueTitle(row)}</span>
+                    <span className={styles.queueMeta}>{reportStatusLabel(row)}</span>
+                  </button>
+                ))}
+              </div>
+
+              {loadingDetail ? <p className={styles.empty}>Loading report…</p> : null}
+
+              {!loadingDetail && reportDetail ? (
+                <article className={styles.report} aria-label="Distillation report">
+                  <div className={styles.reportHeader}>
+                    <p className={styles.subtitle}>
+                      From:{' '}
+                      {sourceNote?.id ? (
+                        <Link className={styles.sourceLink} to={`/stream?note=${encodeURIComponent(sourceNote.id)}`}>
+                          {sourceTitle}
+                        </Link>
+                      ) : (
+                        sourceTitle
+                      )}
+                    </p>
+                  </div>
+
+                  {sections.map((section) => {
+                    const items = (section.items || []).filter(
+                      (item) => item.kind !== 'routing_summary' || section.name === 'routing_summary',
+                    );
+                    if (!items.length) return null;
+                    return (
+                      <section key={section.name} className={styles.section}>
+                        <h2 className={styles.sectionTitle}>{sectionLabel(section.name)}</h2>
+                        <ul className={styles.itemList}>
+                          {items.map((item) => (
+                            <ReviewItem
+                              key={`${section.name}-${item.id || item.event_id || item.title}`}
+                              item={item}
+                              suggestions={suggestions}
+                              busy={busyItemId === item.id || busyItemId === item.event_id || acceptRestBusy}
+                              onVerify={handleVerify}
+                              onEdit={handleEdit}
+                              onDismiss={handleDismiss}
+                              onLater={handleLater}
+                              onUndoApplied={handleUndoApplied}
+                            />
+                          ))}
+                        </ul>
+                      </section>
+                    );
+                  })}
+
+                  <section className={styles.createSpacePanel} aria-label="Create Space from capture">
+                    <h2 className={styles.sectionTitle}>Missing a Space?</h2>
+                    <p className={styles.appliedNote}>
+                      If this capture should have created a Space, add one here and link it to the source note.
+                    </p>
+                    <label htmlFor="create-space-title">Space title</label>
+                    <input
+                      id="create-space-title"
+                      className={styles.editInput}
+                      value={createSpaceTitle}
+                      onChange={(event) => setCreateSpaceTitle(event.target.value)}
+                      disabled={createSpaceBusy}
+                    />
+                    <div className={styles.actions}>
+                      <button
+                        type="button"
+                        className={styles.buttonPrimary}
+                        disabled={createSpaceBusy || !createSpaceTitle.trim()}
+                        onClick={handleCreateSpace}
+                      >
+                        {ACTION_LABELS.createSpace}
+                      </button>
+                    </div>
+                  </section>
+
+                  <div className={styles.batchBar}>
+                    {pendingCount > 0 ? (
+                      <button
+                        type="button"
+                        className={styles.buttonPrimary}
+                        disabled={acceptRestBusy || Boolean(busyItemId) || markDoneBusy}
+                        onClick={handleAcceptRest}
+                      >
+                        {ACTION_LABELS.acceptRest} ({pendingCount})
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className={styles.buttonPrimary}
+                        disabled={markDoneBusy || Boolean(busyItemId) || acceptRestBusy}
+                        onClick={handleMarkDone}
+                      >
+                        {ACTION_LABELS.markDone}
+                      </button>
+                    )}
+                    {canUndoReviewBatch ? (
+                      <button
+                        type="button"
+                        className={styles.buttonSecondary}
+                        disabled={undoBusy || Boolean(busyItemId)}
+                        onClick={handleUndoReviewBatch}
+                      >
+                        {ACTION_LABELS.undoReview}
+                      </button>
+                    ) : null}
+                  </div>
+                </article>
+              ) : null}
+            </>
+          )}
+        </>
+      ) : (
+        <section className={styles.digest} aria-label="Weekly digest">
+          <div className={styles.digestHeader}>
+            <div>
+              <h2 className={styles.sectionTitle}>Weekly digest</h2>
+              <p className={styles.digestMeta}>
+                {digest.generatedAt
+                  ? `Generated ${new Date(digest.generatedAt).toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                    })}.`
+                  : 'Generated from current summary and brief.'}
+              </p>
+            </div>
+            <div className={styles.actions}>
               <button
-                key={row.id}
                 type="button"
-                className={`${styles.queueItem} ${row.id === activeReportId ? styles.queueItemActive : ''}`}
-                onClick={() => handleSelectReport(row.id)}
+                className={styles.buttonSecondary}
+                onClick={() => {
+                  setDigestDraft(digest.text);
+                  setDigestDirty(false);
+                  setCopyNote('');
+                }}
+                disabled={loadingDigest || !digestDraft}
               >
-                <span className={styles.queueTitle}>
-                  {row.id === activeReportId && reportDetail?.source_note?.title
-                    ? reportDetail.source_note.title
-                    : `Report ${row.id.slice(0, 8)}`}
-                </span>
-                <span className={styles.queueMeta}>{row.status}</span>
+                Reset
               </button>
-            ))}
+              <button
+                type="button"
+                className={styles.buttonPrimary}
+                onClick={handleDigestCopy}
+                disabled={loadingDigest || !digestDraft.trim()}
+              >
+                Copy digest
+              </button>
+            </div>
           </div>
 
-          {loadingDetail ? <p className={styles.empty}>Loading report…</p> : null}
-
-          {!loadingDetail && reportDetail ? (
-            <article className={styles.report} aria-label="Distillation report">
-              <p className={styles.subtitle}>From: {sourceTitle}</p>
-              {sections.map((section) => {
-                const items = (section.items || []).filter(
-                  (item) => item.kind !== 'routing_summary' || section.name === 'routing_summary',
-                );
-                if (!items.length) return null;
-                return (
-                  <section key={section.name} className={styles.section}>
-                    <h2 className={styles.sectionTitle}>{sectionLabel(section.name)}</h2>
-                    <ul className={styles.itemList}>
-                      {items.map((item) => (
-                        <ReviewItem
-                          key={`${section.name}-${item.id || item.event_id || item.title}`}
-                          item={item}
-                          suggestions={suggestions}
-                          busy={busyItemId === item.id || acceptRestBusy}
-                          onVerify={handleVerify}
-                          onEdit={handleEdit}
-                          onDismiss={handleDismiss}
-                          onLater={handleLater}
-                        />
-                      ))}
-                    </ul>
-                  </section>
-                );
-              })}
-
-              {pendingCount > 0 ? (
-                <div className={styles.batchBar}>
-                  <button
-                    type="button"
-                    className={styles.buttonPrimary}
-                    disabled={acceptRestBusy || Boolean(busyItemId)}
-                    onClick={handleAcceptRest}
-                  >
-                    {ACTION_LABELS.acceptRest} ({pendingCount})
-                  </button>
-                </div>
-              ) : null}
-            </article>
+          {digestError ? (
+            <div className={styles.error} role="alert">
+              {digestError}
+            </div>
           ) : null}
-        </>
+
+          {loadingDigest ? <p className={styles.empty}>Loading weekly digest…</p> : null}
+
+          {!loadingDigest && !digestError ? (
+            <>
+              <textarea
+                aria-label="Weekly digest draft"
+                className={styles.digestEditor}
+                value={digestDraft}
+                onChange={(event) => {
+                  setDigestDraft(event.target.value);
+                  setDigestDirty(true);
+                  setCopyNote('');
+                }}
+              />
+
+              {copyNote ? (
+                <p className={styles.appliedNote} aria-live="polite">
+                  {copyNote}
+                </p>
+              ) : null}
+
+              <CitationsList
+                citations={digest.citations}
+                onOpen={handleCitationOpen}
+                emptyText="No digest citations available."
+              />
+            </>
+          ) : null}
+        </section>
       )}
     </div>
   );

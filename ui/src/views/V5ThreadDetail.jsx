@@ -33,6 +33,13 @@ import {
   statusLabel,
 } from './v5ThreadDetailUtils';
 import { timelineGlyphType } from '../utils/timelineGlyphs';
+import { legacyPath } from '../legacy/legacyPaths';
+
+function listPathForEntityType(type) {
+  if (type === 'person') return legacyPath('/people');
+  if (!type) return legacyPath('/');
+  return legacyPath(`/${type}s`);
+}
 
 const ACTIVITY_UPDATE_ENTITY_TYPES = new Set(['project', 'task', 'area']);
 const ACTIVITY_LOAD_MORE_PAGE_SIZE = 10;
@@ -184,6 +191,13 @@ function ActionButton({ button, onAction }) {
   );
 }
 
+function formatDetailDate(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+}
+
 function EntityAttributeEditor({
   entity,
   open,
@@ -218,8 +232,8 @@ function EntityAttributeEditor({
       {!open ? (
         <div className={styles.detailChips}>
           <span className={styles.countChip}>status {statusLabel(entity?.status)}</span>
-          <span className={styles.countChip}>due {entity?.due_at ? formatTimelineDate(entity.due_at) : 'none'}</span>
-          <span className={styles.countChip}>follow up {entity?.follow_up_at ? formatTimelineDate(entity.follow_up_at) : 'none'}</span>
+          <span className={styles.countChip}>due {entity?.due_at ? formatDetailDate(entity.due_at) : 'none'}</span>
+          <span className={styles.countChip}>follow up {entity?.follow_up_at ? formatDetailDate(entity.follow_up_at) : 'none'}</span>
           <span className={styles.countChip}>priority {(entity?.properties || {}).priority || 'none'}</span>
         </div>
       ) : (
@@ -1293,9 +1307,7 @@ export default function V5ThreadDetail({
 
   const handleDeleteEntity = useCallback(() => {
     if (!detail?.entity) return;
-    const listPath = detail.entity.type === 'person'
-      ? '/people'
-      : `/${detail.entity.type}s`;
+    const listPath = listPathForEntityType(detail.entity.type);
     navigate(location.state?.from || listPath);
     refreshSummary();
   }, [detail, navigate, location.state, refreshSummary]);
@@ -1411,7 +1423,7 @@ export default function V5ThreadDetail({
         applied.push({ message: `Status updated to ${statusLabel(target.status)}` });
       }
       if (target.follow_up_at !== previousEntity.follow_up_at) {
-        applied.push({ message: `Follow-up set to ${formatTimelineDate(target.follow_up_at)}` });
+        applied.push({ message: `Follow-up set to ${formatDetailDate(target.follow_up_at)}` });
       }
       setUpdateOutcome({
         applied,
@@ -1444,7 +1456,7 @@ export default function V5ThreadDetail({
     return (
       <main className={styles.page}>
         <p className={styles.error} role="alert">{error || 'Thread not found'}</p>
-        <Link to={location.state?.from || '/'} className={styles.backLink}>← Back</Link>
+        <Link to={location.state?.from || legacyPath('/')} className={styles.backLink}>← Back</Link>
       </main>
     );
   }
@@ -1452,7 +1464,7 @@ export default function V5ThreadDetail({
   return (
     <main className={styles.page} aria-label={`${detail.entity.type} thread detail`}>
       <Link
-        to={location.state?.from || (detail.entity.type === 'person' ? '/people' : `/${detail.entity.type}s`)}
+        to={location.state?.from || listPathForEntityType(detail.entity.type)}
         className={styles.backLink}
       >
         ← Back
